@@ -52,6 +52,32 @@ describe('migrazioni compatibili con PostgreSQL e Supabase', () => {
     expect(sql).toContain("'password_reset_tokens'");
   });
 
+  it('impone una sola esecuzione per ricorrenza e mese', async () => {
+    const migration = require('../migrations/20260830000011-add-recurring-idempotency');
+    const queryInterface = {
+      addColumn: jest.fn().mockResolvedValue(undefined),
+      addIndex: jest.fn().mockResolvedValue(undefined),
+    };
+
+    await migration.up(queryInterface, Sequelize);
+
+    expect(queryInterface.addColumn).toHaveBeenCalledWith(
+      'movimenti',
+      'ricorrenza_origine_id',
+      expect.objectContaining({ allowNull: true }),
+    );
+    expect(queryInterface.addColumn).toHaveBeenCalledWith(
+      'movimenti',
+      'ricorrenza_periodo',
+      expect.objectContaining({ allowNull: true }),
+    );
+    expect(queryInterface.addIndex).toHaveBeenCalledWith(
+      'movimenti',
+      ['ricorrenza_origine_id', 'ricorrenza_periodo'],
+      expect.objectContaining({ unique: true }),
+    );
+  });
+
   const integrationTest = process.env.TEST_DATABASE_URL ? it : it.skip;
   integrationTest('crea lo schema completo su PostgreSQL', async () => {
     const { sequelize } = require('../models');

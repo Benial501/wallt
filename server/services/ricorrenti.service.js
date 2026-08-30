@@ -1,104 +1,77 @@
 const cron = require('node-cron');
-const { Op } = require('sequelize');
 const { Movimento, Conto, sequelize } = require('../models');
 const logger = require('../utils/logger');
 
-// Guardia di rientranza: impedisce che due esecuzioni sovrapposte del job
-// (es. un secondo tick di node-cron mentre la precedente esecuzione è ancora
-// in corso, o un trigger manuale mentre gira già quello schedulato) processino
-// in parallelo lo stesso movimento ricorrente, rischiando un doppio addebito
-// prima che la prima esecuzione abbia fatto il commit che il controllo "già
-// creato" si aspetta di trovare.
-let isRunning = false;
+const ROME_TIME_ZONE = 'Europe/Rome';
+let activeRun = null;
 
-async function processaRicorrenti() {
-  if (isRunning) {
-    logger.warn('Recurring transactions job già in esecuzione: esecuzione sovrapposta ignorata');
-    return;
-  }
-  isRunning = true;
-  try {
-    await runProcessaRicorrenti();
-  } finally {
-    isRunning = false;
-  }
-}
+const getRomeDateParts = (date) => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: ROME_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
 
-async function runProcessaRicorrenti() {
-  const oggi = new Date();
-  const giornoOggi = oggi.getDate();
-  const meseOggi = oggi.getMonth() + 1;
-  const annoOggi = oggi.getFullYear();
+  return {
+    day: Number(values.day),
+    date: `${values.year}-${values.month}-${values.day}`,
+    period: `${values.year}-${values.month}`,
+  };
+};
+
+const isUniqueConstraintError = (error) => error?.name === 'SequelizeUniqueConstraintError';
+
+async function runProcessaRicorrenti(now) {
+  const current = getRomeDateParts(now);
+  const summary = { processed: 0, skipped: 0, failed: 0 };
 
   logger.info('Recurring transactions job started');
 
-  const processedByUser = new Map();
+  const ricorrenti = await Movimento.findAll({
+    where: {
+      ricorrente: true,
+      ricorrente_frequenza: 'mensile',
+    },
+  });
 
-  try {
-    const ricorrenti = await Movimento.findAll({
-      where: {
-        ricorrente: true,
-        ricorrente_frequenza: 'mensile',
-      },
-    });
+  for (const movimento of ricorrenti) {
+    const giornoTarget = movimento.ricorrente_giorno || 1;
+    if (current.day !== giornoTarget || !['entrata', 'uscita'].includes(movimento.tipo)) {
+      summary.skipped += 1;
+      continue;
+    }
 
-    for (const movimento of ricorrenti) {
-      const giornoTarget = movimento.ricorrente_giorno || 1;
+    try {
+      const outcome = await sequelize.transaction(async (transaction) => {
+        const conto = await Conto.findByPk(movimento.conto_id, {
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+        if (!conto) return 'skipped';
 
-      if (giornoOggi !== giornoTarget) continue;
-
-      // Il movimento generato ha descrizione `${descrizione} (automatico)`
-      // (vedi Movimento.create più sotto): il controllo di duplicazione deve
-      // cercare ESATTAMENTE quella stringa, non la descrizione originale del
-      // ricorrente (bug precedente: confrontava la descrizione sbagliata,
-      // quindi non trovava mai un "già creato" e il job duplicava il
-      // movimento — con saldo scalato due volte — a ogni riesecuzione nello
-      // stesso giorno).
-      const descrizioneGenerata = `${movimento.descrizione} (automatico)`;
-      const giaCreato = await Movimento.findOne({
-        where: {
-          user_id: movimento.user_id,
-          categoria: movimento.categoria,
-          descrizione: descrizioneGenerata,
-          conto_id: movimento.conto_id,
-          ricorrente: false,
-          data: {
-            [Op.between]: [
-              new Date(annoOggi, meseOggi - 1, 1),
-              new Date(annoOggi, meseOggi, 0),
-            ],
+        const existing = await Movimento.findOne({
+          where: {
+            ricorrenza_origine_id: movimento.id,
+            ricorrenza_periodo: current.period,
           },
-        },
-      });
+          transaction,
+        });
+        if (existing) return 'skipped';
 
-      if (giaCreato) continue;
-
-      const t = await sequelize.transaction();
-      try {
-        const conto = await Conto.findByPk(movimento.conto_id, { transaction: t });
-
-        if (!conto) {
-          await t.rollback();
-          continue;
+        const saldo = Number(conto.saldo);
+        const importo = Number(movimento.importo);
+        if (movimento.tipo === 'uscita' && conto.tipo !== 'carta_credito' && saldo < importo) {
+          logger.warn('Insufficient balance for recurring transaction', {
+            userId: movimento.user_id,
+            movimentoId: movimento.id,
+          });
+          return 'skipped';
         }
 
-        if (movimento.tipo === 'uscita' && conto.tipo !== 'carta_credito') {
-          if (parseFloat(conto.saldo) < parseFloat(movimento.importo)) {
-            await t.rollback();
-            logger.warn('Insufficient balance for recurring transaction', {
-              userId: movimento.user_id,
-              movimentoId: movimento.id,
-            });
-            continue;
-          }
-          conto.saldo = parseFloat(conto.saldo) - parseFloat(movimento.importo);
-        } else if (movimento.tipo === 'entrata') {
-          conto.saldo = parseFloat(conto.saldo) + parseFloat(movimento.importo);
-        } else if (movimento.tipo === 'uscita') {
-          conto.saldo = parseFloat(conto.saldo) - parseFloat(movimento.importo);
-        }
-
-        await conto.save({ transaction: t });
+        conto.saldo = movimento.tipo === 'entrata' ? saldo + importo : saldo - importo;
+        await conto.save({ transaction });
 
         await Movimento.create({
           user_id: movimento.user_id,
@@ -107,40 +80,50 @@ async function runProcessaRicorrenti() {
           importo: movimento.importo,
           categoria: movimento.categoria,
           descrizione: `${movimento.descrizione} (automatico)`,
-          data: new Date(),
+          data: current.date,
           ricorrente: false,
-        }, { transaction: t });
+          ricorrenza_origine_id: movimento.id,
+          ricorrenza_periodo: current.period,
+        }, { transaction });
 
-        await t.commit();
-        processedByUser.set(
-          movimento.user_id,
-          (processedByUser.get(movimento.user_id) || 0) + 1,
-        );
-      } catch (err) {
-        await t.rollback();
+        return 'processed';
+      });
+
+      summary[outcome] += 1;
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        summary.skipped += 1;
+      } else {
+        summary.failed += 1;
         logger.error('Recurring transaction failed', {
-          err,
+          err: error,
           userId: movimento.user_id,
           movimentoId: movimento.id,
         });
       }
     }
+  }
 
-    if (processedByUser.size === 0) {
-      logger.info('Processed 0 recurring transactions');
-    } else {
-      for (const [userId, count] of processedByUser.entries()) {
-        logger.info(`Processed ${count} recurring transactions for user ${userId}`);
-      }
-    }
-  } catch (err) {
-    logger.error('Recurring transactions job failed', { err });
+  logger.info('Recurring transactions job completed', summary);
+  return summary;
+}
+
+async function processaRicorrenti(now = new Date()) {
+  if (activeRun) return activeRun;
+
+  activeRun = runProcessaRicorrenti(now);
+  try {
+    return await activeRun;
+  } finally {
+    activeRun = null;
   }
 }
 
 function avviaCronRicorrenti() {
   cron.schedule('0 9 * * *', () => {
-    processaRicorrenti();
+    processaRicorrenti().catch((error) => {
+      logger.error('Recurring transactions job failed', { err: error });
+    });
   }, {
     timezone: 'Europe/Rome',
   });

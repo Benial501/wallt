@@ -11,6 +11,7 @@ const REQUIRED_ALWAYS = [
   'JWT_SECRET',
   'DATABASE_URL',
   'CORS_ORIGINS',
+  'CRON_SECRET',
 ];
 
 const isSet = (name) => {
@@ -32,6 +33,10 @@ const collectProductionConfigErrors = () => {
 
   if (isSet('JWT_SECRET') && process.env.JWT_SECRET.length < 32) {
     errors.push('JWT_SECRET is too short for production (minimum 32 characters recommended)');
+  }
+
+  if (isSet('CRON_SECRET') && process.env.CRON_SECRET.length < 32) {
+    errors.push('CRON_SECRET is too short for production (minimum 32 characters required)');
   }
 
   // Google OAuth è opzionale, ma se configurato deve esserlo completamente:

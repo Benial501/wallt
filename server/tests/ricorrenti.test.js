@@ -44,7 +44,7 @@ describe('Spese ricorrenti (cron mensile)', () => {
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'setInterval', 'setTimeout', 'clearImmediate', 'clearInterval', 'clearTimeout'] }).setSystemTime(new Date(2026, 2, 5)); // 5 marzo 2026
     await creaRicorrente();
 
-    await processaRicorrenti();
+    const result = await processaRicorrenti();
 
     await conto.reload();
     expect(Number(conto.saldo)).toBe(950);
@@ -52,6 +52,9 @@ describe('Spese ricorrenti (cron mensile)', () => {
     const automatici = await Movimento.findAll({ where: { user_id: userId, ricorrente: false } });
     expect(automatici).toHaveLength(1);
     expect(automatici[0].descrizione).toContain('automatico');
+    expect(automatici[0].ricorrenza_origine_id).not.toBeNull();
+    expect(automatici[0].ricorrenza_periodo).toBe('2026-03');
+    expect(result).toEqual({ processed: 1, skipped: 0, failed: 0 });
   });
 
   it('NON crea nulla se oggi non corrisponde al giorno configurato', async () => {
@@ -77,6 +80,19 @@ describe('Spese ricorrenti (cron mensile)', () => {
     expect(Number(conto.saldo)).toBe(950); // scalato una sola volta
     const automatici = await Movimento.findAll({ where: { user_id: userId, ricorrente: false } });
     expect(automatici).toHaveLength(1);
+  });
+
+  it('usa sempre il giorno Europe/Rome anche quando il runtime è ancora al giorno UTC precedente', async () => {
+    await creaRicorrente();
+
+    const result = await processaRicorrenti(new Date('2026-03-04T23:30:00.000Z'));
+
+    expect(result.processed).toBe(1);
+    const automatico = await Movimento.findOne({
+      where: { user_id: userId, ricorrente: false },
+    });
+    expect(automatico.data).toBe('2026-03-05');
+    expect(automatico.ricorrenza_periodo).toBe('2026-03');
   });
 
   it('non crea il movimento se il saldo è insufficiente e non tocca il saldo del conto', async () => {

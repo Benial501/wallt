@@ -2,7 +2,7 @@ const { collectProductionConfigErrors } = require('../config/validateEnv');
 
 describe('collectProductionConfigErrors (validazione config produzione)', () => {
   const ENV_KEYS = [
-    'JWT_SECRET', 'DATABASE_URL', 'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'CORS_ORIGINS',
+    'JWT_SECRET', 'DATABASE_URL', 'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'CORS_ORIGINS', 'CRON_SECRET',
     'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_CALLBACK_URL', 'API_URL',
   ];
   let originalEnv;
@@ -11,6 +11,7 @@ describe('collectProductionConfigErrors (validazione config produzione)', () => 
     process.env.JWT_SECRET = 'a'.repeat(40);
     process.env.DATABASE_URL = 'postgresql://wallt:secret@db.example.com:6543/postgres';
     process.env.CORS_ORIGINS = 'https://app.wallt.example';
+    process.env.CRON_SECRET = 'c'.repeat(40);
     process.env.GOOGLE_CLIENT_ID = 'client-id';
     process.env.GOOGLE_CLIENT_SECRET = 'client-secret';
     process.env.GOOGLE_CALLBACK_URL = 'https://api.wallt.example/api/auth/google/callback';
@@ -62,6 +63,14 @@ describe('collectProductionConfigErrors (validazione config produzione)', () => 
 
     const errors = collectProductionConfigErrors();
     expect(errors.some((e) => e.includes('JWT_SECRET') && e.includes('short'))).toBe(true);
+  });
+
+  it('segnala un CRON_SECRET troppo corto', () => {
+    validCompleteEnv();
+    process.env.CRON_SECRET = 'troppo-corto';
+
+    const errors = collectProductionConfigErrors();
+    expect(errors.some((e) => e.includes('CRON_SECRET') && e.includes('short'))).toBe(true);
   });
 
   it('segnala GOOGLE_CLIENT_ID impostato senza GOOGLE_CLIENT_SECRET (o viceversa)', () => {
