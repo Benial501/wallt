@@ -78,6 +78,32 @@ describe('migrazioni compatibili con PostgreSQL e Supabase', () => {
     );
   });
 
+  it('crea un contatore auth con chiave hash e vincolo di finestra', async () => {
+    const migration = require('../migrations/20260830000012-create-auth-rate-limits');
+    const queryInterface = {
+      createTable: jest.fn().mockResolvedValue(undefined),
+      addIndex: jest.fn().mockResolvedValue(undefined),
+      sequelize: { query: jest.fn().mockResolvedValue([]) },
+    };
+
+    await migration.up(queryInterface, Sequelize);
+
+    expect(queryInterface.createTable).toHaveBeenCalledWith(
+      'auth_rate_limits',
+      expect.objectContaining({
+        key_hash: expect.objectContaining({ allowNull: false }),
+        route: expect.objectContaining({ allowNull: false }),
+        window_start: expect.objectContaining({ allowNull: false }),
+        hit_count: expect.objectContaining({ allowNull: false }),
+      }),
+    );
+    expect(queryInterface.addIndex).toHaveBeenCalledWith(
+      'auth_rate_limits',
+      ['key_hash', 'route', 'window_start'],
+      expect.objectContaining({ unique: true }),
+    );
+  });
+
   const integrationTest = process.env.TEST_DATABASE_URL ? it : it.skip;
   integrationTest('crea lo schema completo su PostgreSQL', async () => {
     const { sequelize } = require('../models');

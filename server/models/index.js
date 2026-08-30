@@ -15,6 +15,7 @@ const MovimentoInvestimento = require('./MovimentoInvestimento');
 const CategorieRegola = require('./CategorieRegola');
 const RegolaPersonaleMerchant = require('./RegolaPersonaleMerchant');
 const PasswordResetToken = require('./PasswordResetToken');
+const AuthRateLimit = require('./AuthRateLimit');
 
 // User associations
 User.hasOne(ProfiloUtente, { foreignKey: 'user_id', as: 'profilo' });
@@ -82,4 +83,5 @@ module.exports = {
   CategorieRegola,
   RegolaPersonaleMerchant,
   PasswordResetToken,
+  AuthRateLimit,
 };

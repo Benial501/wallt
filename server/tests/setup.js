@@ -49,6 +49,7 @@ if (configuredDatabase !== TEST_DATABASE) {
 }
 
 const TABLES = [
+  'auth_rate_limits',
   'password_reset_tokens',
   'regole_personali_merchant',
   'categorie_regole',
