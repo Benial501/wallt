@@ -1,18 +1,15 @@
 /**
  * Validazione delle variabili d'ambiente all'avvio. In produzione fallisce
  * velocemente con un errore chiaro invece di partire con placeholder o
- * fallback silenziosi pericolosi (es. DB_USER=root/DB_PASSWORD='' in
- * config/database.js, pensati solo per comodità in sviluppo).
+ * fallback silenziosi pericolosi. Le variabili DB_* restano disponibili solo
+ * per la comodità dello sviluppo locale.
  *
  * Non stampa mai i valori delle variabili, solo i nomi mancanti/non validi.
  */
 
 const REQUIRED_ALWAYS = [
   'JWT_SECRET',
-  'DB_HOST',
-  'DB_USER',
-  'DB_PASSWORD',
-  'DB_NAME',
+  'DATABASE_URL',
   'CORS_ORIGINS',
 ];
 

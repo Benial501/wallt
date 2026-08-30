@@ -1,19 +1,15 @@
-require('./setup');
 const { collectProductionConfigErrors } = require('../config/validateEnv');
 
 describe('collectProductionConfigErrors (validazione config produzione)', () => {
   const ENV_KEYS = [
-    'JWT_SECRET', 'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'CORS_ORIGINS',
+    'JWT_SECRET', 'DATABASE_URL', 'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'CORS_ORIGINS',
     'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_CALLBACK_URL', 'API_URL',
   ];
   let originalEnv;
 
   const validCompleteEnv = () => {
     process.env.JWT_SECRET = 'a'.repeat(40);
-    process.env.DB_HOST = '127.0.0.1';
-    process.env.DB_USER = 'wallt_user';
-    process.env.DB_PASSWORD = 'super-secret';
-    process.env.DB_NAME = 'wallt_prod';
+    process.env.DATABASE_URL = 'postgresql://wallt:secret@db.example.com:6543/postgres';
     process.env.CORS_ORIGINS = 'https://app.wallt.example';
     process.env.GOOGLE_CLIENT_ID = 'client-id';
     process.env.GOOGLE_CLIENT_SECRET = 'client-secret';
@@ -40,12 +36,24 @@ describe('collectProductionConfigErrors (validazione config produzione)', () => 
 
   it('segnala ogni variabile obbligatoria mancante', () => {
     validCompleteEnv();
-    delete process.env.DB_PASSWORD;
+    delete process.env.DATABASE_URL;
     delete process.env.CORS_ORIGINS;
 
     const errors = collectProductionConfigErrors();
-    expect(errors.some((e) => e.includes('DB_PASSWORD'))).toBe(true);
+    expect(errors.some((e) => e.includes('DATABASE_URL'))).toBe(true);
     expect(errors.some((e) => e.includes('CORS_ORIGINS'))).toBe(true);
+  });
+
+  it('non accetta le vecchie variabili DB_* al posto di DATABASE_URL in produzione', () => {
+    validCompleteEnv();
+    delete process.env.DATABASE_URL;
+    process.env.DB_HOST = '127.0.0.1';
+    process.env.DB_USER = 'wallt_user';
+    process.env.DB_PASSWORD = 'super-secret';
+    process.env.DB_NAME = 'wallt_prod';
+
+    const errors = collectProductionConfigErrors();
+    expect(errors.some((e) => e.includes('DATABASE_URL'))).toBe(true);
   });
 
   it('segnala un JWT_SECRET troppo corto', () => {
