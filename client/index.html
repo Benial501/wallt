@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WALLT — Gestione Finanziaria</title>
+    <meta name="description" content="WALLT - Gestisci il tuo patrimonio, traccia le spese e raggiungi i tuoi obiettivi finanziari. App italiana gratuita.">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="WALLT">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!--
+      CSP per la SPA. Il backend Express (Helmet) protegge solo le proprie
+      risposte JSON/HTML, non questa pagina statica: qui va configurata
+      esplicitamente. Deve restare compatibile con Google Identity Services
+      (step-up) — accounts.google.com in script-src/frame-src/connect-src —
+      senza consentire script-src 'unsafe-eval' o 'unsafe-inline'. style-src
+      richiede 'unsafe-inline' per il boot-splash inline sopra e per i
+      binding :style di Vue; è un rischio molto minore di uno script-src
+      permissivo. Vedi docs/SECURITY.md.
+
+      NOTA connect-src: una source CSP che termina con un path SENZA slash
+      finale fa match ESATTO su quel path. Con il solo %VITE_API_URL%
+      (es. http://localhost:3000/api) ogni chiamata reale (/api/conti,
+      /api/auth/login, ...) verrebbe bloccata. Serve quindi anche la forma
+      con slash finale, che abilita il match per prefisso su /api/*
+      (piu' stretta dell'intera origin).
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' %VITE_API_URL% %VITE_API_URL%/ https://accounts.google.com; frame-src https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      .boot-splash {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        background: #000;
+        color: #fff;
+        font-family: Inter, system-ui, sans-serif;
+      }
+      .boot-splash__logo {
+        font-size: 1.75rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+      }
+      .boot-splash__logo::after {
+        content: 'T';
+        color: #00D4AA;
+      }
+      .boot-splash__spinner {
+        width: 28px;
+        height: 28px;
+        border: 2px solid rgba(255, 255, 255, 0.15);
+        border-top-color: #00D4AA;
+        border-radius: 50%;
+        animation: boot-spin 0.8s linear infinite;
+      }
+      @keyframes boot-spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="wallt-runtime-error" hidden style="position:fixed;inset:0;z-index:99999;padding:1.5rem;background:#1a0000;color:#ffb4b4;font:14px/1.5 Inter,system-ui,sans-serif;overflow:auto;"></div>
+      <div class="boot-splash" aria-hidden="true">
+        <span class="boot-splash__logo">WALLT</span>
+        <span class="boot-splash__spinner" />
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

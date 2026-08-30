@@ -1,0 +1,242 @@
+import {
+  Home,
+  Wallet,
+  ArrowLeftRight,
+  Download,
+  PieChart,
+  Target,
+  TrendingUp,
+  Dices,
+  LineChart,
+  LayoutGrid,
+  Settings,
+  LogOut,
+  SunMoon,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  ArrowDown,
+  ArrowUp,
+  Repeat2,
+  User,
+  Sparkles,
+  AlertTriangle,
+  AlertCircle,
+  Info,
+  CheckCircle2,
+  Calendar,
+  Paperclip,
+  Construction,
+  Briefcase,
+  Banknote,
+  Gift,
+  CircleHelp,
+  UtensilsCrossed,
+  House,
+  Lightbulb,
+  Fuel,
+  Bus,
+  Shirt,
+  PartyPopper,
+  HeartPulse,
+  Smartphone,
+  ShoppingBag,
+  Upload,
+  BarChart3,
+  History,
+  Trophy,
+  TrendingDown,
+  PiggyBank,
+  CreditCard,
+  Gem,
+  Landmark,
+  GraduationCap,
+  Building2,
+  Search,
+  Package,
+  Key,
+  Users,
+  Car,
+  Bike,
+  Footprints,
+  Sprout,
+  XCircle,
+  DollarSign,
+  ClipboardList,
+  Lightbulb as LightbulbIcon,
+  RefreshCw,
+  Eye,
+  EyeOff,
+  ChevronDown,
+  ChevronRight,
+  X,
+  Bot,
+  Bell,
+  Shield,
+  Lock,
+  Download as DownloadIcon,
+  Trash2,
+  Moon,
+  Sun,
+  Palette,
+  Coins,
+} from 'lucide-vue-next';
+import { getCategoriaEntrata, getCategoriaUscita } from '@/utils/categorie';
+
+export const NAV_ICON_MAP = {
+  dashboard: Home,
+  conti: Wallet,
+  movimenti: ArrowLeftRight,
+  importa: Download,
+  budget: PieChart,
+  scommesse: Dices,
+  investimenti: LineChart,
+  obiettivi: Target,
+  analisi: TrendingUp,
+};
+
+export const CATEGORY_ICON_MAP = {
+  stipendio: Briefcase,
+  entrata_extra: Banknote,
+  regalo_ricevuto: Gift,
+  prelievo_scommesse: Dices,
+  rendimento_investimenti: LineChart,
+  altro_entrata: Download,
+  da_verificare: CircleHelp,
+  cibo_spesa: UtensilsCrossed,
+  casa: House,
+  bollette: Lightbulb,
+  benzina_trasporti: Fuel,
+  mezzi_pubblici: Bus,
+  abbigliamento: Shirt,
+  svago: PartyPopper,
+  deposito_scommesse: Dices,
+  investimento: BarChart3,
+  salute: HeartPulse,
+  abbonamenti: Smartphone,
+  regali: Gift,
+  acquisti_vari: ShoppingBag,
+  trasferimento_denaro: ArrowLeftRight,
+  altro_uscita: Upload,
+};
+
+export const SUGGESTION_ICON_MAP = {
+  alert: AlertCircle,
+  warning: AlertTriangle,
+  warning_scommesse: Dices,
+  info: Info,
+  positivo: CheckCircle2,
+  budget_alert: PieChart,
+  obiettivo_rischio: Target,
+};
+
+export const CONTO_TIPO_ICON_MAP = {
+  banca: Landmark,
+  app_pagamento: Smartphone,
+  contanti: Banknote,
+  investimento: LineChart,
+  scommesse: Dices,
+  wallet: Wallet,
+  risparmio: PiggyBank,
+};
+
+export const MOVIMENTO_TIPO_ICON_MAP = {
+  entrata: ArrowDownCircle,
+  uscita: ArrowUpCircle,
+  trasferimento: Repeat2,
+};
+
+export const getCategoryIcon = (categoriaId, tipo = 'uscita') => {
+  if (categoriaId && CATEGORY_ICON_MAP[categoriaId]) {
+    return CATEGORY_ICON_MAP[categoriaId];
+  }
+  if (tipo === 'entrata') return ArrowDownCircle;
+  if (tipo === 'trasferimento') return Repeat2;
+  return ArrowUpCircle;
+};
+
+export const getCategoryIconFromMovimento = (movimento) => {
+  if (!movimento) return ArrowUpCircle;
+  if (movimento.tipo === 'trasferimento') return Repeat2;
+  if (movimento.tipo === 'entrata') {
+    const cat = getCategoriaEntrata(movimento.categoria);
+    return getCategoryIcon(cat?.id || movimento.categoria, 'entrata');
+  }
+  const cat = getCategoriaUscita(movimento.categoria);
+  return getCategoryIcon(cat?.id || movimento.categoria, 'uscita');
+};
+
+/** Restituisce sempre un componente icona valido (fallback CircleHelp). */
+export const resolveAppIcon = (icon) => {
+  if (typeof icon === 'function' || (icon && typeof icon === 'object')) return icon;
+  return CircleHelp;
+};
+
+export {
+  Home,
+  Wallet,
+  ArrowLeftRight,
+  Download,
+  PieChart,
+  Target,
+  TrendingUp,
+  Dices,
+  LineChart,
+  LayoutGrid,
+  Settings,
+  LogOut,
+  SunMoon,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  ArrowDown,
+  ArrowUp,
+  Repeat2,
+  User,
+  Sparkles,
+  AlertTriangle,
+  CheckCircle2,
+  Calendar,
+  Paperclip,
+  Construction,
+  BarChart3,
+  History,
+  Trophy,
+  TrendingDown,
+  CreditCard,
+  ClipboardList,
+  LightbulbIcon,
+  RefreshCw,
+  Eye,
+  EyeOff,
+  ChevronDown,
+  ChevronRight,
+  X,
+  Bot,
+  Bell,
+  Shield,
+  Lock,
+  DownloadIcon,
+  Trash2,
+  Moon,
+  Sun,
+  Palette,
+  Coins,
+  Briefcase,
+  House,
+  Car,
+  Banknote,
+  GraduationCap,
+  Building2,
+  Search,
+  Package,
+  Key,
+  Users,
+  Bike,
+  Bus,
+  Footprints,
+  Smartphone,
+  XCircle,
+  Sprout,
+  PartyPopper,
+  Landmark,
+  Info,
+};

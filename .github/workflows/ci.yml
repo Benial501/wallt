@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Nessun secret è necessario: le credenziali qui sotto valgono solo per il
+# database MySQL effimero del job, mai per un ambiente reale.
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  backend:
+    name: Backend (test)
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: wallt_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      NODE_ENV: test
+      JWT_SECRET: ci_jwt_secret_non_reale_lungo_abbastanza_12345
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ''
+      DB_NAME_TEST: wallt_test
+      CORS_ORIGINS: http://localhost:5173
+      PASSWORD_RESET_URL: http://localhost:5173/reset-password
+      RESEND_API_KEY: ci_resend_key_non_reale
+      EMAIL_FROM: 'WALLT <test@example.com>'
+      GOOGLE_CLIENT_ID: ''
+      GOOGLE_CLIENT_SECRET: ''
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Wait for MySQL
+        run: |
+          for i in $(seq 1 30); do
+            mysqladmin ping -h 127.0.0.1 -u root --silent && break
+            sleep 2
+          done
+
+      - name: Run backend test suite
+        working-directory: server
+        run: npm test
+
+      - name: npm audit (informativo, non blocca la CI)
+        working-directory: server
+        run: npm audit --audit-level=critical || true
+
+  frontend:
+    name: Frontend (build)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Build
+        working-directory: client
+        run: npm run build
+
+      - name: npm audit (informativo, non blocca la CI)
+        working-directory: client
+        run: npm audit --audit-level=critical || true

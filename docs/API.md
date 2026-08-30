@@ -1,0 +1,478 @@
+# WALLT — API Reference
+
+> Inventario endpoint basato su `server/routes/` e `server/app.js`.
+> Base URL: `/api` (prefisso comune a tutte le route).
+> Auth: Bearer JWT in header `Authorization` salvo dove indicato.
+
+## Rate Limiting globale
+
+| Limiter | Scope | Limite |
+|---|---|---|
+| `apiLimiter` | Tutte `/api/*` | 1200 req / 15 min per user/IP (IPv6-safe) |
+| `authLimiter` | login, register, forgot/reset password | 10 / 15 min per IP (IPv6-safe) |
+| `stepUpLimiter` | verify-password, google/challenge, verify-google | 20 / 15 min per user |
+| `exportLimiter` | export dati | 3 / ora per user |
+| `deleteAccountLimiter` | delete account | 3 / ora per user |
+| `importUploadLimiter` | upload import | 30 / 15 min per user |
+| `importConfirmLimiter` | conferma import | 15 / ora per user |
+
+---
+
+## Health
+
+### GET /api/health
+- **Auth**: No
+- **Risposta**: `{ status: "ok", message: "WALLT API attiva" }`
+- **File**: `server/app.js`
+
+---
+
+## Authentication
+
+### GET /api/auth/providers
+- **Auth**: No
+- **Risposta**: `{ google: boolean, apple: false }`
+- **File**: `auth.routes.js` → inline
+
+### POST /api/auth/register
+- **Auth**: No
+- **Rate limit**: authLimiter
+- **Body**: `{ nome, email, password, privacy_accepted_at, terms_accepted_at, use_ai_categorization? }`
+- **Validazione**: `validateRegister` (password: min 8, maiuscola, cifra, carattere speciale)
+- **Risposta**: `{ token, user }`
+- **Errori**: 400 (validazione), 409 (email esistente)
+- **File**: `auth.controller.js` → `register`
+- **Frontend**: `auth.store.js` → `RegisterView.vue`
+
+### POST /api/auth/login
+- **Auth**: No
+- **Rate limit**: authLimiter
+- **Body**: `{ email, password }`
+- **Validazione**: `validateLogin`
+- **Risposta**: `{ token, user }`
+- **Errori**: 401 (credenziali errate), 400 (account OAuth-only)
+- **File**: `auth.controller.js` → `login`
+- **Frontend**: `auth.store.js` → `LoginView.vue`
+
+### GET /api/auth/me
+- **Auth**: Sì
+- **Risposta**: `{ user }` (con profilo, feature flags, age masking)
+- **File**: `auth.controller.js` → `me`
+- **Frontend**: `auth.store.js` → `fetchMe` (router guard, ogni 60s)
+
+### POST /api/auth/verify-password
+- **Auth**: Sì + `stepUpLimiter` (20/15min per utente)
+- **Solo utenti locali** (con password). Un utente Google che chiama questo endpoint riceve **400** (`code: 'google_stepup_required'`) — deve usare il flusso Google sotto.
+- **Body**: `{ password }` — verificata con `bcrypt.compare` contro l'hash reale.
+- **Validazione**: `validateVerifyPassword` (valida solo `body('password')`)
+- **Risposta**: `{ step_up_token }` (JWT 5 min, type: step_up)
+- **Errori**: 400 (account Google), 401 (password non valida), 404 (utente non trovato)
+- **File**: `verifyPassword.controller.js`
+- **Frontend**: `ImpostazioniView.vue` (export, delete, reset — ramo locale)
+
+### POST /api/auth/google/challenge
+- **Auth**: Sì + `stepUpLimiter`
+- **Solo utenti Google OAuth** (primo passo dello step-up Google, prima del pulsante "Continua con Google").
+- **Body**: nessuno.
+- **Risposta**: `{ nonce, challenge, expires_in }` — `challenge` è un JWT firmato (`type: google_stepup_challenge`, legato a `req.userId`, scadenza 2 minuti) che incapsula `nonce`; `nonce` va passato a Google Identity Services.
+- **Errori**: 400 se l'utente non è un account Google collegato.
+- **File**: `googleStepUp.controller.js` → `getGoogleStepUpChallenge`
+- **Frontend**: `useGoogleStepUp.js`
+
+### POST /api/auth/verify-google
+- **Auth**: Sì + `stepUpLimiter`
+- **Body**: `{ credential, challenge }` — `credential` è l'ID token JWT restituito da Google Identity Services, `challenge` è il valore ottenuto da `google/challenge`.
+- **Validazione**: `validateGoogleStepUpVerify` (entrambi i campi stringa non vuota)
+- **Azione**: verifica il challenge (firma/scadenza/type/userId), verifica che il nonce non sia già stato consumato (single-use in-memory), verifica crittograficamente l'ID token con `google-auth-library` (firma, audience, issuer, scadenza), verifica `payload.nonce` contro il challenge, verifica freschezza (`iat` recente), verifica `payload.sub === user.google_id` (utente caricato da `req.userId`, mai dal body).
+- **Risposta**: `{ step_up_token }` (stesso formato/durata del flusso locale)
+- **Errori**: 400 (account non Google/credenziale mancante), 401 (credenziale non valida/scaduta/nonce errato/non recente), 403 (challenge non valido/scaduto/già usato/di un altro utente, oppure identità Google non corrispondente)
+- **File**: `googleStepUp.controller.js` → `verifyGoogleStepUp`
+- **Frontend**: `useGoogleStepUp.js`
+
+### GET /api/auth/google
+- **Auth**: No
+- **Query**: `origin` (frontend URL per popup relay)
+- **Azione**: Redirect a Google OAuth
+- **File**: `auth.routes.js` → Passport
+
+### GET /api/auth/google/callback
+- **Auth**: No
+- **Azione**: Callback Google → JWT → HTML popup con hash payload
+- **File**: `auth.routes.js` → Passport callback
+
+### POST /api/auth/forgot-password
+- **Auth**: No
+- **Rate limit**: authLimiter
+- **Body**: `{ email }`
+- **Validazione**: `validateForgotPassword`
+- **Risposta**: Messaggio generico (non rivela se email esiste)
+- **File**: `passwordReset.controller.js`
+- **Frontend**: `ForgotPassword.vue`
+
+### POST /api/auth/reset-password/verify
+- **Auth**: No
+- **Rate limit**: authLimiter
+- **Body**: `{ token }`
+- **Risposta**: `{ valid: true, email_masked, nome }` o errore
+- **File**: `passwordReset.controller.js`
+- **Frontend**: `ResetPassword.vue`
+
+### POST /api/auth/reset-password
+- **Auth**: No
+- **Rate limit**: authLimiter
+- **Body**: `{ token, password }`
+- **Validazione**: `validateResetPassword`
+- **Risposta**: `{ success: true }`
+- **File**: `passwordReset.controller.js`
+- **Frontend**: `ResetPassword.vue`
+
+---
+
+## Profilo
+
+### GET /api/profilo
+- **Auth**: Sì
+- **Risposta**: `{ profilo }`
+- **File**: `profilo.controller.js`
+- **Frontend**: `profilo.store.js`
+
+### PUT /api/profilo
+- **Auth**: Sì
+- **Body**: Campi profilo finanziario (onboarding)
+- **Validazione**: `validateUpdateProfiloFinanziario`
+- **Risposta**: `{ profilo }`
+- **File**: `profilo.controller.js`
+- **Frontend**: `OnboardingView.vue`, `profilo.store.js`
+
+### GET /api/profilo/budget-suggerito
+- **Auth**: Sì
+- **Risposta**: Budget suggerito basato su profilo
+- **File**: `profilo.controller.js`
+- **Frontend**: `profilo.store.js` (`fetchBudgetSuggerito` — **non chiamato da nessuna view**)
+
+### POST /api/profilo/skip-onboarding
+- **Auth**: Sì
+- **Risposta**: `{ profilo }` con onboarding_completato=true
+- **File**: `profilo.controller.js`
+- **Frontend**: `OnboardingView.vue`
+
+---
+
+## Conti
+
+### GET /api/conti
+- **Auth**: Sì
+- **Risposta**: `{ conti[], patrimonio_totale }`
+- **File**: `conti.controller.js`
+- **Frontend**: `conti.store.js` → `ContiView.vue`, `DashboardView.vue`
+
+### POST /api/conti
+- **Auth**: Sì
+- **Body**: `{ nome, tipo, saldo_iniziale?, icona?, colore? }`
+- **Validazione**: `validateConto`
+- **Risposta**: `{ conto }` (o riattivazione conto inattivo con stesso nome)
+- **File**: `conti.controller.js`
+- **Frontend**: `ContiView.vue`
+
+### PUT /api/conti/:id
+- **Auth**: Sì
+- **Body**: `{ nome?, tipo?, icona?, colore?, saldo? }`
+- **Validazione**: `validateUpdateConto`
+- **Risposta**: `{ conto }`
+- **File**: `conti.controller.js`
+- **Frontend**: `ContiView.vue`
+
+### DELETE /api/conti/:id
+- **Auth**: Sì
+- **Validazione**: `validateDeleteConto`
+- **Azione**: Soft-delete (`attivo: false`)
+- **File**: `conti.controller.js`
+- **Frontend**: `ContiView.vue`
+
+### GET /api/conti/patrimonio
+- **Auth**: Sì
+- **Risposta**: `{ totale, totale_conti, totale_investimenti, variazione_importo, variazione_percentuale }`
+- **File**: `conti.controller.js`
+- **Frontend**: `conti.store.js` → `DashboardView.vue`
+
+### POST /api/conti/trasferimento
+- **Auth**: Sì
+- **Body**: `{ conto_origine_id, conto_destinazione_id, importo, data, nota? }`
+- **Validazione**: `validateTrasferimento`
+- **Risposta**: `{ success, conto_origine, conto_destinazione }`
+- **Errori**: 400 (saldo insufficiente), 404 (conto non trovato)
+- **File**: `conti.controller.js` → `trasferimento`
+- **Frontend**: `conti.store.js` → `MovimentoForm.vue` (tipo trasferimento)
+
+---
+
+## Movimenti
+
+### GET /api/movimenti
+- **Auth**: Sì
+- **Query**: `tipo`, `categoria`, `conto_id`, `da`, `a`, `page`, `limit`, `ordine` (`caricamento`), `solo_conti_attivi`
+- **Risposta**: `{ gruppi[], movimenti[], pagination }`
+- **File**: `movimenti.controller.js`
+- **Frontend**: `movimenti.store.js`, `DashboardView.vue` (recenti con `ordine=caricamento`)
+
+### POST /api/movimenti
+- **Auth**: Sì
+- **Body**: `{ tipo, importo, categoria, conto_id, data, descrizione?, ricorrente?, ricorrente_frequenza?, ricorrente_giorno? }`
+- **Validazione**: `validateMovimento`
+- **Risposta**: `{ movimento }`
+- **Errori**: 400 (saldo insufficiente per uscita)
+- **File**: `movimenti.controller.js`
+- **Frontend**: `MovimentoForm.vue`
+
+### PUT /api/movimenti/:id
+- **Auth**: Sì
+- **Body**: Campi opzionali (importo, categoria, data, descrizione, conto_id, tipo)
+- **Validazione**: `validateUpdateMovimento`
+- **Azione**: Ricalcola saldo conto (vecchio e nuovo se conto cambia)
+- **File**: `movimenti.controller.js`
+- **Frontend**: `MovimentoForm.vue` (edit mode)
+
+### DELETE /api/movimenti/:id
+- **Auth**: Sì
+- **Validazione**: `validateDeleteMovimento`
+- **Azione**: Elimina movimento, ripristina saldo
+- **File**: `movimenti.controller.js`
+- **Frontend**: `MovimentiView.vue`
+
+### GET /api/movimenti/bilancio
+- **Auth**: Sì
+- **Query**: `mese`, `anno`
+- **Risposta**: `{ entrate, uscite, saldo }`
+- **File**: `movimenti.controller.js`
+- **Frontend**: `movimenti.store.js` → `DashboardView.vue`
+
+### GET /api/movimenti/ricorrenti
+- **Auth**: Sì
+- **Risposta**: `{ movimenti[] }` (ricorrente=true)
+- **File**: `movimenti.controller.js`
+- **Frontend**: `movimenti.store.js` (`fetchRicorrenti` — **non chiamato da nessuna view**)
+
+---
+
+## Budget
+
+### GET /api/budget/:anno/:mese
+- **Auth**: Sì
+- **Risposta**: `{ budget, categorie[] }` o 404
+- **File**: `budget.controller.js`
+- **Frontend**: `budget.store.js` → `BudgetView.vue`
+
+### GET /api/budget/:anno/:mese/stato
+- **Auth**: Sì
+- **Risposta**: `{ categorie[] }` con speso vs budget per categoria
+- **File**: `budget.controller.js`
+- **Frontend**: `budget.store.js` → `DashboardView.vue`, `BudgetView.vue`
+
+### POST /api/budget
+- **Auth**: Sì
+- **Body**: `{ mese, anno, importo_totale, categorie[] }`
+- **Validazione**: `validateBudget`
+- **File**: `budget.controller.js`
+- **Frontend**: `BudgetView.vue`
+
+### PUT /api/budget/:id
+- **Auth**: Sì
+- **Body**: `{ importo_totale?, categorie[]? }`
+- **Validazione**: `validateUpdateBudget`
+- **File**: `budget.controller.js`
+- **Frontend**: `BudgetView.vue`
+
+---
+
+## Obiettivi
+
+### GET /api/obiettivi
+- **Auth**: Sì
+- **Risposta**: `{ attivi[], completati[] }`
+- **File**: `obiettivi.controller.js`
+- **Frontend**: `obiettivi.store.js` → `ObiettiviView.vue`
+
+### POST /api/obiettivi
+- **Auth**: Sì
+- **Body**: `{ nome, importo_target, deadline?, icona? }`
+- **Validazione**: `validateObiettivo`
+- **File**: `obiettivi.controller.js`
+- **Frontend**: `ObiettiviView.vue`
+
+### PUT /api/obiettivi/:id
+- **Auth**: Sì
+- **Validazione**: `validateUpdateObiettivo`
+- **File**: `obiettivi.controller.js`
+
+### DELETE /api/obiettivi/:id
+- **Auth**: Sì
+- **Validazione**: `validateDeleteObiettivo`
+- **File**: `obiettivi.controller.js`
+
+### GET /api/obiettivi/:id/proiezione
+- **Auth**: Sì
+- **Validazione**: Nessun `validateIdParam`
+- **Risposta**: Proiezione completamento obiettivo
+- **File**: `obiettivi.controller.js`
+- **Frontend**: `obiettivi.store.js`
+
+### POST /api/obiettivi/:id/contributi
+- **Auth**: Sì
+- **Body**: `{ importo, data, nota? }`
+- **Validazione**: `validateContributo`
+- **File**: `obiettivi.controller.js`
+- **Frontend**: `ObiettiviView.vue`
+
+---
+
+## Scommesse
+
+> Tutte le route: `authMiddleware` + `blockScommesseAccess`
+
+### GET /api/scommesse/panoramica
+- **Risposta**: Overview piattaforme e saldi
+- **Frontend**: `scommesse.store.js` → `ScommesseView.vue`
+
+### GET /api/scommesse/analisi
+- **Query**: `da`, `a`
+- **Frontend**: `scommesse.store.js`
+
+### GET /api/scommesse/piattaforme
+### POST /api/scommesse/piattaforme
+### PUT /api/scommesse/piattaforme/:id
+### DELETE /api/scommesse/piattaforme/:id
+- **Validazione**: validatePiattaforma/Update/Delete
+- **Azione create**: Sync con Conto tipo scommesse
+- **Frontend**: `ScommesseView.vue`
+
+### GET /api/scommesse/movimenti
+### POST /api/scommesse/movimenti
+- **Validazione**: `validateMovimentoScommesse`
+- **Frontend**: `ScommesseView.vue`
+
+---
+
+## Investimenti
+
+> Tutte le route: `authMiddleware` + `blockInvestimentiAccess`
+
+### GET /api/investimenti
+### POST /api/investimenti
+### PUT /api/investimenti/:id
+### DELETE /api/investimenti/:id
+- **Validazione**: validateInvestimento/Update/Delete
+- **Frontend**: `InvestimentiView.vue`
+
+### GET /api/investimenti/analisi
+- **Query**: `da`, `a`
+- **Frontend**: `investimenti.store.js`
+
+### POST /api/investimenti/:id/movimenti
+### GET /api/investimenti/:id/movimenti
+- **Validazione**: `validateMovimentoInvestimento`
+- **Frontend**: `InvestimentiView.vue`
+
+---
+
+## Analisi
+
+### GET /api/analisi/distribuzione-spese
+- **Query**: `da`, `a`
+- **Risposta**: `{ categorie[], totale }`
+- **Frontend**: `analisi.store.js` → `AnalisiView.vue`
+
+### GET /api/analisi/confronto-mesi
+- **Query**: `mesi` (numero)
+- **Frontend**: `analisi.store.js` → `AnalisiView.vue`
+
+### GET /api/analisi/andamento-patrimonio
+- **Query**: `periodo` (es. `3m`, `6m`, `1y`)
+- **Frontend**: `analisi.store.js` → `DashboardView.vue`, `AnalisiView.vue`
+
+### GET /api/analisi/suggerimenti
+- **Risposta**: Suggerimenti automatici basati su dati utente
+- **Frontend**: `analisi.store.js` → `AnalisiView.vue`
+
+---
+
+## Importazioni
+
+### POST /api/importazioni/upload
+- **Auth**: Sì
+- **Rate limit**: importUploadLimiter
+- **Body**: multipart/form-data, campo `file` (max 5MB, .csv/.xls/.xlsx/.pdf)
+- **Validazione**: magic-byte check post-upload
+- **Risposta**: Preview con transazioni categorizzate
+- **File**: `importazioni.controller.js`
+- **Frontend**: `ImportaView.vue`
+
+### POST /api/importazioni/conferma
+- **Auth**: Sì
+- **Rate limit**: importConfirmLimiter
+- **Body**: `{ conto_id, transactions[] }`
+- **Validazione**: `validateImportConferma`
+- **Azione**: Crea movimenti in bulk, aggiorna saldo conto
+- **File**: `importazioni.controller.js` → `import/ImportService.js`
+- **Frontend**: `ImportaView.vue`
+
+---
+
+## Impostazioni
+
+### PUT /api/impostazioni/profilo
+- **Body**: `{ nome?, email?, avatar? }`
+- **Validazione**: `validateUpdateProfilo`
+- **Frontend**: `ImpostazioniView.vue`
+
+### PUT /api/impostazioni/password
+- **Body**: `{ password_attuale, nuova_password }`
+- **Validazione**: `validatePassword`
+- **Azione**: Invalida JWT precedenti via `password_changed_at`
+- **Frontend**: `ImpostazioniView.vue`
+
+### PUT /api/impostazioni/preferenze
+- **Body**: `{ tema?, valuta?, mostra_scommesse?, mostra_investimenti?, reminder? }`
+- **Validazione**: `validateUpdatePreferenze`
+- **Frontend**: `ImpostazioniView.vue`
+
+### GET /api/impostazioni/esporta
+### POST /api/impostazioni/esporta
+- **Auth**: Sì + **requireStepUpUnlessOAuth** + exportLimiter
+- **Header**: `X-Step-Up-Token` — richiesto **solo** per gli utenti con password locale. Gli account Google esportano con il solo JWT (iterazione 4, vedi `docs/SECURITY.md`).
+- **Risposta**: JSON completo dati utente (GDPR export)
+- **Frontend**: `ImpostazioniView.vue`
+
+### POST /api/impostazioni/reset-account
+- **Auth**: Sì + **requireStepUpUnlessOAuth** (step-up via `verify-password` per gli utenti con password locale; **saltato** per gli account Google — vedi `docs/SECURITY.md`)
+- **Header**: `X-Step-Up-Token` — solo utenti locali
+- **Body**: `{ password }` (locali) o `{ conferma: "RESETTA" }` (OAuth) — il campo si chiama `conferma`, non `frase`. Per gli account Google la conferma testuale è l'unica barriera oltre al JWT.
+- **Validazione**: `validateResetAccount`
+- **Azione**: **Unico endpoint standalone di reset.** Implementato da `deleteAllTransactions`: elimina movimenti/operazioni e azzera i saldi dei conti, mantenendo conti, profilo e account. Non esiste un endpoint separato "reset transazioni" — è la stessa operazione.
+- **Frontend**: `ImpostazioniView.vue`
+
+### DELETE /api/impostazioni/account
+- **Auth**: Sì + **requireStepUpUnlessOAuth** + deleteAccountLimiter (step-up **saltato** per gli account Google)
+- **Body**: `{ password }` (locali) o `{ conferma: "ELIMINA" }` (OAuth) — il campo si chiama `conferma`, non `frase`
+- **Validazione**: `validateDeleteAccount`
+- **Azione**: Cancellazione completa account + dati. Internamente usa `deleteAllUserData` (cancellazione dati finanziari più ampia: scommesse, investimenti, budget, obiettivi) come step prima di eliminare `ProfiloUtente` e `User`. `deleteAllUserData` non è esposta come endpoint standalone.
+- **Frontend**: `ImpostazioniView.vue`
+
+---
+
+## Endpoint non utilizzati dal frontend
+
+| Endpoint | Note |
+|---|---|
+| `GET /api/profilo/budget-suggerito` | Store method esiste, nessuna view lo chiama |
+| `GET /api/movimenti/ricorrenti` | Store method esiste, nessuna view lo chiama |
+
+## Incoerenze e problemi API
+
+| Problema | Gravità | Dettaglio |
+|---|---|---|
+| `reset-account`/`delete-account`/`esporta` senza riverifica identità per gli account Google | High (rischio accettato) | Step-up bcrypt reale per gli utenti locali; per gli account Google `requireStepUpUnlessOAuth` lo salta e resta solo la stringa pubblica `RESETTA`/`ELIMINA` (nessuna conferma sull'export). Scelta esplicita, iterazione 4 — vedi `docs/SECURITY.md` e `docs/DECISIONS.md` |
+| ~~`verify-password`/`google/challenge`/`verify-google` senza rate limit dedicato~~ | — | **Risolto**: `stepUpLimiter` (20/15min per utente) |
+| Password change policy inconsistente | Low | Register richiede carattere speciale, change password no |
+| `GET /obiettivi/:id/proiezione` senza validateIdParam | Low | ID non validato come intero |
+| GET endpoints senza query validation | Low | `movimenti`, `analisi`, `bilancio` — parsing difensivo nei controller |
+| Nessuna OpenAPI/Swagger spec | Info | Documentazione solo in codice e questi docs |

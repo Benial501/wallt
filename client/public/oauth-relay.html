@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <title>WALLT</title>
+  <style>html,body{margin:0;padding:0;background:#0f1419;overflow:hidden}</style>
+</head>
+<body>
+<script>
+(function () {
+  var STORAGE_KEY = 'wallt_oauth_result';
+  var match = location.hash.match(/^#wallt=(.+)$/);
+
+  if (!match) {
+    window.close();
+    return;
+  }
+
+  var payload;
+  try {
+    var decoded = decodeURIComponent(match[1]);
+    payload = JSON.parse(atob(decoded));
+  } catch (e) {
+    window.close();
+    return;
+  }
+
+  var record = {
+    type: payload.type,
+    token: payload.token,
+    onboarding: payload.onboarding,
+    user: payload.user,
+    error: payload.error,
+    at: Date.now(),
+  };
+
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(record));
+  } catch (e) {
+    // ignore
+  }
+
+  var notifyOpener = function () {
+    if (!window.opener || window.opener.closed) return;
+    try {
+      window.opener.postMessage(payload, window.location.origin);
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  notifyOpener();
+  setTimeout(notifyOpener, 50);
+  setTimeout(notifyOpener, 150);
+
+  setTimeout(function () {
+    window.close();
+  }, 300);
+})();
+</script>
+</body>
+</html>

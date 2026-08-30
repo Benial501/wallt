@@ -1,0 +1,64 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# WALLT - .gitignore
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Dipendenze Node
+node_modules/
+**/node_modules/
+
+# File environment (CONTENGONO PASSWORD!)
+.env*
+**/.env*
+!.env.example
+!**/.env.example
+!**/.env.test.example
+
+# Build frontend
+client/dist/
+client/.vite/
+client/build/
+
+# Dati runtime locali
+uploads/
+server/uploads/
+*.db
+*.sqlite
+*.sqlite3
+*.sql
+*.dump
+
+# Log files
+*.log
+server/logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Mac OS
+.DS_Store
+**/.DS_Store
+.Spotlight-V100
+.Trashes
+._*
+
+# Editor e IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# Cache
+.npm/
+.eslintcache
+.stylelintcache
+
+# Coverage test
+coverage/
+*.lcov
+
+# Temp files
+tmp/
+temp/

@@ -1,0 +1,44 @@
+/* Global light-mode polish for shared UI patterns */
+
+html.light input,
+html.light select,
+html.light textarea {
+  color-scheme: light;
+}
+
+html.light select option {
+  background: #FFFFFF;
+  color: #0F172A;
+}
+
+html.light ::-webkit-calendar-picker-indicator {
+  filter: none;
+  opacity: 0.65;
+}
+
+html.dark ::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.7;
+}
+
+html.light .logo-ll {
+  color: var(--accent-green);
+}
+
+/* Lucide icons inherit readable colors in light mode */
+html.light .app-icon,
+html.light .category-icon {
+  color: var(--text-secondary);
+}
+
+html.light .bottom-nav__item.active .bottom-nav__icon-svg {
+  filter: none;
+}
+
+html.light .funz-grid__item--active .funz-grid__icon {
+  filter: none;
+}
+
+html.light .sidebar__link.active .sidebar__icon {
+  color: var(--accent-green);
+}
