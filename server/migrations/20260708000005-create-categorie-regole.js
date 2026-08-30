@@ -73,7 +73,7 @@ module.exports = {
     for (const rule of seedRules) {
       // eslint-disable-next-line no-await-in-loop
       const existing = await queryInterface.sequelize.query(
-        'SELECT id FROM categorie_regole WHERE user_id IS NULL AND pattern = :pattern AND categoria = :categoria AND attiva = 1 LIMIT 1',
+        'SELECT id FROM categorie_regole WHERE user_id IS NULL AND pattern = :pattern AND categoria = :categoria AND attiva = true LIMIT 1',
         {
           replacements: { pattern: rule.pattern, categoria: rule.categoria },
           type: Sequelize.QueryTypes.SELECT,
@@ -102,4 +102,3 @@ module.exports = {
     }
   },
 };
-
