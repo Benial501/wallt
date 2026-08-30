@@ -19,7 +19,7 @@ const successMessage = ref('');
 
 const errorMessages = {
   google: 'Accesso con Google non riuscito. Riprova.',
-  google_not_configured: 'Login Google non ancora configurato sul server. Aggiungi GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET in server/.env',
+  google_not_configured: 'Login Google non ancora configurato. Riprova più tardi.',
   google_account_exists_local: 'Esiste già un account con questa email registrato con password. Accedi con la password, oppure usa "Password dimenticata" per reimpostarla.',
   popup_blocked: 'Il browser ha bloccato il popup. Consenti i popup per questo sito e riprova.',
 };

@@ -2,8 +2,8 @@ import { onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import { isOnboardingComplete } from '@/utils/onboarding';
+import { API_BASE_URL } from '@/config/api';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 const FRONTEND_ORIGIN = window.location.origin;
 const OAUTH_STORAGE_KEY = 'wallt_oauth_result';
 
@@ -195,7 +195,7 @@ export function useOAuthPopup() {
     }
 
     popup = window.open(
-      `${API_BASE}/auth/${provider}?${params.toString()}`,
+      `${API_BASE_URL}/auth/${provider}?${params.toString()}`,
       'wallt-oauth',
       features,
     );

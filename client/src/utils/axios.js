@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { getActivePinia } from 'pinia';
 import { performLogout } from '@/utils/session';
+import { API_BASE_URL } from '@/config/api';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
+  baseURL: API_BASE_URL,
   timeout: 12000,
   headers: {
     'Content-Type': 'application/json',

@@ -85,8 +85,14 @@ jobs:
         working-directory: client
         run: npm ci
 
+      - name: Run frontend config tests
+        working-directory: client
+        run: npm test
+
       - name: Build
         working-directory: client
+        env:
+          VITE_API_URL: https://wallt-api.example.test/api
         run: npm run build
 
       - name: npm audit (informativo, non blocca la CI)
