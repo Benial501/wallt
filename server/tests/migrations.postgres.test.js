@@ -51,4 +51,23 @@ describe('migrazioni compatibili con PostgreSQL e Supabase', () => {
     expect(sql).toContain("'movimenti'");
     expect(sql).toContain("'password_reset_tokens'");
   });
+
+  const integrationTest = process.env.TEST_DATABASE_URL ? it : it.skip;
+  integrationTest('crea lo schema completo su PostgreSQL', async () => {
+    const { sequelize } = require('../models');
+    const queryInterface = sequelize.getQueryInterface();
+    const tables = await queryInterface.showAllTables();
+    const userColumns = await queryInterface.describeTable('users');
+
+    expect(tables).toEqual(expect.arrayContaining([
+      'users',
+      'profili_utente',
+      'conti',
+      'movimenti',
+      'password_reset_tokens',
+    ]));
+    expect(userColumns.password.allowNull).toBe(true);
+    expect(userColumns.auth_provider).toBeDefined();
+    expect(userColumns.google_id).toBeDefined();
+  });
 });

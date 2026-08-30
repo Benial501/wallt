@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 # Nessun secret è necessario: le credenziali qui sotto valgono solo per il
-# database MySQL effimero del job, mai per un ambiente reale.
+# database PostgreSQL effimero del job, mai per un ambiente reale.
 env:
   NODE_VERSION: '22'
 
@@ -17,15 +17,16 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      mysql:
-        image: mysql:8
+      postgres:
+        image: postgres:17
         env:
-          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
-          MYSQL_DATABASE: wallt_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: wallt_test
         ports:
-          - 3306:3306
+          - 5432:5432
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-cmd="pg_isready -U postgres -d wallt_test"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
@@ -34,10 +35,11 @@ jobs:
       NODE_ENV: test
       JWT_SECRET: ci_jwt_secret_non_reale_lungo_abbastanza_12345
       DB_HOST: 127.0.0.1
-      DB_PORT: 3306
-      DB_USER: root
-      DB_PASSWORD: ''
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
       DB_NAME_TEST: wallt_test
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/wallt_test
       CORS_ORIGINS: http://localhost:5173
       PASSWORD_RESET_URL: http://localhost:5173/reset-password
       RESEND_API_KEY: ci_resend_key_non_reale
@@ -57,13 +59,6 @@ jobs:
       - name: Install dependencies
         working-directory: server
         run: npm ci
-
-      - name: Wait for MySQL
-        run: |
-          for i in $(seq 1 30); do
-            mysqladmin ping -h 127.0.0.1 -u root --silent && break
-            sleep 2
-          done
 
       - name: Run backend test suite
         working-directory: server

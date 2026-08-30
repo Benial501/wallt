@@ -1,7 +1,7 @@
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
-const mysql = require('mysql2/promise');
+const { execFileSync } = require('child_process');
+const { Client } = require('pg');
 
 // Env test già configurato da tests/env.js (setupFiles Jest)
 const envTestPath = path.resolve(__dirname, '../.env.test');
@@ -13,6 +13,13 @@ require('dotenv').config();
 process.env.NODE_ENV = 'test';
 process.env.DB_NAME_TEST = process.env.DB_NAME_TEST || 'wallt_test';
 process.env.DB_NAME = process.env.DB_NAME_TEST;
+if (!process.env.TEST_DATABASE_URL) {
+  const user = encodeURIComponent(process.env.DB_USER || 'postgres');
+  const password = encodeURIComponent(process.env.DB_PASSWORD || '');
+  const host = process.env.DB_HOST || '127.0.0.1';
+  const port = Number(process.env.DB_PORT) || 5432;
+  process.env.TEST_DATABASE_URL = `postgresql://${user}:${password}@${host}:${port}/${process.env.DB_NAME_TEST}`;
+}
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test_jwt_secret_lungo_abbastanza_per_i_test_12345';
 process.env.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'test-google-client-id';
 process.env.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || 'test-google-client-secret';
@@ -28,6 +35,18 @@ const {
 } = require('../models');
 
 const TEST_DATABASE = process.env.DB_NAME_TEST || 'wallt_test';
+
+if (!/^[a-zA-Z0-9_]+$/.test(TEST_DATABASE)) {
+  throw new Error(`DB_NAME_TEST non valido: "${TEST_DATABASE}"`);
+}
+
+const configuredDatabase = decodeURIComponent(new URL(process.env.TEST_DATABASE_URL).pathname.slice(1));
+if (configuredDatabase !== TEST_DATABASE) {
+  throw new Error(
+    `Sicurezza test: TEST_DATABASE_URL punta a "${configuredDatabase}", `
+    + `ma DB_NAME_TEST è "${TEST_DATABASE}".`,
+  );
+}
 
 const TABLES = [
   'password_reset_tokens',
@@ -50,22 +69,28 @@ const TABLES = [
 let migrationsApplied = false;
 
 const ensureTestDatabase = async () => {
-  const connection = await mysql.createConnection({
-    host: process.env.DB_HOST || '127.0.0.1',
-    port: Number(process.env.DB_PORT) || 3306,
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-  });
+  const adminUrl = new URL(process.env.TEST_DATABASE_URL);
+  adminUrl.pathname = '/postgres';
+  const connection = new Client({ connectionString: adminUrl.toString() });
 
-  await connection.query(
-    `CREATE DATABASE IF NOT EXISTS \`${TEST_DATABASE}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
-  );
-  await connection.end();
+  await connection.connect();
+  try {
+    const existing = await connection.query(
+      'SELECT 1 FROM pg_database WHERE datname = $1',
+      [TEST_DATABASE],
+    );
+    if (existing.rowCount === 0) {
+      await connection.query(`CREATE DATABASE "${TEST_DATABASE}"`);
+    }
+  } finally {
+    await connection.end();
+  }
 };
 
 const runMigrations = () => {
   if (migrationsApplied) return;
-  execSync('npx sequelize-cli db:migrate', {
+  const cli = path.resolve(__dirname, '../node_modules/sequelize-cli/lib/sequelize');
+  execFileSync(process.execPath, [cli, 'db:migrate'], {
     cwd: path.resolve(__dirname, '..'),
     env: {
       ...process.env,
@@ -90,15 +115,8 @@ const assertTestDatabase = () => {
 
 const cleanDatabase = async () => {
   assertTestDatabase();
-  await sequelize.query('SET FOREIGN_KEY_CHECKS = 0');
-  for (const table of TABLES) {
-    try {
-      await sequelize.query(`TRUNCATE TABLE \`${table}\``);
-    } catch {
-      // tabella assente in DB di test non migrato
-    }
-  }
-  await sequelize.query('SET FOREIGN_KEY_CHECKS = 1');
+  const tables = TABLES.map((table) => `"${table}"`).join(', ');
+  await sequelize.query(`TRUNCATE TABLE ${tables} RESTART IDENTITY CASCADE`);
 };
 
 const uniqueEmail = (prefix = 'user') => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@test.local`;
