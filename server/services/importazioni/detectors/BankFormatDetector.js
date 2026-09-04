@@ -1,4 +1,19 @@
-const pdfParse = require('pdf-parse');
+// pdf-parse tira dentro pdfjs-dist, che all'import pretende globali del
+// browser (DOMMatrix, Path2D, ImageData) forniti dal binding nativo di
+// @napi-rs/canvas. Sul runtime serverless di Vercel quel binding non li
+// espone e l'import fa fallire l'intera funzione con "DOMMatrix is not
+// defined" — anche per richieste che non toccano i PDF, come /api/health.
+//
+// Caricandolo alla prima chiamata reale, il costo e il rischio restano
+// confinati all'unico caso d'uso che ne ha bisogno: il parsing di un PDF.
+let pdfParseModule = null;
+const pdfParse = (...args) => {
+  if (!pdfParseModule) {
+    // eslint-disable-next-line global-require
+    pdfParseModule = require('pdf-parse');
+  }
+  return pdfParseModule(...args);
+};
 const { looksLikeRevolutCsv } = require('../utils/csvStatement');
 
 /**
