@@ -3,32 +3,28 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    try {
+    const columns = await queryInterface.describeTable('users');
+
+    if (!columns.auth_provider) {
       await queryInterface.addColumn('users', 'auth_provider', {
-        type: Sequelize.ENUM('local', 'google'),
+        type: Sequelize.STRING(20),
         defaultValue: 'local',
       });
-    } catch (e) {
-      console.log('Colonna auth_provider già esistente, skip');
     }
 
-    try {
+    if (!columns.google_id) {
       await queryInterface.addColumn('users', 'google_id', {
         type: Sequelize.STRING(255),
         allowNull: true,
         unique: true,
       });
-    } catch (e) {
-      console.log('Colonna google_id già esistente, skip');
     }
 
-    try {
+    if (columns.password && columns.password.allowNull === false) {
       await queryInterface.changeColumn('users', 'password', {
         type: Sequelize.STRING(255),
         allowNull: true,
       });
-    } catch (e) {
-      console.log('Modifica password nullable già applicata, skip');
     }
 
     await queryInterface.sequelize.query(`
@@ -38,27 +34,8 @@ module.exports = {
     `);
   },
 
-  async down(queryInterface, Sequelize) {
-    // Le password Google rimosse non possono essere ripristinate
-    try {
-      await queryInterface.removeColumn('users', 'google_id');
-    } catch (e) {
-      // ignore
-    }
-
-    try {
-      await queryInterface.removeColumn('users', 'auth_provider');
-    } catch (e) {
-      // ignore
-    }
-
-    try {
-      await queryInterface.changeColumn('users', 'password', {
-        type: Sequelize.STRING(255),
-        allowNull: false,
-      });
-    } catch (e) {
-      // ignore
-    }
+  async down() {
+    // Migrazione duplicata storica: lo schema appartiene alla precedente
+    // 20250101000004-add-social-auth e viene rimosso dal suo rollback.
   },
 };

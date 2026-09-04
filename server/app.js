@@ -13,6 +13,7 @@ const analisiRoutes = require('./routes/analisi.routes');
 const impostazioniRoutes = require('./routes/impostazioni.routes');
 const investimentiRoutes = require('./routes/investimenti.routes');
 const importazioniRoutes = require('./routes/importazioni.routes');
+const cronRoutes = require('./routes/cron.routes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler.middleware');
 const {
   apiLimiter,
@@ -73,6 +74,10 @@ const createApp = (options = {}) => {
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', message: 'WALLT API attiva' });
   });
+
+  // Vercel Cron non usa il JWT utente: la rotta ha un Bearer secret dedicato
+  // e resta fuori dal rate limiter in-memory delle normali richieste API.
+  app.use('/api/cron', cronRoutes);
 
   // Il browser spesso chiede favicon/robots sulla porta API: non sono crash.
   app.get(['/favicon.ico', '/robots.txt'], (_req, res) => {

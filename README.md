@@ -2,8 +2,8 @@
 
 ![Status](https://img.shields.io/badge/Status-Beta-yellow)
 ![Vue.js](https://img.shields.io/badge/Vue.js-3-4FC08D?logo=vue.js)
-![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js)
-![MySQL](https://img.shields.io/badge/MySQL-8-4479A1?logo=mysql)
+![Node.js](https://img.shields.io/badge/Node.js-22+-339933?logo=node.js)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-4169E1?logo=postgresql)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 ![Language](https://img.shields.io/badge/Lingua-Italiano-green)
 
@@ -95,7 +95,7 @@ Suggerimenti automatici dai tuoi dati.
 | Node.js           | Runtime             |
 | Express.js        | Web framework       |
 | Sequelize         | ORM                 |
-| MySQL             | Database            |
+| PostgreSQL        | Database (Supabase) |
 | JWT               | Autenticazione      |
 | bcrypt            | Hash password       |
 | express-validator | Validazione input   |
@@ -128,8 +128,8 @@ wallt/
 ## ⚙️ Installazione
 
 ### Prerequisiti
-- Node.js 18+
-- MySQL 8+
+- Node.js 22+
+- PostgreSQL 15+ oppure un progetto Supabase
 - npm
 
 ### Setup
@@ -142,7 +142,7 @@ cd wallt
 # Backend
 cd server
 cp .env.example .env
-# Modifica .env con le tue credenziali MySQL
+# Modifica .env con le credenziali PostgreSQL locali
 npm install
 npm start
 
@@ -153,6 +153,8 @@ npm run dev
 ```
 
 L'app sarà disponibile su `http://localhost:5173` e l'API su `http://localhost:3000`.
+
+Per pubblicare il progetto con Vercel e Supabase, segui [la guida passo passo](docs/DEPLOY_VERCEL_SUPABASE.md).
 
 ## 📄 Licenza
 

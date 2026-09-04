@@ -10,18 +10,20 @@ const {
   validateUpdateInvestimento,
   validateDeleteInvestimento,
   validateMovimentoInvestimento,
+  validateAnalisiInvestimentiQuery,
+  validateMovimentiInvestimentoQuery,
 } = require('../middleware/validation.middleware');
 
 const router = express.Router();
 
 router.use(authMiddleware, blockInvestimentiAccess);
 
-router.get('/analisi', getAnalisiInvestimenti);
+router.get('/analisi', validateAnalisiInvestimentiQuery, getAnalisiInvestimenti);
 router.get('/', getInvestimenti);
 router.post('/', validateInvestimento, createInvestimento);
 router.put('/:id', validateUpdateInvestimento, updateInvestimento);
 router.delete('/:id', validateDeleteInvestimento, deleteInvestimento);
 router.post('/:id/movimenti', validateMovimentoInvestimento, addMovimentoInvestimento);
-router.get('/:id/movimenti', getMovimentiInvestimento);
+router.get('/:id/movimenti', validateMovimentiInvestimentoQuery, getMovimentiInvestimento);
 
 module.exports = router;

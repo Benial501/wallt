@@ -1,4 +1,9 @@
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
+const {
+  consumeAuthRateLimit,
+  decrementAuthRateLimit,
+  resetAuthRateLimit,
+} = require('../services/authRateLimit.service');
 
 const RATE_LIMIT_MESSAGE = {
   error: 'Troppi tentativi. Riprova più tardi.',
@@ -11,13 +16,51 @@ const RATE_LIMIT_MESSAGE = {
 // bypassare il rate limit ruotando indirizzi IPv6 dello stesso /64).
 const userOrIpKey = (req) => (req.userId ? String(req.userId) : ipKeyGenerator(req.ip));
 
-const createLimiter = ({ windowMs, max, message, keyGenerator }) => rateLimit({
+const createLimiter = ({ windowMs, max, message, keyGenerator, store }) => rateLimit({
   windowMs,
   max,
   standardHeaders: true,
   legacyHeaders: false,
   message: message || RATE_LIMIT_MESSAGE,
   keyGenerator: keyGenerator || userOrIpKey,
+  ...(store && { store }),
+});
+
+class PostgresRateLimitStore {
+  constructor({ route, windowMs }) {
+    this.route = route;
+    this.windowMs = windowMs;
+    this.localKeys = false;
+    this.prefix = `postgres:${route}:`;
+  }
+
+  init(options) {
+    this.windowMs = options.windowMs;
+  }
+
+  increment(key) {
+    return consumeAuthRateLimit({ key, route: this.route, windowMs: this.windowMs });
+  }
+
+  decrement(key) {
+    return decrementAuthRateLimit({ key, route: this.route, windowMs: this.windowMs });
+  }
+
+  resetKey(key) {
+    return resetAuthRateLimit({ key, route: this.route });
+  }
+}
+
+const createPersistentAuthLimiter = ({
+  route = 'public-auth',
+  windowMs = 15 * 60 * 1000,
+  max = 10,
+  message,
+} = {}) => createLimiter({
+  windowMs,
+  max,
+  message,
+  store: new PostgresRateLimitStore({ route, windowMs }),
 });
 
 /** Limite generoso: la SPA fa molte chiamate per pagina (home ~10+). */
@@ -27,7 +70,8 @@ const apiLimiter = createLimiter({
 });
 
 /** 10 richieste / 15 min per IP — login, register, forgot-password */
-const authLimiter = createLimiter({
+const authLimiter = createPersistentAuthLimiter({
+  route: 'public-auth',
   windowMs: 15 * 60 * 1000,
   max: 10,
 });
@@ -77,4 +121,6 @@ module.exports = {
   importLimiter,
   importUploadLimiter,
   importConfirmLimiter,
+  createPersistentAuthLimiter,
+  PostgresRateLimitStore,
 };

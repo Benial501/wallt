@@ -1,4 +1,6 @@
-const { body, param, validationResult } = require('express-validator');
+const {
+  body, param, query, validationResult,
+} = require('express-validator');
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
@@ -19,6 +21,54 @@ const idParam = param('id')
   .withMessage('ID non valido');
 
 const validateIdParam = [idParam, validate];
+
+// --- Filtri di query ---
+//
+// I controller passano questi valori direttamente dentro la `where` Sequelize.
+// Con MySQL una stringa non numerica finiva in una conversione implicita
+// silenziosa (0, nessuna riga); PostgreSQL invece rifiuta il cast e la
+// richiesta diventa un 500. Validarli qui li rende un 400 esplicito, con lo
+// stesso formato di errore del resto delle API.
+//
+// `values: 'falsy'` allinea il validator al controller, che ignora comunque
+// i filtri vuoti (`if (conto_id) ...`).
+const optionalIdQuery = (name, message) => query(name)
+  .optional({ values: 'falsy' })
+  .isInt({ min: 1 })
+  .withMessage(message);
+
+const optionalDataQuery = (name) => query(name)
+  .optional({ values: 'falsy' })
+  .isISO8601({ strict: false })
+  .withMessage('Data non valida');
+
+const intervalloDate = [optionalDataQuery('da'), optionalDataQuery('a')];
+
+const validateMovimentiQuery = [
+  optionalIdQuery('conto_id', 'Conto non valido'),
+  ...intervalloDate,
+  validate,
+];
+
+const validateAnalisiQuery = [...intervalloDate, validate];
+
+const validateMovimentiInvestimentoQuery = [
+  idParam,
+  ...intervalloDate,
+  validate,
+];
+
+const validateAnalisiInvestimentiQuery = [
+  optionalIdQuery('investimento_id', 'Investimento non valido'),
+  ...intervalloDate,
+  validate,
+];
+
+const validateMovimentiScommesseQuery = [
+  optionalIdQuery('piattaforma_id', 'Piattaforma non valida'),
+  ...intervalloDate,
+  validate,
+];
 
 // --- Auth ---
 
@@ -871,6 +921,11 @@ module.exports = {
   validate,
   handleValidation: validate,
   validateIdParam,
+  validateMovimentiQuery,
+  validateAnalisiQuery,
+  validateMovimentiInvestimentoQuery,
+  validateAnalisiInvestimentiQuery,
+  validateMovimentiScommesseQuery,
   validateRegister,
   validateLogin,
   validateForgotPassword,

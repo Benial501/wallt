@@ -51,6 +51,14 @@ const Movimento = sequelize.define('Movimento', {
     type: DataTypes.INTEGER,
     allowNull: true,
   },
+  ricorrenza_origine_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  ricorrenza_periodo: {
+    type: DataTypes.STRING(7),
+    allowNull: true,
+  },
   categoria_automatica: {
     type: DataTypes.BOOLEAN,
     allowNull: false,

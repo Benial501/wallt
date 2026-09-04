@@ -5,6 +5,7 @@ const {
 } = require('../controllers/obiettivi.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 const {
+  validateIdParam,
   validateObiettivo,
   validateUpdateObiettivo,
   validateDeleteObiettivo,
@@ -15,7 +16,7 @@ const router = express.Router();
 
 router.get('/', authMiddleware, getObiettivi);
 router.post('/', authMiddleware, validateObiettivo, createObiettivo);
-router.get('/:id/proiezione', authMiddleware, getProiezione);
+router.get('/:id/proiezione', authMiddleware, validateIdParam, getProiezione);
 router.post('/:id/contributi', authMiddleware, validateContributo, addContributo);
 router.put('/:id', authMiddleware, validateUpdateObiettivo, updateObiettivo);
 router.delete('/:id', authMiddleware, validateDeleteObiettivo, deleteObiettivo);

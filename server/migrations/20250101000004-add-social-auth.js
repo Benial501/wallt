@@ -3,41 +3,40 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    try {
+    const columns = await queryInterface.describeTable('users');
+
+    if (!columns.auth_provider) {
       await queryInterface.addColumn('users', 'auth_provider', {
-        type: Sequelize.ENUM('local', 'google'),
+        type: Sequelize.STRING(20),
         defaultValue: 'local',
       });
-    } catch (e) {
-      console.log('Colonna auth_provider già esistente, skip');
     }
 
-    try {
+    if (!columns.google_id) {
       await queryInterface.addColumn('users', 'google_id', {
         type: Sequelize.STRING(255),
         allowNull: true,
         unique: true,
       });
-    } catch (e) {
-      console.log('Colonna google_id già esistente, skip');
     }
 
-    try {
+    if (columns.password && columns.password.allowNull === false) {
       await queryInterface.changeColumn('users', 'password', {
         type: Sequelize.STRING(255),
         allowNull: true,
       });
-    } catch (e) {
-      console.log('Modifica password nullable già applicata, skip');
     }
   },
 
   async down(queryInterface, Sequelize) {
-    await queryInterface.removeColumn('users', 'google_id');
-    await queryInterface.removeColumn('users', 'auth_provider');
-    await queryInterface.changeColumn('users', 'password', {
-      type: Sequelize.STRING(255),
-      allowNull: false,
-    });
+    const columns = await queryInterface.describeTable('users');
+    if (columns.google_id) await queryInterface.removeColumn('users', 'google_id');
+    if (columns.auth_provider) await queryInterface.removeColumn('users', 'auth_provider');
+    if (columns.password && columns.password.allowNull === true) {
+      await queryInterface.changeColumn('users', 'password', {
+        type: Sequelize.STRING(255),
+        allowNull: false,
+      });
+    }
   },
 };

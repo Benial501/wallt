@@ -15,6 +15,13 @@ require('dotenv').config();
 process.env.NODE_ENV = 'test';
 process.env.DB_NAME_TEST = process.env.DB_NAME_TEST || 'wallt_test';
 process.env.DB_NAME = process.env.DB_NAME_TEST;
+if (!process.env.TEST_DATABASE_URL) {
+  const user = encodeURIComponent(process.env.DB_USER || 'postgres');
+  const password = encodeURIComponent(process.env.DB_PASSWORD || '');
+  const host = process.env.DB_HOST || '127.0.0.1';
+  const port = Number(process.env.DB_PORT) || 5432;
+  process.env.TEST_DATABASE_URL = `postgresql://${user}:${password}@${host}:${port}/${process.env.DB_NAME_TEST}`;
+}
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test_jwt_secret_lungo_abbastanza_per_i_test_12345';
 process.env.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'test-google-client-id';
 process.env.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || 'test-google-client-secret';
