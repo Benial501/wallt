@@ -9,7 +9,7 @@
 | Limiter | Scope | Limite |
 |---|---|---|
 | `apiLimiter` | Tutte `/api/*` | 1200 req / 15 min per user/IP (IPv6-safe) |
-| `authLimiter` | login, register, forgot/reset password | 10 / 15 min per IP (IPv6-safe) |
+| `authLimiter` | login, register, forgot/reset password | 10 / 15 min per IP (IPv6-safe, persistente PostgreSQL tra istanze Vercel) |
 | `stepUpLimiter` | verify-password, google/challenge, verify-google | 20 / 15 min per user |
 | `exportLimiter` | export dati | 3 / ora per user |
 | `deleteAccountLimiter` | delete account | 3 / ora per user |
@@ -24,6 +24,17 @@
 - **Auth**: No
 - **Risposta**: `{ status: "ok", message: "WALLT API attiva" }`
 - **File**: `server/app.js`
+
+---
+
+## Vercel Cron
+
+### GET /api/cron/ricorrenti
+- **Auth**: Bearer `CRON_SECRET` dedicato; non usa il JWT utente
+- **Azione**: processa le ricorrenze mensili dovute secondo `Europe/Rome`
+- **Idempotenza**: vincolo PostgreSQL su ricorrenza e periodo `YYYY-MM`
+- **Risposta**: `{ processed, skipped, failed }`
+- **File**: `cron.routes.js` → `cron.controller.js` → `ricorrenti.service.js`
 
 ---
 

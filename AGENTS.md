@@ -7,7 +7,7 @@
 
 **WALLT** è un'applicazione web di gestione finanziaria personale in italiano. Permette di tracciare conti, movimenti, budget, obiettivi, investimenti e scommesse senza collegamento bancario automatico. L'utente inserisce o importa manualmente le transazioni.
 
-Architettura: **SPA Vue 3** (`client/`) + **API REST Node.js/Express** (`server/`) + **MySQL** via Sequelize.
+Architettura: **SPA Vue 3** (`client/`) + **API REST Node.js/Express** (`server/`) su Vercel + **PostgreSQL Supabase** via Sequelize.
 
 ## Tech Stack
 
@@ -30,7 +30,7 @@ Architettura: **SPA Vue 3** (`client/`) + **API REST Node.js/Express** (`server/
 | Node.js | 22+ / 24+ | Runtime |
 | Express | 5.2 | Web framework |
 | Sequelize | 6.37 | ORM |
-| mysql2 | 3.22 | Driver MySQL |
+| pg + pg-hstore | 8.x / 2.x | Driver PostgreSQL |
 | JWT (jsonwebtoken) | 9.0 | Autenticazione |
 | bcrypt | 6.0 | Hash password |
 | Passport + passport-google-oauth20 | 0.7 / 2.0 | Google OAuth |
@@ -45,8 +45,9 @@ Architettura: **SPA Vue 3** (`client/`) + **API REST Node.js/Express** (`server/
 | csv-parse, xlsx, pdf-parse | — | Parsing estratti conto |
 
 ### Database
-- **MySQL 8** con Sequelize ORM
-- Migrazioni via `sequelize-cli` (16 file in `server/migrations/`)
+- **PostgreSQL Supabase** con Sequelize ORM
+- Runtime Vercel sul Transaction Pooler; migrazioni sul Session Pooler
+- Migrazioni via `sequelize-cli` (19 file in `server/migrations/`)
 - Auto-migrate all'avvio in `server.js`
 
 ### Authentication
@@ -94,8 +95,8 @@ wallt/
 │   ├── constants/          # categorie.js (whitelist categorie)
 │   ├── controllers/        # 13 controller
 │   ├── middleware/         # auth, validation, rateLimit, stepUp, featureAccess, errorHandler
-│   ├── models/             # 15 modelli Sequelize + index.js (associazioni)
-│   ├── migrations/         # 16 migrazioni
+│   ├── models/             # 16 modelli Sequelize + index.js (associazioni)
+│   ├── migrations/         # 19 migrazioni
 │   ├── routes/             # 12 route modules
 │   ├── services/           # Business logic (import, merchant, email, reset, sync, cron)
 │   ├── tests/              # Jest (auth, security, gdpr, profilo, import, categorization, isolation, googleStepUp, financialConsistency, ricorrenti, excelParser, validateEnv)
@@ -116,13 +117,13 @@ Express API (/api/*)
     ├── featureAccess (scommesse/investimenti)
     ├── validation (express-validator)
     ├── rateLimit
-    └── Controllers → Services → Sequelize → MySQL
+    └── Controllers → Services → Sequelize → PostgreSQL/Supabase
 ```
 
 - **Monorepo** con frontend e backend separati ma nello stesso repository.
 - **Nessun SSR**: il frontend è una SPA statica servita da Vite.
 - **Nessun WebSocket**: comunicazione solo REST.
-- **Cron interno**: `node-cron` nel processo Node (non worker separato).
+- **Cron**: Vercel Cron autenticato in produzione; `node-cron` resta per il server locale.
 - **Import pipeline duale**: `services/import/` (core) + `services/importazioni/` (nuova pipeline con detector/parser bancari).
 
 ## Important Business Rules
@@ -207,10 +208,10 @@ Comunicazione: Axios con `baseURL = VITE_API_URL` (default `http://localhost:300
 4. **Codice morto**: `minorRestriction.middleware.js`, componenti dashboard non usati, `PlaceholderView.vue`.
 5. ~~**`.env.test` non in `.gitignore`**~~ — **Risolto**: aggiunto a `.gitignore` e rimosso dal tracking git. Era stato committato in 2 commit con una password DB reale (locale/dev): quella password va considerata compromessa e ruotata prima del lancio (MANUAL ACTION, vedi `docs/SECURITY.md`).
 6. ~~**`reset-account` senza step-up**~~ — **Risolto**: `reset-account` richiede ora `requireStepUp`, con step-up reale sia per utenti locali (bcrypt) sia Google OAuth (verifica crittografica dell'ID token via Google Identity Services + `google-auth-library`, vedi Authentication e `docs/DECISIONS.md` per la storia completa di questa decisione).
-7. **Test coverage**: 12 suite (auth, security, gdpr, profilo, import, categorization, isolation, googleStepUp, financialConsistency, ricorrenti, excelParser, validateEnv) — 121 test. Isolamento cross-user, coerenza saldi/movimenti/trasferimenti (incluse race condition), step-up Google, cron ricorrenti e config produzione coperti. Non coperti: budget/obiettivi/investimenti/scommesse a livello di logica di business (solo isolamento).
+7. **Test coverage**: 18 suite backend + test configurazione frontend. Isolamento cross-user, coerenza saldi/movimenti/trasferimenti, step-up Google, cron ricorrenti, PostgreSQL, handler Vercel, config produzione e rate limit auth coperti. Non coperti: budget/obiettivi/investimenti/scommesse a livello di logica di business (solo isolamento).
 8. **Migrazioni duplicate**: `add-social-auth` e `add_auth_provider` fanno cose simili.
 9. **Session reset incompleto**: logout non pulisce `recentiHome` nello store `movimenti`, né i campi `panoramica`/`analisi` interni allo store `scommesse`. Lo store `analisi` principale viene invece resettato correttamente.
-10. ~~**Nessuna CI/CD**~~ — **Risolto**: `.github/workflows/ci.yml` esegue test backend (con MySQL service container) + build frontend su ogni push/PR su `main`.
+10. ~~**Nessuna CI/CD**~~ — **Risolto**: `.github/workflows/ci.yml` esegue test backend con PostgreSQL + test/build frontend su ogni push/PR su `main`.
 
 ## Current Roadmap
 

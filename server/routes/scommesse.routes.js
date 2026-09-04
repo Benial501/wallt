@@ -10,6 +10,7 @@ const {
   validateUpdatePiattaformaScommesse,
   validateDeletePiattaformaScommesse,
   validateMovimentoScommesse,
+  validateMovimentiScommesseQuery,
 } = require('../middleware/validation.middleware');
 
 const router = express.Router();
@@ -17,12 +18,12 @@ const router = express.Router();
 router.use(authMiddleware, blockScommesseAccess);
 
 router.get('/panoramica', getPanoramica);
-router.get('/analisi', getAnalisiScommesse);
+router.get('/analisi', validateMovimentiScommesseQuery, getAnalisiScommesse);
 router.get('/piattaforme', getPiattaforme);
 router.post('/piattaforme', validatePiattaformaScommesse, createPiattaforma);
 router.put('/piattaforme/:id', validateUpdatePiattaformaScommesse, updatePiattaforma);
 router.delete('/piattaforme/:id', validateDeletePiattaformaScommesse, deletePiattaforma);
-router.get('/movimenti', getMovimentiScommesse);
+router.get('/movimenti', validateMovimentiScommesseQuery, getMovimentiScommesse);
 router.post('/movimenti', validateMovimentoScommesse, addMovimentoScommesse);
 
 module.exports = router;

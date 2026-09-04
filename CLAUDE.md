@@ -7,7 +7,7 @@
 
 **WALLT** è un'applicazione web di gestione finanziaria personale in italiano. Permette di tracciare conti, movimenti, budget, obiettivi, investimenti e scommesse senza collegamento bancario automatico. L'utente inserisce o importa manualmente le transazioni.
 
-Architettura: **SPA Vue 3** (`client/`) + **API REST Node.js/Express** (`server/`) + **MySQL** via Sequelize.
+Architettura: **SPA Vue 3** (`client/`) + **API REST Node.js/Express** (`server/`) su Vercel + **PostgreSQL Supabase** via Sequelize.
 
 ## Tech Stack
 
@@ -30,7 +30,7 @@ Architettura: **SPA Vue 3** (`client/`) + **API REST Node.js/Express** (`server/
 | Node.js | 22+ / 24+ | Runtime |
 | Express | 5.2 | Web framework |
 | Sequelize | 6.37 | ORM |
-| mysql2 | 3.22 | Driver MySQL |
+| pg + pg-hstore | 8.x / 2.x | Driver PostgreSQL |
 | JWT (jsonwebtoken) | 9.0 | Autenticazione |
 | bcrypt | 6.0 | Hash password |
 | Passport + passport-google-oauth20 | 0.7 / 2.0 | Google OAuth |
@@ -45,8 +45,9 @@ Architettura: **SPA Vue 3** (`client/`) + **API REST Node.js/Express** (`server/
 | csv-parse, xlsx, pdf-parse | — | Parsing estratti conto |
 
 ### Database
-- **MySQL 8** con Sequelize ORM
-- Migrazioni via `sequelize-cli` (16 file in `server/migrations/`)
+- **PostgreSQL Supabase** con Sequelize ORM
+- Runtime Vercel sul Transaction Pooler (porta 6543); migrazioni sul Session Pooler (porta 5432)
+- Migrazioni via `sequelize-cli` (19 file in `server/migrations/`)
 - Auto-migrate all'avvio in `server.js`
 
 ### Authentication
@@ -94,8 +95,8 @@ wallt/
 │   ├── constants/          # categorie.js (whitelist categorie)
 │   ├── controllers/        # 13 controller
 │   ├── middleware/         # auth, validation, rateLimit, stepUp, featureAccess, errorHandler
-│   ├── models/             # 15 modelli Sequelize + index.js (associazioni)
-│   ├── migrations/         # 16 migrazioni
+│   ├── models/             # 16 modelli Sequelize + index.js (associazioni)
+│   ├── migrations/         # 19 migrazioni
 │   ├── routes/             # 12 route modules
 │   ├── services/           # Business logic (import, merchant, email, reset, sync, cron)
 │   ├── tests/              # Jest (auth, security, gdpr, profilo, import, categorization, isolation, googleStepUp, financialConsistency, ricorrenti, excelParser, validateEnv)
@@ -116,13 +117,13 @@ Express API (/api/*)
     ├── featureAccess (scommesse/investimenti)
     ├── validation (express-validator)
     ├── rateLimit
-    └── Controllers → Services → Sequelize → MySQL
+    └── Controllers → Services → Sequelize → PostgreSQL/Supabase
 ```
 
 - **Monorepo** con frontend e backend separati ma nello stesso repository.
 - **Nessun SSR**: il frontend è una SPA statica servita da Vite.
 - **Nessun WebSocket**: comunicazione solo REST.
-- **Cron interno**: `node-cron` nel processo Node (non worker separato).
+- **Cron**: su Vercel è Vercel Cron che chiama `GET /api/cron/ricorrenti` con `Authorization: Bearer $CRON_SECRET`; `node-cron` resta solo per il server locale (`server.js`).
 - **Import pipeline duale**: `services/import/` (core) + `services/importazioni/` (nuova pipeline con detector/parser bancari).
 
 ## Important Business Rules
@@ -164,7 +165,9 @@ Entità core: `users` → `conti` → `movimenti`. Entità satellite: budget, ob
 
 ~66 endpoint REST sotto `/api/*` (incluse `POST /api/auth/google/challenge` e `POST /api/auth/verify-google`, step-up Google). Vedi `docs/API.md` per inventario completo.
 
-Comunicazione: Axios con `baseURL = VITE_API_URL` (default `http://localhost:3000/api`), header `Authorization: Bearer <token>`.
+Comunicazione: Axios con `baseURL = VITE_API_URL` normalizzato da `client/src/config/api.js` (default `http://localhost:3000/api`), header `Authorization: Bearer <token>`.
+
+Configurazione DB: `server/config/database.js` accetta `DATABASE_URL` **oppure** i parametri `DB_HOST`/`DB_USER`/`DB_PASSWORD`/`DB_NAME`, mai una miscela dei due. La verifica TLS è attiva di default (`DATABASE_SSL_CA` per il root cert Supabase).
 
 ## Coding Rules
 
@@ -197,7 +200,7 @@ Comunicazione: Axios con `baseURL = VITE_API_URL` (default `http://localhost:300
 | **Scommesse ↔ Conti sync** | Bidirezionale, può creare/eliminare conti | `scommesseContoSync.service.js` |
 | **Categorizzazione** | Whitelist in 6+ file server + frontend | `constants/categorie.js`, `CategoryMatcherService.js` |
 | **Cron ricorrenti** | Crea movimenti automaticamente ogni giorno | `ricorrenti.service.js` |
-| **Migrazioni DB** | Auto-run all'avvio SOLO fuori produzione (disabilitato quando `NODE_ENV=production`, vedi `RUN_MIGRATIONS_ON_BOOT`); 16 file con possibili duplicati | `server.js`, `migrations/` |
+| **Migrazioni DB** | Auto-run all'avvio SOLO fuori produzione (disabilitato quando `NODE_ENV=production`, vedi `RUN_MIGRATIONS_ON_BOOT`); 19 file con possibili duplicati. Su Supabase si lanciano a mano con `npm run migrate:production` (`NODE_ENV=migration` + `DATABASE_MIGRATION_URL`) | `server.js`, `migrations/` |
 | **Feature access minori** | Logica duplicata frontend/backend | `featureAccess.js` (client + server), `ageRestriction.js` |
 
 ## Known Issues
@@ -211,7 +214,7 @@ Comunicazione: Axios con `baseURL = VITE_API_URL` (default `http://localhost:300
 7. **Test coverage**: 12 suite (auth, security, gdpr, profilo, import, categorization, isolation, googleStepUp, financialConsistency, ricorrenti, excelParser, validateEnv) — 125 test. Isolamento cross-user, coerenza saldi/movimenti/trasferimenti (incluse race condition), step-up Google, cron ricorrenti e config produzione coperti. Non coperti: budget/obiettivi/investimenti/scommesse a livello di logica di business (solo isolamento).
 8. **Migrazioni duplicate**: `add-social-auth` e `add_auth_provider` fanno cose simili.
 9. **Session reset incompleto**: logout non pulisce `recentiHome` nello store `movimenti`, né i campi `panoramica`/`analisi` interni allo store `scommesse`. Lo store `analisi` principale viene invece resettato correttamente.
-10. ~~**Nessuna CI/CD**~~ — **Risolto**: `.github/workflows/ci.yml` esegue test backend (con MySQL service container) + build frontend su ogni push/PR su `main`.
+10. ~~**Nessuna CI/CD**~~ — **Risolto**: `.github/workflows/ci.yml` esegue test backend con un service container PostgreSQL + test/build frontend su ogni push/PR su `main`.
 
 ## Current Roadmap
 
@@ -231,6 +234,6 @@ Priorità immediate:
 4. Identify affected files.
 5. Understand possible side effects (saldi, sync, categorie).
 6. Implement the smallest safe change.
-7. Run available validation: `cd server && npm test`.
+7. Run available validation: `cd server && npm test` (richiede PostgreSQL); `npm run test:unit` esegue solo le suite che non toccano il database.
 8. Review the diff.
 9. Report what changed and any remaining risks.

@@ -1,22 +1,31 @@
 const request = require('supertest');
 
-jest.mock('../services/ricorrenti.service', () => ({
-  processaRicorrenti: jest.fn().mockResolvedValue({ processed: 2, skipped: 1, failed: 0 }),
-  avviaCronRicorrenti: jest.fn(),
-}));
+// tests/setup.js richiede `../app` prima che questa suite venga valutata: il
+// registry contiene gia il router cron legato al servizio reale, quindi un
+// `jest.mock()` a livello di file non lo raggiungerebbe. Ricostruiamo app e
+// servizio insieme dentro un registry isolato, cosi il mock e' davvero attivo.
+let app;
+let processaRicorrenti;
 
-const { createApp } = require('../app');
-const { processaRicorrenti } = require('../services/ricorrenti.service');
+const loadAppConCronMockato = () => {
+  jest.isolateModules(() => {
+    jest.doMock('../services/ricorrenti.service', () => ({
+      processaRicorrenti: jest.fn().mockResolvedValue({ processed: 2, skipped: 1, failed: 0 }),
+      avviaCronRicorrenti: jest.fn(),
+    }));
+    ({ processaRicorrenti } = require('../services/ricorrenti.service'));
+    const { createApp } = require('../app');
+    app = createApp({ enableRateLimit: false });
+  });
+};
 
 describe('endpoint Vercel Cron per le spese ricorrenti', () => {
   let originalSecret;
-  let app;
 
   beforeEach(() => {
     originalSecret = process.env.CRON_SECRET;
     process.env.CRON_SECRET = 'cron-secret-di-test-lungo-e-casuale';
-    processaRicorrenti.mockClear();
-    app = createApp({ enableRateLimit: false });
+    loadAppConCronMockato();
   });
 
   afterEach(() => {

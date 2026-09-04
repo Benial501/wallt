@@ -60,6 +60,40 @@ describe('Security API', () => {
       expect([200, 400]).toContain(res.status);
       expect(res.status).not.toBe(500);
     });
+
+    // PostgreSQL, a differenza di MySQL, non converte implicitamente una
+    // stringa in integer/date: senza validazione questi filtri diventavano
+    // un 500 invece di un errore di input.
+    it('rifiuta un intervallo di date non valido invece di rompersi', async () => {
+      for (const path of ['/api/movimenti', '/api/analisi/distribuzione-spese']) {
+        // eslint-disable-next-line no-await-in-loop
+        const res = await request(app)
+          .get(path)
+          .query({ da: 'non-una-data', a: '2026-13-45' })
+          .set(authHeader(token));
+
+        expect(res.status).toBe(400);
+        expect(res.body.errori || res.body.error).toBeDefined();
+      }
+    });
+
+    it('rifiuta un id di rotta non numerico sulle GET annidate', async () => {
+      const res = await request(app)
+        .get('/api/obiettivi/1%20OR%201=1/proiezione')
+        .set(authHeader(token));
+
+      expect(res.status).toBe(400);
+      expect(res.status).not.toBe(500);
+    });
+
+    it('accetta ancora filtri legittimi', async () => {
+      const res = await request(app)
+        .get('/api/movimenti')
+        .query({ da: '2026-01-01', a: '2026-12-31' })
+        .set(authHeader(token));
+
+      expect(res.status).toBe(200);
+    });
   });
 
   describe('XSS input sanitization', () => {

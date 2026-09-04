@@ -8,13 +8,14 @@ const {
   validateMovimento,
   validateUpdateMovimento,
   validateDeleteMovimento,
+  validateMovimentiQuery,
 } = require('../middleware/validation.middleware');
 
 const router = express.Router();
 
 router.get('/bilancio', authMiddleware, getBilancioMese);
 router.get('/ricorrenti', authMiddleware, getRicorrenti);
-router.get('/', authMiddleware, getMovimenti);
+router.get('/', authMiddleware, validateMovimentiQuery, getMovimenti);
 router.post('/', authMiddleware, validateMovimento, createMovimento);
 router.put('/:id', authMiddleware, validateUpdateMovimento, updateMovimento);
 router.delete('/:id', authMiddleware, validateDeleteMovimento, deleteMovimento);

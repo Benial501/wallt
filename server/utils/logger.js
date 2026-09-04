@@ -4,8 +4,26 @@ const winston = require('winston');
 
 const LOGS_DIR = path.join(__dirname, '..', 'logs');
 const isProduction = process.env.NODE_ENV === 'production';
+const isVercel = process.env.VERCEL === '1';
 
-fs.mkdirSync(LOGS_DIR, { recursive: true });
+// Su Vercel (e su qualsiasi filesystem in sola lettura) i transport su file non
+// sono utilizzabili: i log vanno sullo stdout della funzione. Non è un errore
+// da nascondere, è una capacità della piattaforma da rilevare una volta sola.
+// La console resta sempre attiva, quindi nessun log viene perso in silenzio.
+const fileLoggingEnabled = (() => {
+  if (isVercel) return false;
+  try {
+    fs.mkdirSync(LOGS_DIR, { recursive: true });
+    return true;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[logger] Log su file disattivati: impossibile creare ${LOGS_DIR} (${error.code || error.message}). `
+      + 'I log restano disponibili su stdout.',
+    );
+    return false;
+  }
+})();
 
 const SENSITIVE_KEYS = new Set([
   'password',
@@ -177,17 +195,19 @@ const logger = winston.createLogger({
     isProduction ? prodFormat : devFormat,
   ),
   transports: [
-    new winston.transports.File({
-      filename: path.join(LOGS_DIR, 'error.log'),
-      level: 'error',
-      maxsize: 10 * 1024 * 1024,
-      maxFiles: 5,
-    }),
-    new winston.transports.File({
-      filename: path.join(LOGS_DIR, 'combined.log'),
-      maxsize: 10 * 1024 * 1024,
-      maxFiles: 5,
-    }),
+    ...(fileLoggingEnabled ? [
+      new winston.transports.File({
+        filename: path.join(LOGS_DIR, 'error.log'),
+        level: 'error',
+        maxsize: 10 * 1024 * 1024,
+        maxFiles: 5,
+      }),
+      new winston.transports.File({
+        filename: path.join(LOGS_DIR, 'combined.log'),
+        maxsize: 10 * 1024 * 1024,
+        maxFiles: 5,
+      }),
+    ] : []),
     new winston.transports.Console({
       format: isProduction
         ? winston.format.combine(

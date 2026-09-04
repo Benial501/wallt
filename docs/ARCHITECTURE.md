@@ -30,8 +30,8 @@ WALLT è un'applicazione **monorepo** con frontend SPA e backend API REST nello 
 │  └──────────────────────┬──────────────────────────┘    │
 │                         ▼                                │
 │  ┌──────────┐  ┌──────────────┐  ┌─────────────────┐   │
-│  │  MySQL   │  │ node-cron    │  │ Resend (email)  │   │
-│  │  8.x     │  │ (ricorrenti) │  │ OpenAI (opt.)   │   │
+│  │Supabase  │  │ Vercel Cron  │  │ Resend (email)  │   │
+│  │PostgreSQL│  │ (ricorrenti) │  │ OpenAI (opt.)   │   │
 │  └──────────┘  └──────────────┘  └─────────────────┘   │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -41,7 +41,7 @@ WALLT è un'applicazione **monorepo** con frontend SPA e backend API REST nello 
 - **CI/CD di base**: `.github/workflows/ci.yml` (test backend + build frontend su push/PR verso `main`).
 - **Nessun caching layer** (no Redis).
 - **Nessun message queue**.
-- **Cron interno** al processo Node (non worker separato).
+- **Cron serverless**: Vercel invoca una rotta autenticata una volta al giorno; `node-cron` resta solo per l'avvio locale tradizionale.
 - **Migrazioni automatiche** all'avvio server SOLO fuori produzione (`server.js`, gated da `NODE_ENV`/`RUN_MIGRATIONS_ON_BOOT`); in produzione sono uno step di deploy separato.
 
 ## 2. Frontend
@@ -108,7 +108,7 @@ client/src/
 ## 3. Backend
 
 ### Stack
-Node.js, Express 5, Sequelize 6, MySQL, JWT, Passport, bcrypt, Winston, node-cron.
+Node.js, Express 5, Sequelize 6, PostgreSQL/Supabase, JWT, Passport, bcrypt, Winston, Vercel Cron.
 
 ### Struttura
 ```
@@ -119,7 +119,7 @@ server/
 ├── constants/categorie.js      # Whitelist categorie (single source of truth backend)
 ├── controllers/              # 13 controller (thin: validazione → service → response)
 ├── middleware/               # 7 middleware
-├── models/                   # 15 modelli + index.js (associazioni)
+├── models/                   # 16 modelli + index.js (associazioni)
 ├── routes/                   # 12 route modules
 ├── services/
 │   ├── import/               # Core import + categorizzazione
@@ -133,8 +133,8 @@ server/
 │   ├── googleAuth.service.js
 │   ├── onboarding.service.js
 │   └── aiConsent.service.js
-├── migrations/               # 16 migrazioni Sequelize
-├── tests/                    # 12 suite Jest (auth, security, gdpr, profilo, import, categorization, isolation, googleStepUp, financialConsistency, ricorrenti, excelParser, validateEnv)
+├── migrations/               # 19 migrazioni Sequelize
+├── tests/                    # 18 suite Jest, incluse PostgreSQL/Vercel/cron/rate limit
 └── utils/                    # logger, AppError, ageRestriction, featureAccess, oauthPopup
 ```
 
@@ -232,7 +232,7 @@ MovimentoForm.vue (tipo=trasferimento) → conti.store.trasferimento()
 
 | Servizio | Integrazione | Obbligatorio | Note |
 |---|---|---|---|
-| MySQL | Sequelize | Sì | DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD |
+| Supabase PostgreSQL | Sequelize + pg | Sì | DATABASE_URL (runtime), DATABASE_MIGRATION_URL (solo migrazioni) |
 | Resend | EmailService.js | Per reset password | RESEND_API_KEY, EMAIL_FROM |
 | Google OAuth | passport.js | No | GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET |
 | Google Identity Services + google-auth-library | googleStepUp.service.js | No (solo per step-up utenti Google) | GOOGLE_CLIENT_ID (backend), VITE_GOOGLE_CLIENT_ID (frontend, pubblico) |
@@ -297,7 +297,7 @@ MovimentoForm.vue (tipo=trasferimento) → conti.store.trasferimento()
 ### AW-2: ~~Nessuna CI/CD~~ — RISOLTO
 - **Gravità**: era High.
 - **File**: `.github/workflows/ci.yml`.
-- **Descrizione**: pipeline GitHub Actions su push/PR verso `main`: test backend (con container MySQL effimero) + build frontend, più `npm audit` informativo su entrambi.
+- **Descrizione**: pipeline GitHub Actions su push/PR verso `main`: test backend con PostgreSQL effimero + test/build frontend, più `npm audit` informativo su entrambi.
 - **Rischio modifica**: Low
 
 ### AW-3: Cron nel processo principale

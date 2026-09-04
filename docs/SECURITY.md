@@ -157,14 +157,14 @@ object-src 'none'; base-uri 'self'; form-action 'self'
 | Limiter | Scope | Limite | Key |
 |---|---|---|---|
 | apiLimiter | `/api/*` | 1200 / 15 min | userId o IP (IPv6-safe) |
-| authLimiter | login, register, forgot/reset | 10 / 15 min | IP (IPv6-safe) |
+| authLimiter | login, register, forgot/reset | 10 / 15 min | IP normalizzato e hashato; contatore PostgreSQL condiviso tra istanze |
 | stepUpLimiter | verify-password, google/challenge, verify-google | 20 / 15 min | userId |
 | exportLimiter | export | 3 / ora | userId |
 | deleteAccountLimiter | delete account | 3 / ora | userId |
 | importUploadLimiter | upload | 30 / 15 min | userId |
 | importConfirmLimiter | conferma import | 15 / ora | userId |
 
-Tutti i limiter con fallback IP (`apiLimiter`, `authLimiter`) usano l'helper ufficiale `ipKeyGenerator` di `express-rate-limit` per normalizzare gli indirizzi IPv6 — vedi problema risolto sotto.
+Tutti i limiter con fallback IP (`apiLimiter`, `authLimiter`) usano l'helper ufficiale `ipKeyGenerator` di `express-rate-limit` per normalizzare gli indirizzi IPv6. Per le rotte auth pubbliche la chiave viene trasformata in SHA-256 e il contatore viene incrementato atomicamente nella tabella `auth_rate_limits`; l'IP non è salvato in chiaro e il limite non si azzera cambiando istanza Vercel.
 
 ### Nome problema: verify-password/google-challenge/verify-google senza rate limit dedicato — RISOLTO
 - **Severity**: era Medium.
@@ -355,11 +355,20 @@ Ignora: `.env`, `**/.env`, `.env.local`, `.env.production`, `.env.development`, 
 
 ## Production config validation
 
-`server/config/validateEnv.js`, chiamato all'inizio di `server.js` prima di qualunque altro require env-dependent: se `NODE_ENV=production` e manca una variabile critica (`JWT_SECRET`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `CORS_ORIGINS`), o `JWT_SECRET` è troppo corto (<32 char), o solo una tra `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` è impostata, o Google è configurato senza `GOOGLE_CALLBACK_URL`/`API_URL`, il processo **termina subito** (`process.exit(1)`) con un elenco chiaro di `Missing required environment variable: X` — mai un valore, mai un avvio "silenzioso" con `config/database.js` che ricadrebbe su `DB_USER=root`/`DB_PASSWORD=''`. Testato in `server/tests/validateEnv.test.js` (7 test).
+`server/config/validateEnv.js`, chiamato prima delle configurazioni dipendenti dall'ambiente sia dal server locale sia dall'handler Vercel: se `NODE_ENV=production` e manca una variabile critica (`JWT_SECRET`, `DATABASE_URL`, `CORS_ORIGINS`, `CRON_SECRET`), se un secret è troppo corto, se solo una tra `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` è impostata, o se Google è configurato senza `GOOGLE_CALLBACK_URL`/`API_URL`, il processo termina subito senza stampare alcun valore sensibile.
 
 ## CI/CD
 
-`.github/workflows/ci.yml`: su ogni push/PR verso `main`, esegue in parallelo la suite di test backend (con un container MySQL effimero) e la build di produzione del frontend, più `npm audit --audit-level=critical` informativo su entrambi (non blocca la pipeline). Nessun secret nel workflow: le credenziali usate sono solo per il DB MySQL temporaneo del job.
+`.github/workflows/ci.yml`: su ogni push/PR verso `main`, esegue in parallelo la suite backend con un PostgreSQL effimero e i test/build del frontend, più `npm audit --audit-level=critical` informativo. Le credenziali presenti nel workflow valgono soltanto per il database temporaneo del job.
+
+## Sicurezza Supabase e Vercel
+
+- Il browser conosce soltanto `VITE_API_URL` e l'eventuale Google Client ID pubblico; non riceve URL o password PostgreSQL.
+- Il runtime API usa il Transaction Pooler Supabase con pool Sequelize massimo 2 connessioni per istanza.
+- Le migrazioni usano un Session Pooler separato tramite `DATABASE_MIGRATION_URL`, che non deve essere configurato su Vercel.
+- Tutte le tabelle WALLT hanno RLS attivo e i privilegi sono revocati ai ruoli Data API `anon` e `authenticated`; l'accesso passa soltanto dal backend.
+- `/api/cron/ricorrenti` usa `CRON_SECRET` con confronto constant-time. L'indice `uniq_movimenti_ricorrenza_periodo` impedisce doppi addebiti anche tra istanze concorrenti.
+- In ambiente Vercel Winston usa solo la console e non prova a scrivere nel filesystem della funzione.
 
 ## Altri fix applicati (cumulativo, tutte le sessioni di hardening pre-produzione)
 

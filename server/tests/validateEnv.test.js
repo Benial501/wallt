@@ -7,6 +7,10 @@ describe('collectProductionConfigErrors (validazione config produzione)', () => 
   ];
   let originalEnv;
 
+  const clearDbParams = () => {
+    for (const key of ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME']) delete process.env[key];
+  };
+
   const validCompleteEnv = () => {
     process.env.JWT_SECRET = 'a'.repeat(40);
     process.env.DATABASE_URL = 'postgresql://wallt:secret@db.example.com:6543/postgres';
@@ -37,6 +41,9 @@ describe('collectProductionConfigErrors (validazione config produzione)', () => 
 
   it('segnala ogni variabile obbligatoria mancante', () => {
     validCompleteEnv();
+    // Senza questo, le DB_* ereditate da .env/.env.test soddisfarebbero la
+    // modalita alternativa e il test non sarebbe piu ermetico.
+    clearDbParams();
     delete process.env.DATABASE_URL;
     delete process.env.CORS_ORIGINS;
 
@@ -45,7 +52,7 @@ describe('collectProductionConfigErrors (validazione config produzione)', () => 
     expect(errors.some((e) => e.includes('CORS_ORIGINS'))).toBe(true);
   });
 
-  it('non accetta le vecchie variabili DB_* al posto di DATABASE_URL in produzione', () => {
+  it('accetta le variabili DB_* complete come alternativa a DATABASE_URL', () => {
     validCompleteEnv();
     delete process.env.DATABASE_URL;
     process.env.DB_HOST = '127.0.0.1';
@@ -53,8 +60,54 @@ describe('collectProductionConfigErrors (validazione config produzione)', () => 
     process.env.DB_PASSWORD = 'super-secret';
     process.env.DB_NAME = 'wallt_prod';
 
+    expect(collectProductionConfigErrors()).toEqual([]);
+  });
+
+  it('non richiede le DB_* quando DATABASE_URL è impostata', () => {
+    validCompleteEnv();
+    clearDbParams();
+
+    expect(collectProductionConfigErrors()).toEqual([]);
+  });
+
+  it('segnala la mancanza di qualunque configurazione database', () => {
+    validCompleteEnv();
+    delete process.env.DATABASE_URL;
+    clearDbParams();
+
+    const errors = collectProductionConfigErrors();
+    expect(errors.some((e) => e.includes('DATABASE_URL') && e.includes('DB_HOST'))).toBe(true);
+  });
+
+  it('segnala le DB_* incomplete elencando solo quelle mancanti', () => {
+    validCompleteEnv();
+    delete process.env.DATABASE_URL;
+    clearDbParams();
+    process.env.DB_HOST = '127.0.0.1';
+    process.env.DB_USER = 'wallt_user';
+
+    const errors = collectProductionConfigErrors();
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('DB_PASSWORD');
+    expect(errors[0]).toContain('DB_NAME');
+    expect(errors[0]).not.toContain('DB_HOST,');
+  });
+
+  it('rifiuta una DATABASE_URL non PostgreSQL senza stamparne il valore', () => {
+    validCompleteEnv();
+    process.env.DATABASE_URL = 'mysql://wallt:super-secret@db.example.com:3306/wallt';
+
     const errors = collectProductionConfigErrors();
     expect(errors.some((e) => e.includes('DATABASE_URL'))).toBe(true);
+    expect(errors.join(' ')).not.toContain('super-secret');
+  });
+
+  it('rifiuta una DATABASE_URL senza nome database', () => {
+    validCompleteEnv();
+    process.env.DATABASE_URL = 'postgresql://wallt:secret@db.example.com:6543';
+
+    const errors = collectProductionConfigErrors();
+    expect(errors.some((e) => e.includes('database name'))).toBe(true);
   });
 
   it('segnala un JWT_SECRET troppo corto', () => {
