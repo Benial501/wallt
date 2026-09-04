@@ -1,10 +1,10 @@
 <script setup>
+import { useId } from 'vue';
+
 /**
- * Simbolo di brand WALLT: una "W" a tratto unico il cui ultimo segmento
- * prosegue oltre l'altezza della lettera e si chiude in una punta di freccia —
- * la stessa linea è insieme lettera e andamento in crescita, senza icone
- * letterali (portafogli/banconote/monete). Vettoriale (nessun asset raster),
- * nitido a qualsiasi risoluzione e dimensione.
+ * Versione vettoriale del simbolo usato nell'icona WALLT. La freccia nasce
+ * direttamente dall'ultima asta della W, così il marchio resta leggibile e
+ * coerente a ogni dimensione senza dipendere dall'asset raster.
  */
 defineProps({
   // Solo simbolo, senza wordmark "WALLT" — per contesti compatti (mobile header).
@@ -12,6 +12,8 @@ defineProps({
   // Altezza del simbolo in px; il wordmark si adatta di conseguenza via CSS.
   size: { type: Number, default: 28 },
 });
+
+const gradientId = `wallt-mark-gradient-${useId().replace(/:/g, '')}`;
 </script>
 
 <template>
@@ -24,14 +26,17 @@ defineProps({
       fill="none"
       aria-hidden="true"
     >
+      <defs>
+        <linearGradient :id="gradientId" x1="18" y1="78" x2="86" y2="10" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#2499ee" />
+          <stop offset="0.55" stop-color="#27c7d5" />
+          <stop offset="1" stop-color="#26db87" />
+        </linearGradient>
+      </defs>
       <path
-        d="M9,28 L28,74 L44,50 L60,74 L74,32"
-        class="wallt-logo__stroke"
-        stroke-width="11"
-        stroke-linecap="round"
-        stroke-linejoin="round"
+        d="M15 35H28L39 64L50 35H63L72 60L82 32L75 27L96 8L98 37L89 31L76 69H65L56 47L47 69H34L15 35Z"
+        :fill="`url(#${gradientId})`"
       />
-      <path d="M69,34 L93,7 L96,32 L83,21 Z" class="wallt-logo__tip" />
     </svg>
     <span v-if="!markOnly" class="wallt-logo__word">WALLT</span>
     <span v-else class="sr-only">WALLT</span>
@@ -48,16 +53,7 @@ defineProps({
 .wallt-logo__mark {
   display: block;
   flex-shrink: 0;
-  filter: drop-shadow(0 0 5px var(--accent-glow));
-  transition: filter 200ms ease-out, transform 200ms ease-out;
-}
-
-.wallt-logo__stroke {
-  stroke: var(--accent-green);
-}
-
-.wallt-logo__tip {
-  fill: var(--accent-green);
+  transition: transform 200ms ease-out;
 }
 
 .wallt-logo__word {
@@ -68,16 +64,8 @@ defineProps({
   line-height: 1;
 }
 
-.wallt-logo--compact .wallt-logo__mark {
-  filter: drop-shadow(0 0 4px var(--accent-glow));
-}
-
-/* L'hover si applica solo quando il logo è dentro un elemento interattivo
-   (link/bottone del parent): il glow si intensifica leggermente, coerente
-   con l'effetto già usato per lo stato attivo della bottom-nav. */
 a:hover .wallt-logo__mark,
 button:hover .wallt-logo__mark {
-  filter: drop-shadow(0 0 9px var(--accent-glow));
   transform: translateY(-1px);
 }
 

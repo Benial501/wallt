@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="743" height="229" viewBox="0 0 743 229" role="img" aria-labelledby="title">
+  <title id="title">WALLT</title>
+  <defs>
+    <linearGradient id="mark-gradient" x1="20" y1="188" x2="205" y2="27" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2499ee"/>
+      <stop offset="0.55" stop-color="#27c7d5"/>
+      <stop offset="1" stop-color="#26db87"/>
+    </linearGradient>
+  </defs>
+  <path d="M24 85H55L81 155L108 85H139L161 145L185 78L168 66L219 20L224 90L202 76L171 168H144L122 115L101 168H70L24 85Z" fill="url(#mark-gradient)"/>
+  <text x="235" y="164" fill="#17181c" font-family="Arial, Helvetica, sans-serif" font-size="104" font-weight="800" letter-spacing="-5">WALLT</text>
+</svg>
