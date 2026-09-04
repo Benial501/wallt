@@ -1,3 +1,8 @@
+// config/database.js chiama dotenv.config(): senza questo mock il file .env
+// reale ripopolerebbe le variabili che ogni test cancella, rendendo l'esito
+// dipendente dalla macchina su cui gira la suite.
+jest.mock('dotenv', () => ({ config: () => ({ parsed: {} }) }));
+
 const ORIGINAL_ENV = { ...process.env };
 
 const DB_KEYS = [
