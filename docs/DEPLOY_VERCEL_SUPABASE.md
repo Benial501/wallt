@@ -171,6 +171,41 @@ Esegui sempre le migrazioni prima del deploy che usa le nuove colonne. Non attiv
 
 Per tornare al codice precedente usa **Deployments → Instant Rollback** in entrambi i progetti. Un rollback Vercel non annulla automaticamente le migrazioni database e non aggiorna automaticamente il cron: verifica manualmente **Settings → Cron Jobs** dopo il rollback.
 
+## Deployment attuale (4 settembre 2026)
+
+Valori reali di questa installazione, da usare al posto dei segnaposto:
+
+| Cosa | Valore |
+|---|---|
+| Frontend | `https://wallt-client-dusky.vercel.app` |
+| Backend | `https://wallt-api.vercel.app` |
+| Progetto Vercel frontend | `wallt` (scope `benial502`, root `client`) |
+| Progetto Vercel backend | `wallt-api` (scope `benial502`, root `server`) |
+| Progetto Supabase | `qcekvokpoexzywvkxykq`, regione `eu-central-2`, PostgreSQL 17 |
+| Pooler runtime | `aws-1-eu-central-2.pooler.supabase.com:6543` |
+| Pooler migrazioni | `aws-1-eu-central-2.pooler.supabase.com:5432` |
+
+`wallt.vercel.app` **non appartiene a questo progetto**: il nome era gia'
+occupato da un'altra applicazione. Non usarlo in `CORS_ORIGINS`.
+
+Il database contiene anche una tabella `quotes` estranea a WALLT, residuo
+di un altro esperimento sullo stesso progetto Supabase. Non e' usata dal
+codice ed e' l'unica tabella dello schema `public` ancora accessibile ai
+ruoli `anon`/`authenticated`.
+
+### Trappole incontrate durante il primo deploy
+
+- **`Please install pg package manually`**: Sequelize carica il driver con un
+  require dinamico che il bundler Vercel non traccia. Risolto in
+  `config/sequelize.js` con `dialectModule: pg`.
+- **`DOMMatrix is not defined`**: `pdf-parse` importa `pdfjs-dist`, che
+  pretende globali del browser assenti sul runtime Vercel. Risolto caricando
+  il parser PDF alla prima chiamata invece che all'import.
+- **`SELF_SIGNED_CERT_IN_CHAIN`**: la catena TLS di Supabase e' firmata dalla
+  "Supabase Root 2021 CA", che Node non conosce. Serve `DATABASE_SSL_CA`.
+- Le variabili d'ambiente si applicano **solo ai deployment creati dopo** il
+  salvataggio: dopo un Save serve sempre un Redeploy.
+
 ## Fonti operative
 
 - [Connessioni PostgreSQL Supabase](https://supabase.com/docs/guides/database/connecting-to-postgres)
