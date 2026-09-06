@@ -65,7 +65,10 @@ export function useOAuthPopup() {
   };
 
   const reportError = (key = 'google') => {
-    errorHandler?.(key);
+    // Preserve the callback before cleanup releases the current login attempt.
+    const onError = errorHandler;
+    cleanup();
+    onError?.(key);
   };
 
   const readStorageFallback = () => {
@@ -106,21 +109,17 @@ export function useOAuthPopup() {
     stopListeners();
 
     if (payload.type === 'AUTH_ERROR') {
-      cleanup();
       reportError(payload.error || 'google');
       return;
     }
 
     if (payload.type !== 'AUTH_SUCCESS' || !payload.token) {
-      cleanup();
       reportError('google');
       return;
     }
 
     try {
       const user = await authStore.completeOAuthLogin(payload.token, payload.user ?? null);
-      cleanup();
-
       if (!user) {
         reportError('google');
         return;
@@ -128,8 +127,8 @@ export function useOAuthPopup() {
 
       const destination = isOnboardingComplete(user.profilo) ? '/dashboard' : '/onboarding';
       await router.replace(destination);
-    } catch {
       cleanup();
+    } catch {
       reportError('google');
     }
   };
@@ -201,7 +200,6 @@ export function useOAuthPopup() {
     );
 
     if (!popup) {
-      cleanup();
       reportError('popup_blocked');
       return;
     }
@@ -216,7 +214,6 @@ export function useOAuthPopup() {
         popupClosedGraceTimer = setTimeout(() => {
           tryConsumeOAuthResult();
           if (!oauthCompleted) {
-            cleanup();
             reportError('google');
           }
         }, 3500);
