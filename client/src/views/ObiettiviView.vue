@@ -10,6 +10,7 @@ import { useValuta } from '@/composables/useValuta';
 import { formatData } from '@/utils/formatters';
 import { Target, Calendar, Trophy, LightbulbIcon } from '@/utils/appIcons';
 import dayjs from 'dayjs';
+import HelpTrigger from '@/components/help/HelpTrigger.vue';
 
 const obiettiviStore = useObiettiviStore();
 const { formatValuta } = useValuta();
@@ -104,7 +105,10 @@ onMounted(() => obiettiviStore.fetchObiettivi());
 <template>
   <div class="obiettivi-view animate-fade-in">
     <header class="page-header">
-      <h1 class="page-title">I miei obiettivi</h1>
+      <div class="page-title-row">
+        <h1 class="page-title">I miei obiettivi</h1>
+        <HelpTrigger topic="obiettivi-contributi" />
+      </div>
       <WButton variant="primary" size="sm" @click="showCrea = true">+ Nuovo</WButton>
     </header>
 
@@ -216,7 +220,8 @@ onMounted(() => obiettiviStore.fetchObiettivi());
 </template>
 
 <style scoped>
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap: 0.75rem; flex-wrap: wrap; }
+.page-title-row { display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap; }
 .page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
 .section-title { font-size: 1rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.75rem; }
 .ob-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }

@@ -13,6 +13,7 @@ import CategoryIcon from '@/components/common/CategoryIcon.vue';
 import { PieChart } from '@/utils/appIcons';
 import dayjs from 'dayjs';
 import 'dayjs/locale/it';
+import HelpTrigger from '@/components/help/HelpTrigger.vue';
 
 dayjs.locale('it');
 
@@ -149,8 +150,12 @@ const totaleRimanente = computed(() => totaleBudget.value - budgetStore.totaleSp
     <div v-if="!budgetStore.hasBudget && modalita === 'view' && !budgetStore.loading" class="empty-budget">
       <PieChart class="empty-icon" :size="48" :stroke-width="1.5" />
       <h2>Nessun budget per {{ meseLabel }}</h2>
-      <p class="empty-desc">Imposta un budget mensile per tenere sotto controllo le spese</p>
+      <p class="empty-desc">
+        Il budget è facoltativo: fissa un tetto di spesa mensile per categoria e WALLT
+        lo confronta con le uscite già registrate. I trasferimenti tra i tuoi conti non lo consumano.
+      </p>
       <WButton variant="primary" size="md" @click="initSetup">Imposta il budget →</WButton>
+      <div class="empty-help"><HelpTrigger topic="budget-come-funziona" /></div>
     </div>
 
     <WSkeleton v-else-if="budgetStore.loading" type="card" />
@@ -209,7 +214,10 @@ const totaleRimanente = computed(() => totaleBudget.value - budgetStore.totaleSp
     <!-- STATO C: Budget attivo -->
     <div v-else-if="budgetStore.hasBudget">
       <div class="page-header">
-        <h1 class="page-title">Budget {{ meseLabel }} · {{ formatValuta(totaleBudget) }}</h1>
+        <div class="page-title-row">
+          <h1 class="page-title">Budget {{ meseLabel }} · {{ formatValuta(totaleBudget) }}</h1>
+          <HelpTrigger topic="budget-come-funziona" />
+        </div>
         <WButton variant="secondary" size="sm" @click="initEdit">Modifica</WButton>
       </div>
 
@@ -253,6 +261,8 @@ const totaleRimanente = computed(() => totaleBudget.value - budgetStore.totaleSp
 <style scoped>
 .page-title { font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin-bottom: 1rem; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; }
+.page-title-row { display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap; }
+.empty-help { display: flex; justify-content: center; margin-top: 0.875rem; }
 .empty-budget { text-align: center; padding: 4rem 1rem; }
 .empty-icon { display: block; margin: 0 auto 1rem; color: var(--text-muted); stroke: currentColor; }
 .cat-icon { flex-shrink: 0; color: var(--text-muted); }

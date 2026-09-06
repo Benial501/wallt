@@ -5,7 +5,7 @@ import { Download } from '@/utils/appIcons';
 defineProps({
   message: {
     type: String,
-    default: 'Carica CSV, Excel o PDF dalla tua banca',
+    default: 'Carica il CSV o l\'Excel dalla tua banca',
   },
 });
 

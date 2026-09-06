@@ -162,7 +162,7 @@ const backLabel = computed(() => (
           <ul class="privacy-list">
             <li><strong>Gestione account:</strong> registrazione, autenticazione, profilo utente.</li>
             <li><strong>Gestione finanziaria:</strong> conti, movimenti, budget, obiettivi e analisi.</li>
-            <li><strong>Import estratti:</strong> elaborazione file caricati dall'utente (CSV, Excel, PDF).</li>
+            <li><strong>Import estratti:</strong> elaborazione file caricati dall'utente (CSV, Excel).</li>
             <li><strong>Categorizzazione:</strong> assegnazione automatica categorie e regole merchant personali.</li>
             <li><strong>Notifiche e reminder:</strong> promemoria configurabili dall'utente.</li>
             <li><strong>Sicurezza:</strong> prevenzione abusi, rate limiting, audit operativi.</li>

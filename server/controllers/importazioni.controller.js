@@ -10,12 +10,12 @@ const storage = multer.memoryStorage();
 
 const isAllowedExtension = (filename) => {
   const ext = path.extname(filename).toLowerCase();
-  return ['.csv', '.xls', '.xlsx', '.pdf'].includes(ext);
+  return ['.csv', '.xls', '.xlsx'].includes(ext);
 };
 
 const fileFilter = (_req, file, cb) => {
   if (!file.originalname || !isAllowedExtension(file.originalname)) {
-    return cb(new BadRequestError('Formato file non supportato. Usa .csv, .xls/.xlsx o .pdf'));
+    return cb(new BadRequestError('Formato file non supportato. Usa .csv o .xls/.xlsx'));
   }
   return cb(null, true);
 };
@@ -40,7 +40,7 @@ const validateUploadedFile = (req, _res, next) => {
 
 /**
  * POST /api/importazioni/upload
- * - accetta CSV/XLS/XLSX/PDF in multipart/form-data (field: `file`)
+ * - accetta CSV/XLS/XLSX in multipart/form-data (field: `file`)
  * - risponde con anteprima (duplicates + categorie suggerite)
  */
 const uploadPreview = async (req, res, next) => {

@@ -9,6 +9,7 @@ import { useScommesseStore } from '@/stores/scommesse.store';
 import { useInvestimentiStore } from '@/stores/investimenti.store';
 import { useAnalisiStore } from '@/stores/analisi.store';
 import { useUiStore } from '@/stores/ui.store';
+import { useHelpStore } from '@/stores/help.store';
 
 /**
  * Pulisce tutti gli store Pinia e i dati temporanei di sessione.
@@ -80,6 +81,12 @@ export function resetPiniaStores() {
 
   try {
     useUiStore().chiudiForm();
+  } catch { /* ignore */ }
+
+  try {
+    // Solo stato in memoria: le preferenze salvate degli account restano
+    // in localStorage, ciascuna sotto la propria chiave `wallt:help:v1:<id>`.
+    useHelpStore().resetState();
   } catch { /* ignore */ }
 
   try {

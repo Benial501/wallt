@@ -6,41 +6,78 @@ const normalizeDescription = (value) => (
     .trim()
 );
 
+const pad2 = (n) => String(n).padStart(2, '0');
+
+const toLocalIso = (date) => (
+  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+);
+
+/**
+ * Anni a due cifre: un estratto conto non contiene date del secolo scorso,
+ * quindi 00-79 => 2000-2079 e 80-99 => 1980-1999.
+ */
+const expandYear = (raw) => {
+  const n = Number(raw);
+  if (String(raw).length === 4) return n;
+  return n <= 79 ? 2000 + n : 1900 + n;
+};
+
+/** Scarta il 31 febbraio e simili, invece di lasciarli traboccare al mese dopo. */
+const isRealDate = (y, m, d) => {
+  if (!Number.isFinite(y) || m < 1 || m > 12 || d < 1 || d > 31) return false;
+  const probe = new Date(Date.UTC(y, m - 1, d));
+  return probe.getUTCFullYear() === y && probe.getUTCMonth() === m - 1 && probe.getUTCDate() === d;
+};
+
+/**
+ * Le banche italiane scrivono le date come GG/MM/AAAA, ma con separatori e
+ * lunghezze dell'anno diverse (`01-09-2026`, `01.09.2026`, `01/09/26`).
+ * Affidarsi a `new Date()` significa farle leggere all'americana: "01/09/2026"
+ * diventerebbe il 9 gennaio, e per gli oggetti Date `toISOString()` sposterebbe
+ * il giorno indietro nei fusi a est di UTC. Qui i formati sono espliciti.
+ */
 const parseDateFlexible = (value) => {
   if (!value) return null;
-  if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value.toISOString().slice(0, 10);
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : toLocalIso(value);
   }
 
   const str = String(value).trim();
   if (!str) return null;
 
-  // ISO: 2026-07-08
-  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
-
-  // IT/Europe: DD/MM/YYYY o DD-MM-YYYY
-  const dmy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-  if (dmy) {
-    const dd = String(dmy[1]).padStart(2, '0');
-    const mm = String(dmy[2]).padStart(2, '0');
-    const yyyy = dmy[3];
-    return `${yyyy}-${mm}-${dd}`;
+  // ISO: 2026-09-01, 2026/09/01, 2026-09-01T10:30:00Z
+  const iso = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (iso) {
+    const y = Number(iso[1]);
+    const m = Number(iso[2]);
+    const d = Number(iso[3]);
+    return isRealDate(y, m, d) ? `${y}-${pad2(m)}-${pad2(d)}` : null;
   }
 
-  // US: MM/DD/YYYY
-  const mdy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-  if (mdy) {
-    const mm = String(mdy[1]).padStart(2, '0');
-    const dd = String(mdy[2]).padStart(2, '0');
-    const yyyy = mdy[3];
-    return `${yyyy}-${mm}-${dd}`;
+  // Europeo: GG/MM/AAAA e varianti. Se il secondo numero non può essere un
+  // mese ma il primo sì, il file usa l'ordine americano (MM/GG).
+  const parts = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/);
+  if (parts) {
+    let d = Number(parts[1]);
+    let m = Number(parts[2]);
+    const y = expandYear(parts[3]);
+
+    if (m > 12 && d <= 12) {
+      const swap = d;
+      d = m;
+      m = swap;
+    }
+
+    return isRealDate(y, m, d) ? `${y}-${pad2(m)}-${pad2(d)}` : null;
   }
 
-  // Fallback: prova a parsare come Date
-  const parsed = new Date(str);
-  if (!Number.isNaN(parsed.getTime())) {
-    return parsed.toISOString().slice(0, 10);
+  // Ultima risorsa solo per le date scritte a parole ("Sep 1, 2026"): sulle
+  // stringhe di soli numeri e separatori decidono le regole esplicite qui
+  // sopra, non l'euristica di JavaScript.
+  if (/[a-z]/i.test(str)) {
+    const parsed = new Date(str);
+    if (!Number.isNaN(parsed.getTime())) return toLocalIso(parsed);
   }
 
   return null;
@@ -193,4 +230,8 @@ class TransactionNormalizer {
 }
 
 module.exports = TransactionNormalizer;
+// Esposti per i test: sono le due conversioni che decidono se una riga
+// dell'estratto conto viene importata o scartata.
+module.exports.parseDateFlexible = parseDateFlexible;
+module.exports.parseMoneySigned = parseMoneySigned;
 

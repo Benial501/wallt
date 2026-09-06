@@ -1,7 +1,10 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
+import { useRouter } from 'vue-router';
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue';
+import GettingStartedCard from '@/components/help/GettingStartedCard.vue';
+import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import WOverviewCarousel from '@/components/custom/WOverviewCarousel.vue';
 import RecentTransactions from '@/components/dashboard/RecentTransactions.vue';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
@@ -13,6 +16,7 @@ import { useAnalisiStore } from '@/stores/analisi.store';
 import { useScommesseStore } from '@/stores/scommesse.store';
 import { useInvestimentiStore } from '@/stores/investimenti.store';
 import { useObiettiviStore } from '@/stores/obiettivi.store';
+import { useHelpStore } from '@/stores/help.store';
 import api from '@/utils/axios';
 import dayjs from 'dayjs';
 import 'dayjs/locale/it';
@@ -27,8 +31,11 @@ const analisiStore = useAnalisiStore();
 const scommesseStore = useScommesseStore();
 const investimentiStore = useInvestimentiStore();
 const obiettiviStore = useObiettiviStore();
+const helpStore = useHelpStore();
+const router = useRouter();
 const { canAccessScommesseFeature, canAccessInvestimentiFeature } = storeToRefs(authStore);
 const { recentiHome, loadingRecenti } = storeToRefs(movimentiStore);
+const { gettingStartedVisible } = storeToRefs(helpStore);
 
 const oggi = dayjs();
 const meseStart = oggi.startOf('month').format('YYYY-MM-DD');
@@ -45,6 +52,23 @@ const loadingInvestimenti = ref(false);
 const entrateOggi = ref(0);
 const usciteOggi = ref(0);
 
+// Traguardi di "Primi passi": marcati solo su dati caricati con successo.
+// null = non ancora noto (o richiesta fallita) → stato "sconosciuto".
+const contiCaricati = ref(null);
+const budgetCaricato = ref(null);
+const haMovimenti = ref(null);
+
+const statoTraguardo = (caricato, raggiunto) => {
+  if (caricato !== true) return 'sconosciuto';
+  return raggiunto ? 'fatto' : 'da-fare';
+};
+
+const contiState = computed(() => statoTraguardo(contiCaricati.value, contiStore.contiAttivi.length > 0));
+const movimentiState = computed(() => (
+  haMovimenti.value === null ? 'sconosciuto' : (haMovimenti.value ? 'fatto' : 'da-fare')
+));
+const budgetState = computed(() => statoTraguardo(budgetCaricato.value, budgetStore.hasBudget));
+
 const entrateMese = computed(() => movimentiStore.bilancioMese.entrate || 0);
 const usciteMese = computed(() => movimentiStore.bilancioMese.uscite || 0);
 const andamentoPunti = computed(() => analisiStore.andamentoPatrimonio.punti || []);
@@ -55,6 +79,38 @@ const investimentiAttivo = computed(() => investimentiStore.investimenti.length 
 const budgetTotale = computed(() =>
   parseFloat(budgetStore.budgetCorrente?.importo_totale) || 0,
 );
+
+const loadConti = async () => {
+  try {
+    await contiStore.fetchConti();
+    contiCaricati.value = true;
+  } catch {
+    contiCaricati.value = false;
+  }
+};
+
+/**
+ * Verifica non filtrata dell'esistenza di movimenti (limit 1), usata solo dal
+ * riquadro "Primi passi": la lista in movimenti.store è filtrata e paginata e
+ * non va sovrascritta, e i recenti della home escludono i conti non attivi.
+ * Se la richiesta fallisce il traguardo resta "sconosciuto".
+ */
+const checkHaMovimenti = async () => {
+  if (!gettingStartedVisible.value) return;
+  try {
+    const { data } = await api.get('/movimenti', { params: { limit: 1 } });
+    const totale = data?.pagination?.total;
+    if (typeof totale === 'number') {
+      haMovimenti.value = totale > 0;
+    } else if (Array.isArray(data?.gruppi)) {
+      haMovimenti.value = data.gruppi.length > 0;
+    } else {
+      haMovimenti.value = null;
+    }
+  } catch {
+    haMovimenti.value = null;
+  }
+};
 
 const loadDashboardMovimenti = async () => {
   loadingOggi.value = true;
@@ -87,7 +143,12 @@ const loadDashboardMovimenti = async () => {
 };
 
 const loadBudget = async () => {
-  await budgetStore.fetchBudget(oggi.month() + 1, oggi.year()).catch(() => null);
+  try {
+    await budgetStore.fetchBudget(oggi.month() + 1, oggi.year());
+    budgetCaricato.value = true;
+  } catch {
+    budgetCaricato.value = false;
+  }
   if (budgetStore.esiste) {
     await budgetStore.fetchStatoBudget(oggi.month() + 1, oggi.year()).catch(() => null);
   }
@@ -140,6 +201,17 @@ const openForm = (tipo = 'uscita', mov = null) => {
   formOpen.value = true;
 };
 
+const onGettingStartedMovimento = () => {
+  // Senza conti il form non ha dove registrare: si passa prima da I miei conti.
+  if (contiStore.contiAttivi.length > 0) {
+    openForm('uscita');
+    return;
+  }
+  router.push('/conti');
+};
+
+const onGettingStartedHide = () => helpStore.hideGettingStarted();
+
 const onSelectMovimento = (mov) => {
   if (mov.tipo === 'trasferimento') return;
   openForm(mov.tipo === 'entrata' ? 'entrata' : 'uscita', mov);
@@ -147,8 +219,9 @@ const onSelectMovimento = (mov) => {
 
 const onSaved = async () => {
   await Promise.all([
-    contiStore.fetchConti(),
+    loadConti(),
     contiStore.fetchPatrimonio(),
+    checkHaMovimenti(),
     movimentiStore.fetchBilancioMese(oggi.month() + 1, oggi.year()),
     loadBudget(),
     loadDashboardMovimenti(),
@@ -165,8 +238,9 @@ onMounted(async () => {
   window.addEventListener('resize', handleResize);
 
   await Promise.all([
-    contiStore.fetchConti().catch(() => null),
+    loadConti(),
     contiStore.fetchPatrimonio().catch(() => null),
+    checkHaMovimenti(),
     movimentiStore.fetchBilancioMese(oggi.month() + 1, oggi.year()),
     loadBudget(),
     loadDashboardMovimenti(),
@@ -183,6 +257,19 @@ onUnmounted(() => window.removeEventListener('resize', handleResize));
 <template>
   <div class="dashboard-view animate-fade-in">
     <DashboardHeader />
+
+    <GettingStartedCard
+      v-if="gettingStartedVisible"
+      :conti-state="contiState"
+      :movimenti-state="movimentiState"
+      :budget-state="budgetState"
+      @add-movimento="onGettingStartedMovimento"
+      @hide="onGettingStartedHide"
+    />
+
+    <div class="dashboard-view__help">
+      <HelpTrigger topic="dashboard-riepilogo" label="Come leggere il riepilogo" />
+    </div>
 
     <WOverviewCarousel
       :patrimonio="contiStore.patrimonioTotale"
@@ -241,6 +328,12 @@ onUnmounted(() => window.removeEventListener('resize', handleResize));
   max-width: 640px;
   margin: 0 auto;
   padding-bottom: 1rem;
+}
+
+.dashboard-view__help {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.625rem;
 }
 
 .dashboard-view__cta {

@@ -15,6 +15,9 @@ import { useMovimentiStore } from '@/stores/movimenti.store';
 import { CATEGORIE_ENTRATA, CATEGORIE_USCITA } from '@/utils/categorie';
 import { useValuta } from '@/composables/useValuta';
 import { Paperclip, Wallet, Info } from '@/utils/appIcons';
+import { refreshAfterWrite, VISTA_NON_AGGIORNATA } from '@/utils/afterWrite';
+import HelpTrigger from '@/components/help/HelpTrigger.vue';
+import HelpNote from '@/components/help/HelpNote.vue';
 
 const router = useRouter();
 const toastStore = useToastStore();
@@ -34,7 +37,7 @@ const confirmOpen = ref(false);
 const contoDefault = ref(null);
 const importMode = ref('movimenti_e_saldo');
 
-const allowedExtensions = ['.csv', '.xls', '.xlsx', '.pdf'];
+const allowedExtensions = ['.csv', '.xls', '.xlsx'];
 const MAX_SIZE_MB = 5;
 
 const isImporting = computed(() => importazioniStore.loading);
@@ -88,7 +91,7 @@ const openFilePicker = () => {
 const validateFile = (file) => {
   const ext = file.name ? file.name.slice(file.name.lastIndexOf('.')).toLowerCase() : '';
   if (!allowedExtensions.includes(ext)) {
-    return `Formato file non supportato (${ext || 'sconosciuto'}). Usa .csv, .xls/.xlsx o .pdf`;
+    return `Formato file non supportato (${ext || 'sconosciuto'}). Usa .csv o .xls/.xlsx`;
   }
   const maxBytes = MAX_SIZE_MB * 1024 * 1024;
   if (file.size > maxBytes) {
@@ -228,39 +231,44 @@ const onConfirm = async () => {
     return;
   }
 
+  let result;
   try {
-    const result = await importazioniStore.conferma(payload, {
+    result = await importazioniStore.conferma(payload, {
       aggiornaSaldo: importMode.value === 'movimenti_e_saldo',
     });
-
-    await contiStore.fetchConti();
-    await contiStore.fetchPatrimonio();
-
-    const dates = payload.map((t) => t.data).filter(Boolean).sort();
-    const da = dates[0];
-    const a = dates[dates.length - 1];
-
-    if (da && a) {
-      await movimentiStore.fetchMovimenti({ da, a });
-    } else {
-      const oggi = dayjs();
-      await movimentiStore.fetchMovimenti({
-        da: oggi.startOf('month').format('YYYY-MM-DD'),
-        a: oggi.endOf('month').format('YYYY-MM-DD'),
-      });
-    }
-
-    const importati = result?.importati ?? payload.length;
-    const saltati = (result?.duplicateSaltati ?? 0) + (result?.incompletiSaltati ?? 0);
-    const msg = saltati > 0
-      ? `${importati} transazioni importate (${saltati} saltate)`
-      : `${importati} transazioni importate`;
-    toastStore.success(msg);
-    resetState();
-    router.push(da && a ? { path: '/movimenti', query: { da, a } } : '/movimenti');
   } catch (e) {
     toastStore.error(importazioniStore.error || e.message || 'Errore conferma importazione');
+    return;
   }
+
+  // L'import è concluso: le transazioni sono sul server. Tutto quello che
+  // segue riguarda solo l'aggiornamento della schermata e non può più
+  // trasformarsi in un messaggio di errore, altrimenti l'utente riprova un
+  // import già andato a buon fine e si ritrova le righe duplicate.
+  const dates = payload.map((t) => t.data).filter(Boolean).sort();
+  const da = dates[0];
+  const a = dates[dates.length - 1];
+  const oggi = dayjs();
+  const periodo = da && a
+    ? { da, a }
+    : { da: oggi.startOf('month').format('YYYY-MM-DD'), a: oggi.endOf('month').format('YYYY-MM-DD') };
+
+  const vistaAggiornata = await refreshAfterWrite(
+    () => contiStore.fetchConti(),
+    () => contiStore.fetchPatrimonio(),
+    () => movimentiStore.fetchMovimenti(periodo),
+  );
+
+  const importati = result?.importati ?? payload.length;
+  const saltati = (result?.duplicateSaltati ?? 0) + (result?.incompletiSaltati ?? 0);
+  const msg = saltati > 0
+    ? `${importati} transazioni importate (${saltati} saltate)`
+    : `${importati} transazioni importate`;
+  toastStore.success(msg);
+  if (!vistaAggiornata) toastStore.warning(VISTA_NON_AGGIORNATA);
+
+  resetState();
+  router.push(da && a ? { path: '/movimenti', query: { da, a } } : '/movimenti');
 };
 
 onMounted(async () => {
@@ -273,8 +281,11 @@ onMounted(async () => {
   <div class="import-view animate-fade-in">
     <header class="page-header">
       <div>
-        <h1 class="page-title">Importa estratto conto</h1>
-        <p class="page-sub">Carica un file CSV/XLS/XLSX/PDF, rivedi l’anteprima e conferma l’importazione.</p>
+        <div class="page-title-row">
+          <h1 class="page-title">Importa estratto conto</h1>
+          <HelpTrigger topic="import-come-funziona" />
+        </div>
+        <p class="page-sub">Carica un file CSV/XLS/XLSX, rivedi l’anteprima e conferma l’importazione.</p>
       </div>
     </header>
 
@@ -314,7 +325,7 @@ onMounted(async () => {
         ref="fileInputRef"
         type="file"
         class="file-input-hidden"
-        accept=".csv,.xls,.xlsx,.pdf,text/csv,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         @change="onFileChange"
       />
 
@@ -344,10 +355,10 @@ onMounted(async () => {
           </div>
           <div class="dropzone__subtitle">
             <template v-if="hasConti">
-              Supporto: <b>.csv</b>, <b>.xls/.xlsx</b> e <b>.pdf</b> (max {{ MAX_SIZE_MB }}MB)
+              Supporto: <b>.csv</b> e <b>.xls/.xlsx</b> (max {{ MAX_SIZE_MB }}MB)
             </template>
             <template v-else>
-              Dopo aver creato il conto potrai caricare CSV, Excel o PDF della tua banca.
+              Dopo aver creato il conto potrai caricare il CSV o l'Excel della tua banca.
             </template>
           </div>
           <WButton
@@ -388,6 +399,11 @@ onMounted(async () => {
             <div class="summary__value summary__value--warn">{{ previewSummary?.da_verificare ?? items.filter((i) => !i.isDuplicate && (i.categoria_confidenza ?? 0) < 60).length }}</div>
           </div>
         </div>
+
+        <p class="preview-hint">
+          Questa è solo un'anteprima: puoi correggere conto, categoria e merchant riga per riga.
+          Niente viene salvato finché non premi «Conferma importazione».
+        </p>
 
         <div v-if="contiStore.contiAttivi.length > 1" class="bulk-conto">
           <label class="bulk-conto__label" for="conto-default">Conto predefinito per tutte le righe</label>
@@ -576,13 +592,19 @@ onMounted(async () => {
           <input v-model="importMode" type="radio" value="movimenti_e_saldo">
           <span>
             <strong>Importa movimenti e aggiorna saldo</strong>
-            <small>Ricalcola il saldo dalla somma dei movimenti o dal saldo finale dell'estratto (Revolut).</small>
+            <small>
+              Il saldo del conto viene ricalcolato e sostituito, non sommato:
+              si usa il saldo finale dell'estratto se presente (es. Revolut),
+              altrimenti la somma delle entrate e delle uscite registrate su quel conto.
+            </small>
           </span>
         </label>
         <p class="import-mode__warn">
-          Se hai impostato un saldo iniziale e importi l'estratto completo, potresti contare due volte i soldi.
-          In quel caso usa solo movimenti oppure azzera il saldo iniziale prima di importare.
+          Nel calcolo alternativo non rientrano il saldo iniziale né i trasferimenti tra i tuoi conti:
+          con un estratto parziale il saldo ottenuto può non corrispondere a quello della banca.
+          Nel dubbio scegli «Importa solo movimenti» e correggi il saldo a mano.
         </p>
+        <HelpNote topic="import-modalita-saldo" label="Quale modalità scegliere" />
       </div>
       <div class="modal-actions">
         <WButton variant="secondary" size="md" :disabled="isImporting" @click="confirmOpen = false">
@@ -598,7 +620,9 @@ onMounted(async () => {
 
 <style scoped>
 .page-header { margin-bottom: 1rem; }
+.page-title-row { display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap; }
 .page-title { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); }
+.preview-hint { margin-bottom: 0.875rem; font-size: 0.75rem; line-height: 1.5; color: var(--text-muted); }
 .page-sub { color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.25rem; }
 
 .section-card { padding: 1.25rem; }

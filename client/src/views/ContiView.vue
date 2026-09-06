@@ -12,6 +12,8 @@ import { formatData } from '@/utils/formatters';
 import { CONTO_TIPO_ICON_MAP, CreditCard, Repeat2, AlertTriangle } from '@/utils/appIcons';
 import { CONTO_EMOJI, DEFAULT_EMOJI_BY_TIPO, emojiOptionsFor } from '@/utils/contoEmoji';
 import ImportEstrattoHint from '@/components/common/ImportEstrattoHint.vue';
+import HelpTrigger from '@/components/help/HelpTrigger.vue';
+import HelpNote from '@/components/help/HelpNote.vue';
 
 const contiStore = useContiStore();
 const toastStore = useToastStore();
@@ -158,7 +160,10 @@ const confermaElimina = async () => {
   <div class="conti-view animate-fade-in">
     <header class="page-header">
       <div>
-        <h1 class="page-title">I miei conti</h1>
+        <div class="page-title-row">
+          <h1 class="page-title">I miei conti</h1>
+          <HelpTrigger topic="conti-cosa-sono" />
+        </div>
         <p class="page-sub">Patrimonio totale: {{ formatValuta(contiStore.patrimonioTotale) }}</p>
       </div>
       <WButton variant="primary" size="sm" @click="showNuovoConto = true">+ Nuovo conto</WButton>
@@ -195,14 +200,29 @@ const confermaElimina = async () => {
     <WCard v-else class="empty-state">
       <CreditCard class="empty-icon" :size="48" :stroke-width="1.5" />
       <p>Aggiungi il tuo primo conto</p>
+      <p class="empty-state__hint">
+        Un conto è dove registri i tuoi soldi: banca, carta, contanti.
+        WALLT non si collega automaticamente alla tua banca.
+      </p>
       <WButton variant="primary" size="md" @click="showNuovoConto = true">+ Nuovo conto</WButton>
     </WCard>
 
-    <div class="mt-4">
-      <WButton variant="secondary" size="md" @click="showTrasferimento = true">
-        <Repeat2 :size="16" :stroke-width="1.75" />
-        Trasferimento
-      </WButton>
+    <div class="mt-4 trasferimento-block">
+      <div class="trasferimento-block__actions">
+        <WButton
+          variant="secondary"
+          size="md"
+          :disabled="contiStore.contiAttivi.length < 2"
+          @click="showTrasferimento = true"
+        >
+          <Repeat2 :size="16" :stroke-width="1.75" />
+          Trasferimento
+        </WButton>
+        <HelpTrigger topic="trasferimenti" label="Che cos'è?" />
+      </div>
+      <p v-if="contiStore.contiAttivi.length < 2" class="trasferimento-block__hint">
+        Serve almeno un secondo conto: un trasferimento sposta soldi fra due tuoi conti.
+      </p>
     </div>
 
     <!-- Modal Nuovo Conto -->
@@ -228,6 +248,7 @@ const confermaElimina = async () => {
         <div class="field">
           <label>Saldo iniziale (€)</label>
           <input v-model.number="nuovoForm.saldo_iniziale" type="number" min="0" class="form-input" />
+          <HelpNote topic="conti-saldo-iniziale" label="A cosa serve il saldo iniziale" />
         </div>
         <div class="field">
           <label>Colore</label>
@@ -323,6 +344,7 @@ const confermaElimina = async () => {
 
 <style scoped>
 .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap; }
+.page-title-row { display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap; }
 .page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
 .page-sub { color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.25rem; }
 .conti-import-hint { margin-bottom: 1rem; }
@@ -340,6 +362,9 @@ const confermaElimina = async () => {
 .conto-card__actions button { flex: 1; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); cursor: pointer; font-size: 0.8125rem; }
 .conto-card__actions button.danger { color: var(--negative); border-color: rgba(255,71,87,0.3); }
 .empty-state { text-align: center; padding: 3rem 1.5rem; }
+.empty-state__hint { margin: 0.5rem auto 1rem; max-width: 30rem; font-size: 0.8125rem; line-height: 1.55; color: var(--text-muted); }
+.trasferimento-block__actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.trasferimento-block__hint { margin-top: 0.5rem; font-size: 0.75rem; line-height: 1.5; color: var(--text-muted); }
 .empty-icon { display: block; margin: 0 auto 1rem; color: var(--text-muted); stroke: currentColor; }
 .tipo-chip { display: inline-flex; align-items: center; gap: 0.375rem; }
 .form-space { display: flex; flex-direction: column; gap: 1rem; }

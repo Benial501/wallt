@@ -8,7 +8,10 @@ import { useMovimentiStore } from '@/stores/movimenti.store';
 import { useToastStore } from '@/stores/toast.store';
 import { CATEGORIE_ENTRATA, CATEGORIE_USCITA } from '@/utils/categorie';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
+import HelpNote from '@/components/help/HelpNote.vue';
 import { ArrowDownCircle, ArrowUpCircle } from '@/utils/appIcons';
+import { useRouter } from 'vue-router';
+import { refreshAfterWrite, VISTA_NON_AGGIORNATA } from '@/utils/afterWrite';
 import dayjs from 'dayjs';
 
 const props = defineProps({
@@ -23,6 +26,7 @@ const emit = defineEmits(['close', 'saved']);
 const contiStore = useContiStore();
 const movimentiStore = useMovimentiStore();
 const toastStore = useToastStore();
+const router = useRouter();
 
 const step = ref(1);
 const loading = ref(false);
@@ -151,22 +155,34 @@ const selectTipo = (tipo) => {
 const salva = async () => {
   loading.value = true;
   try {
+    let messaggio;
+
     if (isTrasferimento.value) {
       const origine = contiStore.contiAttivi.find((c) => c.id === trasferimentoForm.value.conto_origine_id);
       const destinazione = contiStore.contiAttivi.find((c) => c.id === trasferimentoForm.value.conto_destinazione_id);
       const involvesScommesse = origine?.tipo === 'scommesse' || destinazione?.tipo === 'scommesse';
       await contiStore.trasferimento({ ...trasferimentoForm.value }, { involvesScommesse });
-      toastStore.success('Trasferimento completato!');
+      messaggio = 'Trasferimento completato!';
     } else if (isEdit.value) {
       await movimentiStore.updateMovimento(props.movimento.id, buildUpdatePayload());
-      await contiStore.fetchConti();
-      toastStore.success('Movimento aggiornato!');
+      messaggio = 'Movimento aggiornato!';
     } else {
       await movimentiStore.createMovimento(form.value);
-      await contiStore.fetchConti();
-      await contiStore.fetchPatrimonio();
-      toastStore.success('Movimento salvato!');
+      messaggio = 'Movimento salvato!';
     }
+
+    // Da qui in poi il movimento è già registrato sul server. Ricaricare saldi
+    // e patrimonio serve solo a ciò che si vede: se fallisce, il salvataggio
+    // resta valido e va comunicato come riuscito, altrimenti l'utente lo
+    // ripete credendo che non sia andato a buon fine.
+    const vistaAggiornata = await refreshAfterWrite(
+      () => contiStore.fetchConti(),
+      () => contiStore.fetchPatrimonio(),
+    );
+
+    toastStore.success(messaggio);
+    if (!vistaAggiornata) toastStore.warning(VISTA_NON_AGGIORNATA);
+
     emit('saved');
     emit('close');
   } catch (err) {
@@ -185,6 +201,16 @@ const canSave = computed(() => {
   }
   return form.value.importo > 0 && form.value.categoria && form.value.conto_id;
 });
+
+/** Nessun conto disponibile: il movimento non avrebbe dove essere registrato. */
+const senzaConti = computed(() => contiSelezionabili.value.length === 0);
+/** Il trasferimento richiede due conti distinti. */
+const contiInsufficientiPerTrasferimento = computed(() => contiStore.contiAttivi.length < 2);
+
+const vaiAiConti = () => {
+  emit('close');
+  router.push('/conti');
+};
 
 const titolo = computed(() => {
   if (isTrasferimento.value) return 'Sposta soldi';
@@ -206,6 +232,17 @@ const shellProps = computed(() => {
   >
     <!-- Trasferimento -->
     <div v-if="isTrasferimento" class="form-space">
+      <p class="form-intro">
+        Sposta soldi fra due tuoi conti WALLT. Non viene conteggiato come spesa o entrata.
+      </p>
+
+      <div v-if="contiInsufficientiPerTrasferimento" class="prereq">
+        <p class="prereq__text">
+          Per un trasferimento servono due conti diversi. Creane un altro e poi torna qui.
+        </p>
+        <WButton variant="secondary" size="sm" @click="vaiAiConti">Vai a I miei conti</WButton>
+      </div>
+
       <div class="field">
         <label>Da</label>
         <select v-model="trasferimentoForm.conto_origine_id" class="form-select">
@@ -243,6 +280,15 @@ const shellProps = computed(() => {
 
     <!-- Movimento entrata/uscita -->
     <div v-else class="form-space">
+      <div v-if="senzaConti" class="prereq">
+        <p class="prereq__text">
+          Serve prima un conto: è la “tasca” su cui viene registrato il movimento e di cui
+          viene aggiornato il saldo. Aprendo I miei conti questo form si chiude e
+          quanto hai già scritto qui non viene salvato.
+        </p>
+        <WButton variant="secondary" size="sm" @click="vaiAiConti">Crea un conto</WButton>
+      </div>
+
       <div v-if="step === 1 && !isEdit" class="tipo-grid">
         <button class="tipo-btn" :class="{ active: form.tipo === 'entrata' }" @click="selectTipo('entrata')">
           <ArrowDownCircle :size="20" :stroke-width="1.75" />
@@ -284,6 +330,10 @@ const shellProps = computed(() => {
               {{ c.icona }} {{ c.nome }} — €{{ parseFloat(c.saldo).toFixed(2) }}
             </option>
           </select>
+          <HelpNote
+            always-open
+            text="Scegli il conto su cui registrare l'entrata o l'uscita. Il salvataggio aggiorna il suo saldo."
+          />
         </div>
 
         <div class="field">
@@ -304,6 +354,7 @@ const shellProps = computed(() => {
           <div v-if="form.ricorrente" class="ricorrente-fields">
             <input v-model.number="form.ricorrente_giorno" type="number" min="1" max="31" class="form-input" placeholder="Giorno del mese (es. 1)" />
           </div>
+          <HelpNote topic="movimento-ricorrenza" label="Come funziona la ricorrenza" />
         </div>
 
         <WButton variant="primary" size="lg" :loading="loading" :disabled="!canSave" @click="salva">
@@ -316,6 +367,18 @@ const shellProps = computed(() => {
 
 <style scoped>
 .form-space { display: flex; flex-direction: column; gap: 1rem; }
+.form-intro { font-size: 0.8125rem; line-height: 1.5; color: var(--text-muted); }
+.prereq {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.08);
+}
+.prereq__text { font-size: 0.8125rem; line-height: 1.5; color: var(--text-secondary); }
 .field label { display: block; font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 0.375rem; }
 .form-input, .form-select {
   width: 100%;

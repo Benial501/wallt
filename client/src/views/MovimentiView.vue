@@ -13,6 +13,9 @@ import { useValuta } from '@/composables/useValuta';
 import { CATEGORIE_ENTRATA, CATEGORIE_USCITA, getCategoriaEntrata, getCategoriaUscita } from '@/utils/categorie';
 import { ArrowLeftRight } from '@/utils/appIcons';
 import ImportEstrattoHint from '@/components/common/ImportEstrattoHint.vue';
+import HelpTrigger from '@/components/help/HelpTrigger.vue';
+import api from '@/utils/axios';
+import { refreshAfterWrite } from '@/utils/afterWrite';
 import dayjs from 'dayjs';
 import 'dayjs/locale/it';
 
@@ -70,7 +73,36 @@ const anniDisponibili = computed(() => {
   return Array.from({ length: 8 }, (_, i) => current - i);
 });
 
-const caricaMovimenti = () => movimentiStore.fetchMovimenti(getFiltriDate());
+/**
+ * Esistenza di movimenti a prescindere dai filtri: serve solo a distinguere
+ * "nessun risultato per questi filtri" da "non hai ancora registrato nulla".
+ * Lettura non filtrata con limit 1, che NON tocca la lista corrente dello store.
+ * null = non verificabile ora (errore o richiesta non ancora fatta).
+ */
+const haMovimentiTotali = ref(null);
+
+const verificaMovimentiTotali = async () => {
+  try {
+    const { data } = await api.get('/movimenti', { params: { limit: 1 } });
+    const totale = data?.pagination?.total;
+    haMovimentiTotali.value = typeof totale === 'number' ? totale > 0 : null;
+  } catch {
+    haMovimentiTotali.value = null;
+  }
+};
+
+const caricaMovimenti = async () => {
+  const data = await movimentiStore.fetchMovimenti(getFiltriDate());
+  // La verifica serve solo quando la lista filtrata è vuota.
+  if (!movimentiStore.movimentiPerData.length) {
+    await verificaMovimentiTotali();
+  } else {
+    haMovimentiTotali.value = true;
+  }
+  return data;
+};
+
+const senzaConti = computed(() => contiStore.contiAttivi.length === 0);
 
 const movimentiMostrati = computed(() => (
   movimentiStore.movimentiPerData.reduce((sum, g) => sum + g.movimenti.length, 0)
@@ -131,19 +163,24 @@ const apriForm = (tipo, mov = null) => {
 const elimina = async (mov) => {
   try {
     await movimentiStore.deleteMovimento(mov.id);
-    await contiStore.fetchConti();
-    await caricaMovimenti();
-    toastStore.success('Movimento eliminato');
   } catch {
     toastStore.error('Errore nell\'eliminazione');
+    return;
   }
+
+  // Movimento già eliminato: il ricaricamento della lista non deve far
+  // credere che l'eliminazione sia fallita.
+  await refreshAfterWrite(() => contiStore.fetchConti(), () => caricaMovimenti());
+  toastStore.success('Movimento eliminato');
 };
 
 const onSaved = async () => {
-  await contiStore.fetchConti();
-  await contiStore.fetchPatrimonio();
-  await caricaMovimenti();
-  await movimentiStore.fetchBilancioMese(oggi.month() + 1, oggi.year());
+  await refreshAfterWrite(
+    () => contiStore.fetchConti(),
+    () => contiStore.fetchPatrimonio(),
+    () => caricaMovimenti(),
+    () => movimentiStore.fetchBilancioMese(oggi.month() + 1, oggi.year()),
+  );
 };
 
 watch([filtroTipo, filtroCategoria, filtroConto, filtroAnno], caricaMovimenti);
@@ -178,7 +215,10 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
   <div class="movimenti-view animate-fade-in">
     <header class="page-header">
       <div>
-        <h1 class="page-title">Movimenti</h1>
+        <div class="page-title-row">
+          <h1 class="page-title">Movimenti</h1>
+          <HelpTrigger topic="movimenti-pagina" />
+        </div>
         <p class="page-sub">
           {{ periodoLabel }} ·
           Bilancio {{ oggi.format('MMMM') }}:
@@ -305,8 +345,48 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
 
     <WCard v-else class="empty-state">
       <ArrowLeftRight class="empty-icon" :size="48" :stroke-width="1.5" />
-      <p>Nessun movimento trovato</p>
-      <button class="quick-add" @click="apriForm('entrata')">Aggiungi il primo movimento →</button>
+
+      <template v-if="senzaConti">
+        <p>Prima crea un conto</p>
+        <p class="empty-state__hint">
+          I movimenti vengono registrati su un conto: banca, carta o contanti.
+          Dopo averlo creato potrai inserirli a mano o importare un estratto.
+        </p>
+        <button class="quick-add" @click="$router.push('/conti')">Vai a I miei conti →</button>
+      </template>
+
+      <template v-else-if="haMovimentiTotali === false">
+        <p>Non hai ancora registrato movimenti</p>
+        <p class="empty-state__hint">
+          Inserisci la prima entrata o uscita, oppure importa l'estratto conto della tua banca.
+        </p>
+        <div class="empty-state__actions">
+          <button class="quick-add" @click="apriForm('entrata')">Aggiungi il primo movimento →</button>
+          <button class="quick-add quick-add--secondary" @click="$router.push('/importa')">
+            Importa un estratto
+          </button>
+        </div>
+      </template>
+
+      <template v-else-if="haMovimentiTotali === true">
+        <p>Nessun risultato per questi filtri</p>
+        <p class="empty-state__hint">
+          Hai movimenti registrati, ma nessuno rientra nel periodo o nei filtri selezionati.
+          Prova con il periodo «Tutti» o azzera gli altri filtri.
+        </p>
+        <button class="quick-add quick-add--secondary" @click="filtroPeriodo = 'tutti'">
+          Mostra tutti i periodi
+        </button>
+      </template>
+
+      <template v-else>
+        <p>Nessun movimento trovato</p>
+        <p class="empty-state__hint">
+          Non è stato possibile verificare se ci sono movimenti in altri periodi.
+          Controlla i filtri o riprova.
+        </p>
+        <button class="quick-add" @click="apriForm('entrata')">Aggiungi un movimento →</button>
+      </template>
     </WCard>
 
     <MovimentoForm
@@ -322,6 +402,7 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
 
 <style scoped>
 .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+.page-title-row { display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap; }
 .page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
 .page-sub { color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.25rem; }
 .bilancio-skeleton {
@@ -424,5 +505,8 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
 .negative { color: var(--negative); }
 .empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); }
 .empty-icon { display: block; margin: 0 auto 1rem; color: var(--text-muted); stroke: currentColor; }
-.quick-add { margin-top: 1rem; padding: 0.75rem 1.5rem; border-radius: var(--radius-md); background: var(--accent-green); color: var(--accent-on); border: none; font-weight: 600; cursor: pointer; }
+.quick-add { margin-top: 1rem; padding: 0.75rem 1.5rem; border-radius: var(--radius-md); background: var(--accent-green); color: var(--accent-on); border: none; font-weight: 600; cursor: pointer; min-height: 44px; }
+.quick-add--secondary { background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); }
+.empty-state__hint { margin: 0.5rem auto 0; max-width: 32rem; font-size: 0.8125rem; line-height: 1.55; color: var(--text-muted); }
+.empty-state__actions { display: flex; flex-wrap: wrap; gap: 0.625rem; justify-content: center; }
 </style>

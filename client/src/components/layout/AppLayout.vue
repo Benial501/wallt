@@ -1,9 +1,10 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUiStore } from '@/stores/ui.store';
+import { useHelpStore } from '@/stores/help.store';
 import { useTheme } from '@/composables/useTheme';
 import {
   NAV_ICON_MAP,
@@ -18,8 +19,10 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   Repeat2,
+  CircleHelp,
 } from '@/utils/appIcons';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
+import HelpPanel from '@/components/help/HelpPanel.vue';
 import WalltLogo from '@/components/common/WalltLogo.vue';
 import BottomSheet from './BottomSheet.vue';
 import { performLogout } from '@/utils/session';
@@ -28,6 +31,7 @@ const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const uiStore = useUiStore();
+const helpStore = useHelpStore();
 const { mostraFormMovimento, tipoFormMovimento } = storeToRefs(uiStore);
 const { mostraScommesse, mostraInvestimenti, canAccessScommesseFeature, canAccessInvestimentiFeature } = storeToRefs(authStore);
 const { toggle: toggleTheme } = useTheme();
@@ -48,6 +52,24 @@ onUnmounted(() => {
 
 const actionSheetOpen = ref(false);
 const funzionalitaSheetOpen = ref(false);
+
+// Le preferenze della guida si leggono solo quando l'identità è nota,
+// e vengono ricaricate al cambio utente.
+watch(
+  () => authStore.user?.id,
+  (id) => helpStore.initForUser(id),
+  { immediate: true },
+);
+
+// Nessun pannello o sheet deve restare aperto sopra la pagina successiva.
+watch(
+  () => route.fullPath,
+  () => {
+    actionSheetOpen.value = false;
+    funzionalitaSheetOpen.value = false;
+    helpStore.closePanel();
+  },
+);
 
 const iniziali = computed(() => {
   const nome = authStore.user?.nome || '?';
@@ -89,6 +111,7 @@ const funzionalitaItems = computed(() => {
   if (canAccessInvestimentiFeature.value) {
     items.push({ path: '/investimenti', icon: NAV_ICON_MAP.investimenti, label: 'Investimenti', desc: 'Portafoglio e rendimenti' });
   }
+  items.push({ path: '/aiuto', icon: CircleHelp, label: 'Aiuto', desc: 'Guida e primi passi' });
   return items;
 });
 
@@ -170,6 +193,10 @@ const handleLogout = async () => {
       </nav>
 
       <div class="sidebar__footer">
+        <router-link to="/aiuto" class="sidebar__link" :class="{ active: isActive('/aiuto') }">
+          <CircleHelp class="sidebar__icon" :size="18" :stroke-width="1.75" />
+          <span>Aiuto</span>
+        </router-link>
         <button class="sidebar__link" @click="handleToggleTheme">
           <SunMoon class="sidebar__icon" :size="18" :stroke-width="1.75" />
           <span>Tema</span>
@@ -260,6 +287,9 @@ const handleLogout = async () => {
       @close="uiStore.chiudiForm"
       @saved="uiStore.chiudiForm"
     />
+
+    <!-- Istanza unica del pannello di aiuto contestuale per tutta l'app. -->
+    <HelpPanel />
   </div>
 </template>
 

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth.store';
 import api from '@/utils/axios';
+import { refreshAfterWrite } from '@/utils/afterWrite';
 
 export const useContiStore = defineStore('conti', () => {
   const authStore = useAuthStore();
@@ -41,46 +42,39 @@ export const useContiStore = defineStore('conti', () => {
     }
   };
 
+  /** Ricariche post-scrittura: non devono far fallire un'operazione già riuscita. */
+  const refreshDopoScrittura = (tipo) => refreshAfterWrite(
+    () => fetchConti(),
+    () => fetchPatrimonio(),
+    ...(tipo === 'scommesse' || tipo === true
+      ? [async () => {
+        const { useScommesseStore } = await import('./scommesse.store');
+        return useScommesseStore().fetchPiattaforme();
+      }]
+      : []),
+  );
+
   const createConto = async (dati) => {
     const { data } = await api.post('/conti', dati);
-    await fetchConti();
-    await fetchPatrimonio();
-    if (dati.tipo === 'scommesse') {
-      const { useScommesseStore } = await import('./scommesse.store');
-      await useScommesseStore().fetchPiattaforme();
-    }
+    await refreshDopoScrittura(dati.tipo);
     return data;
   };
 
   const updateConto = async (id, dati, options = {}) => {
     const { data } = await api.put(`/conti/${id}`, dati);
-    await fetchConti();
-    if (options.tipo === 'scommesse') {
-      const { useScommesseStore } = await import('./scommesse.store');
-      await useScommesseStore().fetchPiattaforme();
-    }
+    await refreshDopoScrittura(options.tipo);
     return data.conto;
   };
 
   const deleteConto = async (id, options = {}) => {
     await api.delete(`/conti/${id}`);
-    await fetchConti();
-    await fetchPatrimonio();
-    if (options.tipo === 'scommesse') {
-      const { useScommesseStore } = await import('./scommesse.store');
-      await useScommesseStore().fetchPiattaforme();
-    }
+    await refreshDopoScrittura(options.tipo);
   };
 
   const trasferimento = async (dati, options = {}) => {
     try {
       const { data } = await api.post('/conti/trasferimento', dati);
-      await fetchConti();
-      await fetchPatrimonio();
-      if (options.involvesScommesse) {
-        const { useScommesseStore } = await import('./scommesse.store');
-        await useScommesseStore().fetchPiattaforme();
-      }
+      await refreshDopoScrittura(options.involvesScommesse === true);
       return data;
     } catch (err) {
       const data = err.response?.data;

@@ -20,6 +20,7 @@ import CategoryIcon from '@/components/common/CategoryIcon.vue';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
 import AnalisiMovimentoRow from '@/components/analisi/AnalisiMovimentoRow.vue';
 import { BarChart3, TrendingUp, Coins, LightbulbIcon, CheckCircle2, DownloadIcon, X } from '@/utils/appIcons';
+import HelpTrigger from '@/components/help/HelpTrigger.vue';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Filler);
 
@@ -275,7 +276,10 @@ const hasData = computed(() =>
 <template>
   <div class="analisi-view animate-fade-in">
     <header class="page-header">
-      <h1 class="page-title">Analisi</h1>
+      <div class="page-title-row">
+        <h1 class="page-title">Analisi</h1>
+        <HelpTrigger topic="analisi-come-funziona" />
+      </div>
       <div class="periodo-tabs">
         <button v-for="p in ['mese','trimestre','anno','custom']" :key="p" :class="{ active: periodo === p }" @click="periodo = p">
           {{ p === 'mese' ? 'Mese' : p === 'trimestre' ? 'Trimestre' : p === 'anno' ? 'Anno' : 'Custom' }}
@@ -299,6 +303,10 @@ const hasData = computed(() =>
     <div v-else-if="!hasData && activeTab === 'spese' && !analisiStore.loading" class="empty-state">
       <BarChart3 class="empty-icon" :size="48" :stroke-width="1.5" />
       <p>Aggiungi movimenti per vedere le analisi</p>
+      <p class="empty-hint">
+        I grafici si costruiscono sui movimenti registrati nel periodo selezionato:
+        prova a cambiare periodo, oppure registra o importa qualche movimento.
+      </p>
       <router-link to="/movimenti" class="link-accent">Aggiungi movimento →</router-link>
     </div>
 
@@ -460,7 +468,9 @@ const hasData = computed(() =>
 
 <style scoped>
 .page-header { margin-bottom: 1rem; }
-.page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.75rem; }
+.page-title-row { display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
+.empty-hint { margin: 0.5rem auto 0.75rem; max-width: 32rem; font-size: 0.8125rem; line-height: 1.55; color: var(--text-muted); }
 .periodo-tabs, .sub-tabs, .tab-nav { display: flex; gap: 0.375rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .periodo-tabs button, .sub-tabs button, .tab-nav button {
   padding: 0.5rem 0.875rem; border-radius: 999px; border: 1px solid var(--border);

@@ -93,7 +93,7 @@ const hasMovimenti = computed(() => props.movimenti.length > 0);
       </p>
       <ImportEstrattoHint
         class="recent-tx__import-hint"
-        message="CSV, Excel o PDF — Intesa, Revolut, Poste e altri formati"
+        message="CSV o Excel — Intesa, Revolut, Poste e altri formati"
       />
       <button type="button" class="recent-tx__manual-link" @click="router.push({ path: '/movimenti', query: { action: 'uscita' } })">
         Oppure aggiungi una transazione manualmente →

@@ -18,12 +18,14 @@ import { wantsScommesse, wantsInvestimenti } from '@/utils/featureAccess';
 import {
   Shield, User, ClipboardList, Palette, Sun, Moon, Coins, Bell, Settings,
   Bot, Dices, LineChart, Lock, DownloadIcon, RefreshCw, Trash2, ChevronDown, ChevronRight,
-  Wallet,
+  Wallet, CircleHelp,
 } from '@/utils/appIcons';
+import { useHelpStore } from '@/stores/help.store';
 
 const authStore = useAuthStore();
 const contiStore = useContiStore();
 const movimentiStore = useMovimentiStore();
+const helpStore = useHelpStore();
 const { mostraScommesse, mostraInvestimenti, user } = storeToRefs(authStore);
 const isMinorUser = computed(() => isMinor(user.value?.profilo));
 const showScommesseToggle = computed(() => !isMinorUser.value && wantsScommesse(user.value?.profilo));
@@ -34,7 +36,7 @@ const { formatValuta } = useValuta();
 const { toggle, isDark } = useTheme();
 
 const openSections = ref({
-  account: true, profilo: true, conti: false, finanziario: false, importa: false, aspetto: true, valuta: false,
+  account: true, profilo: true, conti: false, finanziario: false, importa: false, aiuto: false, aspetto: true, valuta: false,
   reminder: false, funzionalita: true, sicurezza: false, export: false, reset: false, delete: false,
 });
 const loading = ref(false);
@@ -452,10 +454,43 @@ const eliminaAccountOAuth = async () => {
       </button>
       <div v-if="openSections.importa" class="section-body">
         <p class="hint">
-          Carica un file CSV, Excel o PDF del tuo estratto conto. WALLT riconosce i formati delle principali banche italiane.
+          Carica il file CSV o Excel del tuo estratto conto. WALLT riconosce i formati delle principali banche italiane.
         </p>
         <WButton variant="primary" size="md" @click="router.push('/importa')">
           Vai all'importazione
+        </WButton>
+      </div>
+    </WCard>
+
+    <WCard class="section-card">
+      <button class="section-toggle" @click="toggleSection('aiuto')">
+        <CircleHelp :size="18" :stroke-width="1.75" />
+        <span>Aiuto e guida</span>
+        <component :is="openSections.aiuto ? ChevronDown : ChevronRight" :size="16" />
+      </button>
+      <div v-if="openSections.aiuto" class="section-body">
+        <p class="hint">
+          Come funzionano conti, movimenti, trasferimenti, importazione, budget e obiettivi.
+        </p>
+        <WButton variant="primary" size="md" @click="router.push('/aiuto')">
+          Apri la guida
+        </WButton>
+        <p class="hint hint--inline">
+          <template v-if="helpStore.gettingStartedHidden">
+            Il riquadro «Primi passi» in Home è nascosto.
+          </template>
+          <template v-else>
+            Il riquadro «Primi passi» è mostrato in Home.
+          </template>
+          La preferenza vale solo per questo browser.
+        </p>
+        <WButton
+          v-if="helpStore.gettingStartedHidden"
+          variant="secondary"
+          size="md"
+          @click="helpStore.showGettingStarted()"
+        >
+          Mostra di nuovo Primi passi
         </WButton>
       </div>
     </WCard>

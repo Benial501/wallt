@@ -79,6 +79,7 @@ import {
   Sun,
   Palette,
   Coins,
+  BookOpen,
 } from 'lucide-vue-next';
 import { getCategoriaEntrata, getCategoriaUscita } from '@/utils/categorie';
 
@@ -92,6 +93,7 @@ export const NAV_ICON_MAP = {
   investimenti: LineChart,
   obiettivi: Target,
   analisi: TrendingUp,
+  aiuto: CircleHelp,
 };
 
 export const CATEGORY_ICON_MAP = {
@@ -220,6 +222,8 @@ export {
   Sun,
   Palette,
   Coins,
+  CircleHelp,
+  BookOpen,
   Briefcase,
   House,
   Car,

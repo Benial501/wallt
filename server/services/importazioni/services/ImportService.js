@@ -1,5 +1,3 @@
-const path = require('path');
-
 const FileFormatDetector = require('../detectors/FileFormatDetector');
 const BankFormatDetector = require('../detectors/BankFormatDetector');
 
@@ -9,7 +7,6 @@ const CategoryMatcher = require('./CategoryMatcher');
 
 const GenericCSVParser = require('../parsers/GenericCSVParser');
 const ExcelParser = require('../parsers/ExcelParser');
-const PDFParser = require('../parsers/PDFParser');
 
 const OldImportService = require('../../import/ImportService');
 
@@ -37,81 +34,40 @@ class ImportService {
 
   async previewImport({ userId, buffer, fileName }) {
     const fileFormat = this.fileFormatDetector.detect({ fileName, buffer });
-    if (!['csv', 'excel', 'pdf', 'unknown'].includes(fileFormat)) {
-      throw Object.assign(new Error('Formato file non supportato'), { statusCode: 400 });
+    if (!['csv', 'excel'].includes(fileFormat)) {
+      throw Object.assign(
+        new Error('Formato file non supportato. Usa .csv o .xls/.xlsx'),
+        { statusCode: 400 },
+      );
     }
 
-    // Bank detection per CSV e PDF.
-    let bankInfo = { bankId: 'generic', text: '' };
-    if (fileFormat === 'pdf') {
-      bankInfo = await this.bankFormatDetector.detect({ fileFormat, buffer });
-    } else if (fileFormat === 'csv') {
-      const bankId = await this.bankFormatDetector.detect({ fileFormat, buffer });
-      bankInfo = { bankId: typeof bankId === 'string' ? bankId : 'generic', text: '' };
-    }
+    const bankId = fileFormat === 'csv'
+      ? this.bankFormatDetector.detect({ fileFormat, buffer })
+      : 'generic';
 
-    let parser;
+    // eslint-disable-next-line global-require
+    const RevolutCSVParser = require('../parsers/RevolutCSVParser');
     let rawTransactions = [];
 
     if (fileFormat === 'csv') {
-      const RevolutCSVParser = require('../parsers/RevolutCSVParser');
-      const useRevolut = RevolutCSVParser.isRevolutCsv(buffer) || bankInfo.bankId === 'revolut';
+      const useRevolut = RevolutCSVParser.isRevolutCsv(buffer) || bankId === 'revolut';
       if (useRevolut) {
         try {
-          parser = new RevolutCSVParser();
-          rawTransactions = await parser.parse(buffer);
-        } catch (parseError) {
-          parser = new GenericCSVParser();
-          rawTransactions = await parser.parse(buffer);
+          rawTransactions = await new RevolutCSVParser().parse(buffer);
+        } catch {
+          rawTransactions = [];
         }
-        if (!rawTransactions.length) {
-          parser = new GenericCSVParser();
-          rawTransactions = await parser.parse(buffer);
-        }
-      } else {
-        parser = new GenericCSVParser();
-        rawTransactions = await parser.parse(buffer);
-      }
-    } else if (fileFormat === 'excel') {
-      const RevolutCSVParser = require('../parsers/RevolutCSVParser');
-      if (RevolutCSVParser.isRevolutCsv(buffer)) {
-        parser = new RevolutCSVParser();
-        rawTransactions = await parser.parse(buffer);
       }
       if (!rawTransactions.length) {
-        parser = new ExcelParser();
-        rawTransactions = await parser.parse(buffer);
+        rawTransactions = await new GenericCSVParser().parse(buffer);
       }
-    } else if (fileFormat === 'pdf') {
-      const bankId = bankInfo.bankId || 'generic';
-      const parserPath = path.join(__dirname, '../parsers');
-
-      let ParserImpl = null;
-      if (bankId && bankId !== 'generic') {
-        const className = `${bankId.charAt(0).toUpperCase()}${bankId.slice(1)}Parser`;
-        try {
-          ParserImpl = require(path.join(parserPath, `${className}.js`));
-        } catch {
-          ParserImpl = null;
-        }
-      }
-
-      if (!ParserImpl) {
-        ParserImpl = class GenericPDFParser {
-          constructor() {
-            this.parser = new PDFParser({ bankId: 'generic' });
-          }
-
-          async parse(buf, opts) {
-            return this.parser.parse(buf, opts);
-          }
-        };
-      }
-
-      const parserInstance = new ParserImpl();
-      rawTransactions = await parserInstance.parse(buffer, { text: bankInfo.text });
     } else {
-      throw Object.assign(new Error('Formato file non supportato'), { statusCode: 400 });
+      if (RevolutCSVParser.isRevolutCsv(buffer)) {
+        rawTransactions = await new RevolutCSVParser().parse(buffer);
+      }
+      if (!rawTransactions.length) {
+        rawTransactions = await new ExcelParser().parse(buffer);
+      }
     }
 
     if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
