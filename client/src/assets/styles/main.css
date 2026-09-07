@@ -30,6 +30,35 @@
     overflow-x: hidden;
   }
 
+  /* Barra di scorrimento discreta: sottile, traccia invisibile e pollice
+     appena accennato che si scurisce al passaggio del mouse. Resta leggibile
+     quanto basta a capire a che punto della pagina si e', senza pesare.
+     Il colore deriva da --text-muted, quindi segue tema chiaro e scuro senza
+     nuove variabili. Lo spazio riservato da scrollbar-gutter qui sopra
+     diventa di 6px invece dei ~15 della barra di sistema. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--text-muted) 35%, transparent) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--text-muted) 35%, transparent);
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--text-muted) 60%, transparent);
+  }
+
   input, select, textarea {
     font-size: 16px;
   }
