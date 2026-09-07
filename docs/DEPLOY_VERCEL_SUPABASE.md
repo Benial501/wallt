@@ -171,6 +171,64 @@ Esegui sempre le migrazioni prima del deploy che usa le nuove colonne. Non attiv
 
 Per tornare al codice precedente usa **Deployments → Instant Rollback** in entrambi i progetti. Un rollback Vercel non annulla automaticamente le migrazioni database e non aggiorna automaticamente il cron: verifica manualmente **Settings → Cron Jobs** dopo il rollback.
 
+## 9. Notifiche: cron e push del browser
+
+### Cron
+
+`server/vercel.json` dichiara due cron, entrambi protetti da `CRON_SECRET`:
+
+| Path | Schedule (UTC) | Cosa fa |
+|---|---|---|
+| `/api/cron/ricorrenti` | `0 7 * * *` | Crea i movimenti ricorrenti dovuti |
+| `/api/cron/notifiche` | `0 19 * * *` | Genera le notifiche, spedisce le push in coda, pota lo storico |
+
+`0 19 * * *` UTC corrisponde alle 20:00 (ora solare) o 21:00 (ora legale) a
+Roma: sempre dopo l'orario di promemoria predefinito (20:00) e fuori dalle ore
+di silenzio. Due cron è il massimo del piano Hobby.
+
+Il job è **idempotente** (unique su `notifiche.dedupe_key`): può essere
+richiamato a qualunque frequenza senza creare duplicati. Su piano Pro conviene
+passare a `"schedule": "0 * * * *"`, così l'`orario_promemoria` scelto
+dall'utente viene rispettato al minuto e le notifiche rinviate dalle ore di
+silenzio partono entro l'ora invece che il giorno dopo. È l'unica modifica
+necessaria: nessun cambio di codice.
+
+Con la schedulazione giornaliera, un `orario_promemoria` successivo all'ora del
+cron non viene mai raggiunto nella stessa giornata: la UI propone orari fino
+alle 21:00 e lo spiega, ma è bene saperlo prima di cambiare lo schedule.
+
+Verifica dopo il deploy: **Vercel → Settings → Cron Jobs** deve elencare
+entrambi i job. Per una prova manuale:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" https://<api>.vercel.app/api/cron/notifiche
+```
+
+### Notifiche push (opzionali)
+
+Senza chiavi VAPID il centro notifiche in-app funziona normalmente: si
+disattivano solo le notifiche di sistema del browser. Per abilitarle:
+
+1. genera la coppia di chiavi **una sola volta**:
+
+```bash
+node -e "console.log(require('web-push').generateVAPIDKeys())"
+```
+
+2. imposta su Vercel (progetto API, ambiente Production) `VAPID_PUBLIC_KEY`,
+   `VAPID_PRIVATE_KEY` e `VAPID_SUBJECT` (`mailto:...` o un URL `https:`);
+3. ridistribuisci l'API. La chiave pubblica viene servita al browser da
+   `GET /api/notifiche/preferenze`: nessuna variabile da configurare nel
+   progetto frontend.
+
+Rigenerare le chiavi invalida tutte le sottoscrizioni esistenti: gli utenti
+dovranno riattivare le push dalle impostazioni. Il service worker
+(`client/public/sw.js`) viene servito da Vercel come file statico alla radice
+del dominio: è la posizione richiesta perché lo scope copra tutta l'app.
+
+Le notifiche di sistema non contengono mai importi, saldi o categorie — solo
+titolo, una frase generica e la pagina da aprire.
+
 ## Deployment attuale (4 settembre 2026)
 
 Valori reali di questa installazione, da usare al posto dei segnaposto:

@@ -1,8 +1,12 @@
+const { assertCategory } = require('../services/categorie.service');
 const logger = require('../utils/logger');
 const { Op } = require('sequelize');
 const { sequelize, Movimento, Conto } = require('../models');
 const CategoryLearningService = require('../services/import/CategoryLearningService');
-const { MerchantAnalyzer, PersonalMerchantRulesService } = require('../services/merchant');
+// Valutazione delle soglie di budget dopo una scrittura. Gira FUORI dalla
+// transazione, non lancia mai e non può alterare saldi o esito
+// dell'operazione (vedi services/notifiche/NotificheGenerator.js).
+const { valutaBudgetDopoMovimento } = require('../services/notifiche/NotificheGenerator');
 
 const toNumber = (val) => parseFloat(val) || 0;
 
@@ -131,6 +135,7 @@ const createMovimento = async (req, res, next) => {
       descrizione, ricorrente, ricorrente_frequenza, ricorrente_giorno,
     } = req.body;
 
+    await assertCategory(req.userId, categoria, tipo, { transaction: t });
     const importoNum = toNumber(importo);
 
     if (!['entrata', 'uscita'].includes(tipo)) {
@@ -186,6 +191,9 @@ const createMovimento = async (req, res, next) => {
     await conto.update({ saldo: nuovoSaldo }, { transaction: t });
     await t.commit();
 
+    // Solo le uscite consumano budget.
+    if (tipo === 'uscita') await valutaBudgetDopoMovimento(req.userId);
+
     res.status(201).json({ movimento, conto });
   } catch (error) {
     await t.rollback();
@@ -193,7 +201,7 @@ const createMovimento = async (req, res, next) => {
   }
 };
 
-const updateMovimento = async (req, res) => {
+const updateMovimento = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const movimento = await Movimento.findOne({
@@ -236,8 +244,9 @@ const updateMovimento = async (req, res) => {
     const nuovoTipo = tipo || movimento.tipo;
     const nuovoImporto = importo !== undefined ? toNumber(importo) : importoVecchio;
     const nuovoContoId = conto_id || movimento.conto_id;
-    const nuovaCategoria = categoria !== undefined ? (categoria ?? movimento.categoria) : movimento.categoria;
+    const nuovaCategoria = categoria !== undefined ? (categoria ?? movimento.categoria) : (nuovoTipo !== movimento.tipo ? 'da_verificare' : movimento.categoria);
     const categoriaCambiata = categoria !== undefined && nuovaCategoria !== oldCategoria;
+    if (categoriaCambiata || nuovoTipo !== movimento.tipo) await assertCategory(req.userId, nuovaCategoria, nuovoTipo, { transaction: t });
 
     const contoNuovo = nuovoContoId === contoVecchio.id
       ? contoVecchio
@@ -307,6 +316,7 @@ const updateMovimento = async (req, res) => {
       ricorrente_frequenza: ricorrente ? (ricorrente_frequenza ?? movimento.ricorrente_frequenza) : null,
       ricorrente_giorno: ricorrente ? (ricorrente_giorno ?? movimento.ricorrente_giorno) : null,
       categoria_automatica: categoriaCambiata ? false : (movimento.categoria_automatica ?? oldCategoriaAutomatica),
+      categoria_fonte: categoriaCambiata ? 'user' : movimento.categoria_fonte,
       categoria_modificata: categoriaCambiata ? true : (movimento.categoria_modificata ?? false),
     }, { transaction: t });
 
@@ -317,38 +327,7 @@ const updateMovimento = async (req, res) => {
         : oldCategoriaDescrizione;
 
       const learningService = new CategoryLearningService();
-      const personalRulesService = new PersonalMerchantRulesService();
-      const merchantAnalyzer = new MerchantAnalyzer({ personalRulesService });
-
-      try {
-        await learningService.learnRule({
-          userId: req.userId,
-          descrizione: descrizioneFinale,
-          categoria: nuovaCategoria,
-          transaction: t,
-        });
-      } catch (e) {
-        logger.warn('Learning rule failed', { err: e });
-      }
-
-      try {
-        const merchantGuess = merchantAnalyzer.analyzeWithRules({
-          descrizione: descrizioneFinale,
-          tipo: nuovoTipo,
-          personalRules: [],
-        });
-
-        await personalRulesService.learnRule({
-          userId: req.userId,
-          descrizione: descrizioneFinale,
-          merchantName: merchantGuess.merchant,
-          merchantId: merchantGuess.merchantId,
-          categoria: nuovaCategoria,
-          transaction: t,
-        });
-      } catch (e) {
-        logger.warn('Personal merchant rule failed', { err: e });
-      }
+      await learningService.learnRule({ userId: req.userId, descrizione: descrizioneFinale, categoria: nuovaCategoria, tipo: nuovoTipo, transaction: t });
     }
 
     if (nuovoTipo === 'entrata') {
@@ -361,11 +340,13 @@ const updateMovimento = async (req, res) => {
     await movimento.reload();
     await contoNuovo.reload();
 
+    if (nuovoTipo === 'uscita') await valutaBudgetDopoMovimento(req.userId);
+
     res.json({ movimento, conto: contoNuovo });
   } catch (error) {
     await t.rollback();
     logger.error('Errore updateMovimento', { err: error });
-    res.status(500).json({ message: 'Errore nell\'aggiornamento del movimento' });
+    return next(error);
   }
 };
 

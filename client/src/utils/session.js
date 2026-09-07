@@ -1,3 +1,4 @@
+import { resetCategorie } from '@/utils/categorie';
 import { useAuthStore } from '@/stores/auth.store';
 import { useImportazioniStore } from '@/stores/importazioni.store';
 import { useProfiloStore } from '@/stores/profilo.store';
@@ -10,12 +11,14 @@ import { useInvestimentiStore } from '@/stores/investimenti.store';
 import { useAnalisiStore } from '@/stores/analisi.store';
 import { useUiStore } from '@/stores/ui.store';
 import { useHelpStore } from '@/stores/help.store';
+import { useNotificheStore } from '@/stores/notifiche.store';
 
 /**
  * Pulisce tutti gli store Pinia e i dati temporanei di sessione.
  * L'auth store va resettato separatamente tramite logout().
  */
 export function resetPiniaStores() {
+  resetCategorie();
   let savedProfilo = null;
   try {
     savedProfilo = useAuthStore().user?.profilo ?? null;
@@ -87,6 +90,12 @@ export function resetPiniaStores() {
     // Solo stato in memoria: le preferenze salvate degli account restano
     // in localStorage, ciascuna sotto la propria chiave `wallt:help:v1:<id>`.
     useHelpStore().resetState();
+  } catch { /* ignore */ }
+
+  try {
+    // Ferma anche il polling del badge: un timer che sopravvive al logout
+    // continuerebbe a chiamare /notifiche con il token del vecchio utente.
+    useNotificheStore().resetState();
   } catch { /* ignore */ }
 
   try {

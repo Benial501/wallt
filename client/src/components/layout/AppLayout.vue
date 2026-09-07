@@ -1,10 +1,12 @@
 <script setup>
+import { loadCategorie, resetCategorie } from '@/utils/categorie';
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUiStore } from '@/stores/ui.store';
 import { useHelpStore } from '@/stores/help.store';
+import { useNotificheStore } from '@/stores/notifiche.store';
 import { useTheme } from '@/composables/useTheme';
 import {
   NAV_ICON_MAP,
@@ -23,6 +25,8 @@ import {
 } from '@/utils/appIcons';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
 import HelpPanel from '@/components/help/HelpPanel.vue';
+import NotificheBell from '@/components/notifiche/NotificheBell.vue';
+import NotifichePanel from '@/components/notifiche/NotifichePanel.vue';
 import WalltLogo from '@/components/common/WalltLogo.vue';
 import BottomSheet from './BottomSheet.vue';
 import { performLogout } from '@/utils/session';
@@ -30,8 +34,13 @@ import { performLogout } from '@/utils/session';
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
+watch(() => authStore.token, async token => {
+  resetCategorie();
+  if (token) { try { await loadCategorie(); } catch { /* La pagina categorie permette di riprovare. */ } }
+}, { immediate: true });
 const uiStore = useUiStore();
 const helpStore = useHelpStore();
+const notificheStore = useNotificheStore();
 const { mostraFormMovimento, tipoFormMovimento } = storeToRefs(uiStore);
 const { mostraScommesse, mostraInvestimenti, canAccessScommesseFeature, canAccessInvestimentiFeature } = storeToRefs(authStore);
 const { toggle: toggleTheme } = useTheme();
@@ -48,6 +57,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize);
+  notificheStore.fermaPolling();
 });
 
 const actionSheetOpen = ref(false);
@@ -61,6 +71,17 @@ watch(
   { immediate: true },
 );
 
+// Il badge delle notifiche si aggiorna solo con un utente autenticato: il
+// polling parte qui e viene fermato dal logout (utils/session.js).
+watch(
+  () => authStore.user?.id,
+  (id) => {
+    if (id) notificheStore.avviaPolling();
+    else notificheStore.fermaPolling();
+  },
+  { immediate: true },
+);
+
 // Nessun pannello o sheet deve restare aperto sopra la pagina successiva.
 watch(
   () => route.fullPath,
@@ -68,6 +89,7 @@ watch(
     actionSheetOpen.value = false;
     funzionalitaSheetOpen.value = false;
     helpStore.closePanel();
+    notificheStore.chiudiPanel();
   },
 );
 
@@ -193,6 +215,7 @@ const handleLogout = async () => {
       </nav>
 
       <div class="sidebar__footer">
+        <NotificheBell variante="sidebar" />
         <router-link to="/aiuto" class="sidebar__link" :class="{ active: isActive('/aiuto') }">
           <CircleHelp class="sidebar__icon" :size="18" :stroke-width="1.75" />
           <span>Aiuto</span>
@@ -216,9 +239,12 @@ const handleLogout = async () => {
       <router-link to="/dashboard" class="mobile-header__logo-link" aria-label="Vai alla Dashboard">
         <WalltLogo mark-only :size="30" />
       </router-link>
-      <button class="avatar avatar--sm" @click="router.push('/impostazioni')">
-        {{ iniziali }}
-      </button>
+      <div class="mobile-header__azioni">
+        <NotificheBell variante="compatta" />
+        <button class="avatar avatar--sm" @click="router.push('/impostazioni')">
+          {{ iniziali }}
+        </button>
+      </div>
     </header>
 
     <main class="main-content" :class="{ 'main-content--dashboard': isDashboard }">
@@ -290,6 +316,9 @@ const handleLogout = async () => {
 
     <!-- Istanza unica del pannello di aiuto contestuale per tutta l'app. -->
     <HelpPanel />
+
+    <!-- Idem per il centro notifiche: una sola istanza, aperta dalla campanella. -->
+    <NotifichePanel />
   </div>
 </template>
 
@@ -313,6 +342,7 @@ const handleLogout = async () => {
 .sidebar__footer { padding: 16px 12px 24px; border-top: 1px solid var(--border); }
 .mobile-header { position: fixed; top: 0; left: 0; right: 0; height: 60px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 1rem; z-index: 100; }
 .mobile-header__logo-link { display: inline-flex; }
+.mobile-header__azioni { display: flex; align-items: center; gap: 0.25rem; }
 .main-content { min-height: 100vh; padding: 76px 1rem calc(96px + env(safe-area-inset-bottom, 0px)); overflow-x: hidden; background: var(--bg-primary); }
 .main-content--dashboard { padding-top: 1rem; }
 .route-view { min-height: 1px; width: 100%; }

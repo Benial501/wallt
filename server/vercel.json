@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/ricorrenti",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/notifiche",
+      "schedule": "0 19 * * *"
     }
   ]
 }

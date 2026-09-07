@@ -36,6 +36,71 @@
 - **Risposta**: `{ processed, skipped, failed }`
 - **File**: `cron.routes.js` → `cron.controller.js` → `ricorrenti.service.js`
 
+### GET /api/cron/notifiche
+- **Auth**: Bearer `CRON_SECRET` dedicato; non usa il JWT utente
+- **Azione**: genera le notifiche dovute per tutti gli utenti (promemoria,
+  budget, ricorrenti, obiettivi, riepilogo settimanale), spedisce le push in
+  attesa e pota le notifiche lette più vecchie di 90 giorni
+- **Idempotenza**: unique `(user_id, dedupe_key)` su `notifiche`; può essere
+  richiamata a qualunque frequenza senza creare duplicati
+- **Risposta**: `{ utenti, create, duplicate, saltate, solo_in_app, rinviate, errori, push: {...}, potate }`
+- **File**: `cron.routes.js` → `cron.controller.js` → `services/notifiche/NotificheGenerator.js`
+
+---
+
+## Notifiche
+
+Tutte le rotte richiedono `Authorization: Bearer <jwt>` e operano solo sulle
+notifiche dell'utente autenticato.
+
+### GET /api/notifiche
+- **Query**: `non_lette` (`true`/`false`), `limit` (1-100), `offset`
+- **Risposta**: `{ notifiche[], totale, non_lette }`
+- Le notifiche rinviate alle ore di silenzio non compaiono finché non sono dovute.
+- `dedupe_key` non viene mai esposta.
+
+### GET /api/notifiche/non-lette
+- Endpoint leggero per il badge della campanella
+- **Risposta**: `{ non_lette, notifiche[] }` (massimo 20)
+
+### PUT /api/notifiche/:id/letta
+- **Risposta**: `{ message, non_lette }` — `404` se la notifica non esiste o è di un altro utente
+
+### PUT /api/notifiche/lette
+- Segna come lette tutte le notifiche dovute dell'utente
+- **Risposta**: `{ message, aggiornate, non_lette: 0 }`
+
+### GET /api/notifiche/preferenze
+- **Risposta**: `{ preferenze, chiave_pubblica_push }` — le preferenze vengono
+  create con i default al primo accesso
+- `chiave_pubblica_push` è la chiave VAPID pubblica (null se il push non è configurato)
+
+### PUT /api/notifiche/preferenze
+- **Body**: `promemoria_giornaliero_attivo`, `alert_budget_attivi`,
+  `alert_ricorrenti_attivi`, `alert_obiettivi_attivi`,
+  `riepilogo_settimanale_attivo`, `push_attive`, `orario_promemoria` (HH:MM),
+  `quiet_hours_inizio`, `quiet_hours_fine`, `timezone` (IANA), `max_notifiche_giornaliere` (1-5)
+- `push_attive: true` senza chiavi VAPID configurate → `503`
+- `push_attive: false` elimina anche le sottoscrizioni push dell'utente
+
+### POST /api/notifiche/push
+- **Body**: `{ subscription: { endpoint, keys: { p256dh, auth } } }`
+- Registra il dispositivo e attiva `push_attive` (la registrazione È il consenso)
+- **Risposta**: `201 { message, preferenze }` — `503` se VAPID non è configurato
+
+### DELETE /api/notifiche/push
+- **Body**: `{ endpoint }` opzionale — senza endpoint rimuove tutti i dispositivi
+  e disattiva `push_attive`
+- **Risposta**: `{ message, rimosse, preferenze }`
+
+### POST /api/notifiche/giornata-controllata
+- Marca il giorno locale dell'utente come già controllato: nessun promemoria per quella data
+- **Risposta**: `{ message, giorno }`
+
+### POST /api/notifiche/genera
+- Rigenerazione on-demand per il solo utente autenticato (idempotente)
+- **Risposta**: `{ esito, non_lette }`
+
 ---
 
 ## Authentication

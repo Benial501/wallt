@@ -6,7 +6,7 @@ import WButton from '@/components/common/WButton.vue';
 import { useContiStore } from '@/stores/conti.store';
 import { useMovimentiStore } from '@/stores/movimenti.store';
 import { useToastStore } from '@/stores/toast.store';
-import { CATEGORIE_ENTRATA, CATEGORIE_USCITA } from '@/utils/categorie';
+import { CATEGORIE_ENTRATA, CATEGORIE_USCITA, CATEGORIE_ARCHIVIATE } from '@/utils/categorie';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
 import HelpNote from '@/components/help/HelpNote.vue';
 import { ArrowDownCircle, ArrowUpCircle } from '@/utils/appIcons';
@@ -83,9 +83,12 @@ const extractErrorMessage = (err) => {
     || 'Errore nel salvataggio';
 };
 
-const categorie = computed(() =>
-  form.value.tipo === 'entrata' ? CATEGORIE_ENTRATA : CATEGORIE_USCITA
-);
+const ricercaCategoria = ref('');
+const categorie = computed(() => [
+  ...(form.value.tipo === 'entrata' ? CATEGORIE_ENTRATA : CATEGORIE_USCITA),
+  ...CATEGORIE_ARCHIVIATE.filter(c => c.id === props.movimento?.categoria && c.tipo === form.value.tipo),
+].filter(c => c.nome.toLowerCase().includes(ricercaCategoria.value.toLowerCase())));
+
 
 const contiDestinazione = computed(() =>
   contiStore.contiAttivi.filter((c) => c.id !== trasferimentoForm.value.conto_origine_id)
@@ -308,7 +311,8 @@ const shellProps = computed(() => {
 
         <div class="field">
           <label>Categoria</label>
-          <div class="cat-grid">
+          <input v-model="ricercaCategoria" class="form-input" type="search" placeholder="Cerca categoria" aria-label="Cerca categoria" />
+          <div class="cat-grid" style="max-height: 250px; overflow-y: auto">
             <button
               v-for="cat in categorie"
               :key="cat.id"
@@ -318,7 +322,7 @@ const shellProps = computed(() => {
               @click="form.categoria = cat.id"
             >
               <CategoryIcon :categoria="cat.id" :tipo="form.tipo" :size="18" />
-              <span class="cat-label">{{ cat.nome }}</span>
+              <span class="cat-label">{{ cat.nome }}{{ !cat.attiva ? ' (archiviata)' : '' }}</span>
             </button>
           </div>
         </div>

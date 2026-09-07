@@ -19,6 +19,7 @@ const CategorieRegola = sequelize.define('CategorieRegola', {
     type: DataTypes.STRING(100),
     allowNull: false,
   },
+  tipo: { type: DataTypes.STRING(10), allowNull: true },
   priorita: {
     type: DataTypes.INTEGER,
     allowNull: false,

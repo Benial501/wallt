@@ -35,6 +35,16 @@ if (erroriConfig.length > 0) {
     const { createApp } = require('../app');
     // eslint-disable-next-line global-require
     const EmailService = require('../services/email/EmailService');
+    // eslint-disable-next-line global-require
+    const PushService = require('../services/notifiche/PushService');
+
+    const pushInit = PushService.initPush();
+    if (!pushInit.ok) {
+      logger.warn(
+        `[push] Notifiche push del browser disattivate: ${pushInit.motivo}. `
+        + 'Il centro notifiche in-app funziona comunque.',
+      );
+    }
 
     const emailInit = EmailService.initEmailService();
     if (!emailInit.ok) {

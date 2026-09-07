@@ -42,6 +42,7 @@
     "pg-hstore": "^2.3.4",
     "resend": "^6.17.2",
     "sequelize": "^6.37.8",
+    "web-push": "^3.6.7",
     "winston": "^3.19.0",
     "xlsx": "^0.18.5"
   },

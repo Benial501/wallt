@@ -39,6 +39,7 @@ Architettura: **SPA Vue 3** (`client/`) + **API REST Node.js/Express** (`server/
 | google-auth-library | 11.x | Verifica ID token Google (step-up OAuth) |
 | helmet | 8.2 | Security headers |
 | multer | 2.2 | Upload file (import) |
+| web-push | 3.6 | Notifiche push del browser (VAPID) |
 | node-cron | 4.5 | Spese ricorrenti |
 | winston | 3.19 | Logging |
 | Resend | 6.17 | Email (reset password) |
@@ -74,6 +75,7 @@ Architettura: **SPA Vue 3** (`client/`) + **API REST Node.js/Express** (`server/
 | Google OAuth | Opzionale (env-gated) | `config/passport.js` |
 | OpenAI | Opzionale (categorizzazione) | `services/import/category/OpenAICategoryClassifier.js` |
 | Google Places / Foursquare / OSM | Stub (non implementati) | `services/merchant/lookup/providers/` |
+| Web Push (VAPID) | Opzionale: senza `VAPID_*` il centro notifiche in-app funziona lo stesso | `services/notifiche/PushService.js` |
 
 ## Repository Structure
 
@@ -98,7 +100,7 @@ wallt/
 │   ├── models/             # 16 modelli Sequelize + index.js (associazioni)
 │   ├── migrations/         # 19 migrazioni
 │   ├── routes/             # 12 route modules
-│   ├── services/           # Business logic (import, merchant, email, reset, sync, cron)
+│   ├── services/           # Business logic (import, merchant, email, reset, sync, cron, notifiche)
 │   ├── tests/              # Jest (auth, security, gdpr, profilo, import, categorization, isolation, googleStepUp, financialConsistency, ricorrenti, excelParser, validateEnv)
 │   └── utils/              # logger, AppError, ageRestriction, featureAccess, oauthPopup
 ├── docs/                   # Documentazione tecnica (questa cartella)
@@ -123,7 +125,7 @@ Express API (/api/*)
 - **Monorepo** con frontend e backend separati ma nello stesso repository.
 - **Nessun SSR**: il frontend è una SPA statica servita da Vite.
 - **Nessun WebSocket**: comunicazione solo REST.
-- **Cron**: su Vercel è Vercel Cron che chiama `GET /api/cron/ricorrenti` con `Authorization: Bearer $CRON_SECRET`; `node-cron` resta solo per il server locale (`server.js`).
+- **Cron**: su Vercel è Vercel Cron che chiama `GET /api/cron/ricorrenti` e `GET /api/cron/notifiche` con `Authorization: Bearer $CRON_SECRET`; `node-cron` resta solo per il server locale (`server.js`). Il job notifiche è idempotente: la schedulazione committata è giornaliera (`0 19 * * *` UTC, compatibile con il piano Hobby), ma può passare a oraria (`0 * * * *`) su piano Pro senza altre modifiche — con il controllo orario l'`orario_promemoria` scelto dall'utente viene rispettato al minuto.
 - **Import pipeline duale**: `services/import/` (core) + `services/importazioni/` (nuova pipeline con detector/parser bancari).
 
 ## Important Business Rules
@@ -141,6 +143,10 @@ Express API (/api/*)
 11. **Spese ricorrenti**: cron giornaliero 09:00 Europe/Rome, ma **solo frequenza `mensile`** è processata.
 12. **Patrimonio totale**: somma saldi conti attivi + investimenti attivi.
 13. **JWT invalidation**: token emessi prima di `password_changed_at` vengono rifiutati.
+14. **Notifiche — limite anti-spam**: massimo `max_notifiche_giornaliere` (default 2) notifiche "contate" per utente al giorno, di cui **al più una `normale`**: il secondo slot è riservato alle `urgente` (budget superato, pagamento imminente, sicurezza). Oltre il limite la notifica viene comunque creata ma con `conta_nel_limite = false` e canale `in_app`: resta nel centro notifiche e non genera push. Il promemoria giornaliero fa eccezione e viene **saltato** (consegnarlo il giorno dopo non avrebbe senso).
+15. **Notifiche — deduplica**: ogni notifica ha una `dedupe_key` (`userId` implicito + tipo + riferimento + periodo) con UNIQUE su `(user_id, dedupe_key)`. È il vincolo che rende il cron sicuro da rieseguire a qualunque frequenza.
+16. **Notifiche — fuso orario e ore di silenzio**: limite giornaliero, orario del promemoria e ore di silenzio sono calcolati nel fuso dell'utente (default `Europe/Rome`), mai in quello del processo (che su Vercel è UTC). Una notifica generata nelle ore di silenzio (default 22:00→08:00) non viene persa: `programmata_per` slitta al primo orario consentito e la notifica resta invisibile fino ad allora.
+17. **Notifiche — privacy**: il payload push non contiene mai importi, saldi o categorie: solo titolo, una frase generica per tipo e la route da aprire. I dettagli si vedono in app, dopo il login.
 
 ## Authentication
 
@@ -202,6 +208,8 @@ Configurazione DB: `server/config/database.js` accetta `DATABASE_URL` **oppure**
 | **Cron ricorrenti** | Crea movimenti automaticamente ogni giorno | `ricorrenti.service.js` |
 | **Migrazioni DB** | Auto-run all'avvio SOLO fuori produzione (disabilitato quando `NODE_ENV=production`, vedi `RUN_MIGRATIONS_ON_BOOT`); 19 file con possibili duplicati. Su Supabase si lanciano a mano con `npm run migrate:production` (`NODE_ENV=migration` + `DATABASE_MIGRATION_URL`) | `server.js`, `migrations/` |
 | **Feature access minori** | Logica duplicata frontend/backend | `featureAccess.js` (client + server), `ageRestriction.js` |
+| **Notifiche** | Regole anti-spam, deduplica e fuso orario: una modifica sbagliata trasforma il sistema in spam. Il calcolo del budget è condiviso con l'API budget | `services/notifiche/`, `services/budgetStato.service.js` |
+| **Hook budget post-movimento** | `valutaBudgetDopoMovimento` è chiamata (awaited) dopo il commit in `createMovimento`/`updateMovimento` e dopo l'import: deve restare fuori dalla transazione e non lanciare mai | `movimenti.controller.js`, `importazioni.controller.js`, `NotificheGenerator.js` |
 
 ## Known Issues
 

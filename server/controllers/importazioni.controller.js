@@ -3,6 +3,7 @@ const path = require('path');
 const { BadRequestError } = require('../utils/AppError');
 const { validateImportFileBuffer } = require('../utils/fileMagicBytes');
 const ImportService = require('../services/importazioni/services/ImportService');
+const { valutaBudgetDopoMovimento } = require('../services/notifiche/NotificheGenerator');
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -74,6 +75,11 @@ const conferma = async (req, res, next) => {
       transactionsToImport: transactions,
       aggiornaSaldo: !!aggiornaSaldo,
     });
+
+    // Un import può sfondare più budget in un colpo solo: le soglie vanno
+    // rivalutate subito, non al cron del giorno dopo.
+    await valutaBudgetDopoMovimento(req.userId);
+
     return res.json(result);
   } catch (error) {
     return next(error);

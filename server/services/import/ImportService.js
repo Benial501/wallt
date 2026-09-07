@@ -1,3 +1,5 @@
+const { moneyMovement } = require('./category/ContextCategoryRules');
+const { assertCategory } = require('../categorie.service');
 const logger = require('../../utils/logger');
 const { Op } = require('sequelize');
 const { sequelize, Conto, Movimento } = require('../../models');
@@ -5,7 +7,6 @@ const CSVParserService = require('./CSVParserService');
 const ExcelParserService = require('./ExcelParserService');
 const TransactionNormalizer = require('./TransactionNormalizer');
 const DuplicateChecker = require('./DuplicateChecker');
-const CategoryMatcher = require('./CategoryMatcher');
 const CategoryMatcherService = require('./CategoryMatcherService');
 const CategoryLearningService = require('./CategoryLearningService');
 const { MerchantAnalyzer, PersonalMerchantRulesService } = require('../merchant');
@@ -86,40 +87,10 @@ class ImportService {
       const merchant = merchantMap.get(tx.clientTxId) || {};
       const match = matchMap.get(tx.clientTxId) || {};
 
-      let categoriaSuggerita = match.categoria ?? (tx.tipo === 'entrata' ? 'altro_entrata' : 'altro_uscita');
-      let categoriaConfidenza = match.confidenza ?? 30;
-      let categoriaFonte = match.source ?? 'ai_default';
+      const categoriaSuggerita = match.categoria ?? 'da_verificare';
+      const categoriaConfidenza = match.confidenza ?? 30;
+      const categoriaFonte = match.source ?? 'ai_default';
 
-      // Merchant Intelligence: non sovrascrivere match affidabili.
-      const matchConf = match.confidenza ?? 0;
-      if (merchant.source === 'unverified') {
-        if (matchConf < 55) {
-          categoriaSuggerita = merchant.categoria ?? 'da_verificare';
-          categoriaConfidenza = 0;
-          categoriaFonte = 'unverified';
-        }
-      } else if (merchant.source?.startsWith('ai_') && merchant.categoria && (merchant.confidenza ?? 0) > matchConf) {
-        categoriaSuggerita = merchant.categoria;
-        categoriaConfidenza = merchant.confidenza ?? 50;
-        categoriaFonte = merchant.source;
-      } else if (merchant.source?.startsWith('lookup_') && merchant.categoria && (merchant.confidenza ?? 0) > matchConf) {
-        categoriaSuggerita = merchant.categoria;
-        categoriaConfidenza = merchant.confidenza ?? 70;
-        categoriaFonte = merchant.source;
-      } else if (
-        merchant.merchant
-        && merchant.categoria
-        && (merchant.confidenza ?? 0) >= 65
-        && (merchant.source === 'user' || (merchant.confidenza ?? 0) > matchConf + 5)
-      ) {
-        categoriaSuggerita = merchant.categoria;
-        categoriaConfidenza = merchant.confidenza;
-        categoriaFonte = merchant.source === 'user' ? 'user' : 'merchant';
-      } else if (merchant.source === 'user' && merchant.categoria) {
-        categoriaSuggerita = merchant.categoria;
-        categoriaConfidenza = merchant.confidenza ?? 92;
-        categoriaFonte = 'user';
-      }
 
       return {
         clientTxId: tx.clientTxId,
@@ -140,6 +111,9 @@ class ImportService {
         categoria_confidenza: categoriaConfidenza,
         categoria_automatica: true,
         categoria_fonte: categoriaFonte,
+        richiede_verifica: match.requiresReview ?? false,
+        richiede_trasferimento: match.requiresTransferReview ?? false,
+        natura: match.natura ?? tx.tipo,
         matchedPattern: match.matchedPattern ?? merchant.matchedKeyword ?? null,
         balance: tx.balance ?? null,
         isDuplicate: false,
@@ -148,10 +122,10 @@ class ImportService {
 
     const duplicateCount = items.filter((i) => i.isDuplicate).length;
     const nuoveCount = items.filter((i) => !i.isDuplicate).length;
-    const categorizzateCount = items.filter((i) => !i.isDuplicate && i.categoria_suggerita).length;
+    const categorizzateCount = items.filter((i) => !i.isDuplicate && i.categoria_suggerita && i.categoria_suggerita !== 'da_verificare').length;
     const merchantCount = items.filter((i) => !i.isDuplicate && i.merchant).length;
-    const importabiliCount = items.filter((i) => !i.isDuplicate && i.conto_id && i.categoria_suggerita).length;
-    const daVerificareCount = items.filter((i) => !i.isDuplicate && (i.categoria_confidenza ?? 0) < 60).length;
+    const importabiliCount = items.filter((i) => !i.isDuplicate && !i.richiede_trasferimento && i.conto_id && i.categoria_suggerita).length;
+    const daVerificareCount = items.filter((i) => !i.isDuplicate && (i.categoria_confidenza ?? 0) < 75).length;
 
     return {
       items,
@@ -211,6 +185,7 @@ class ImportService {
       categoria_finale: tx.categoria_finale ?? null,
       categoria_suggerita: tx.categoria_suggerita ?? null,
       categoria_confidenza: tx.categoria_confidenza ?? null,
+      categoria_fonte: tx.categoria_fonte ?? null,
       categoria_automatica: tx.categoria_automatica ?? (tx.categoria_suggerita ? true : false),
       merchant_finale: tx.merchant_finale ?? null,
       merchant_suggerito: tx.merchant ?? tx.merchant_suggerito ?? null,
@@ -230,6 +205,7 @@ class ImportService {
       && tx.descrizione
       && toNumber(tx.importo) > 0
       && ['entrata', 'uscita'].includes(tx.tipo)
+      && !moneyMovement(tx.descrizione)
     ));
 
     const duplicateSaltati = checked.filter((tx) => tx.isDuplicate).length;
@@ -255,6 +231,7 @@ class ImportService {
         const conto = contoMap.get(contoId);
         if (!conto) continue;
 
+        await assertCategory(userId, tx.categoria_finale, tx.tipo, { transaction: t });
         const importoNum = toNumber(tx.importo);
         const categoriaAutomatica = !!tx.categoria_suggerita;
         const categoriaModificata = categoriaAutomatica && tx.categoria_finale !== tx.categoria_suggerita;
@@ -271,6 +248,7 @@ class ImportService {
           categoria_automatica: categoriaAutomatica,
           categoria_confidenza: categoriaAutomatica ? (tx.categoria_confidenza ?? null) : null,
           categoria_modificata: categoriaModificata,
+          categoria_fonte: categoriaModificata ? 'user' : String(tx.categoria_fonte || 'import').slice(0, 40),
           descrizione: tx.descrizione,
           data: tx.data,
           ricorrente: false,
@@ -279,10 +257,8 @@ class ImportService {
         }, { transaction: t });
 
         // Apprendimento: crea/rafforza regole personali da correzioni utente.
-        const shouldLearnPersonal = tx.categoria_finale || tx.merchant_finale;
-        const userCorrected = !categoriaAutomatica || categoriaModificata || merchantModificato;
 
-        if (shouldLearnPersonal && userCorrected) {
+        if (merchantModificato) {
           try {
             await this.personalRulesService.learnRule({
               userId,
@@ -290,6 +266,7 @@ class ImportService {
               merchantName: tx.merchant_finale ?? tx.merchant_suggerito ?? null,
               merchantId: tx.merchant_id_finale ?? tx.merchant_id_suggerito ?? null,
               categoria: tx.categoria_finale ?? null,
+              tipo: tx.tipo,
               transaction: t,
             });
           } catch (e) {
@@ -298,16 +275,7 @@ class ImportService {
         }
 
         if (tx.categoria_finale && (!categoriaAutomatica || categoriaModificata)) {
-          try {
-            await this.learningService.learnRule({
-              userId,
-              descrizione: tx.descrizione,
-              categoria: tx.categoria_finale,
-              transaction: t,
-            });
-          } catch (e) {
-            logger.warn('Learning rule failed', { err: e });
-          }
+          await this.learningService.learnRule({ userId, descrizione: tx.descrizione, categoria: tx.categoria_finale, tipo: tx.tipo, transaction: t });
         }
       }
 

@@ -13,6 +13,7 @@ const analisiRoutes = require('./routes/analisi.routes');
 const impostazioniRoutes = require('./routes/impostazioni.routes');
 const investimentiRoutes = require('./routes/investimenti.routes');
 const importazioniRoutes = require('./routes/importazioni.routes');
+const notificheRoutes = require('./routes/notifiche.routes');
 const cronRoutes = require('./routes/cron.routes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler.middleware');
 const {
@@ -105,8 +106,10 @@ const createApp = (options = {}) => {
   app.use('/api/scommesse', scommesseRoutes);
   app.use('/api/analisi', analisiRoutes);
   app.use('/api/impostazioni', impostazioniRoutes);
+  app.use('/api/categorie', require('./routes/categorie.routes'));
   app.use('/api/investimenti', investimentiRoutes);
   app.use('/api/importazioni', importazioniRoutes);
+  app.use('/api/notifiche', notificheRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

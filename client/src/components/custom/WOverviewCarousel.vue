@@ -19,6 +19,8 @@ ChartJS.register(ArcElement, Tooltip, CategoryScale, LinearScale, PointElement, 
 const CHART_COLORS = ['#00D4AA', '#FF4757', '#6C5CE7', '#74B9FF', '#FECA57', '#FF9F43', '#A29BFE', '#FD79A8'];
 
 const props = defineProps({
+  conti: { type: Array, default: () => [] },
+  loadingConti: { type: Boolean, default: false },
   patrimonio: { type: Number, default: 0 },
   entrateMese: { type: Number, default: 0 },
   usciteMese: { type: Number, default: 0 },
@@ -56,7 +58,7 @@ const trackRef = ref(null);
 const activeIndex = ref(0);
 
 const slides = computed(() => {
-  const list = ['saldo', 'budget', 'uscite-oggi', 'entrate-oggi', 'obiettivi'];
+  const list = ['saldo', 'conti', 'budget', 'uscite-oggi', 'entrate-oggi', 'obiettivi'];
   if (props.mostraScommesse && props.scommesseAttivo) list.push('scommesse');
   if (props.mostraInvestimenti && props.investimentiAttivo) list.push('investimenti');
   return list;
@@ -245,6 +247,32 @@ onUnmounted(() => {
               </div>
             </div>
           </template>
+        </div>
+
+        <!-- Saldi dei singoli conti: seconda scheda della panoramica -->
+        <div class="w-overview__slide w-full shrink-0 snap-center">
+          <p class="w-overview__eyebrow">I miei conti</p>
+          <template v-if="loadingConti">
+            <WSkeleton type="text" :lines="4" />
+          </template>
+          <template v-else-if="conti.length">
+            <p class="w-overview__subtitle">Quanto hai su ogni conto</p>
+            <div class="w-overview__accounts-scroll" tabindex="0" role="region" aria-label="Saldi dei conti">
+              <ul class="w-overview__accounts">
+                <li v-for="conto in conti" :key="conto.id" class="w-overview__account">
+                  <span class="w-overview__account-mark" :style="{ backgroundColor: conto.colore || 'var(--accent-green)' }" aria-hidden="true" />
+                  <span class="w-overview__account-name">{{ conto.nome }}</span>
+                  <span class="w-overview__account-balance tabular-nums" :class="{ 'is-negative': Number(conto.saldo) < 0 }">{{ formatValuta(conto.saldo) }}</span>
+                </li>
+              </ul>
+            </div>
+            <button type="button" class="w-overview__link-btn" @click="router.push('/conti')">Gestisci conti →</button>
+          </template>
+          <div v-else class="w-overview__cta-empty">
+            <p class="w-overview__cta-title">I tuoi conti, a colpo d’occhio</p>
+            <p class="w-overview__cta-desc">Aggiungi un conto per visualizzare qui il suo saldo.</p>
+            <button type="button" class="w-overview__cta-btn" @click="router.push('/conti')">Aggiungi un conto</button>
+          </div>
         </div>
 
         <!-- Budget -->
@@ -659,6 +687,34 @@ onUnmounted(() => {
   color: var(--text-secondary);
   margin-bottom: 0.75rem;
 }
+
+.w-overview__accounts-scroll {
+  max-height: 230px;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  margin-bottom: 0.75rem;
+}
+
+.w-overview__accounts-scroll:focus-visible {
+  outline: 2px solid var(--accent-green);
+  outline-offset: -2px;
+  border-radius: 0.75rem;
+}
+
+.w-overview__accounts { list-style: none; margin: 0; padding: 0; }
+.w-overview__account {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.w-overview__account:last-child { border-bottom: none; }
+.w-overview__account-mark { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.w-overview__account-name { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--text-secondary); font-size: 0.875rem; }
+.w-overview__account-balance { flex-shrink: 0; font-weight: 700; font-size: clamp(0.875rem, 3.5vw, 1.0625rem); color: var(--text-primary); }
+.w-overview__account-balance.is-negative { color: var(--negative); }
 
 .w-overview__sparkline {
   width: 100%;

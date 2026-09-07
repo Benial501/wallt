@@ -14,9 +14,11 @@ class CategoryHistoryMatcher {
   async _loadHistory(userId) {
     if (this._cache.has(userId)) return this._cache.get(userId);
 
+
     const rows = await this.Movimento.findAll({
       where: {
         user_id: userId,
+        categoria_modificata: true,
         tipo: { [Op.in]: ['entrata', 'uscita'] },
         categoria: { [Op.ne]: null },
       },
@@ -39,6 +41,7 @@ class CategoryHistoryMatcher {
         weight: row.categoria_modificata ? 3 : 1,
       });
     });
+
 
     this._cache.set(userId, byTipo);
     return byTipo;
@@ -67,7 +70,7 @@ class CategoryHistoryMatcher {
       ) ? 0.25 : 0;
 
       const score = (sim + containsBonus) * item.weight;
-      if (score > 0.35 && (!best || score > best.score)) {
+      if (sim >= 0.85 && (!best || score > best.score)) {
         best = { ...item, score };
       }
     }

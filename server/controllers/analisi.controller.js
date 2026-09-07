@@ -1,3 +1,4 @@
+const { list: listCategories } = require('../services/categorie.service');
 const logger = require('../utils/logger');
 const { Op } = require('sequelize');
 const {
@@ -29,10 +30,11 @@ const CATEGORIA_DISPLAY = {
   acquisti: { nome: 'Acquisti', emoji: '🛍️' },
 };
 
-const getCatDisplay = (cat) => CATEGORIA_DISPLAY[cat] || { nome: cat, emoji: '📊' };
 
 const getDistribuzioneSpese = async (req, res) => {
   try {
+    const categories = await listCategories(req.userId, { includeArchived: true });
+    const getCatDisplay = id => categories.find(c => c.id === id && c.tipo === 'uscita') || CATEGORIA_DISPLAY[id] || { nome: id, emoji: '📊' };
     const { da, a } = req.query;
     const where = { user_id: req.userId, tipo: 'uscita' };
     if (da || a) {
@@ -197,36 +199,14 @@ const getAndamentoPatrimonio = async (req, res) => {
 };
 
 const getStatoBudgetMese = async (userId, mese, anno) => {
-  const budget = await BudgetMensile.findOne({
-    where: { user_id: userId, mese, anno },
-    include: [{ model: BudgetCategoria, as: 'categorie' }],
-  });
-  if (!budget) return [];
-
-  const dataInizio = `${anno}-${String(mese).padStart(2, '0')}-01`;
-  const ultimo = new Date(anno, mese, 0).getDate();
-  const dataFine = `${anno}-${String(mese).padStart(2, '0')}-${ultimo}`;
-
-  const movimenti = await Movimento.findAll({
-    where: { user_id: userId, tipo: 'uscita', data: { [Op.between]: [dataInizio, dataFine] } },
-  });
-
-  const spesoMap = {};
-  movimenti.forEach((m) => {
-    const cat = m.categoria || 'altro_uscita';
-    spesoMap[cat] = (spesoMap[cat] || 0) + toNumber(m.importo);
-  });
-
-  return budget.categorie.map((cat) => {
-    const budgetImporto = toNumber(cat.importo);
-    const speso = spesoMap[cat.categoria] || spesoMap[cat.categoria.replace('_', '')] || 0;
-    const pct = budgetImporto > 0 ? (speso / budgetImporto) * 100 : 0;
-    return { categoria: cat.categoria, percentuale_usata: pct, speso, budget_importo: budgetImporto };
-  });
+  const result = await require('../services/budgetStato.service').calcolaStatoBudget({ userId, mese, anno });
+  return result?.stato || [];
 };
 
 const getSuggerimenti = async (req, res) => {
   try {
+    const categories = await listCategories(req.userId, { includeArchived: true });
+    const getCatDisplay = id => categories.find(c => c.id === id && c.tipo === 'uscita') || CATEGORIA_DISPLAY[id] || { nome: id, emoji: '📊' };
     const suggerimenti = [];
     const now = new Date();
     const meseCorrente = now.getMonth() + 1;

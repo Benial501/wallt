@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, onMounted, nextTick } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
@@ -21,6 +21,7 @@ import {
   Wallet, CircleHelp,
 } from '@/utils/appIcons';
 import { useHelpStore } from '@/stores/help.store';
+import NotificheSettings from '@/components/notifiche/NotificheSettings.vue';
 
 const authStore = useAuthStore();
 const contiStore = useContiStore();
@@ -31,13 +32,14 @@ const isMinorUser = computed(() => isMinor(user.value?.profilo));
 const showScommesseToggle = computed(() => !isMinorUser.value && wantsScommesse(user.value?.profilo));
 const showInvestimentiToggle = computed(() => !isMinorUser.value && wantsInvestimenti(user.value?.profilo));
 const router = useRouter();
+const route = useRoute();
 const toastStore = useToastStore();
 const { formatValuta } = useValuta();
 const { toggle, isDark } = useTheme();
 
 const openSections = ref({
   account: true, profilo: true, conti: false, finanziario: false, importa: false, aiuto: false, aspetto: true, valuta: false,
-  reminder: false, funzionalita: true, sicurezza: false, export: false, reset: false, delete: false,
+  notifiche: false, funzionalita: true, sicurezza: false, export: false, reset: false, delete: false,
 });
 const loading = ref(false);
 
@@ -106,12 +108,20 @@ const riepilogoConti = computed(() => {
   return `${label} · Patrimonio ${formatValuta(contiStore.patrimonioTotale)}`;
 });
 
-onMounted(() => {
+onMounted(async () => {
   profiloForm.value = { nome: authStore.user?.nome || '', email: authStore.user?.email || '' };
   valuta.value = authStore.user?.valuta || 'EUR';
   reminder.value = authStore.user?.reminder ?? true;
   contiStore.fetchConti();
   contiStore.fetchPatrimonio();
+
+  // Arrivo da "Impostazioni notifiche" (campanella o pagina notifiche):
+  // la sezione si apre già espansa. Allo scroll pensa il router
+  // (scrollBehavior gestisce l'hash), che altrimenti riporterebbe in cima.
+  if (route.hash === '#notifiche') {
+    openSections.value.notifiche = true;
+    await nextTick();
+  }
 });
 
 const toggleScommesse = async (event) => {
@@ -385,6 +395,8 @@ const eliminaAccountOAuth = async () => {
       <p>{{ authStore.user?.email }}</p>
     </div>
 
+    <WCard class="section-card"><RouterLink to="/impostazioni/categorie" class="section-toggle"><span>Categorie</span><ChevronRight :size="16" /></RouterLink></WCard>
+
     <WCard class="section-card">
       <button class="section-toggle" @click="toggleSection('account')">
         <Shield :size="18" :stroke-width="1.75" />
@@ -527,18 +539,14 @@ const eliminaAccountOAuth = async () => {
       </div>
     </WCard>
 
-    <WCard class="section-card">
-      <button class="section-toggle" @click="toggleSection('reminder')">
+    <WCard id="notifiche" class="section-card">
+      <button class="section-toggle" @click="toggleSection('notifiche')">
         <Bell :size="18" :stroke-width="1.75" />
-        <span>Reminder</span>
-        <component :is="openSections.reminder ? ChevronDown : ChevronRight" :size="16" />
+        <span>Notifiche</span>
+        <component :is="openSections.notifiche ? ChevronDown : ChevronRight" :size="16" />
       </button>
-      <div v-if="openSections.reminder" class="section-body">
-        <label class="toggle-row">
-          <input v-model="reminder" type="checkbox" @change="salvaPreferenze({}, 'Impostazioni salvate')" />
-          <span>Attiva reminder per aggiornare le spese</span>
-        </label>
-        <p class="hint">Ti ricordiamo di aggiornare le spese con un banner nell'app</p>
+      <div v-if="openSections.notifiche" class="section-body">
+        <NotificheSettings />
       </div>
     </WCard>
 

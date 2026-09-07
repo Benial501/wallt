@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import WalltLogo from '@/components/common/WalltLogo.vue';
+import NotificheBell from '@/components/notifiche/NotificheBell.vue';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -25,6 +26,8 @@ const primoNome = computed(() => authStore.user?.nome?.split(' ')[0] || 'Utente'
       <span class="dashboard-header__hello">Ciao, </span>
       <span class="dashboard-header__name">{{ primoNome }}</span>
     </div>
+
+    <NotificheBell variante="compatta" />
 
     <button
       type="button"

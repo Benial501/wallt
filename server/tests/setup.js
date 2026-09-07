@@ -49,6 +49,10 @@ if (configuredDatabase !== TEST_DATABASE) {
 }
 
 const TABLES = [
+  'categorie_personali',
+  'notifiche',
+  'push_subscriptions',
+  'preferenze_notifiche',
   'auth_rate_limits',
   'password_reset_tokens',
   'regole_personali_merchant',

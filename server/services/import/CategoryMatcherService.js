@@ -1,3 +1,7 @@
+const { list } = require('../categorie.service');
+const { matchContext } = require('./category/ContextCategoryRules');
+const { extractLearningPattern } = require('../merchant/patternUtils');
+const MIN_CONFIDENCE = 75;
 const { CategorieRegola } = require('../../models');
 const BaseCategoryMatcher = require('./CategoryMatcher');
 const CategoryHistoryMatcher = require('./category/CategoryHistoryMatcher');
@@ -22,7 +26,7 @@ const isCategoriaCompatibileConTipo = (categoria, tipo) => {
   return true;
 };
 
-const defaultCategoria = (tipo) => (tipo === 'entrata' ? 'altro_entrata' : 'altro_uscita');
+const defaultCategoria = () => 'da_verificare';
 
 const REVOLUT_CATEGORY_MAP = {
   groceries: 'cibo_spesa',
@@ -106,7 +110,7 @@ class CategoryMatcherService {
   }
 
   async _loadRules(userId) {
-    if (this._rulesCache.has(userId)) return this._rulesCache.get(userId);
+    // Read fresh across Vercel instances: corrections must take effect immediately.
 
     const [userRules, globalRules] = await Promise.all([
       this.CategorieRegola.findAll({
@@ -120,7 +124,7 @@ class CategoryMatcherService {
     ]);
 
     const payload = { userRules, globalRules };
-    this._rulesCache.set(userId, payload);
+
     return payload;
   }
 
@@ -148,19 +152,21 @@ class CategoryMatcherService {
     ));
   }
 
-  _matchRules({ tipo, descriptionNorm, rules, source }) {
+  _matchRules({ tipo, descriptionNorm, rules, source, availableCategories = [] }) {
     const candidates = [];
 
     for (const rule of rules) {
-      if (!isCategoriaCompatibileConTipo(rule.categoria, tipo)) continue;
+      if (!availableCategories.some(c => c.id === rule.categoria && c.tipo === tipo)) continue;
+      if (rule.tipo && rule.tipo !== tipo) continue;
       const patternNorm = normalizeText(rule.pattern);
       if (!patternNorm) continue;
-      if (patternMatches(descriptionNorm, patternNorm)) {
+      if (source === 'user' && rule.tipo ? descriptionNorm === patternNorm : patternMatches(descriptionNorm, patternNorm)) {
         candidates.push({
           categoria: rule.categoria,
           confidenza: this.computeConfidence({ tipo, descriptionNorm, rule, source }),
           matchedPattern: patternNorm,
           source,
+          personalTyped: source === 'user' && !!rule.tipo,
           priorita: rule.priorita ?? 50,
           patternLen: patternNorm.length,
         });
@@ -170,7 +176,8 @@ class CategoryMatcherService {
     if (!candidates.length) return null;
 
     candidates.sort((a, b) => (
-      b.confidenza - a.confidenza
+      Number(b.personalTyped) - Number(a.personalTyped)
+      || b.confidenza - a.confidenza
       || b.patternLen - a.patternLen
       || b.priorita - a.priorita
     ));
@@ -185,7 +192,9 @@ class CategoryMatcherService {
     };
   }
 
-  async _matchSingle({ userId, transaction, rulesPayload, personalMerchantRules = [] }) {
+  async _matchSingle({ userId, transaction, rulesPayload, personalMerchantRules = [], availableCategories = [] }) {
+    const context = matchContext(transaction || {});
+    if (context?.requiresTransferReview) return context;
     const tipo = transaction?.tipo;
     const descrizione = transaction?.descrizione;
     if (!tipo || !descrizione) {
@@ -210,7 +219,27 @@ class CategoryMatcherService {
     }
 
     const { cleaned } = this.merchantNormalizer.normalize(descrizione);
+    if (!extractLearningPattern(descrizione)) return { categoria: 'da_verificare', confidenza: 0, source: 'default' };
 
+    const descriptionsToMatch = [extractLearningPattern(descrizione), descriptionNorm].filter(Boolean);
+    if (cleaned && cleaned !== descriptionNorm) descriptionsToMatch.push(cleaned);
+
+    const { userRules, globalRules } = rulesPayload;
+
+    const fromUser = descriptionsToMatch.reduce((found, desc) => (
+      found || this._matchRules({ tipo, descriptionNorm: desc, rules: userRules, source: 'user', availableCategories })
+    ), null);
+    if (fromUser) return fromUser;
+    const fromPersonalMerchant = this.personalMerchantRulesService.matchForCategory({
+      personalRules: personalMerchantRules,
+      descrizione,
+      cleanedDescription: cleaned,
+      tipo,
+    });
+    if (fromPersonalMerchant && availableCategories.some(c => c.id === fromPersonalMerchant.categoria && c.tipo === tipo)) return fromPersonalMerchant;
+
+
+    if (context) return context;
     const fromRevolut = mapRevolutCategory(transaction.revolutCategory, tipo)
       || mapRevolutType(transaction.revolutType, tipo);
     if (fromRevolut) {
@@ -223,30 +252,17 @@ class CategoryMatcherService {
       };
     }
 
-    const descriptionsToMatch = [descriptionNorm];
-    if (cleaned && cleaned !== descriptionNorm) descriptionsToMatch.push(cleaned);
 
-    const fromPersonalMerchant = this.personalMerchantRulesService.matchForCategory({
-      personalRules: personalMerchantRules,
-      descrizione,
-      cleanedDescription: cleaned,
-      tipo,
-    });
-    if (fromPersonalMerchant) return fromPersonalMerchant;
-
-    const { userRules, globalRules } = rulesPayload;
-
-    const fromUser = descriptionsToMatch.reduce((found, desc) => (
-      found || this._matchRules({ tipo, descriptionNorm: desc, rules: userRules, source: 'user' })
-    ), null);
-    if (fromUser) return fromUser;
 
     const fromGlobal = descriptionsToMatch.reduce((found, desc) => (
-      found || this._matchRules({ tipo, descriptionNorm: desc, rules: globalRules, source: 'global' })
+      found || this._matchRules({ tipo, descriptionNorm: desc, rules: globalRules, source: 'global', availableCategories })
     ), null);
     if (fromGlobal) return fromGlobal;
 
     const legacy = this.fallbackMatcher.match({ ...transaction, descrizionePulita: cleaned });
+    const fromHistory = await this.historyMatcher.match({ userId, transaction });
+    if (fromHistory && availableCategories.some(c => c.id === fromHistory.categoria && c.tipo === tipo)) return { ...fromHistory, categoria_automatica: true };
+
     if (legacy) {
       return {
         categoria: legacy,
@@ -257,27 +273,37 @@ class CategoryMatcherService {
       };
     }
 
-    const fromHistory = await this.historyMatcher.match({ userId, transaction });
-    if (fromHistory) return { ...fromHistory, categoria_automatica: true };
 
     const fromAI = this.localAI.classify({ tipo, descrizione: cleaned || descrizione });
-    return { ...fromAI, categoria_automatica: true };
+    return { ...fromAI, confidenza: Math.min(70, fromAI.confidenza ?? 0), categoria_automatica: true };
+  }
+
+  _finalize(result, tipo, categories) {
+    const compatible = categories.some(c => c.id === result.categoria && c.tipo === tipo);
+    const confident = Number.isFinite(result.confidenza) && result.confidenza >= MIN_CONFIDENCE;
+    return { ...result, categoria: compatible && confident ? result.categoria : 'da_verificare',
+      categoria_automatica: true, requiresReview: !compatible || !confident || result.categoria === 'da_verificare' };
   }
 
   async match({ userId, transaction }) {
-    const [rulesPayload, personalMerchantRules] = await Promise.all([
+    this.historyMatcher._cache?.delete(userId);
+    const [rulesPayload, personalMerchantRules, availableCategories] = await Promise.all([
       this._loadRules(userId),
       this.personalMerchantRulesService.loadRules(userId),
+      list(userId),
     ]);
-    return this._matchSingle({ userId, transaction, rulesPayload, personalMerchantRules });
+    const result = await this._matchSingle({ userId, transaction, rulesPayload, personalMerchantRules, availableCategories });
+    return this._finalize(result, transaction.tipo, availableCategories);
   }
 
   async matchBatch({ userId, transactions }) {
+    this.historyMatcher._cache?.delete(userId);
     if (!Array.isArray(transactions) || transactions.length === 0) return [];
 
-    const [rulesPayload, personalMerchantRules, useAiCategorization] = await Promise.all([
+    const [rulesPayload, personalMerchantRules, availableCategories, useAiCategorization] = await Promise.all([
       this._loadRules(userId),
       this.personalMerchantRulesService.loadRules(userId),
+      list(userId),
       getUserAiCategorizationEnabled(userId),
     ]);
     const results = [];
@@ -289,6 +315,7 @@ class CategoryMatcherService {
         transaction: tx,
         rulesPayload,
         personalMerchantRules,
+        availableCategories,
       });
       const enriched = {
         clientTxId: tx.clientTxId,
@@ -298,8 +325,8 @@ class CategoryMatcherService {
       if (
         useAiCategorization
         && this.openAI.isEnabled()
-        && (result.confidenza ?? 0) <= 55
-        && ['ai_local', 'ai_default', 'default', 'fallback'].includes(result.source)
+        && (result.confidenza ?? 0) < MIN_CONFIDENCE
+        && !result.requiresTransferReview
       ) {
         needsOpenAI.push(tx);
       }
@@ -308,7 +335,7 @@ class CategoryMatcherService {
     }
 
     if (needsOpenAI.length > 0) {
-      const aiResults = await this.openAI.classifyBatch(needsOpenAI, { useAiCategorization });
+      const aiResults = await this.openAI.classifyBatch(needsOpenAI, { useAiCategorization, availableCategories });
       const aiMap = new Map(aiResults.map((r) => [r.clientTxId, r]));
 
       for (let i = 0; i < results.length; i += 1) {
@@ -319,7 +346,7 @@ class CategoryMatcherService {
       }
     }
 
-    return results;
+    return results.map((r, i) => this._finalize(r, transactions[i].tipo, availableCategories));
   }
 }
 

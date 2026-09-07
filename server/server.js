@@ -12,6 +12,8 @@ validateProductionEnv(logger);
 const { createApp } = require('./app');
 const { sequelize } = require('./models');
 const { avviaCronRicorrenti } = require('./services/ricorrenti.service');
+const { avviaCronNotifiche } = require('./services/notifiche/NotificheGenerator');
+const PushService = require('./services/notifiche/PushService');
 const EmailService = require('./services/email/EmailService');
 
 const PORT = process.env.PORT || 3000;
@@ -60,7 +62,16 @@ const startServer = async () => {
       );
     }
 
+    const pushInit = PushService.initPush();
+    if (!pushInit.ok) {
+      logger.warn(
+        `[push] Notifiche push del browser disattivate: ${pushInit.motivo}. `
+        + 'Il centro notifiche in-app funziona comunque.',
+      );
+    }
+
     avviaCronRicorrenti();
+    avviaCronNotifiche();
 
     app.listen(PORT, () => {
       logger.info(`Server WALLT in ascolto su http://localhost:${PORT}`);

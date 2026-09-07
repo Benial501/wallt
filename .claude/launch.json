@@ -2,8 +2,16 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "wallt-api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "server", "run", "dev"],
+      "port": 3000
+    },
+    {
       "name": "wallt-client",
-      "url": "http://localhost:5173"
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "client", "run", "dev"],
+      "port": 5173
     }
   ]
 }

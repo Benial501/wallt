@@ -13,6 +13,9 @@ const {
   MovimentoInvestimento,
   CategorieRegola,
   RegolaPersonaleMerchant,
+  Notifica,
+  PreferenzeNotifiche,
+  PushSubscription,
 } = require('../models');
 
 const isOAuthProvider = (authProvider) => !!authProvider && authProvider !== 'local';
@@ -27,6 +30,11 @@ const deleteAllTransactions = async (userId, transaction) => {
     { saldo: 0 },
     { where: { user_id: userId, attivo: true }, transaction },
   );
+  // Gli avvisi già emessi (budget all'80%, pagamento in arrivo, ...) parlano
+  // di movimenti che non esistono più. Vanno rimossi anche perché la loro
+  // dedupe_key impedirebbe di riemettere lo stesso avviso se l'utente
+  // ricostruisce i dati nello stesso periodo.
+  await Notifica.destroy({ where: { user_id: userId }, transaction });
 };
 
 /**
@@ -61,6 +69,11 @@ const deleteAllUserData = async (userId, transaction) => {
   await Conto.destroy({ where: { user_id: userId }, transaction });
   await CategorieRegola.destroy({ where: { user_id: userId }, transaction });
   await RegolaPersonaleMerchant.destroy({ where: { user_id: userId }, transaction });
+
+  // Le notifiche fanno riferimento a budget, obiettivi e movimenti appena
+  // eliminati: tenerle vorrebbe dire mostrare avvisi su dati che non
+  // esistono più. Le preferenze restano (sono impostazioni, non dati).
+  await Notifica.destroy({ where: { user_id: userId }, transaction });
 };
 
 /**
@@ -68,6 +81,8 @@ const deleteAllUserData = async (userId, transaction) => {
  */
 const deleteUserAccountCompletely = async (userId, transaction) => {
   await deleteAllUserData(userId, transaction);
+  await PushSubscription.destroy({ where: { user_id: userId }, transaction });
+  await PreferenzeNotifiche.destroy({ where: { user_id: userId }, transaction });
   await ProfiloUtente.destroy({ where: { user_id: userId }, transaction });
   await User.destroy({ where: { id: userId }, transaction });
 };

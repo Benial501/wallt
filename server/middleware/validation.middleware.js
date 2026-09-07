@@ -1,3 +1,4 @@
+const { assertCategory } = require('../services/categorie.service');
 const {
   body, param, query, validationResult,
 } = require('express-validator');
@@ -550,7 +551,11 @@ const validateBudget = [
     .isString()
     .trim()
     .notEmpty()
-    .withMessage('Categoria budget non valida'),
+    .withMessage('Categoria budget non valida')
+    .custom(async (id, { req }) => {
+      if (typeof id === 'string' && id.startsWith('custom_')) await assertCategory(req.userId, id, 'uscita');
+      return true;
+    }),
   body('categorie.*.percentuale')
     .optional({ values: 'null' })
     .isDecimal({ decimal_digits: '0,2' })
@@ -577,7 +582,11 @@ const validateUpdateBudget = [
     .isString()
     .trim()
     .notEmpty()
-    .withMessage('Categoria budget non valida'),
+    .withMessage('Categoria budget non valida')
+    .custom(async (id, { req }) => {
+      if (typeof id === 'string' && id.startsWith('custom_')) await assertCategory(req.userId, id, 'uscita');
+      return true;
+    }),
   body('categorie.*.percentuale')
     .optional({ values: 'null' })
     .isDecimal({ decimal_digits: '0,2' })
@@ -917,6 +926,94 @@ const validateUpdateProfiloFinanziario = [
   validate,
 ];
 
+// --- Notifiche ---
+
+const ORARIO_HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+const orarioOpzionale = (campo) => body(campo)
+  .optional({ values: 'null' })
+  .matches(ORARIO_HHMM)
+  .withMessage('Orario non valido: usa il formato HH:MM');
+
+const validateNotificheQuery = [
+  query('non_lette')
+    .optional({ values: 'falsy' })
+    .isIn(['true', 'false'])
+    .withMessage('Filtro non_lette non valido'),
+  query('limit')
+    .optional({ values: 'falsy' })
+    .isInt({ min: 1, max: 100 })
+    .withMessage('Limite non valido'),
+  query('offset')
+    .optional({ values: 'falsy' })
+    .isInt({ min: 0 })
+    .withMessage('Offset non valido'),
+  validate,
+];
+
+const validateUpdatePreferenzeNotifiche = [
+  body('promemoria_giornaliero_attivo').optional({ values: 'null' }).isBoolean()
+    .withMessage('promemoria_giornaliero_attivo non valido'),
+  body('alert_budget_attivi').optional({ values: 'null' }).isBoolean()
+    .withMessage('alert_budget_attivi non valido'),
+  body('alert_ricorrenti_attivi').optional({ values: 'null' }).isBoolean()
+    .withMessage('alert_ricorrenti_attivi non valido'),
+  body('alert_obiettivi_attivi').optional({ values: 'null' }).isBoolean()
+    .withMessage('alert_obiettivi_attivi non valido'),
+  body('riepilogo_settimanale_attivo').optional({ values: 'null' }).isBoolean()
+    .withMessage('riepilogo_settimanale_attivo non valido'),
+  body('push_attive').optional({ values: 'null' }).isBoolean()
+    .withMessage('push_attive non valido'),
+  orarioOpzionale('orario_promemoria'),
+  orarioOpzionale('quiet_hours_inizio'),
+  orarioOpzionale('quiet_hours_fine'),
+  // Il fuso arriva dal browser: va accettato solo se Intl lo riconosce,
+  // altrimenti ogni calcolo su ore di silenzio e limite giornaliero sarebbe
+  // tarato su un fuso inesistente.
+  body('timezone')
+    .optional({ values: 'null' })
+    .isString()
+    .isLength({ min: 1, max: 64 })
+    .custom((valore) => {
+      try {
+        new Intl.DateTimeFormat('en-CA', { timeZone: valore }).format(new Date());
+        return true;
+      } catch {
+        throw new Error('Fuso orario non riconosciuto');
+      }
+    }),
+  body('max_notifiche_giornaliere')
+    .optional({ values: 'null' })
+    .isInt({ min: 1, max: 5 })
+    .withMessage('Il limite giornaliero deve essere fra 1 e 5'),
+  validate,
+];
+
+const validatePushSubscription = [
+  body('subscription.endpoint')
+    .isString()
+    .isURL({ protocols: ['https'], require_protocol: true })
+    .withMessage('Endpoint push non valido'),
+  body('subscription.keys.p256dh')
+    .isString()
+    .isLength({ min: 1, max: 255 })
+    .withMessage('Chiave p256dh non valida'),
+  body('subscription.keys.auth')
+    .isString()
+    .isLength({ min: 1, max: 255 })
+    .withMessage('Chiave auth non valida'),
+  validate,
+];
+
+const validateRimuoviPushSubscription = [
+  body('endpoint')
+    .optional({ values: 'falsy' })
+    .isString()
+    .isLength({ max: 2000 })
+    .withMessage('Endpoint push non valido'),
+  validate,
+];
+
 module.exports = {
   validate,
   handleValidation: validate,
@@ -943,6 +1040,10 @@ module.exports = {
   validateImportConferma,
   validateUpdateProfilo,
   validateUpdatePreferenze,
+  validateNotificheQuery,
+  validateUpdatePreferenzeNotifiche,
+  validatePushSubscription,
+  validateRimuoviPushSubscription,
   validatePassword,
   validateResetAccount,
   validateDeleteAccount,

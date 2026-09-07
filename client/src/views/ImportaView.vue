@@ -47,7 +47,7 @@ const hasConti = computed(() => contiStore.contiAttivi.length > 0);
 const isUploading = ref(false);
 
 const importabiliCount = computed(() => (
-  items.value.filter((i) => !i.isDuplicate && i.conto_id_finale && i.categoria_finale).length
+  items.value.filter((i) => !i.isDuplicate && !i.richiede_trasferimento && i.conto_id_finale && i.categoria_finale).length
 ));
 
 const missingRequiredCount = computed(() => (
@@ -60,7 +60,7 @@ const canConfirm = computed(() => importabiliCount.value > 0);
 
 const transactionsPayload = computed(() => (
   items.value
-    .filter((i) => !i.isDuplicate && i.conto_id_finale && i.categoria_finale)
+    .filter((i) => !i.isDuplicate && !i.richiede_trasferimento && i.conto_id_finale && i.categoria_finale)
     .map((i) => ({
       clientTxId: i.clientTxId,
       data: i.data,
@@ -72,6 +72,7 @@ const transactionsPayload = computed(() => (
       categoria_suggerita: i.categoria_suggerita ?? null,
       categoria_automatica: !!i.categoria_automatica,
       categoria_confidenza: i.categoria_confidenza ?? null,
+      categoria_fonte: i.categoria_fonte ?? null,
       merchant_finale: i.merchant_finale?.trim() || null,
       merchant: i.merchant ?? null,
       merchant_id_finale: i.merchant_id_finale ?? null,
@@ -128,15 +129,17 @@ const applyContoToAll = () => {
 
 const confidenceLabel = (conf) => {
   if (conf === null || conf === undefined) return null;
-  if (conf >= 90) return { label: `Alta (${conf})`, cls: 'badge--conf-high' };
-  if (conf >= 60) return { label: `Media (${conf})`, cls: 'badge--conf-mid' };
-  return { label: `Bassa (${conf})`, cls: 'badge--conf-low' };
+  if (conf >= 90) return { label: `Alta · ${conf}%`, cls: 'badge--conf-high' };
+  if (conf >= 75) return { label: `Media · ${conf}%`, cls: 'badge--conf-mid' };
+  return { label: `Bassa · ${conf}%`, cls: 'badge--conf-low' };
 };
 
 const sourceLabel = (fonte) => {
   const map = {
     user: 'Regola tua',
-    merchant: 'Merchant',
+    merchant: 'Esercente',
+    merchant_rule: 'Esercente e contesto',
+    transfer_review: 'Movimento di denaro',
     global: 'Regola WALLT',
     history: 'Storico',
     ai_local: 'AI locale',
@@ -535,7 +538,7 @@ onMounted(async () => {
                     <select
                       v-model="row.categoria_finale"
                       class="select"
-                      :disabled="row.isDuplicate"
+                      :disabled="row.isDuplicate || row.richiede_trasferimento"
                     >
                       <option :value="null" disabled>Seleziona categoria</option>
                       <option
@@ -551,6 +554,7 @@ onMounted(async () => {
 
                 <td class="td-status">
                   <span v-if="row.isDuplicate" class="badge badge--duplicate">Duplicata</span>
+                  <span v-else-if="row.richiede_trasferimento" class="badge badge--conf-low">{{ row.natura }}: registra come trasferimento tra i tuoi conti, incluso il conto contanti. Questa riga sarà esclusa.</span>
                   <span v-else-if="row.conto_id_finale && row.categoria_finale" class="badge badge--ready">Importabile</span>
                   <span v-else class="badge badge--blocked">Da completare</span>
                 </td>

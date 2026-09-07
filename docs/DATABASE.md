@@ -219,6 +219,59 @@ Migrazioni: `npm run migrate` o auto-run all'avvio (`server.js`).
 | `used_at` | DATE | Single-use |
 | `created_at` | DATE | No `updatedAt` |
 
+### `notifiche`
+| Campo | Tipo | Note |
+|---|---|---|
+| `id` | INTEGER PK AI | |
+| `user_id` | INTEGER FK → users | ON DELETE CASCADE |
+| `tipo` | STRING(50) | `promemoria_giornaliero`, `budget_80`, `budget_superato`, `ricorrente_imminente`, `obiettivo_traguardo`, `obiettivo_raggiunto`, `riepilogo_settimanale`, `sicurezza` |
+| `titolo` | STRING(150) | |
+| `messaggio` | STRING(500) | Testo in-app (può contenere la categoria, mai fuori dall'app) |
+| `link` | STRING(200) | Route SPA da aprire |
+| `priorita` | STRING(20) | `normale` \| `urgente` — solo le urgenti possono usare il 2° slot giornaliero |
+| `canale` | STRING(20) | `in_app` \| `push` |
+| `letta` / `letta_at` | BOOLEAN / DATE | |
+| `dedupe_key` | STRING(200) | **UNIQUE con `user_id`**: è la garanzia anti-duplicato del cron |
+| `programmata_per` | DATE | Istante di consegna; slitta se cade nelle ore di silenzio |
+| `giorno_riferimento` | DATEONLY | Giorno **locale** dell'utente su cui pesa il limite giornaliero |
+| `conta_nel_limite` | BOOLEAN | `false` = oltre il limite, resta solo nel centro notifiche |
+| `push_inviata_at` | DATE | |
+| `metadata` | JSONB | Dati di dettaglio (es. numeri del riepilogo settimanale) |
+
+Indici: `uniq_notifiche_user_dedupe` (unique), `idx_notifiche_user_letta`,
+`idx_notifiche_user_giorno`, `idx_notifiche_coda_push`.
+
+### `preferenze_notifiche`
+| Campo | Tipo | Default |
+|---|---|---|
+| `id` | INTEGER PK AI | |
+| `user_id` | INTEGER FK → users UNIQUE | ON DELETE CASCADE |
+| `promemoria_giornaliero_attivo` | BOOLEAN | `true` |
+| `alert_budget_attivi` | BOOLEAN | `true` |
+| `alert_ricorrenti_attivi` | BOOLEAN | `true` |
+| `alert_obiettivi_attivi` | BOOLEAN | `true` |
+| `riepilogo_settimanale_attivo` | BOOLEAN | `false` |
+| `push_attive` | BOOLEAN | `false` (fino al consenso esplicito) |
+| `orario_promemoria` | STRING(5) | `20:00` |
+| `timezone` | STRING(64) | `Europe/Rome` |
+| `quiet_hours_inizio` / `quiet_hours_fine` | STRING(5) | `22:00` / `08:00` |
+| `max_notifiche_giornaliere` | INTEGER | `2` |
+| `giornata_controllata_il` | DATEONLY | Giorno marcato come già controllato |
+
+La riga viene creata pigramente al primo accesso al centro notifiche o alla
+prima esecuzione del cron.
+
+### `push_subscriptions`
+| Campo | Tipo | Note |
+|---|---|---|
+| `id` | INTEGER PK AI | |
+| `user_id` | INTEGER FK → users | ON DELETE CASCADE |
+| `endpoint` | TEXT UNIQUE | Identificatore assegnato dal push service del browser |
+| `p256dh` / `auth` | STRING(255) | Chiavi di cifratura della sottoscrizione |
+| `user_agent` | STRING(255) | |
+| `attiva` | BOOLEAN | `false` dopo un 404/410 dal push service |
+| `ultimo_errore` / `disattivata_at` | STRING(255) / DATE | |
+
 ## Relazioni testuali
 
 ```
@@ -239,7 +292,10 @@ User
 │   └── MovimentoInvestimento (1:N)
 ├── CategorieRegola (1:N) — regole personali
 ├── RegolaPersonaleMerchant (1:N)
-└── PasswordResetToken (1:N)
+├── PasswordResetToken (1:N)
+├── Notifica (1:N) — ON DELETE CASCADE
+├── PreferenzeNotifiche (1:1) — ON DELETE CASCADE
+└── PushSubscription (1:N) — ON DELETE CASCADE
 
 CategorieRegola (globali, user_id = NULL) — nessuna FK
 ```
@@ -264,6 +320,11 @@ CategorieRegola (globali, user_id = NULL) — nessuna FK
 | `20260713000008-add-performance-indexes.js` | Indici compositi |
 | `20260714180000-update-password-reset-token-sha256.js` | token_hash VARCHAR(64) |
 | `20260715000009-link-scommesse-conto.js` | piattaforme_scommesse.conto_id FK |
+| `20260830000010-harden-supabase-access.js` | RLS + revoca privilegi ruoli pubblici |
+| `20260830000011-add-recurring-idempotency.js` | ricorrenza_origine_id + periodo (unique) |
+| `20260830000012-create-auth-rate-limits.js` | Rate limit persistente auth |
+| `20260830000013-harden-sequelize-meta.js` | Protezione tabella SequelizeMeta |
+| `20260906000014-create-notifiche.js` | notifiche + preferenze_notifiche + push_subscriptions (con RLS) |
 
 ## Query importanti
 
@@ -272,6 +333,7 @@ CategorieRegola (globali, user_id = NULL) — nessuna FK
 - **Movimenti recenti home**: `ORDER BY createdAt DESC` (non per data transazione).
 - **Distribuzione spese**: `GROUP BY categoria` su movimenti tipo `uscita` nel periodo.
 - **Andamento patrimonio**: calcolo storico basato su movimenti cumulativi.
+- **Limite giornaliero notifiche**: `COUNT(*) FROM notifiche WHERE user_id = ? AND giorno_riferimento = ? AND conta_nel_limite` — il giorno è quello **locale** dell'utente, precalcolato alla scrittura.
 
 ## Database Risks
 

@@ -4,6 +4,7 @@ const {
   User, ProfiloUtente, Conto, Movimento, BudgetMensile, BudgetCategoria,
   Obiettivo, ObiettivoContributo, PiattaformaScommesse, MovimentoScommesse,
   Investimento, MovimentoInvestimento, CategorieRegola, RegolaPersonaleMerchant,
+  Notifica, PreferenzeNotifiche, CategoriaPersonale,
   sequelize,
 } = require('../models');
 const { formatUser } = require('./auth.controller');
@@ -161,6 +162,8 @@ const esportaDati = async (req, res) => {
       movimentiScommesse,
       categorieRegole,
       regoleMerchant,
+      notifiche,
+      preferenzeNotifiche,
     ] = await Promise.all([
       safeExportQuery('profilo', () => ProfiloUtente.findOne({ where: { user_id: userId } }), null),
       safeExportQuery('conti', () => Conto.findAll({
@@ -205,9 +208,18 @@ const esportaDati = async (req, res) => {
         where: { user_id: userId },
         order: [['priorita', 'DESC'], ['id', 'ASC']],
       })),
+      safeExportQuery('notifiche', () => Notifica.findAll({
+        where: { user_id: userId },
+        order: [['programmata_per', 'DESC'], ['id', 'DESC']],
+      })),
+      safeExportQuery('preferenze_notifiche', () => PreferenzeNotifiche.findOne({
+        where: { user_id: userId },
+      }), null),
     ]);
 
+    const categoriePersonali = await CategoriaPersonale.findAll({ where: { user_id: userId } });
     const exportData = {
+      categorie_personali: categoriePersonali,
       esportato_il: new Date().toISOString(),
       versione: '2.0',
       formato: 'wallt-portabilita-dati',
@@ -238,6 +250,10 @@ const esportaDati = async (req, res) => {
       regole: {
         categorie: categorieRegole,
         merchant_personali: regoleMerchant,
+      },
+      notifiche: {
+        preferenze: preferenzeNotifiche,
+        storico: notifiche,
       },
     };
 

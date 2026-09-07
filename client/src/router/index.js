@@ -5,7 +5,16 @@ import AppLayout from '@/components/layout/AppLayout.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  scrollBehavior() {
+  // Con un hash (es. /impostazioni#notifiche) la pagina si porta sulla
+  // sezione richiesta invece di tornare in cima. La sezione può montarsi
+  // subito dopo la conferma della navigazione: la piccola attesa evita di
+  // cercare un elemento che non è ancora nel DOM.
+  async scrollBehavior(to) {
+    if (to.hash) {
+      await new Promise((resolve) => { setTimeout(resolve, 120); });
+      const target = document.querySelector(to.hash);
+      if (target) return { el: target, top: 16, behavior: 'smooth' };
+    }
     return { top: 0, left: 0 };
   },
   routes: [
@@ -118,6 +127,16 @@ const router = createRouter({
           path: 'obiettivi',
           name: 'obiettivi',
           component: () => import('@/views/ObiettiviView.vue'),
+        },
+        {
+          path: 'notifiche',
+          name: 'notifiche',
+          component: () => import('@/views/NotificheView.vue'),
+        },
+        {
+          path: 'impostazioni/categorie',
+          name: 'categorie',
+          component: () => import('@/views/CategorieView.vue'),
         },
         {
           path: 'impostazioni',

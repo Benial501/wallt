@@ -34,14 +34,14 @@ class PersonalMerchantRulesService {
 
   async loadRules(userId) {
     if (!userId) return [];
-    if (this._cache.has(userId)) return this._cache.get(userId);
+
 
     const rules = await this.RegolaPersonaleMerchant.findAll({
       where: { user_id: userId, attiva: true },
       order: [['priorita', 'DESC'], ['updated_at', 'DESC'], ['id', 'ASC']],
     });
 
-    this._cache.set(userId, rules);
+
     return rules;
   }
 

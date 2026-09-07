@@ -59,6 +59,7 @@ const Movimento = sequelize.define('Movimento', {
     type: DataTypes.STRING(7),
     allowNull: true,
   },
+  categoria_fonte: { type: DataTypes.STRING(40), allowNull: true },
   categoria_automatica: {
     type: DataTypes.BOOLEAN,
     allowNull: false,

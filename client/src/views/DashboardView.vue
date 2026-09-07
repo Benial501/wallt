@@ -272,6 +272,8 @@ onUnmounted(() => window.removeEventListener('resize', handleResize));
     </div>
 
     <WOverviewCarousel
+      :conti="contiStore.contiAttivi"
+      :loading-conti="contiStore.loading"
       :patrimonio="contiStore.patrimonioTotale"
       :entrate-mese="entrateMese"
       :uscite-mese="usciteMese"

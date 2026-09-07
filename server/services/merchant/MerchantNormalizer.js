@@ -11,6 +11,7 @@ const NOISE_PATTERNS = [
   /\bacquisto\s+pos\b/gi,
   /\bpos\s+contactless\b/gi,
   /\bcontactless\b/gi,
+  /\bpos\b/gi,
   /\bsepa\s+sdd\b/gi,
   /\bsepa\s+sct\b/gi,
   /\bsepa\b/gi,
@@ -42,12 +43,6 @@ const NOISE_PATTERNS = [
   /\btransazione\b/gi,
   /\baddebito\b/gi,
   /\baccredito\b/gi,
-  /\bprelievo\b/gi,
-  /\bversamento\b/gi,
-  /\bbonifico\b/gi,
-  /\bcommissioni\b/gi,
-  /\bcanone\b/gi,
-  /\babbonamento\b/gi,
 ];
 
 /**
@@ -60,7 +55,7 @@ class MerchantNormalizer {
       return { original, cleaned: '', tokens: [] };
     }
 
-    let cleaned = original;
+    let cleaned = original.replace(/\b\d{1,2}[/.\-]\d{1,2}(?:[/.\-]\d{2,4})?\b/g, ' ');
 
     cleaned = cleaned
       .replace(/^(to|from|payment to|transfer to|transfer from)\s+/i, ' ')
@@ -77,7 +72,8 @@ class MerchantNormalizer {
     // Numeri corti isolati (spesso ID POS)
     cleaned = cleaned.replace(/\b\d{1,3}\b/g, ' ');
 
-    cleaned = normalizeText(cleaned);
+    cleaned = normalizeText(cleaned)
+      .replace(/\b(?:amzn mktp(?: it)?|amazon eu(?: sarl)?|amazon it|amazon payments)\b/g, 'amazon');
     cleaned = this._stripTrailingCity(cleaned).replace(/\s+/g, ' ').trim();
 
     const tokens = cleaned
