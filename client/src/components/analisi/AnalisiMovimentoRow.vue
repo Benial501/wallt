@@ -29,6 +29,11 @@ const titolo = computed(() => {
 });
 
 const sottotitolo = computed(() => props.movimento.conto?.nome || '');
+
+// Il segno e il colore seguono il tipo del movimento: le entrate erano
+// mostrate in rosso col meno perché la riga nasceva per il solo tab Spese.
+const isEntrata = computed(() => props.movimento.tipo === 'entrata');
+const segno = computed(() => (isEntrata.value ? '+' : '-'));
 </script>
 
 <template>
@@ -36,7 +41,10 @@ const sottotitolo = computed(() => props.movimento.conto?.nome || '');
     <div class="analisi-mov-row__body">
       <div class="analisi-mov-row__top">
         <span class="analisi-mov-row__date">{{ dataLabel }}</span>
-        <span class="analisi-mov-row__amount tabular-nums">-{{ formatValuta(movimento.importo) }}</span>
+        <span
+          class="analisi-mov-row__amount tabular-nums"
+          :class="isEntrata ? 'analisi-mov-row__amount--entrata' : 'analisi-mov-row__amount--uscita'"
+        >{{ segno }}{{ formatValuta(movimento.importo) }}</span>
       </div>
       <p class="analisi-mov-row__title">{{ titolo }}</p>
       <p v-if="sottotitolo" class="analisi-mov-row__meta">{{ sottotitolo }}</p>
@@ -93,9 +101,11 @@ const sottotitolo = computed(() => props.movimento.conto?.nome || '');
 .analisi-mov-row__amount {
   font-size: 0.875rem;
   font-weight: 700;
-  color: var(--negative);
   flex-shrink: 0;
 }
+
+.analisi-mov-row__amount--uscita { color: var(--negative); }
+.analisi-mov-row__amount--entrata { color: var(--positive); }
 
 .analisi-mov-row__title {
   margin: 0;
