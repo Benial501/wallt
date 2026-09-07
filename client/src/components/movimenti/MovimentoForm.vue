@@ -266,7 +266,7 @@ const shellProps = computed(() => {
       <div class="field">
         <label>Importo €</label>
         <input v-model.number="trasferimentoForm.importo" type="number" min="0" step="0.01" class="form-input form-input--lg" inputmode="decimal" />
-        <p v-if="saldoInsufficiente" class="error-text">Saldo insufficiente</p>
+        <p class="error-text error-text--reserved">{{ saldoInsufficiente ? 'Saldo insufficiente' : '' }}</p>
       </div>
       <div class="field">
         <label>Data</label>
@@ -423,6 +423,9 @@ const shellProps = computed(() => {
 .cat-label { font-size: 0.625rem; color: var(--text-muted); text-align: center; }
 .transfer-arrow { text-align: center; font-size: 1.5rem; color: var(--accent-green); }
 .error-text { color: var(--negative); font-size: 0.8125rem; margin-top: 0.25rem; }
+/* Lo spazio resta occupato anche senza messaggio: comparendo e sparendo
+   spingerebbe in basso i campi sottostanti. */
+.error-text--reserved { min-height: 1.125rem; }
 .toggle-label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
 .ricorrente-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem; }
 </style>

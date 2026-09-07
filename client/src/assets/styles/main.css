@@ -14,6 +14,10 @@
   }
 
   html {
+    /* Riserva sempre lo spazio della scrollbar: quando un pannello o un
+       bottom sheet blocca lo scroll con overflow:hidden sul body, la
+       scrollbar sparisce e senza questo gutter la pagina salta di lato. */
+    scrollbar-gutter: stable;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
