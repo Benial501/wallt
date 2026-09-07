@@ -263,19 +263,32 @@ class CategoryMatcherService {
     const fromHistory = await this.historyMatcher.match({ userId, transaction });
     if (fromHistory && availableCategories.some(c => c.id === fromHistory.categoria && c.tipo === tipo)) return { ...fromHistory, categoria_automatica: true };
 
-    if (legacy) {
-      return {
+    // Il matcher legacy a parole chiave non sa dire quanto è buono il match:
+    // gli si assegna una confidenza fissa sotto MIN_CONFIDENCE, quindi da solo
+    // non basta mai ad assegnare la categoria. Non deve però nemmeno impedire
+    // all'AI locale di esprimersi: prima si interrogano entrambi, poi vince chi
+    // ha la confidenza più alta. Prima il legacy usciva subito con 55 e l'AI
+    // non veniva mai eseguita, cosicché il risultato finiva sempre scartato.
+    const legacyResult = legacy
+      ? {
         categoria: legacy,
         confidenza: 55,
         categoria_automatica: true,
         source: 'fallback',
         matchedPattern: null,
-      };
-    }
+      }
+      : null;
 
-
+    // La confidenza dell'AI locale è già calibrata dalla knowledge base:
+    // troncarla a 70, sotto la soglia di accettazione, rendeva questo stadio
+    // incapace per costruzione di assegnare una categoria. I match deboli
+    // restano comunque sotto soglia e finiscono in "da verificare".
     const fromAI = this.localAI.classify({ tipo, descrizione: cleaned || descrizione });
-    return { ...fromAI, confidenza: Math.min(70, fromAI.confidenza ?? 0), categoria_automatica: true };
+    const aiResult = fromAI ? { ...fromAI, categoria_automatica: true } : null;
+
+    if (!aiResult) return legacyResult ?? { categoria: defaultCategoria(), confidenza: 0, source: 'default' };
+    if (!legacyResult) return aiResult;
+    return (aiResult.confidenza ?? 0) >= legacyResult.confidenza ? aiResult : legacyResult;
   }
 
   _finalize(result, tipo, categories) {

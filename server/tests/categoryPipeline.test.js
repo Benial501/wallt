@@ -89,3 +89,21 @@ test('parser risposta OpenAI scarta ID e categorie non ammessi', async () => {
 test('cataloghi distribuiti frontend e backend sono identici', () => {
   expect(require('../../client/src/data/categorie.generated.json')).toEqual(require('../constants/catalogoCategorie.json'));
 });
+
+// L'AI locale e il matcher legacy avevano un tetto di confidenza sotto la
+// soglia di accettazione: producevano una categoria che veniva poi sempre
+// scartata, e quasi tutto finiva in "da verificare".
+test.each([
+  ['ADDEBITO SDD ENEL ENERGIA', 'bollette'],
+  ['PAGAMENTO POS DECATHLON ITALIA', 'abbigliamento'],
+])('lo stadio AI locale puo assegnare una categoria: %s', async (descrizione, categoria) => {
+  const result = await match(descrizione);
+  expect(result.categoria).toBe(categoria);
+  expect(result.confidenza).toBeGreaterThanOrEqual(75);
+});
+
+test('un match legacy debole non impedisce piu allo stadio successivo di decidere', async () => {
+  const result = await match('ADDEBITO SDD ENEL ENERGIA');
+  expect(result.source).toBe('ai_local');
+  expect(result.categoria).not.toBe('da_verificare');
+});
