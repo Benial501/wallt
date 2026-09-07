@@ -68,6 +68,9 @@ onBeforeUnmount(release);
   width: 100%; max-width: none; height: 100%; height: 100dvh; max-height: none;
   border: 0; background: transparent; color: var(--text-primary);
   overflow: hidden; overscroll-behavior: none;
+  /* La cornice non scorre: qualunque trascinamento su di essa non deve
+     muovere nulla. Il corpo interno riabilita il solo pan verticale. */
+  touch-action: none;
 }
 .transaction-dialog[open] { display: grid; place-items: center; }
 .transaction-dialog::backdrop { background: rgb(10 17 26 / 45%); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
@@ -83,7 +86,7 @@ onBeforeUnmount(release);
 .transaction-dialog__header { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
 .transaction-dialog__header h2 { font-size: 1.0625rem; font-weight: 650; letter-spacing: -.02em; }
 .transaction-dialog__header button { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); cursor: pointer; }
-.transaction-dialog__body { padding: 20px; overflow-y: auto; min-height: 0; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.transaction-dialog__body { padding: 20px; overflow-y: auto; overflow-x: hidden; min-height: 0; overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
 .transaction-dialog__header button:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 3px; }
 .transaction-dialog-enter-active, .transaction-dialog-leave-active { transition: opacity 180ms ease; }
 .transaction-dialog-enter-active .transaction-dialog__panel, .transaction-dialog-leave-active .transaction-dialog__panel { transition: transform 180ms ease; }

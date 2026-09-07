@@ -296,7 +296,7 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
         </select>
         <select v-model="filtroConto" class="filtro-select">
           <option value="">Tutti i conti</option>
-          <option v-for="c in contiStore.contiAttivi" :key="c.id" :value="c.id">{{ c.icona }} {{ c.nome }}</option>
+          <option v-for="c in contiStore.contiAttivi" :key="c.id" :value="c.id">{{ c.nome }}</option>
         </select>
       </div>
     </div>

@@ -249,7 +249,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
         <label>Da</label>
         <select v-model="trasferimentoForm.conto_origine_id" class="form-select">
           <option v-for="c in contiStore.contiAttivi" :key="c.id" :value="c.id">
-            {{ c.icona }} {{ c.nome }} (€{{ parseFloat(c.saldo).toFixed(2) }})
+            {{ c.nome }} (€{{ parseFloat(c.saldo).toFixed(2) }})
           </option>
         </select>
       </div>
@@ -258,7 +258,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
         <label>A</label>
         <select v-model="trasferimentoForm.conto_destinazione_id" class="form-select">
           <option v-for="c in contiDestinazione" :key="c.id" :value="c.id">
-            {{ c.icona }} {{ c.nome }}
+            {{ c.nome }}
           </option>
         </select>
       </div>
@@ -311,7 +311,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
         <div class="field">
           <label>Categoria</label>
           <input v-model="ricercaCategoria" class="form-input" type="search" placeholder="Cerca categoria" aria-label="Cerca categoria" />
-          <div class="cat-grid" style="max-height: 250px; overflow-y: auto">
+          <div class="cat-grid">
             <button
               v-for="cat in categorie"
               :key="cat.id"
@@ -320,7 +320,9 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
               :style="{ '--cat-color': cat.colore }"
               @click="form.categoria = cat.id"
             >
-              <CategoryIcon :categoria="cat.id" :tipo="form.tipo" :size="18" />
+              <span class="cat-btn__icon">
+                <CategoryIcon :categoria="cat.id" :tipo="form.tipo" :size="17" />
+              </span>
               <span class="cat-label">{{ cat.nome }}{{ !cat.attiva ? ' (archiviata)' : '' }}</span>
             </button>
           </div>
@@ -330,7 +332,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
           <label>Conto</label>
           <select v-model="form.conto_id" class="form-select">
             <option v-for="c in contiSelezionabili" :key="c.id" :value="c.id">
-              {{ c.icona }} {{ c.nome }} — €{{ parseFloat(c.saldo).toFixed(2) }}
+              {{ c.nome }} — €{{ parseFloat(c.saldo).toFixed(2) }}
             </option>
           </select>
           <HelpNote
@@ -418,8 +420,51 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
   cursor: pointer; color: var(--text-secondary);
 }
 .cat-btn.active { border-color: var(--cat-color, var(--accent-green)); background: rgba(0,212,170,0.1); color: var(--accent-green); }
-.cat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
-.cat-label { font-size: 0.625rem; color: var(--text-muted); text-align: center; }
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  max-height: 250px;
+  overflow-y: auto;
+  /* Per le regole CSS sull'overflow, impostare solo overflow-y a un valore
+     diverso da visible porta overflow-x ad "auto": la griglia diventava
+     trascinabile lateralmente. Va dichiarato esplicitamente. */
+  overflow-x: hidden;
+  /* Arrivati a fine corsa il gesto non deve proseguire sugli antenati:
+     e' il concatenamento che faceva sembrare trascinato tutto il dialog. */
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+/* Un grid item vale di default min-width: auto, quindi una categoria dal
+   nome lungo allargava la colonna oltre 1fr e mandava la griglia in
+   overflow orizzontale. E' la causa vera del trascinamento laterale. */
+.cat-btn { min-width: 0; }
+/* Stesso trattamento del contenitore icona delle card conto: pastiglia
+   squadrata, fondo tinto dal colore dell'elemento, bordo sottile e riflesso
+   interno. Cambiano solo le proporzioni, il linguaggio e' quello. */
+.cat-btn__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--cat-color, var(--accent-green)) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cat-color, var(--accent-green)) 18%, var(--border));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%);
+  flex-shrink: 0;
+}
+.cat-btn.active .cat-btn__icon {
+  background: color-mix(in srgb, var(--cat-color, var(--accent-green)) 18%, transparent);
+  border-color: color-mix(in srgb, var(--cat-color, var(--accent-green)) 40%, var(--border));
+}
+.cat-label {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  text-align: center;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .transfer-arrow { text-align: center; font-size: 1.5rem; color: var(--accent-green); }
 .error-text { color: var(--negative); font-size: 0.8125rem; margin-top: 0.25rem; }
 /* Lo spazio resta occupato anche senza messaggio: comparendo e sparendo
