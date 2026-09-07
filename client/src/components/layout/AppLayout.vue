@@ -1,6 +1,6 @@
 <script setup>
 import { loadCategorie, resetCategorie } from '@/utils/categorie';
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '@/stores/auth.store';
@@ -45,18 +45,7 @@ const { mostraFormMovimento, tipoFormMovimento } = storeToRefs(uiStore);
 const { mostraScommesse, mostraInvestimenti, canAccessScommesseFeature, canAccessInvestimentiFeature } = storeToRefs(authStore);
 const { toggle: toggleTheme } = useTheme();
 
-const isMobile = ref(window.innerWidth < 768);
-
-const handleResize = () => {
-  isMobile.value = window.innerWidth < 768;
-};
-
-onMounted(() => {
-  window.addEventListener('resize', handleResize);
-});
-
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize);
   notificheStore.fermaPolling();
 });
 
@@ -309,7 +298,6 @@ const handleLogout = async () => {
     <MovimentoForm
       :open="mostraFormMovimento"
       :tipo="tipoFormMovimento"
-      :mobile="isMobile"
       @close="uiStore.chiudiForm"
       @saved="uiStore.chiudiForm"
     />

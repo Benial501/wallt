@@ -41,7 +41,6 @@ const filtriAperti = ref(false);
 const formOpen = ref(false);
 const formTipo = ref('entrata');
 const movimentoEdit = ref(null);
-const isMobile = ref(window.innerWidth < 768);
 
 const getFiltriDate = () => {
   const params = {};
@@ -204,8 +203,6 @@ onMounted(async () => {
   if (route.query.action) {
     apriForm(route.query.action);
   }
-
-  window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 768; });
 });
 
 const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA]);
@@ -327,6 +324,7 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
           :key="mov.id"
           :movimento="mov"
           :cat-info="getCatInfo(mov)"
+          :selected="formOpen && movimentoEdit?.id === mov.id"
           @click="(m) => m.tipo !== 'trasferimento' && apriForm(m.tipo, m)"
           @delete="elimina"
         />
@@ -393,8 +391,7 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
       :open="formOpen"
       :tipo="formTipo"
       :movimento="movimentoEdit"
-      :mobile="isMobile"
-      @close="formOpen = false; movimentoEdit = null"
+      @close="formOpen = false"
       @saved="onSaved"
     />
   </div>

@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
-import WModal from '@/components/common/WModal.vue';
+import AppDialog from '@/components/common/AppDialog.vue';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
 import { useContiStore } from '@/stores/conti.store';
 import { useToastStore } from '@/stores/toast.store';
@@ -10,7 +10,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useValuta } from '@/composables/useValuta';
 import { formatData } from '@/utils/formatters';
 import { CONTO_TIPO_ICON_MAP, CreditCard, Repeat2, AlertTriangle } from '@/utils/appIcons';
-import { CONTO_EMOJI, DEFAULT_EMOJI_BY_TIPO, emojiOptionsFor } from '@/utils/contoEmoji';
+import { DEFAULT_EMOJI_BY_TIPO } from '@/utils/contoEmoji';
 import ImportEstrattoHint from '@/components/common/ImportEstrattoHint.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import HelpNote from '@/components/help/HelpNote.vue';
@@ -29,7 +29,6 @@ const showNuovoConto = ref(false);
 const showModifica = ref(false);
 const showElimina = ref(false);
 const showTrasferimento = ref(false);
-const isMobile = ref(window.innerWidth < 768);
 const loading = ref(false);
 const deleteLoading = ref(false);
 const contoEdit = ref(null);
@@ -58,7 +57,6 @@ const nuovoForm = ref({
 
 const editForm = ref({ nome: '', icona: '', colore: '' });
 
-const emojiModifica = computed(() => emojiOptionsFor(editForm.value.icona));
 
 watch(() => nuovoForm.value.tipo, (tipo) => {
   if (DEFAULT_EMOJI_BY_TIPO[tipo]) {
@@ -71,7 +69,6 @@ const tipoLabel = (id) => TIPI_BASE.find((t) => t.id === id)?.label || id;
 onMounted(() => {
   contiStore.fetchConti();
   contiStore.fetchPatrimonio();
-  window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 768; });
 });
 
 const extractApiError = (err, fallback = 'Errore') => {
@@ -179,15 +176,16 @@ const confermaElimina = async () => {
     </div>
 
     <div v-else-if="contiVisibili.length" class="grid-conti">
-      <WCard v-for="conto in contiVisibili" :key="conto.id" hoverable class="conto-card stagger-item">
-        <div class="conto-card__header" :style="{ background: `${conto.colore}33` }">
-          <span class="conto-card__emoji">{{ conto.icona }}</span>
+      <WCard v-for="conto in contiVisibili" :key="conto.id" hoverable class="conto-card" :style="{ '--account-accent': conto.colore || 'var(--accent-green)' }">
+        <div class="conto-card__header">
+          <span class="conto-card__icon"><component :is="CONTO_TIPO_ICON_MAP[conto.tipo] || CreditCard" :size="23" :stroke-width="1.65" /></span>
+          <span class="badge">{{ tipoLabel(conto.tipo) }}</span>
         </div>
         <div class="conto-card__body">
           <div class="conto-card__top">
             <h3>{{ conto.nome }}</h3>
-            <span class="badge">{{ tipoLabel(conto.tipo) }}</span>
           </div>
+          <p class="conto-card__balance-label">Saldo disponibile</p>
           <p class="conto-card__saldo">{{ formatValuta(conto.saldo) }}</p>
           <div class="conto-card__actions">
             <button @click="apriModifica(conto)">Modifica</button>
@@ -226,7 +224,7 @@ const confermaElimina = async () => {
     </div>
 
     <!-- Modal Nuovo Conto -->
-    <WModal :open="showNuovoConto" title="Nuovo conto" @close="showNuovoConto = false">
+    <AppDialog :open="showNuovoConto" title="Nuovo conto" @close="showNuovoConto = false">
       <div class="form-space">
         <div class="field">
           <label>Nome</label>
@@ -261,25 +259,15 @@ const confermaElimina = async () => {
             />
           </div>
         </div>
-        <div class="field">
-          <label>Emoji</label>
-          <div class="emoji-grid">
-            <button
-              v-for="e in CONTO_EMOJI" :key="e"
-              class="emoji-btn" :class="{ active: nuovoForm.icona === e }"
-              @click="nuovoForm.icona = e"
-            >{{ e }}</button>
-          </div>
-        </div>
         <WButton variant="primary" size="lg" :loading="loading" @click="creaConto">Crea conto</WButton>
       </div>
-    </WModal>
+    </AppDialog>
 
     <!-- Modal Modifica -->
-    <WModal :open="showModifica" title="Modifica conto" @close="showModifica = false">
+    <AppDialog :open="showModifica" title="Modifica conto" @close="showModifica = false">
       <div class="form-space">
-        <div v-if="editForm.icona" class="edit-preview" :style="{ background: `${editForm.colore}33` }">
-          <span class="edit-preview__emoji">{{ editForm.icona }}</span>
+        <div class="edit-preview" :style="{ background: `${editForm.colore}33` }">
+          <component :is="CONTO_TIPO_ICON_MAP[contoEdit?.tipo] || CreditCard" :size="26" :stroke-width="1.65" />
         </div>
         <div class="field"><label>Nome</label><input v-model="editForm.nome" class="form-input" /></div>
         <div class="field">
@@ -288,26 +276,14 @@ const confermaElimina = async () => {
             <button v-for="c in COLORI" :key="c" class="color-dot" :style="{ background: c }" :class="{ active: editForm.colore === c }" @click="editForm.colore = c" />
           </div>
         </div>
-        <div class="field">
-          <label>Emoji</label>
-          <div class="emoji-grid">
-            <button
-              v-for="e in emojiModifica"
-              :key="e"
-              class="emoji-btn"
-              :class="{ active: editForm.icona === e }"
-              @click="editForm.icona = e"
-            >{{ e }}</button>
-          </div>
-        </div>
         <WButton variant="primary" size="lg" :loading="loading" @click="salvaModifica">Salva</WButton>
       </div>
-    </WModal>
+    </AppDialog>
 
-    <WModal :open="showElimina" title="Elimina conto" @close="chiudiElimina">
+    <AppDialog :open="showElimina" title="Elimina conto" @close="chiudiElimina">
       <div v-if="contoDaEliminare" class="delete-modal">
         <div class="delete-modal__hero" :style="{ background: `${contoDaEliminare.colore}33` }">
-          <span class="delete-modal__emoji">{{ contoDaEliminare.icona || '💳' }}</span>
+          <component :is="CONTO_TIPO_ICON_MAP[contoDaEliminare.tipo] || CreditCard" :size="26" :stroke-width="1.65" />
         </div>
 
         <div class="delete-modal__alert">
@@ -336,9 +312,9 @@ const confermaElimina = async () => {
           </WButton>
         </div>
       </div>
-    </WModal>
+    </AppDialog>
 
-    <MovimentoForm :open="showTrasferimento" tipo="trasferimento" :mobile="isMobile" @close="showTrasferimento = false" @saved="contiStore.fetchConti()" />
+    <MovimentoForm :open="showTrasferimento" tipo="trasferimento" @close="showTrasferimento = false" @saved="contiStore.fetchConti()" />
   </div>
 </template>
 
@@ -350,16 +326,25 @@ const confermaElimina = async () => {
 .conti-import-hint { margin-bottom: 1rem; }
 .grid-conti { display: grid; grid-template-columns: 1fr; gap: 1rem; }
 @media (min-width: 768px) { .grid-conti { grid-template-columns: repeat(2, 1fr); } }
-.conto-card { overflow: hidden; padding: 0 !important; }
-.conto-card__header { padding: 1.5rem; text-align: center; }
-.conto-card__emoji { font-size: 2.5rem; }
-.conto-card__body { padding: 1.25rem; }
+.conto-card { overflow: hidden; padding: 0 !important; border-radius: 24px;
+  background: var(--bg-card);
+  background: radial-gradient(ellipse at top right, color-mix(in srgb, var(--account-accent) 12%, transparent), transparent 65%), linear-gradient(145deg, color-mix(in srgb, var(--bg-card) 88%, transparent), color-mix(in srgb, var(--bg-card) 96%, transparent));
+  backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, white 20%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 9%), 0 8px 28px rgb(0 0 0 / 5%);
+}
+.conto-card__header { padding: 1.25rem 1.25rem 0; display: flex; align-items: center; justify-content: space-between; }
+.conto-card__icon { width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; color: var(--text-primary); background: color-mix(in srgb, var(--account-accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--account-accent) 18%, var(--border)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%); }
+.conto-card__body { padding: 1rem 1.25rem 1.25rem; }
+.conto-card__balance-label { margin-top: 1rem; margin-bottom: .15rem; color: var(--text-muted); font-size: .75rem; }
 .conto-card__top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-.conto-card__top h3 { font-size: 1rem; font-weight: 600; color: var(--text-primary); }
+.conto-card__top h3 { font-size: 1.0625rem; font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
 .badge { font-size: 0.6875rem; padding: 0.25rem 0.5rem; border-radius: 999px; background: var(--bg-input); color: var(--text-muted); }
-.conto-card__saldo { font-size: 1.75rem; font-weight: 800; color: var(--text-primary); margin-bottom: 1rem; }
+.conto-card__saldo { font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 650; letter-spacing: -.045em; font-variant-numeric: tabular-nums; color: var(--text-primary); margin-bottom: 1.25rem; overflow-wrap: anywhere; }
 .conto-card__actions { display: flex; gap: 0.5rem; }
-.conto-card__actions button { flex: 1; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); cursor: pointer; font-size: 0.8125rem; }
+.conto-card__actions button { flex: 1; min-height: 44px; padding: 0.5rem; border-radius: 12px; border: 1px solid var(--border); background: color-mix(in srgb, var(--bg-input) 60%, transparent); color: var(--text-secondary); cursor: pointer; font-size: 0.8125rem; transition: background-color 150ms ease; }
+.conto-card__actions button:hover { background: var(--bg-card-hover); }
+.conto-card__actions button:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 2px; }
 .conto-card__actions button.danger { color: var(--negative); border-color: rgba(255,71,87,0.3); }
 .empty-state { text-align: center; padding: 3rem 1.5rem; }
 .empty-state__hint { margin: 0.5rem auto 1rem; max-width: 30rem; font-size: 0.8125rem; line-height: 1.55; color: var(--text-muted); }
@@ -376,14 +361,10 @@ const confermaElimina = async () => {
 .color-grid { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .color-dot { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
 .color-dot.active { border-color: var(--text-primary); transform: scale(1.1); }
-.emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.375rem; }
-.emoji-btn { padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-input); font-size: 1.25rem; cursor: pointer; }
-.emoji-btn.active { border-color: var(--accent-green); }
 .edit-preview { padding: 1rem; border-radius: var(--radius-md); text-align: center; margin-bottom: 0.25rem; }
-.edit-preview__emoji { font-size: 2.5rem; line-height: 1; }
+.edit-preview svg, .delete-modal__hero svg { margin: auto; }
 .delete-modal { display: flex; flex-direction: column; gap: 1rem; }
 .delete-modal__hero { padding: 1.25rem; border-radius: var(--radius-md); text-align: center; }
-.delete-modal__emoji { font-size: 2.75rem; line-height: 1; }
 .delete-modal__alert {
   display: flex;
   align-items: flex-start;

@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
-import WModal from '@/components/common/WModal.vue';
-import BottomSheet from '@/components/layout/BottomSheet.vue';
+import AppDialog from '@/components/common/AppDialog.vue';
 import WButton from '@/components/common/WButton.vue';
 import { useContiStore } from '@/stores/conti.store';
 import { useMovimentiStore } from '@/stores/movimenti.store';
@@ -18,7 +17,6 @@ const props = defineProps({
   open: { type: Boolean, default: false },
   tipo: { type: String, default: 'entrata' },
   movimento: { type: Object, default: null },
-  mobile: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['close', 'saved']);
@@ -221,15 +219,16 @@ const titolo = computed(() => {
   return 'Nuovo movimento';
 });
 
-const shellProps = computed(() => {
-  const base = { open: props.open, title: titolo.value };
-  return props.mobile ? { ...base, elevated: true } : base;
-});
+// Una sola shell per tutti i punti di apertura: il dialog nativo gestisce da
+// solo il layout a bottom sheet sotto i 768px via media query. Prima la scelta
+// dipendeva da un ref JS aggiornato sul resize, che cambiando componente a
+// caldo distruggeva e ricreava il dialog gia' aperto.
+const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
 </script>
 
 <template>
   <component
-    :is="mobile ? BottomSheet : WModal"
+    :is="AppDialog"
     v-bind="shellProps"
     @close="$emit('close')"
   >

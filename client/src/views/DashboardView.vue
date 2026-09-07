@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router';
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue';
@@ -44,7 +44,6 @@ const oggiStr = oggi.format('YYYY-MM-DD');
 const formOpen = ref(false);
 const formTipo = ref('uscita');
 const movimentoEdit = ref(null);
-const isMobile = ref(window.innerWidth < 768);
 const loadingOggi = ref(false);
 const loadingScommesse = ref(false);
 const loadingInvestimenti = ref(false);
@@ -232,11 +231,7 @@ const onSaved = async () => {
   ]);
 };
 
-const handleResize = () => { isMobile.value = window.innerWidth < 768; };
-
 onMounted(async () => {
-  window.addEventListener('resize', handleResize);
-
   await Promise.all([
     loadConti(),
     contiStore.fetchPatrimonio().catch(() => null),
@@ -251,7 +246,6 @@ onMounted(async () => {
   ]);
 });
 
-onUnmounted(() => window.removeEventListener('resize', handleResize));
 </script>
 
 <template>
@@ -318,7 +312,6 @@ onUnmounted(() => window.removeEventListener('resize', handleResize));
       :open="formOpen"
       :tipo="formTipo"
       :movimento="movimentoEdit"
-      :mobile="isMobile"
       @close="formOpen = false; movimentoEdit = null"
       @saved="onSaved"
     />

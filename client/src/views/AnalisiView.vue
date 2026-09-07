@@ -42,7 +42,6 @@ const loadingCategoryMovimenti = ref(false);
 const formOpen = ref(false);
 const formTipo = ref('uscita');
 const movimentoEdit = ref(null);
-const isMobile = ref(typeof window !== 'undefined' && window.innerWidth < 768);
 
 const flattenMovimentiResponse = (data) => {
   if (Array.isArray(data?.movimenti) && data.movimenti.length) return data.movimenti;
@@ -471,7 +470,6 @@ const hasData = computed(() =>
       :open="formOpen"
       :tipo="formTipo"
       :movimento="movimentoEdit"
-      :mobile="isMobile"
       @close="formOpen = false; movimentoEdit = null"
       @saved="onMovimentoSaved"
     />
