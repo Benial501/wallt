@@ -19,7 +19,7 @@ import { useToastStore } from '@/stores/toast.store';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
 import AnalisiMovimentoRow from '@/components/analisi/AnalisiMovimentoRow.vue';
-import { BarChart3, TrendingUp, Coins, LightbulbIcon, CheckCircle2, DownloadIcon, X } from '@/utils/appIcons';
+import { BarChart3, TrendingUp, Coins, LightbulbIcon, CheckCircle2, DownloadIcon, X, Banknote } from '@/utils/appIcons';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Filler);
@@ -64,7 +64,7 @@ const loadCategoryMovimenti = async (categoria) => {
     const { data } = await api.get('/movimenti', {
       params: {
         categoria,
-        tipo: 'uscita',
+        tipo: tipoCorrente.value,
         da,
         a,
         limit: 200,
@@ -133,13 +133,26 @@ const onMovimentoSaved = async () => {
     await loadCategoryMovimenti(highlightCat.value);
   }
   const { da, a } = getDateRange();
-  await analisiStore.fetchDistribuzioneSpese(da, a);
+  if (activeTab.value === 'entrate') await analisiStore.fetchDistribuzioneEntrate(da, a);
+  else await analisiStore.fetchDistribuzioneSpese(da, a);
 };
+
+// Spese ed entrate condividono grafico, elenco e pannello transazioni:
+// cambiano solo la sorgente dei dati e il tipo di movimento.
+const isDistribuzione = computed(() => activeTab.value === 'spese' || activeTab.value === 'entrate');
+const tipoCorrente = computed(() => (activeTab.value === 'entrate' ? 'entrata' : 'uscita'));
+const distribuzioneCorrente = computed(() => (activeTab.value === 'entrate'
+  ? analisiStore.distribuzioneEntrate
+  : analisiStore.distribuzioneSpese));
+const totaleCorrente = computed(() => (activeTab.value === 'entrate'
+  ? analisiStore.totaleEntrate
+  : analisiStore.totaleSpese));
 
 const CHART_COLORS = ['#00D4AA', '#FF4757', '#6C5CE7', '#74B9FF', '#FECA57', '#FF9F43', '#FD79A8', '#A29BFE', '#E17055', '#636E72'];
 
 const tabs = [
   { id: 'spese', label: 'Spese', icon: BarChart3 },
+  { id: 'entrate', label: 'Entrate', icon: Banknote },
   { id: 'confronto', label: 'Confronto', icon: TrendingUp },
   { id: 'patrimonio', label: 'Patrimonio', icon: Coins },
   { id: 'suggerimenti', label: 'Suggerimenti', icon: LightbulbIcon },
@@ -154,10 +167,10 @@ const getDateRange = () => {
 };
 
 const doughnutData = computed(() => ({
-  labels: analisiStore.distribuzioneSpese.map((d) => d.nome_display),
+  labels: distribuzioneCorrente.value.map((d) => d.nome_display),
   datasets: [{
-    data: analisiStore.distribuzioneSpese.map((d) => d.importo),
-    backgroundColor: analisiStore.distribuzioneSpese.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
+    data: distribuzioneCorrente.value.map((d) => d.importo),
+    backgroundColor: distribuzioneCorrente.value.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
     borderWidth: 0,
   }],
 }));
@@ -171,7 +184,7 @@ const doughnutOptions = computed(() => ({
     tooltip: {
       ...baseOptions.value.plugins.tooltip,
       callbacks: {
-        label: (ctx) => `${formatValuta(ctx.raw)} (${analisiStore.distribuzioneSpese[ctx.dataIndex]?.percentuale}%)`,
+        label: (ctx) => `${formatValuta(ctx.raw)} (${distribuzioneCorrente.value[ctx.dataIndex]?.percentuale}%)`,
       },
     },
   },
@@ -228,10 +241,11 @@ const lineOptions = computed(() => ({
 
 const loadTabData = async () => {
   const { da, a } = getDateRange();
-  if (activeTab.value === 'spese') {
-    await analisiStore.fetchDistribuzioneSpese(da, a);
+  if (isDistribuzione.value) {
+    if (activeTab.value === 'entrate') await analisiStore.fetchDistribuzioneEntrate(da, a);
+    else await analisiStore.fetchDistribuzioneSpese(da, a);
     if (highlightCat.value) {
-      const stillExists = analisiStore.distribuzioneSpese.some((c) => c.categoria === highlightCat.value);
+      const stillExists = distribuzioneCorrente.value.some((c) => c.categoria === highlightCat.value);
       if (stillExists) await loadCategoryMovimenti(highlightCat.value);
       else closeCategoryPanel();
     }
@@ -241,9 +255,7 @@ const loadTabData = async () => {
   if (activeTab.value === 'suggerimenti') await analisiStore.fetchSuggerimenti();
 };
 
-watch(activeTab, (tab) => {
-  if (tab !== 'spese') closeCategoryPanel();
-});
+watch(activeTab, () => closeCategoryPanel());
 
 watch([activeTab, periodo, mesiConfronto, periodoPatrimonio, customDa, customA], loadTabData);
 
@@ -268,7 +280,7 @@ const esportaDati = async () => {
 };
 
 const hasData = computed(() =>
-  analisiStore.distribuzioneSpese.length > 0
+  distribuzioneCorrente.value.length > 0
   || analisiStore.confrontoMesi.some((m) => m.uscite > 0 || m.entrate > 0)
 );
 </script>
@@ -298,9 +310,9 @@ const hasData = computed(() =>
       </button>
     </div>
 
-    <WSkeleton v-if="analisiStore.loading && activeTab !== 'spese'" type="card" />
+    <WSkeleton v-if="analisiStore.loading && !isDistribuzione" type="card" />
 
-    <div v-else-if="!hasData && activeTab === 'spese' && !analisiStore.loading" class="empty-state">
+    <div v-else-if="!hasData && isDistribuzione && !analisiStore.loading" class="empty-state">
       <BarChart3 class="empty-icon" :size="48" :stroke-width="1.5" />
       <p>Aggiungi movimenti per vedere le analisi</p>
       <p class="empty-hint">
@@ -312,14 +324,14 @@ const hasData = computed(() =>
 
     <Transition v-else name="fade">
       <!-- TAB SPESE -->
-      <div v-if="activeTab === 'spese'" key="spese">
+      <div v-if="isDistribuzione" :key="activeTab">
         <WCard class="chart-card">
           <WSkeleton v-if="analisiStore.loading" type="card" class="chart-skeleton" />
           <div v-else class="donut-wrap">
             <Doughnut :data="doughnutData" :options="doughnutOptions" />
             <div class="donut-center">
-              <span class="donut-label">Totale spese</span>
-              <span class="donut-value">{{ formatValuta(analisiStore.totaleSpese) }}</span>
+              <span class="donut-label">{{ activeTab === 'entrate' ? 'Totale entrate' : 'Totale spese' }}</span>
+              <span class="donut-value">{{ formatValuta(totaleCorrente) }}</span>
             </div>
           </div>
         </WCard>
@@ -328,9 +340,9 @@ const hasData = computed(() =>
           <WSkeleton v-for="i in 4" :key="i" type="card" class="cat-row-skeleton" />
         </div>
 
-        <div v-else-if="analisiStore.distribuzioneSpese.length" class="cat-list">
+        <div v-else-if="distribuzioneCorrente.length" class="cat-list">
           <div
-            v-for="(cat, i) in analisiStore.distribuzioneSpese"
+            v-for="(cat, i) in distribuzioneCorrente"
             :key="cat.categoria"
             class="cat-block"
           >
@@ -341,7 +353,7 @@ const hasData = computed(() =>
               @click="toggleCategory(cat)"
             >
               <span class="cat-bullet" :style="{ background: CHART_COLORS[i % CHART_COLORS.length] }" />
-              <CategoryIcon :categoria="cat.categoria" tipo="uscita" :size="16" class="cat-row-icon" />
+              <CategoryIcon :categoria="cat.categoria" :tipo="tipoCorrente" :size="16" class="cat-row-icon" />
               <span class="cat-row__name">{{ cat.nome_display }}</span>
               <span class="cat-importo">{{ formatValuta(cat.importo) }}</span>
               <span class="cat-pct">{{ cat.percentuale }}%</span>

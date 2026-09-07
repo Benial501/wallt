@@ -31,43 +31,63 @@ const CATEGORIA_DISPLAY = {
 };
 
 
+/**
+ * Distribuzione per categoria di un tipo di movimento (uscita o entrata).
+ * I trasferimenti restano fuori per costruzione: hanno tipo proprio e non
+ * sono né spesa né entrata.
+ */
+const buildDistribuzione = async (userId, tipo, { da, a }) => {
+  const categories = await listCategories(userId, { includeArchived: true });
+  const getCatDisplay = id => categories.find(c => c.id === id && c.tipo === tipo)
+    || CATEGORIA_DISPLAY[id]
+    || { nome: id, emoji: '📊' };
+
+  const where = { user_id: userId, tipo };
+  if (da || a) {
+    where.data = {};
+    if (da) where.data[Op.gte] = da;
+    if (a) where.data[Op.lte] = a;
+  }
+
+  const movimenti = await Movimento.findAll({ where, attributes: ['categoria', 'importo'] });
+  const map = {};
+  movimenti.forEach((m) => {
+    const cat = m.categoria || (tipo === 'entrata' ? 'altro_entrata' : 'altro_uscita');
+    map[cat] = (map[cat] || 0) + toNumber(m.importo);
+  });
+
+  const totale = Object.values(map).reduce((s, v) => s + v, 0);
+  const distribuzione = Object.entries(map)
+    .map(([categoria, importo]) => {
+      const display = getCatDisplay(categoria);
+      return {
+        categoria,
+        nome_display: display.nome,
+        emoji: display.emoji,
+        importo: Math.round(importo * 100) / 100,
+        percentuale: totale > 0 ? Math.round((importo / totale) * 10000) / 100 : 0,
+      };
+    })
+    .sort((x, y) => y.importo - x.importo);
+
+  return { distribuzione, totale: Math.round(totale * 100) / 100 };
+};
+
 const getDistribuzioneSpese = async (req, res) => {
   try {
-    const categories = await listCategories(req.userId, { includeArchived: true });
-    const getCatDisplay = id => categories.find(c => c.id === id && c.tipo === 'uscita') || CATEGORIA_DISPLAY[id] || { nome: id, emoji: '📊' };
-    const { da, a } = req.query;
-    const where = { user_id: req.userId, tipo: 'uscita' };
-    if (da || a) {
-      where.data = {};
-      if (da) where.data[Op.gte] = da;
-      if (a) where.data[Op.lte] = a;
-    }
-
-    const movimenti = await Movimento.findAll({ where, attributes: ['categoria', 'importo'] });
-    const map = {};
-    movimenti.forEach((m) => {
-      const cat = m.categoria || 'altro_uscita';
-      map[cat] = (map[cat] || 0) + toNumber(m.importo);
-    });
-
-    const totale = Object.values(map).reduce((s, v) => s + v, 0);
-    const risultato = Object.entries(map)
-      .map(([categoria, importo]) => {
-        const display = getCatDisplay(categoria);
-        return {
-          categoria,
-          nome_display: display.nome,
-          emoji: display.emoji,
-          importo: Math.round(importo * 100) / 100,
-          percentuale: totale > 0 ? Math.round((importo / totale) * 10000) / 100 : 0,
-        };
-      })
-      .sort((x, y) => y.importo - x.importo);
-
-    res.json({ distribuzione: risultato, totale: Math.round(totale * 100) / 100 });
+    res.json(await buildDistribuzione(req.userId, 'uscita', req.query));
   } catch (error) {
     logger.error('Errore getDistribuzioneSpese', { err: error });
     res.status(500).json({ message: 'Errore nel calcolo distribuzione spese' });
+  }
+};
+
+const getDistribuzioneEntrate = async (req, res) => {
+  try {
+    res.json(await buildDistribuzione(req.userId, 'entrata', req.query));
+  } catch (error) {
+    logger.error('Errore getDistribuzioneEntrate', { err: error });
+    res.status(500).json({ message: 'Errore nel calcolo distribuzione entrate' });
   }
 };
 
@@ -371,6 +391,7 @@ const getSuggerimenti = async (req, res) => {
 
 module.exports = {
   getDistribuzioneSpese,
+  getDistribuzioneEntrate,
   getConfrontoMesi,
   getAndamentoPatrimonio,
   getSuggerimenti,

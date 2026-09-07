@@ -5,6 +5,8 @@ import api from '@/utils/axios';
 export const useAnalisiStore = defineStore('analisi', () => {
   const distribuzioneSpese = ref([]);
   const totaleSpese = ref(0);
+  const distribuzioneEntrate = ref([]);
+  const totaleEntrate = ref(0);
   const confrontoMesi = ref([]);
   const andamentoPatrimonio = ref({});
   const suggerimenti = ref([]);
@@ -17,6 +19,18 @@ export const useAnalisiStore = defineStore('analisi', () => {
       const { data } = await api.get('/analisi/distribuzione-spese', { params: { da, a } });
       distribuzioneSpese.value = data.distribuzione;
       totaleSpese.value = data.totale;
+      return data;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const fetchDistribuzioneEntrate = async (da, a) => {
+    loading.value = true;
+    try {
+      const { data } = await api.get('/analisi/distribuzione-entrate', { params: { da, a } });
+      distribuzioneEntrate.value = data.distribuzione;
+      totaleEntrate.value = data.totale;
       return data;
     } finally {
       loading.value = false;
@@ -57,8 +71,9 @@ export const useAnalisiStore = defineStore('analisi', () => {
   };
 
   return {
-    distribuzioneSpese, totaleSpese, confrontoMesi, andamentoPatrimonio,
-    suggerimenti, loading, periodoSelezionato,
-    fetchDistribuzioneSpese, fetchConfrontoMesi, fetchAndamentoPatrimonio, fetchSuggerimenti,
+    distribuzioneSpese, totaleSpese, distribuzioneEntrate, totaleEntrate,
+    confrontoMesi, andamentoPatrimonio, suggerimenti, loading, periodoSelezionato,
+    fetchDistribuzioneSpese, fetchDistribuzioneEntrate, fetchConfrontoMesi,
+    fetchAndamentoPatrimonio, fetchSuggerimenti,
   };
 });
