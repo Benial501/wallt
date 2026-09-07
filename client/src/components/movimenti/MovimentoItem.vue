@@ -1,9 +1,18 @@
-<script setup>
+<script>
 import { ref } from 'vue';
+
+// Vive a livello di modulo, non di istanza: e' cio' che rende esclusiva
+// l'apertura. Dentro <script setup> ogni riga avrebbe avuto la propria copia.
+export const rigaAperta = ref(null);
+</script>
+
+<script setup>
+import { watch } from 'vue';
 import { useValuta } from '@/composables/useValuta';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
 import { Repeat2, RefreshCw } from '@/utils/appIcons';
 import { Trash2 } from 'lucide-vue-next';
+import { decidiAsse, calcolaOffset, assestaOffset } from './swipeGesture';
 
 const props = defineProps({
   movimento: { type: Object, required: true },
@@ -14,11 +23,15 @@ const props = defineProps({
 const emit = defineEmits(['click', 'delete']);
 const { formatValuta } = useValuta();
 
+// Una sola riga aperta alla volta in tutta la lista: aprendone un'altra la
+// precedente si richiude da sola, come nelle liste native iOS.
+
 const offsetX = ref(0);
-const startX = ref(0);
-const swiping = ref(false);
-const DELETE_THRESHOLD = -120;
-const REVEAL_THRESHOLD = -60;
+const dragging = ref(false);
+let startX = 0;
+let startY = 0;
+let startOffset = 0;
+let asse = null; // null = da decidere, 'x' = trascinamento, 'y' = scroll
 
 const importoClass = (tipo) => {
   if (tipo === 'entrata') return 'positive';
@@ -32,45 +45,77 @@ const importoPrefix = (tipo) => {
   return '';
 };
 
+const chiudi = () => {
+  offsetX.value = 0;
+  if (rigaAperta.value === props.movimento.id) rigaAperta.value = null;
+};
+
+// Se viene aperta un'altra riga, questa si richiude.
+watch(rigaAperta, (id) => {
+  if (id !== props.movimento.id && offsetX.value !== 0) offsetX.value = 0;
+});
+
 const onTouchStart = (e) => {
-  startX.value = e.touches[0].clientX;
-  swiping.value = true;
+  const t = e.touches[0];
+  startX = t.clientX;
+  startY = t.clientY;
+  startOffset = offsetX.value;
+  asse = null;
+  dragging.value = false;
 };
 
 const onTouchMove = (e) => {
-  if (!swiping.value) return;
-  const delta = e.touches[0].clientX - startX.value;
-  if (delta < -10 || offsetX.value < 0) {
-    offsetX.value = Math.max(delta, -140);
+  const t = e.touches[0];
+  const dx = t.clientX - startX;
+  const dy = t.clientY - startY;
+
+  if (asse === null) {
+    // Decisione presa una volta sola per gesto: senza questo, una deriva
+    // orizzontale del pollice durante lo scroll faceva scivolare le righe.
+    asse = decidiAsse(dx, dy);
+    if (asse === null) return;
+    if (asse === 'x') dragging.value = true;
   }
+
+  if (asse !== 'x') return;
+  offsetX.value = calcolaOffset(startOffset, dx);
 };
 
 const onTouchEnd = () => {
-  swiping.value = false;
-  if (offsetX.value <= DELETE_THRESHOLD) {
-    if (confirm('Eliminare questo movimento?')) {
-      emit('delete', props.movimento);
-    }
-    offsetX.value = 0;
-  } else if (offsetX.value <= REVEAL_THRESHOLD) {
-    offsetX.value = -80;
-  } else {
-    offsetX.value = 0;
+  if (asse === 'x') {
+    const { offset, aperta } = assestaOffset(offsetX.value);
+    offsetX.value = offset;
+    rigaAperta.value = aperta ? props.movimento.id : null;
   }
+  asse = null;
+  dragging.value = false;
+};
+
+const onTouchCancel = () => {
+  // Chiamata in arrivo o gesture di sistema: senza questo la riga restava
+  // a meta' corsa e il gesto successivo ripartiva da uno stato sporco.
+  offsetX.value = startOffset;
+  asse = null;
+  dragging.value = false;
 };
 
 const handleDelete = () => {
   if (confirm('Eliminare questo movimento?')) {
     emit('delete', props.movimento);
   }
-  offsetX.value = 0;
+  chiudi();
 };
 
 const handleClick = () => {
-  if (offsetX.value < -10) {
-    offsetX.value = 0;
+  // Riga aperta o gesto appena concluso: il tocco richiude, non apre il
+  // dettaglio. Evita l'apertura involontaria a fine trascinamento.
+  if (offsetX.value !== 0) {
+    chiudi();
     return;
   }
+  // Aprendo il dettaglio si richiude una eventuale riga rimasta scoperta
+  // altrove nella lista, che resterebbe aperta sotto al dialog.
+  rigaAperta.value = null;
   emit('click', props.movimento);
 };
 </script>
@@ -80,6 +125,7 @@ const handleClick = () => {
     <button class="mov-delete" :aria-label="`Elimina ${movimento.descrizione || catInfo.nome}`" @click.stop="handleDelete"><Trash2 :size="16" :stroke-width="1.75" aria-hidden="true" /><span>Elimina</span></button>
     <div
       class="mov-item"
+      :class="{ 'is-dragging': dragging }"
       role="button"
       :tabindex="movimento.tipo === 'trasferimento' ? -1 : 0"
       :aria-disabled="movimento.tipo === 'trasferimento'"
@@ -88,6 +134,7 @@ const handleClick = () => {
       @touchstart.passive="onTouchStart"
       @touchmove.passive="onTouchMove"
       @touchend="onTouchEnd"
+      @touchcancel="onTouchCancel"
       @click="handleClick"
       @keydown.enter.prevent="handleClick"
       @keydown.space.prevent="handleClick"
@@ -123,6 +170,8 @@ const handleClick = () => {
 .mov-item-wrap {
   position: relative;
   overflow: hidden;
+  /* Il trascinamento non deve propagarsi allo scroll della pagina. */
+  overscroll-behavior-x: contain;
   border-radius: 18px;
   margin-bottom: 0.5rem;
 }
@@ -143,7 +192,17 @@ const handleClick = () => {
   transition: transform 0.2s ease, background-color 0.15s ease, border-color 0.15s ease;
   position: relative;
   z-index: 1;
+  /* Il browser gestisce da solo lo scorrimento verticale; solo il gesto
+     orizzontale arriva a noi. Senza questo, scorrendo la lista il pollice
+     trascinava anche le righe. */
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
 }
+
+/* Durante il trascinamento la riga deve seguire il dito: con la transizione
+   attiva inseguiva con 200ms di ritardo, dando la sensazione di elastico. */
+.mov-item.is-dragging { transition: none; }
 
 .mov-icon {
   width: 38px;
