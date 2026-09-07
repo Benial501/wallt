@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import api from '@/utils/axios';
+import api, { IMPORT_TIMEOUT } from '@/utils/axios';
 
 export const useImportazioniStore = defineStore('importazioni', () => {
   const preview = ref(null);
@@ -17,6 +17,7 @@ export const useImportazioniStore = defineStore('importazioni', () => {
 
       const { data } = await api.post('/importazioni/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: IMPORT_TIMEOUT,
       });
 
       preview.value = data;
@@ -41,11 +42,15 @@ export const useImportazioniStore = defineStore('importazioni', () => {
       const { data } = await api.post('/importazioni/conferma', {
         transactions,
         aggiorna_saldo: !!aggiornaSaldo,
-      });
+      }, { timeout: IMPORT_TIMEOUT });
       return data;
     } catch (err) {
       if (err.response?.status === 429) {
         error.value = err.response?.data?.error || 'Troppi tentativi di import. Riprova tra qualche minuto.';
+      } else if (err.code === 'ECONNABORTED') {
+        // Il server puo' aver completato comunque: dire "errore" e basta
+        // porterebbe a ripetere l'import credendolo fallito.
+        error.value = 'L\'import sta ancora finendo sul server. Ricarica i movimenti fra qualche secondo prima di riprovare: potrebbero essere gia\' stati salvati.';
       } else {
         error.value = err.response?.data?.error || err.response?.data?.message || 'Errore conferma import';
       }
