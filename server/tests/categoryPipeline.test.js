@@ -95,9 +95,10 @@ test('cataloghi distribuiti frontend e backend sono identici', () => {
 // scartata, e quasi tutto finiva in "da verificare".
 test.each([
   ['ADDEBITO SDD ENEL ENERGIA', 'bollette'],
-  ['PAGAMENTO POS DECATHLON ITALIA', 'abbigliamento'],
+  ['PAGAMENTO POS AUTOGRILL A1', 'benzina_trasporti'],
 ])('lo stadio AI locale puo assegnare una categoria: %s', async (descrizione, categoria) => {
   const result = await match(descrizione);
+  expect(result.source).toBe('ai_local');
   expect(result.categoria).toBe(categoria);
   expect(result.confidenza).toBeGreaterThanOrEqual(75);
 });
@@ -106,4 +107,46 @@ test('un match legacy debole non impedisce piu allo stadio successivo di decider
   const result = await match('ADDEBITO SDD ENEL ENERGIA');
   expect(result.source).toBe('ai_local');
   expect(result.categoria).not.toBe('da_verificare');
+});
+
+// Coda lunga degli estratti conto reali: marchi corti e inequivocabili, nomi
+// di piccole attività italiane e pagamenti fra persone. Prima finivano quasi
+// tutti in "da verificare".
+test.each([
+  ['Nivro', 'svago'], ['Tsf', 'svago'], ['Jmt', 'svago'], ['Duplex', 'svago'],
+  ['Glass Globe', 'svago'], ['Mistic Sf', 'svago'], ['G&s Srls', 'svago'],
+  ['SNAI', 'deposito_scommesse'], ['Sisal', 'deposito_scommesse'],
+  ['Zara', 'abbigliamento'], ['Vinted', 'marketplace'], ['Temu', 'marketplace'],
+  ['PlayStation', 'videogiochi'], ['Nintendo', 'videogiochi'],
+  ['Anthropic', 'abbonamenti_digitali'], ['Aruba.it', 'abbonamenti_digitali'],
+  ['Bolt', 'taxi'], ['UCI Cinemas', 'cinema'], ['BILLA', 'supermercato'],
+  ['Risparmio Casa', 'prodotti_casa'], ['MYPROTEIN', 'benessere'],
+  ['Gelateria Ballerini Snc', 'bar'], ['Gelatando', 'bar'],
+  ['Pasticceria Catania', 'bar'], ['Cornetteria Notturna', 'bar'],
+  ['Caffe Supreme', 'bar'], ['A Tutto Yogurt Di Pagno', 'bar'],
+  ['Barberzone Di Rossi', 'parrucchiere'], ['Piscina Parco Dei Renai', 'sport'],
+  ['A.s.d. Grevigiana', 'sport'], ['La Botteghina Di Lecor', 'supermercato'],
+  ['Minimarket', 'supermercato'], ['Pagamento a favore di NICOLE B', 'trasferimento_denaro'],
+])('coda lunga estratti conto: %s', async (descrizione, categoria) => {
+  const result = await match(descrizione);
+  expect(result.categoria).toBe(categoria);
+  expect(result.confidenza).toBeGreaterThanOrEqual(75);
+});
+
+test('pagamenti ricevuti e ricariche sono entrate, non spese', async () => {
+  expect((await match('Pagamento da parte di NICOLE B', 'entrata')).categoria).toBe('trasferimenti_ricevuti');
+  expect((await match('Ricarica di Apple Pay con *0521', 'entrata')).categoria).toBe('trasferimenti_ricevuti');
+  expect((await match('Ricompensa per la campagna di inviti', 'entrata')).categoria).toBe('cashback');
+});
+
+test('il giroconto verso il conto deposito resta un movimento fra conti', async () => {
+  const result = await match('A EUR Conto deposito senza vincoli');
+  expect(result.requiresTransferReview).toBe(true);
+  expect(result.natura).toBe('deposito');
+});
+
+test('i nomi opachi non vengono forzati in una categoria', async () => {
+  for (const d of ['Vezzosi S.n.c.', 'Idella S.n.c. Di Gioel', 'Original Souvenir', 'Xqz 8817']) {
+    expect((await match(d)).categoria).toBe('da_verificare');
+  }
 });
