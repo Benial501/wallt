@@ -10,6 +10,7 @@ const {
 const { formatUser } = require('./auth.controller');
 const { deleteAllTransactions, deleteUserAccountCompletely, isOAuthProvider } = require('../services/accountReset.service');
 const { isMinorProfilo } = require('../utils/ageRestriction');
+const { parseAvatarDataUrl } = require('../utils/avatarImage');
 const {
   wantsScommesse,
   wantsInvestimenti,
@@ -38,6 +39,40 @@ const updateProfilo = async (req, res) => {
   } catch (error) {
     logger.error('Errore updateProfilo', { err: error });
     res.status(500).json({ message: 'Errore nell\'aggiornamento profilo' });
+  }
+};
+
+const updateAvatar = async (req, res) => {
+  try {
+    const parsed = parseAvatarDataUrl(req.body?.immagine);
+    if (!parsed.ok) return res.status(400).json({ message: parsed.error });
+
+    const user = await User.findByPk(req.userId);
+    if (!user) return res.status(404).json({ message: 'Utente non trovato' });
+
+    // Persistiamo la versione canonica, non la stringa grezza del client.
+    await user.update({ avatar_immagine: parsed.dataUrl });
+
+    const { password, ...safeUser } = user.toJSON();
+    res.json({ user: safeUser, message: 'Immagine profilo aggiornata' });
+  } catch (error) {
+    logger.error('Errore updateAvatar', { err: error });
+    res.status(500).json({ message: 'Errore nell\'aggiornamento dell\'immagine profilo' });
+  }
+};
+
+const deleteAvatar = async (req, res) => {
+  try {
+    const user = await User.findByPk(req.userId);
+    if (!user) return res.status(404).json({ message: 'Utente non trovato' });
+
+    await user.update({ avatar_immagine: null });
+
+    const { password, ...safeUser } = user.toJSON();
+    res.json({ user: safeUser, message: 'Immagine profilo rimossa' });
+  } catch (error) {
+    logger.error('Errore deleteAvatar', { err: error });
+    res.status(500).json({ message: 'Errore nella rimozione dell\'immagine profilo' });
   }
 };
 
@@ -369,6 +404,8 @@ const resetAccount = async (req, res) => {
 
 module.exports = {
   updateProfilo,
+  updateAvatar,
+  deleteAvatar,
   updatePassword,
   updatePreferenze,
   esportaDati,

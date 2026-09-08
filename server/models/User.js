@@ -25,6 +25,12 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING(500),
     allowNull: true,
   },
+  // Immagine caricata dall'utente (data URL). Distinta da `avatar`, che
+  // contiene l'URL della foto Google usato come fallback.
+  avatar_immagine: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
   valuta: {
     type: DataTypes.STRING(3),
     defaultValue: 'EUR',

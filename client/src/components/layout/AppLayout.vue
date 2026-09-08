@@ -28,6 +28,7 @@ import HelpPanel from '@/components/help/HelpPanel.vue';
 import NotificheBell from '@/components/notifiche/NotificheBell.vue';
 import NotifichePanel from '@/components/notifiche/NotifichePanel.vue';
 import WalltLogo from '@/components/common/WalltLogo.vue';
+import UserAvatar from '@/components/common/UserAvatar.vue';
 import BottomSheet from './BottomSheet.vue';
 import { performLogout } from '@/utils/session';
 
@@ -81,11 +82,6 @@ watch(
     notificheStore.chiudiPanel();
   },
 );
-
-const iniziali = computed(() => {
-  const nome = authStore.user?.nome || '?';
-  return nome.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
-});
 
 const primoNome = computed(() => authStore.user?.nome?.split(' ')[0] || 'Utente');
 
@@ -186,7 +182,7 @@ const handleLogout = async () => {
       </div>
 
       <div class="sidebar__user">
-        <div class="avatar">{{ iniziali }}</div>
+        <UserAvatar :user="authStore.user" :size="40" />
         <span class="sidebar__name">Ciao, {{ primoNome }}</span>
       </div>
 
@@ -230,8 +226,13 @@ const handleLogout = async () => {
       </router-link>
       <div class="mobile-header__azioni">
         <NotificheBell variante="compatta" />
-        <button class="avatar avatar--sm" @click="router.push('/impostazioni')">
-          {{ iniziali }}
+        <button
+          type="button"
+          class="avatar-btn"
+          aria-label="Impostazioni account"
+          @click="router.push('/impostazioni')"
+        >
+          <UserAvatar :user="authStore.user" :size="36" />
         </button>
       </div>
     </header>
@@ -317,8 +318,7 @@ const handleLogout = async () => {
 .sidebar__logo-link { display: inline-flex; text-decoration: none; }
 .sidebar__user { display: flex; align-items: center; gap: 0.75rem; padding: 0 24px 24px; }
 .sidebar__name { font-size: 0.875rem; font-weight: 500; color: var(--text-primary); }
-.avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--accent-light); color: var(--accent-green); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.875rem; border: none; cursor: pointer; }
-.avatar--sm { width: 36px; height: 36px; font-size: 0.75rem; }
+.avatar-btn { display: flex; padding: 0; background: none; border: none; cursor: pointer; }
 .sidebar__nav { flex: 1; padding: 0 12px; display: flex; flex-direction: column; gap: 2px; }
 .sidebar__link { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 12px; border-radius: var(--radius-md); color: var(--text-secondary); text-decoration: none; font-size: 0.875rem; transition: all 0.2s; border: none; background: none; cursor: pointer; width: 100%; text-align: left; min-height: 44px; }
 .sidebar__link:hover { color: var(--text-primary); background: var(--sidebar-hover-bg); }

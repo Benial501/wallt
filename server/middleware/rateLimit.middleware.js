@@ -109,6 +109,13 @@ const importConfirmLimiter = createLimiter({
   message: { error: 'Troppi import confermati. Riprova tra un po\'.' },
 });
 
+/** 20 modifiche / 15 min per utente — upload e rimozione immagine profilo */
+const avatarLimiter = createLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Troppe modifiche all\'immagine profilo. Riprova tra qualche minuto.' },
+});
+
 /** @deprecated usa importUploadLimiter / importConfirmLimiter */
 const importLimiter = importUploadLimiter;
 
@@ -118,6 +125,7 @@ module.exports = {
   exportLimiter,
   deleteAccountLimiter,
   stepUpLimiter,
+  avatarLimiter,
   importLimiter,
   importUploadLimiter,
   importConfirmLimiter,

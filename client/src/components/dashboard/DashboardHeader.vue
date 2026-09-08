@@ -4,14 +4,10 @@ import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import WalltLogo from '@/components/common/WalltLogo.vue';
 import NotificheBell from '@/components/notifiche/NotificheBell.vue';
+import UserAvatar from '@/components/common/UserAvatar.vue';
 
 const authStore = useAuthStore();
 const router = useRouter();
-
-const iniziali = computed(() => {
-  const nome = authStore.user?.nome || '?';
-  return nome.charAt(0).toUpperCase();
-});
 
 const primoNome = computed(() => authStore.user?.nome?.split(' ')[0] || 'Utente');
 </script>
@@ -35,7 +31,7 @@ const primoNome = computed(() => authStore.user?.nome?.split(' ')[0] || 'Utente'
       aria-label="Impostazioni account"
       @click="router.push('/impostazioni')"
     >
-      <span class="dashboard-header__avatar">{{ iniziali }}</span>
+      <UserAvatar :user="authStore.user" :size="36" tono="neutro" :iniziali-max="1" />
       <span class="dashboard-header__online" aria-hidden="true" />
     </button>
   </header>
@@ -83,25 +79,12 @@ const primoNome = computed(() => authStore.user?.nome?.split(' ')[0] || 'Utente'
 
 .dashboard-header__avatar-wrap {
   position: relative;
+  display: flex;
   background: none;
   border: none;
   padding: 0;
   cursor: pointer;
   flex-shrink: 0;
-}
-
-.dashboard-header__avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--surface-inset);
-  border: 1px solid var(--border);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  font-weight: 700;
 }
 
 .dashboard-header__online {

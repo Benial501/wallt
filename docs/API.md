@@ -496,8 +496,22 @@ notifiche dell'utente autenticato.
 ## Impostazioni
 
 ### PUT /api/impostazioni/profilo
-- **Body**: `{ nome?, email?, avatar? }`
+- **Body**: `{ nome?, email?, avatar? }` — `avatar` è l'URL della foto Google, non l'immagine caricata
 - **Validazione**: `validateUpdateProfilo`
+- **Frontend**: `ImpostazioniView.vue`
+
+### PUT /api/impostazioni/avatar
+- **Auth**: Sì + avatarLimiter (20 / 15 min per utente)
+- **Body**: `{ immagine: "data:image/webp;base64,..." }`
+- **Validazione**: `parseAvatarDataUrl` (`utils/avatarImage.js`) — solo `image/webp|jpeg|png`, magic bytes coerenti col mime dichiarato, massimo 256 KB decodificati. SVG rifiutato di proposito.
+- **Azione**: salva la versione canonica del data URL in `users.avatar_immagine`; non tocca `users.avatar`
+- **Risposta**: `{ user, message }` — lo user completo senza password
+- **Frontend**: `ImpostazioniView.vue` (il ridimensionamento a 256×256 avviene nel browser, `utils/avatar.js`)
+
+### DELETE /api/impostazioni/avatar
+- **Auth**: Sì + avatarLimiter
+- **Azione**: azzera `users.avatar_immagine`; si torna alla foto Google se presente, altrimenti alle iniziali
+- **Risposta**: `{ user, message }`
 - **Frontend**: `ImpostazioniView.vue`
 
 ### PUT /api/impostazioni/password

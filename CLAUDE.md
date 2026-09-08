@@ -48,7 +48,7 @@ Architettura: **SPA Vue 3** (`client/`) + **API REST Node.js/Express** (`server/
 ### Database
 - **PostgreSQL Supabase** con Sequelize ORM
 - Runtime Vercel sul Transaction Pooler (porta 6543); migrazioni sul Session Pooler (porta 5432)
-- Migrazioni via `sequelize-cli` (19 file in `server/migrations/`)
+- Migrazioni via `sequelize-cli` (25 file in `server/migrations/`)
 - Auto-migrate all'avvio in `server.js`
 
 ### Authentication
@@ -98,7 +98,7 @@ wallt/
 │   ├── controllers/        # 13 controller
 │   ├── middleware/         # auth, validation, rateLimit, stepUp, featureAccess, errorHandler
 │   ├── models/             # 16 modelli Sequelize + index.js (associazioni)
-│   ├── migrations/         # 19 migrazioni
+│   ├── migrations/         # 25 migrazioni
 │   ├── routes/             # 12 route modules
 │   ├── services/           # Business logic (import, merchant, email, reset, sync, cron, notifiche)
 │   ├── tests/              # Jest (auth, security, gdpr, profilo, import, categorization, isolation, googleStepUp, financialConsistency, ricorrenti, excelParser, validateEnv)
@@ -169,7 +169,7 @@ Entità core: `users` → `conti` → `movimenti`. Entità satellite: budget, ob
 
 ## API
 
-~66 endpoint REST sotto `/api/*` (incluse `POST /api/auth/google/challenge` e `POST /api/auth/verify-google`, step-up Google). Vedi `docs/API.md` per inventario completo.
+~68 endpoint REST sotto `/api/*` (incluse `POST /api/auth/google/challenge` e `POST /api/auth/verify-google`, step-up Google). Vedi `docs/API.md` per inventario completo.
 
 Comunicazione: Axios con `baseURL = VITE_API_URL` normalizzato da `client/src/config/api.js` (default `http://localhost:3000/api`), header `Authorization: Bearer <token>`.
 
@@ -206,7 +206,7 @@ Configurazione DB: `server/config/database.js` accetta `DATABASE_URL` **oppure**
 | **Scommesse ↔ Conti sync** | Bidirezionale, può creare/eliminare conti | `scommesseContoSync.service.js` |
 | **Categorizzazione** | Whitelist in 6+ file server + frontend | `constants/categorie.js`, `CategoryMatcherService.js` |
 | **Cron ricorrenti** | Crea movimenti automaticamente ogni giorno | `ricorrenti.service.js` |
-| **Migrazioni DB** | Auto-run all'avvio SOLO fuori produzione (disabilitato quando `NODE_ENV=production`, vedi `RUN_MIGRATIONS_ON_BOOT`); 19 file con possibili duplicati. Su Supabase si lanciano a mano con `npm run migrate:production` (`NODE_ENV=migration` + `DATABASE_MIGRATION_URL`) | `server.js`, `migrations/` |
+| **Migrazioni DB** | Auto-run all'avvio SOLO fuori produzione (disabilitato quando `NODE_ENV=production`, vedi `RUN_MIGRATIONS_ON_BOOT`); 25 file con possibili duplicati. Su Supabase si lanciano a mano con `npm run migrate:production` (`NODE_ENV=migration` + `DATABASE_MIGRATION_URL`) | `server.js`, `migrations/` |
 | **Feature access minori** | Logica duplicata frontend/backend | `featureAccess.js` (client + server), `ageRestriction.js` |
 | **Notifiche** | Regole anti-spam, deduplica e fuso orario: una modifica sbagliata trasforma il sistema in spam. Il calcolo del budget è condiviso con l'API budget | `services/notifiche/`, `services/budgetStato.service.js` |
 | **Hook budget post-movimento** | `valutaBudgetDopoMovimento` è chiamata (awaited) dopo il commit in `createMovimento`/`updateMovimento` e dopo l'import: deve restare fuori dalla transazione e non lanciare mai | `movimenti.controller.js`, `importazioni.controller.js`, `NotificheGenerator.js` |
