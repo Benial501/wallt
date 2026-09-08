@@ -1,10 +1,11 @@
 const express = require('express');
 const {
-  updateProfilo, updatePassword, updatePreferenze, esportaDati, deleteAccount, resetAccount,
+  updateProfilo, updateAvatar, deleteAvatar, updatePassword, updatePreferenze,
+  esportaDati, deleteAccount, resetAccount,
 } = require('../controllers/impostazioni.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 const { requireStepUpUnlessOAuth } = require('../middleware/stepUp.middleware');
-const { exportLimiter, deleteAccountLimiter } = require('../middleware/rateLimit.middleware');
+const { exportLimiter, deleteAccountLimiter, avatarLimiter } = require('../middleware/rateLimit.middleware');
 const {
   validatePassword,
   validateUpdateProfilo,
@@ -16,6 +17,8 @@ const {
 const router = express.Router();
 
 router.put('/profilo', authMiddleware, validateUpdateProfilo, updateProfilo);
+router.put('/avatar', authMiddleware, avatarLimiter, updateAvatar);
+router.delete('/avatar', authMiddleware, avatarLimiter, deleteAvatar);
 router.put('/password', authMiddleware, validatePassword, updatePassword);
 router.put('/preferenze', authMiddleware, validateUpdatePreferenze, updatePreferenze);
 router.get('/esporta', authMiddleware, requireStepUpUnlessOAuth, exportLimiter, esportaDati);

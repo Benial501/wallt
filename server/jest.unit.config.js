@@ -14,6 +14,7 @@ module.exports = {
     '<rootDir>/tests/loggerServerless.test.js',
     '<rootDir>/tests/vercelHandler.test.js',
     '<rootDir>/tests/cron.test.js',
+    '<rootDir>/tests/avatarImage.test.js',
   ],
   testTimeout: 20000,
   verbose: true,

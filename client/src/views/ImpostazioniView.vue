@@ -18,10 +18,12 @@ import { wantsScommesse, wantsInvestimenti } from '@/utils/featureAccess';
 import {
   Shield, User, ClipboardList, Palette, Sun, Moon, Coins, Bell, Settings,
   Bot, Dices, LineChart, Lock, DownloadIcon, RefreshCw, Trash2, ChevronDown, ChevronRight,
-  Wallet, CircleHelp,
+  Wallet, CircleHelp, Camera,
 } from '@/utils/appIcons';
 import { useHelpStore } from '@/stores/help.store';
 import NotificheSettings from '@/components/notifiche/NotificheSettings.vue';
+import UserAvatar from '@/components/common/UserAvatar.vue';
+import { AVATAR_ACCEPT, validaFileImmagine, creaDataUrlAvatar } from '@/utils/avatar';
 
 const authStore = useAuthStore();
 const contiStore = useContiStore();
@@ -80,10 +82,50 @@ const VALUTE = [
   { code: 'JPY', label: 'JPY ¥' },
 ];
 
-const iniziali = computed(() => {
-  const nome = authStore.user?.nome || '?';
-  return nome.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
-});
+const avatarInput = ref(null);
+const avatarLoading = ref(false);
+const haImmagineProfilo = computed(() => !!authStore.user?.avatar_immagine);
+
+const scegliImmagineProfilo = () => avatarInput.value?.click();
+
+const caricaImmagineProfilo = async (event) => {
+  const file = event.target.files?.[0];
+  // L'input va svuotato subito, altrimenti riselezionare lo stesso file non
+  // scatena un nuovo change.
+  event.target.value = '';
+  if (!file) return;
+
+  const { valido, errore } = validaFileImmagine(file);
+  if (!valido) {
+    toastStore.error(errore);
+    return;
+  }
+
+  avatarLoading.value = true;
+  try {
+    const immagine = await creaDataUrlAvatar(file);
+    const { data } = await api.put('/impostazioni/avatar', { immagine });
+    authStore.updateUser(data.user);
+    toastStore.success('Immagine profilo aggiornata!');
+  } catch (err) {
+    toastStore.error(err.response?.data?.message || 'Non e stato possibile caricare l\'immagine');
+  } finally {
+    avatarLoading.value = false;
+  }
+};
+
+const rimuoviImmagineProfilo = async () => {
+  avatarLoading.value = true;
+  try {
+    const { data } = await api.delete('/impostazioni/avatar');
+    authStore.updateUser(data.user);
+    toastStore.success('Immagine profilo rimossa');
+  } catch (err) {
+    toastStore.error(err.response?.data?.message || 'Errore nella rimozione');
+  } finally {
+    avatarLoading.value = false;
+  }
+};
 
 const profiloFinanziario = computed(() => {
   const p = authStore.user?.profilo;
@@ -390,7 +432,36 @@ const eliminaAccountOAuth = async () => {
 <template>
   <div class="impostazioni-view animate-fade-in">
     <div class="profile-header">
-      <div class="avatar-lg">{{ iniziali }}</div>
+      <button
+        type="button"
+        class="avatar-picker"
+        :disabled="avatarLoading"
+        :aria-label="haImmagineProfilo ? 'Cambia immagine profilo' : 'Carica immagine profilo'"
+        @click="scegliImmagineProfilo"
+      >
+        <UserAvatar :user="authStore.user" :size="80" />
+        <span class="avatar-picker__badge" aria-hidden="true">
+          <Camera :size="14" :stroke-width="2" />
+        </span>
+      </button>
+      <input
+        ref="avatarInput"
+        type="file"
+        class="sr-only"
+        tabindex="-1"
+        aria-hidden="true"
+        :accept="AVATAR_ACCEPT"
+        @change="caricaImmagineProfilo"
+      />
+      <button
+        v-if="haImmagineProfilo"
+        type="button"
+        class="avatar-remove"
+        :disabled="avatarLoading"
+        @click="rimuoviImmagineProfilo"
+      >
+        Rimuovi foto
+      </button>
       <h2>{{ authStore.user?.nome }}</h2>
       <p>{{ authStore.user?.email }}</p>
     </div>
@@ -757,7 +828,12 @@ const eliminaAccountOAuth = async () => {
 
 <style scoped>
 .profile-header { text-align: center; margin-bottom: 2rem; }
-.avatar-lg { width: 80px; height: 80px; border-radius: 50%; background: var(--accent-light); color: var(--accent-green); display: flex; align-items: center; justify-content: center; font-size: 1.75rem; font-weight: 700; margin: 0 auto 0.75rem; }
+.avatar-picker { position: relative; display: block; margin: 0 auto 0.5rem; padding: 0; background: none; border: none; cursor: pointer; border-radius: 50%; }
+.avatar-picker:disabled { cursor: progress; opacity: 0.6; }
+.avatar-picker:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 3px; }
+.avatar-picker__badge { position: absolute; right: -2px; bottom: -2px; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--accent-green); color: #fff; border: 2px solid var(--bg-primary); }
+.avatar-remove { display: block; margin: 0 auto 0.5rem; background: none; border: none; padding: 0; font-size: 0.75rem; color: var(--text-subtle); text-decoration: underline; cursor: pointer; }
+.avatar-remove:disabled { opacity: 0.6; cursor: progress; }
 .profile-header h2 { font-size: 1.25rem; color: var(--text-primary); }
 .profile-header p { color: var(--text-secondary); font-size: 0.875rem; }
 .section-card { margin-bottom: 0.75rem; padding: 0 !important; overflow: hidden; }

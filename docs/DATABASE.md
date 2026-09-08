@@ -31,7 +31,8 @@ Migrazioni: `npm run migrate` o auto-run all'avvio (`server.js`).
 | `nome` | STRING(100) | Obbligatorio |
 | `email` | STRING(255) UNIQUE | Obbligatorio |
 | `password` | STRING(255) | Nullable (OAuth users) |
-| `avatar` | STRING(500) | |
+| `avatar` | STRING(500) | URL foto Google (OAuth) |
+| `avatar_immagine` | TEXT | Immagine profilo caricata dall'utente, data URL 256×256 (WebP/JPEG). Ha priorità su `avatar` |
 | `valuta` | STRING(3) | Default `EUR` |
 | `tema` | ENUM dark/light | Default `dark` |
 | `reminder` | BOOLEAN | Default true |

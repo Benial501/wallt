@@ -133,7 +133,7 @@ server/
 │   ├── googleAuth.service.js
 │   ├── onboarding.service.js
 │   └── aiConsent.service.js
-├── migrations/               # 19 migrazioni Sequelize
+├── migrations/               # 25 migrazioni Sequelize
 ├── tests/                    # 18 suite Jest, incluse PostgreSQL/Vercel/cron/rate limit
 └── utils/                    # logger, AppError, ageRestriction, featureAccess, oauthPopup
 ```

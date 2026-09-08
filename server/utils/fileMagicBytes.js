@@ -71,6 +71,7 @@ const validateImportFileBuffer = (buffer, filename) => {
 };
 
 module.exports = {
+  matchBytes,
   validateImportFileBuffer,
   isPdf,
   isZip,
