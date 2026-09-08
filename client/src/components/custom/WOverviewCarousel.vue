@@ -516,13 +516,9 @@ onUnmounted(() => {
 }
 
 .w-overview__track {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
 }
-
-.w-overview__track::-webkit-scrollbar { display: none; }
 
 .w-overview__slide {
   padding: 1.375rem 1.25rem 1.25rem;
@@ -692,7 +688,6 @@ onUnmounted(() => {
   max-height: 230px;
   overflow-y: auto;
   overscroll-behavior-y: contain;
-  scrollbar-width: thin;
   margin-bottom: 0.75rem;
 }
 

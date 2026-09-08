@@ -106,11 +106,6 @@ watch(() => props.cards.length, () => {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   padding: 0.25rem 0 0.5rem;
-  scrollbar-width: none;
-}
-
-.category-carousel__track::-webkit-scrollbar {
-  display: none;
 }
 
 .category-carousel__skeleton {

@@ -482,7 +482,9 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
   cursor: pointer;
   min-height: 44px;
 }
-.filtro-select { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.375rem 0.75rem; color: var(--text-primary); font-size: 0.8125rem; }
+/* 16px: sotto questa soglia iOS ingrandisce la pagina appena il select
+   prende il fuoco. Vedi la nota in assets/styles/main.css. */
+.filtro-select { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.375rem 0.75rem; color: var(--text-primary); font-size: 16px; }
 .results-meta { margin: 0 0 1rem; font-size: 0.8125rem; color: var(--text-secondary); }
 .load-more { display: flex; justify-content: center; margin: 1.5rem 0; }
 .load-more__btn {

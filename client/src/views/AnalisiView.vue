@@ -586,8 +586,6 @@ const hasData = computed(() =>
 .cat-transactions__group :deep(.analisi-mov-row:last-child) {
   margin-bottom: 0;
 }
-.cat-transactions__list::-webkit-scrollbar { width: 6px; }
-.cat-transactions__list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
 .cat-transactions__empty {
   text-align: center;
   padding: 1.25rem 0.5rem;

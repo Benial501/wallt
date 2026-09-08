@@ -7,7 +7,17 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="manifest" href="/manifest.webmanifest">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!--
+      Viewport da applicazione, non da sito. maximum-scale=1 + user-scalable=no
+      tolgono pinch-zoom e double-tap-zoom su Android Chrome e nella PWA
+      installata su iOS (display standalone). Safari iOS in scheda normale
+      ignora deliberatamente questi due parametri dal 2016: li' il blocco
+      arriva da touch-action in main.css e dal listener gesture* in
+      utils/appGestures.js. Vedi anche la nota accessibilita' li'.
+      NB: niente viewport-fit=cover, che cambierebbe il layout sui device con
+      notch attivando gli env(safe-area-inset-*) oggi inerti.
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <title>WALLT — Gestione Finanziaria</title>
     <meta name="description" content="WALLT - Gestisci il tuo patrimonio, traccia le spese e raggiungi i tuoi obiettivi finanziari. App italiana gratuita.">
     <meta name="theme-color" content="#000000">

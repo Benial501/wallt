@@ -6,6 +6,10 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { useAuthStore } from './stores/auth.store'
+import { installAppGestures } from './utils/appGestures'
+
+// Completa il blocco dello zoom dove il meta viewport non basta (Safari iOS).
+installAppGestures()
 
 const app = createApp(App)
 const pinia = createPinia()

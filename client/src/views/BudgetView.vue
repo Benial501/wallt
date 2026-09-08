@@ -270,7 +270,9 @@ const totaleRimanente = computed(() => totaleBudget.value - budgetStore.totaleSp
 .field-label { display: block; font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 0.5rem; }
 .form-input { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.75rem; color: var(--text-primary); }
 .form-input--lg { font-size: 1.5rem; font-weight: 700; text-align: center; }
-.form-input--sm { width: 70px; padding: 0.375rem 0.5rem; font-size: 0.8125rem; }
+/* 16px: sotto questa soglia iOS ingrandisce la pagina appena il campo
+   prende il fuoco. Vedi la nota in assets/styles/main.css. */
+.form-input--sm { width: 70px; padding: 0.375rem 0.5rem; font-size: 16px; }
 .cat-row { display: grid; grid-template-columns: 32px 1fr 70px 16px 80px; align-items: center; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
 .cat-nome { font-size: 0.875rem; color: var(--text-primary); }
 .pct-sign { color: var(--text-muted); font-size: 0.75rem; }

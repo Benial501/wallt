@@ -14,10 +14,16 @@
   }
 
   html {
-    /* Riserva sempre lo spazio della scrollbar: quando un pannello o un
-       bottom sheet blocca lo scroll con overflow:hidden sul body, la
-       scrollbar sparisce e senza questo gutter la pagina salta di lato. */
-    scrollbar-gutter: stable;
+    /* Esperienza da app: la pagina non si ingrandisce e non si trascina di
+       lato. pan-x pan-y lascia al browser TUTTO lo scorrimento (verticale
+       della pagina, orizzontale dei caroselli in dashboard) ma gli toglie
+       pinch-zoom e double-tap-zoom, che sono consentiti solo dai valori
+       'auto' e 'manipulation'.
+       Non restringere a pan-y: spegnerebbe lo swipe dei caroselli. Il valore
+       non si eredita ma si interseca lungo la catena degli antenati, quindi
+       le regole piu' strette gia' presenti sui componenti continuano a
+       valere (pan-y sulle righe movimento, none sul dialog a tutto schermo). */
+    touch-action: pan-x pan-y;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -30,35 +36,44 @@
     overflow-x: hidden;
   }
 
-  /* Barra di scorrimento discreta: sottile, traccia invisibile e pollice
-     appena accennato che si scurisce al passaggio del mouse. Resta leggibile
-     quanto basta a capire a che punto della pagina si e', senza pesare.
-     Il colore deriva da --text-muted, quindi segue tema chiaro e scuro senza
-     nuove variabili. Lo spazio riservato da scrollbar-gutter qui sopra
-     diventa di 6px invece dei ~15 della barra di sistema. */
+  /* Barra di scorrimento nascosta ovunque: documento, pannelli, bottom sheet,
+     caroselli, liste e qualunque contenitore con overflow. Lo scorrimento
+     resta pienamente attivo (rotellina, trackpad, touch, tastiera,
+     scrollIntoView): sparisce solo l'indicatore visivo.
+     Non serve piu' scrollbar-gutter sull'html: senza barra classica la
+     larghezza non cambia, quindi un dialog che blocca lo scroll del body con
+     overflow:hidden non provoca piu' il salto laterale della pagina.
+     Questa e' la regola unica e globale: non reintrodurre ::-webkit-scrollbar
+     o scrollbar-width nei singoli componenti — avrebbero specificita'
+     maggiore e farebbero riapparire la barra solo li'. */
   * {
-    scrollbar-width: thin;
-    scrollbar-color: color-mix(in srgb, var(--text-muted) 35%, transparent) transparent;
+    scrollbar-width: none;       /* Firefox */
+    -ms-overflow-style: none;    /* Edge legacy / IE */
   }
 
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+  *::-webkit-scrollbar {
+    display: none;               /* Chrome, Safari, Edge, WebView iOS/Android */
+    width: 0;
+    height: 0;
   }
 
-  ::-webkit-scrollbar-track {
-    background: transparent;
+  /* Niente rimbalzo orizzontale ne' navigazione avanti/indietro trascinando il
+     contenuto: sul telefono il viewport resta ancorato.
+     Solo su puntatore grossolano (touch): su desktop lo swipe orizzontale a due
+     dita del trackpad e' navigazione di sistema attesa, e non c'entra con
+     l'esperienza mobile che stiamo sistemando.
+     L'asse Y non e' toccato di proposito, cosi' lo scorrimento elastico
+     verticale di iOS resta quello nativo. */
+  @media (pointer: coarse) {
+    html, body {
+      overscroll-behavior-x: none;
+    }
   }
 
-  ::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--text-muted) 35%, transparent);
-    border-radius: 999px;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in srgb, var(--text-muted) 60%, transparent);
-  }
-
+  /* 16px e' la soglia sotto la quale iOS ingrandisce da solo la pagina quando
+     un campo prende il fuoco: e' un vincolo anti-zoom, non una scelta
+     tipografica. Non scendere sotto nei componenti — la maggiore specificita'
+     di una classe locale batte questa regola e fa ricomparire lo zoom. */
   input, select, textarea {
     font-size: 16px;
   }
