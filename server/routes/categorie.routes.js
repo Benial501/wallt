@@ -1,8 +1,9 @@
 const router = require('express').Router();
 const { randomUUID } = require('crypto');
-const { sequelize, CategoriaPersonale, Movimento, CategorieRegola, RegolaPersonaleMerchant, User, BudgetCategoria, BudgetMensile } = require('../models');
+const { Op } = require('sequelize');
+const { sequelize, CategoriaPersonale, CategoriaDefaultNascosta, Movimento, CategorieRegola, RegolaPersonaleMerchant, User, BudgetCategoria, BudgetMensile } = require('../models');
 const { list, serialize, error } = require('../services/categorie.service');
-const { CATEGORIE_DEFAULT } = require('../constants/categorie');
+const { CATEGORIE_DEFAULT, isCategoriaSistema } = require('../constants/categorie');
 const normalizeName = value => value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('it');
 const ICONS = ['Tag', 'House', 'ShoppingBasket', 'Car', 'ShoppingBag', 'Heart', 'Dumbbell', 'Music', 'Plane', 'Wallet', 'BookOpen', 'Gift', 'Briefcase', 'Coffee', 'Gamepad2', 'GraduationCap', 'PawPrint'];
 router.use(require('../middleware/auth.middleware'));
@@ -22,6 +23,70 @@ const clear = userId => {
 const handle = fn => async (req, res, next) => {
   try { await fn(req, res); } catch (e) { if (e.name === 'SequelizeUniqueConstraintError') return res.status(409).json({ message: 'Categoria già presente, anche tra quelle archiviate' }); next(e); }
 };
+
+const nomeDefault = (id, tipo) => CATEGORIE_DEFAULT.find(c => c.id === id && c.tipo === tipo)?.nome || id;
+
+/** Valida `{ categorie: [{ id, tipo }] }` contro il catalogo, senza duplicati. */
+function parseBatchDefault(body) {
+  const items = body?.categorie;
+  if (!Array.isArray(items) || !items.length) throw error('Seleziona almeno una categoria');
+  if (items.length > CATEGORIE_DEFAULT.length) throw error('Troppe categorie in una sola richiesta');
+  const seen = new Set();
+  const parsed = [];
+  for (const item of items) {
+    const { id, tipo } = item || {};
+    if (typeof id !== 'string' || !['entrata', 'uscita'].includes(tipo)) throw error('Categoria non valida');
+    const key = `${id}:${tipo}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (!CATEGORIE_DEFAULT.some(c => c.id === id && c.tipo === tipo)) throw error('Categoria predefinita non trovata', 404);
+    parsed.push({ id, tipo });
+  }
+  return parsed;
+}
+
+const whereBatch = (userId, parsed) => ({ user_id: userId, [Op.or]: parsed.map(c => ({ categoria_id: c.id, tipo: c.tipo })) });
+
+/**
+ * Elimina per l'utente una o più categorie predefinite.
+ *
+ * Non tocca le regole di categorizzazione che puntano a quegli id: mentre la
+ * categoria è nascosta le regole sono già inerti, perché `_matchRules` e
+ * `_finalize` filtrano su `list(userId)`. Lasciarle stare le fa tornare da sole
+ * al ripristino, senza dover ricordare quali erano state disattivate qui.
+ */
+router.delete('/default', handle(async (req, res) => {
+  const parsed = parseBatchDefault(req.body);
+  const protette = parsed.filter(c => isCategoriaSistema(c.id));
+  if (protette.length) {
+    throw error(`WALLT usa queste categorie per registrare movimenti da solo, quindi non si possono eliminare: ${protette.map(c => nomeDefault(c.id, c.tipo)).join(', ')}.`, 409);
+  }
+  await CategoriaDefaultNascosta.bulkCreate(
+    parsed.map(c => ({ user_id: req.userId, categoria_id: c.id, tipo: c.tipo })),
+    { ignoreDuplicates: true },
+  );
+  clear(req.userId);
+  res.json({ eliminate: parsed.length, message: 'Categorie eliminate. I movimenti esistenti sono conservati.' });
+}));
+
+/** Rimette in elenco predefinite eliminate in precedenza. */
+router.post('/default/ripristina', handle(async (req, res) => {
+  const parsed = parseBatchDefault(req.body);
+  const ripristinate = await CategoriaDefaultNascosta.destroy({ where: whereBatch(req.userId, parsed) });
+  clear(req.userId);
+  res.json({ ripristinate, message: 'Categorie ripristinate.' });
+}));
+
+/** Riattiva una categoria personale archiviata. */
+router.post('/:id/ripristina', handle(async (req, res) => {
+  const c = await sequelize.transaction(async transaction => {
+    const category = await CategoriaPersonale.findOne({ where: { id: req.params.id, user_id: req.userId, attiva: false }, transaction, lock: transaction.LOCK.UPDATE });
+    if (!category) throw error('Categoria archiviata non trovata', 404);
+    return category.update({ attiva: true }, { transaction });
+  });
+  clear(req.userId);
+  res.json({ categoria: serialize(c) });
+}));
 router.post('/', handle(async (req, res) => {
   const fields = validate(req.body);
   const c = await CategoriaPersonale.create({ ...fields, id: `custom_${randomUUID()}`, user_id: req.userId });

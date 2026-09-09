@@ -9,7 +9,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "entrata_extra",
@@ -21,7 +22,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "regalo_ricevuto",
@@ -33,7 +35,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "prelievo_scommesse",
@@ -45,7 +48,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": true
   },
   {
     "id": "rendimento_investimenti",
@@ -57,7 +61,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": true
   },
   {
     "id": "altro_entrata",
@@ -69,7 +74,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": true
   },
   {
     "id": "da_verificare",
@@ -81,7 +87,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": true
   },
   {
     "id": "cibo_spesa",
@@ -93,7 +100,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "casa",
@@ -105,7 +113,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "bollette",
@@ -117,7 +126,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "benzina_trasporti",
@@ -129,7 +139,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "mezzi_pubblici",
@@ -141,7 +152,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "abbigliamento",
@@ -153,7 +165,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "svago",
@@ -165,7 +178,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "deposito_scommesse",
@@ -177,7 +191,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": true
   },
   {
     "id": "investimento",
@@ -189,7 +204,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": true
   },
   {
     "id": "salute",
@@ -201,7 +217,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "abbonamenti",
@@ -213,7 +230,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "regali",
@@ -225,7 +243,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "acquisti_vari",
@@ -237,7 +256,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "trasferimento_denaro",
@@ -249,7 +269,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "altro_uscita",
@@ -261,7 +282,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "da_verificare",
@@ -273,7 +295,8 @@
     "icona": "Tag",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": true
   },
   {
     "id": "bonus",
@@ -285,7 +308,8 @@
     "colore": "#00D4AA",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "freelance",
@@ -297,7 +321,8 @@
     "colore": "#00D4AA",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "pagamenti_ricevuti",
@@ -309,7 +334,8 @@
     "colore": "#00D4AA",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "pensione",
@@ -321,7 +347,8 @@
     "colore": "#00D4AA",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "rimborso",
@@ -333,7 +360,8 @@
     "colore": "#00D4AA",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "cashback",
@@ -345,7 +373,8 @@
     "colore": "#00D4AA",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "interessi_attivi",
@@ -357,7 +386,8 @@
     "colore": "#00D4AA",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "dividendi",
@@ -369,7 +399,8 @@
     "colore": "#00D4AA",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "vendita",
@@ -381,7 +412,8 @@
     "colore": "#00D4AA",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "vincite",
@@ -393,7 +425,8 @@
     "colore": "#00D4AA",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "trasferimenti_ricevuti",
@@ -405,7 +438,8 @@
     "colore": "#00D4AA",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "affitto",
@@ -417,7 +451,8 @@
     "colore": "#4ECDC4",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "mutuo",
@@ -429,7 +464,8 @@
     "colore": "#4ECDC4",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "condominio",
@@ -441,7 +477,8 @@
     "colore": "#4ECDC4",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "elettricita",
@@ -453,7 +490,8 @@
     "colore": "#4ECDC4",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "gas",
@@ -465,7 +503,8 @@
     "colore": "#4ECDC4",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "acqua",
@@ -477,7 +516,8 @@
     "colore": "#4ECDC4",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "internet",
@@ -489,7 +529,8 @@
     "colore": "#4ECDC4",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "telefono",
@@ -501,7 +542,8 @@
     "colore": "#4ECDC4",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "manutenzione_casa",
@@ -513,7 +555,8 @@
     "colore": "#4ECDC4",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "arredamento",
@@ -525,7 +568,8 @@
     "colore": "#4ECDC4",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "prodotti_casa",
@@ -537,7 +581,8 @@
     "colore": "#4ECDC4",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "spesa_alimentare",
@@ -549,7 +594,8 @@
     "colore": "#FF6B6B",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "supermercato",
@@ -561,7 +607,8 @@
     "colore": "#FF6B6B",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "ristoranti",
@@ -573,7 +620,8 @@
     "colore": "#FF6B6B",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "fast_food",
@@ -585,7 +633,8 @@
     "colore": "#FF6B6B",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "bar",
@@ -597,7 +646,8 @@
     "colore": "#FF6B6B",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "delivery",
@@ -609,7 +659,8 @@
     "colore": "#FF6B6B",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "pizzerie",
@@ -621,7 +672,8 @@
     "colore": "#FF6B6B",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "benzina",
@@ -633,7 +685,8 @@
     "colore": "#FF8C42",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "diesel",
@@ -645,7 +698,8 @@
     "colore": "#FF8C42",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "ricarica_elettrica",
@@ -657,7 +711,8 @@
     "colore": "#FF8C42",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "parcheggio",
@@ -669,7 +724,8 @@
     "colore": "#FF8C42",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "pedaggi",
@@ -681,7 +737,8 @@
     "colore": "#FF8C42",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "taxi",
@@ -693,7 +750,8 @@
     "colore": "#FF8C42",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "car_sharing",
@@ -705,7 +763,8 @@
     "colore": "#FF8C42",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "manutenzione_auto",
@@ -717,7 +776,8 @@
     "colore": "#FF8C42",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "assicurazione_auto",
@@ -729,7 +789,8 @@
     "colore": "#FF8C42",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "bollo_auto",
@@ -741,7 +802,8 @@
     "colore": "#FF8C42",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "moto",
@@ -753,7 +815,8 @@
     "colore": "#FF8C42",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "scarpe",
@@ -765,7 +828,8 @@
     "colore": "#E84393",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "elettronica",
@@ -777,7 +841,8 @@
     "colore": "#E84393",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "shopping_online",
@@ -789,7 +854,8 @@
     "colore": "#E84393",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "marketplace",
@@ -801,7 +867,8 @@
     "colore": "#E84393",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "farmacia",
@@ -813,7 +880,8 @@
     "colore": "#74B9FF",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "medico",
@@ -825,7 +893,8 @@
     "colore": "#74B9FF",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "dentista",
@@ -837,7 +906,8 @@
     "colore": "#74B9FF",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "visite_specialistiche",
@@ -849,7 +919,8 @@
     "colore": "#74B9FF",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "analisi_mediche",
@@ -861,7 +932,8 @@
     "colore": "#74B9FF",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "assicurazione_sanitaria",
@@ -873,7 +945,8 @@
     "colore": "#74B9FF",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "palestra",
@@ -885,7 +958,8 @@
     "colore": "#00B894",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "sport",
@@ -897,7 +971,8 @@
     "colore": "#00B894",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "attrezzatura_sportiva",
@@ -909,7 +984,8 @@
     "colore": "#00B894",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "benessere",
@@ -921,7 +997,8 @@
     "colore": "#00B894",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "cinema",
@@ -933,7 +1010,8 @@
     "colore": "#A29BFE",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "concerti",
@@ -945,7 +1023,8 @@
     "colore": "#A29BFE",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "eventi",
@@ -957,7 +1036,8 @@
     "colore": "#A29BFE",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "videogiochi",
@@ -969,7 +1049,8 @@
     "colore": "#A29BFE",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "streaming",
@@ -981,7 +1062,8 @@
     "colore": "#A29BFE",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "musica",
@@ -993,7 +1075,8 @@
     "colore": "#A29BFE",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "abbonamenti_digitali",
@@ -1005,7 +1088,8 @@
     "colore": "#A29BFE",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "hobby",
@@ -1017,7 +1101,8 @@
     "colore": "#A29BFE",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "hotel",
@@ -1029,7 +1114,8 @@
     "colore": "#3498DB",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "voli",
@@ -1041,7 +1127,8 @@
     "colore": "#3498DB",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "treni",
@@ -1053,7 +1140,8 @@
     "colore": "#3498DB",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "noleggio_auto",
@@ -1065,7 +1153,8 @@
     "colore": "#3498DB",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "ristorazione_viaggio",
@@ -1077,7 +1166,8 @@
     "colore": "#3498DB",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "attivita_viaggio",
@@ -1089,7 +1179,8 @@
     "colore": "#3498DB",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "viaggi",
@@ -1101,7 +1192,8 @@
     "colore": "#3498DB",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "commissioni_bancarie",
@@ -1113,7 +1205,8 @@
     "colore": "#00B894",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "commissioni_carta",
@@ -1125,7 +1218,8 @@
     "colore": "#00B894",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "interessi_passivi",
@@ -1137,7 +1231,8 @@
     "colore": "#00B894",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "trading",
@@ -1149,7 +1244,8 @@
     "colore": "#00B894",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "assicurazioni",
@@ -1161,7 +1257,8 @@
     "colore": "#00B894",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "tasse",
@@ -1173,7 +1270,8 @@
     "colore": "#00B894",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "prestiti",
@@ -1185,7 +1283,8 @@
     "colore": "#00B894",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "rate",
@@ -1197,7 +1296,8 @@
     "colore": "#00B894",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "scuola",
@@ -1209,7 +1309,8 @@
     "colore": "#6C5CE7",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "universita",
@@ -1221,7 +1322,8 @@
     "colore": "#6C5CE7",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "corsi",
@@ -1233,7 +1335,8 @@
     "colore": "#6C5CE7",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "libri",
@@ -1245,7 +1348,8 @@
     "colore": "#6C5CE7",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "materiale_scolastico",
@@ -1257,7 +1361,8 @@
     "colore": "#6C5CE7",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "formazione_online",
@@ -1269,7 +1374,8 @@
     "colore": "#6C5CE7",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "cura_personale",
@@ -1281,7 +1387,8 @@
     "colore": "#FD79A8",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "parrucchiere",
@@ -1293,7 +1400,8 @@
     "colore": "#FD79A8",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "cosmetici",
@@ -1305,7 +1413,8 @@
     "colore": "#FD79A8",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "bambini",
@@ -1317,7 +1426,8 @@
     "colore": "#FD79A8",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "animali",
@@ -1329,7 +1439,8 @@
     "colore": "#FD79A8",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   },
   {
     "id": "famiglia",
@@ -1341,6 +1452,7 @@
     "colore": "#FD79A8",
     "isDefault": true,
     "userId": null,
-    "attiva": true
+    "attiva": true,
+    "sistema": false
   }
 ]

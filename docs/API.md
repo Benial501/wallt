@@ -330,6 +330,60 @@ notifiche dell'utente autenticato.
 
 ---
 
+## Categorie
+
+Catalogo unificato: le predefinite arrivano da `constants/catalogoCategorie.json`
+(condivise, 112 voci), le personali dalla tabella `categorie_personali`.
+`categorie.service.list()` è l'unico punto che le fonde ed è ciò su cui filtra
+tutta la cascata di categorizzazione (`CategoryMatcherService._finalize`).
+
+### GET /api/categorie
+- **Auth**: Sì
+- **Query**: `archiviate=true` include le categorie eliminate/archiviate
+- **Risposta**: `{ categorie[], icone[] }` — ogni voce ha `isDefault`, `sistema`, `attiva`
+- **File**: `categorie.routes.js`
+- **Frontend**: `utils/categorie.js` → `CategorieView.vue`, `MovimentoForm.vue`
+
+### POST /api/categorie
+- **Auth**: Sì
+- **Body**: `{ nome, tipo, icona?, colore? }`
+- **Risposta**: `{ categoria }` — 409 se il nome collide con una predefinita dello stesso tipo
+- **File**: `categorie.routes.js`
+
+### PUT /api/categorie/:id
+- **Auth**: Sì
+- **Body**: `{ nome, tipo, icona?, colore? }`
+- **Azione**: solo categorie personali; 409 se cambia `tipo` a una categoria già usata
+- **File**: `categorie.routes.js`
+
+### DELETE /api/categorie/:id
+- **Auth**: Sì
+- **Azione**: archivia la categoria personale (`attiva: false`) e disattiva le regole che la usano
+- **File**: `categorie.routes.js`
+
+### POST /api/categorie/:id/ripristina
+- **Auth**: Sì
+- **Azione**: riattiva una categoria personale archiviata
+- **Risposta**: `{ categoria }` o 404
+- **File**: `categorie.routes.js`
+
+### DELETE /api/categorie/default
+- **Auth**: Sì
+- **Body**: `{ categorie: [{ id, tipo }] }`
+- **Azione**: elimina per l'utente una o più predefinite (riga in `categorie_default_nascoste`).
+  I movimenti esistenti restano; la categoria sparisce dagli elenchi e la cascata smette di assegnarla.
+- **Risposta**: `{ eliminate, message }`; **409** se il batch contiene una categoria di sistema
+  (`da_verificare`, `altro_entrata`, `investimento`, `rendimento_investimenti`,
+  `deposito_scommesse`, `prelievo_scommesse`) — in quel caso non viene eliminato nulla
+- **File**: `categorie.routes.js`
+- **Frontend**: `CategorieView.vue` (selezione multipla)
+
+### POST /api/categorie/default/ripristina
+- **Auth**: Sì
+- **Body**: `{ categorie: [{ id, tipo }] }`
+- **Risposta**: `{ ripristinate, message }`
+- **File**: `categorie.routes.js`
+
 ## Budget
 
 ### GET /api/budget/:anno/:mese

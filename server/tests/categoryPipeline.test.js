@@ -86,8 +86,13 @@ test('parser risposta OpenAI scarta ID e categorie non ammessi', async () => {
   } finally { global.fetch = originalFetch; }
 });
 
+// L'asset frontend è generato da sync-category-catalog.js e distribuisce il
+// catalogo già arricchito con il flag `sistema`, lo stesso che l'API serve.
+// Il confronto con CATEGORIE_DEFAULT (non con il JSON grezzo) continua a
+// fallire se qualcuno modifica il catalogo senza rigenerare l'asset.
 test('cataloghi distribuiti frontend e backend sono identici', () => {
-  expect(require('../../client/src/data/categorie.generated.json')).toEqual(require('../constants/catalogoCategorie.json'));
+  expect(require('../../client/src/data/categorie.generated.json'))
+    .toEqual(require('../constants/categorie').CATEGORIE_DEFAULT);
 });
 
 // L'AI locale e il matcher legacy avevano un tetto di confidenza sotto la

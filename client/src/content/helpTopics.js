@@ -158,6 +158,38 @@ const TOPICS = [
     ],
     link: { label: 'Vai alle Analisi', to: '/analisi' },
   },
+  {
+    id: 'categorie-creare',
+    title: 'Creare una categoria tua',
+    summary: 'Se nessuna categoria predefinita descrive bene una spesa, puoi aggiungerne una.',
+    paragraphs: [
+      'WALLT parte con un elenco di categorie già pronte, ma non deve andarti bene per forza. Da Impostazioni → Categorie, il pulsante "Nuova categoria" ne aggiunge una tua: le servono un nome, il verso (entrata o uscita), un\'icona e un colore.',
+      'Il verso è la parte che conta: una categoria di uscita compare solo quando registri una spesa, una di entrata solo quando registri un\'entrata. Puoi cambiarlo in seguito, ma non dopo che la categoria è stata usata da un movimento, da un budget o da una regola.',
+      'Le tue categorie sono visibili solo a te e si usano esattamente come le predefinite: nei movimenti, nell\'importazione e nelle analisi.',
+    ],
+    bullets: [
+      'Il nome non può coincidere con quello di una categoria predefinita dello stesso verso.',
+      'Mano a mano che correggi la categoria dei movimenti, WALLT impara a proporla da solo per operazioni simili.',
+    ],
+    link: { label: 'Apri Categorie', to: '/impostazioni/categorie' },
+    related: ['categorie-eliminare', 'movimento-registrare'],
+  },
+  {
+    id: 'categorie-eliminare',
+    title: 'Eliminare le categorie che non usi',
+    summary: 'Puoi togliere dall\'elenco le categorie che non ti servono, comprese quelle predefinite. Lo storico non si tocca.',
+    paragraphs: [
+      'In Impostazioni → Categorie ogni categoria ha una casella di selezione: spuntane una o più e usa "Elimina selezionate". C\'è anche "Seleziona tutte le categorie mostrate", che tiene conto della ricerca e del verso che stai guardando, se vuoi fare pulizia in un colpo solo e tenere quasi solo le tue.',
+      'Eliminare una categoria non cancella nulla di ciò che hai già registrato. I movimenti passati la conservano e continuano a comparire nelle analisi con il loro nome. Quello che cambia è il futuro: la categoria sparisce dagli elenchi quando registri un movimento, e WALLT smette di assegnarla da sola quando importi un estratto conto.',
+      'Le categorie eliminate finiscono in fondo alla pagina, nella sezione "Eliminate", con il pulsante "Ripristina". Non è una scelta definitiva: puoi tornare indietro quando vuoi.',
+    ],
+    bullets: [
+      'Alcune categorie sono marcate "Di sistema" e non si possono eliminare: WALLT le usa per registrare movimenti da solo, come il saldo iniziale di un conto o le operazioni non riconosciute durante un\'importazione.',
+      'Se durante un\'importazione una spesa finiva in una categoria che hai eliminato, ora arriva come "Non categorizzata" e sei tu a scegliere dove metterla.',
+    ],
+    link: { label: 'Apri Categorie', to: '/impostazioni/categorie' },
+    related: ['categorie-creare', 'import-come-funziona'],
+  },
 ];
 
 /** Mappa id → argomento, per accessi diretti. */
@@ -185,6 +217,12 @@ export const HELP_SECTIONS = [
     title: 'Movimenti e trasferimenti',
     description: 'Registrare entrate e uscite, spostare soldi tra i tuoi conti.',
     topics: ['movimento-registrare', 'movimento-ricorrenza', 'trasferimenti', 'movimenti-pagina'],
+  },
+  {
+    id: 'categorie',
+    title: 'Categorie',
+    description: 'Adattare l\'elenco delle categorie a come spendi davvero.',
+    topics: ['categorie-creare', 'categorie-eliminare'],
   },
   {
     id: 'importazione',
