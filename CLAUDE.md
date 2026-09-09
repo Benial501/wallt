@@ -147,6 +147,8 @@ Express API (/api/*)
 15. **Notifiche — deduplica**: ogni notifica ha una `dedupe_key` (`userId` implicito + tipo + riferimento + periodo) con UNIQUE su `(user_id, dedupe_key)`. È il vincolo che rende il cron sicuro da rieseguire a qualunque frequenza.
 16. **Notifiche — fuso orario e ore di silenzio**: limite giornaliero, orario del promemoria e ore di silenzio sono calcolati nel fuso dell'utente (default `Europe/Rome`), mai in quello del processo (che su Vercel è UTC). Una notifica generata nelle ore di silenzio (default 22:00→08:00) non viene persa: `programmata_per` slitta al primo orario consentito e la notifica resta invisibile fino ad allora.
 17. **Notifiche — privacy**: il payload push non contiene mai importi, saldi o categorie: solo titolo, una frase generica per tipo e la route da aprire. I dettagli si vedono in app, dopo il login.
+18. **Categorie eliminabili per utente**: le predefinite stanno in un catalogo statico condiviso (`constants/catalogoCategorie.json`) e non sono cancellabili. L'utente può però eliminarle *per sé*: una riga in `categorie_default_nascoste` le marca `attiva: false` in `categorie.service.list()`. Da lì l'esclusione si propaga da sola — `CategoryMatcherService._finalize` scarta ogni risultato non presente in `list(userId)` e ripiega su `da_verificare`, quindi la cascata non può riassegnare una categoria eliminata. Lo storico resta leggibile perché `list(..., { includeArchived: true })` continua a restituirla. **Non serve toccare i singoli step della cascata**: la giuntura è una sola.
+19. **Categorie di sistema**: `CATEGORIE_SISTEMA_IDS` (`da_verificare`, `altro_entrata`, `investimento`, `rendimento_investimenti`, `deposito_scommesse`, `prelievo_scommesse`) non sono eliminabili, perché WALLT le scrive da sé (fallback import, saldo iniziale conto, movimenti investimenti e scommesse). Chi aggiunge un punto in cui il codice crea un movimento con una categoria fissa deve aggiungerla a quell'elenco. `trasferimento_denaro` non è di sistema: nessuno la scrive in automatico.
 
 ## Authentication
 
@@ -163,13 +165,13 @@ Express API (/api/*)
 
 ## Database
 
-14 tabelle principali + 2 tabelle regole (categorie, merchant). Vedi `docs/DATABASE.md`.
+14 tabelle principali + 2 tabelle regole (categorie, merchant) + `categorie_personali` e `categorie_default_nascoste`. Vedi `docs/DATABASE.md`.
 
 Entità core: `users` → `conti` → `movimenti`. Entità satellite: budget, obiettivi, scommesse, investimenti, regole categorizzazione.
 
 ## API
 
-~68 endpoint REST sotto `/api/*` (incluse `POST /api/auth/google/challenge` e `POST /api/auth/verify-google`, step-up Google). Vedi `docs/API.md` per inventario completo.
+~75 endpoint REST sotto `/api/*` (incluse le 7 rotte `/api/categorie` e le due dello step-up Google, `POST /api/auth/google/challenge` e `POST /api/auth/verify-google`). Vedi `docs/API.md` per inventario completo.
 
 Comunicazione: Axios con `baseURL = VITE_API_URL` normalizzato da `client/src/config/api.js` (default `http://localhost:3000/api`), header `Authorization: Bearer <token>`.
 
@@ -204,7 +206,7 @@ Configurazione DB: `server/config/database.js` accetta `DATABASE_URL` **oppure**
 | **Reset/Delete account** | Operazioni distruttive irreversibili | `accountReset.service.js`, `impostazioni.controller.js` |
 | **OAuth popup** | Flusso multi-window con postMessage e relay | `oauthPopup.js`, `useOAuthPopup.js`, `oauth-relay.html` |
 | **Scommesse ↔ Conti sync** | Bidirezionale, può creare/eliminare conti | `scommesseContoSync.service.js` |
-| **Categorizzazione** | Whitelist in 6+ file server + frontend | `constants/categorie.js`, `CategoryMatcherService.js` |
+| **Categorizzazione** | Whitelist in 6+ file server + frontend. `categorie.service.list()` è l'unico filtro che tiene fuori dalla cascata le categorie eliminate dall'utente: cambiarne la semantica le fa riapparire ovunque | `constants/categorie.js`, `categorie.service.js`, `CategoryMatcherService.js` |
 | **Cron ricorrenti** | Crea movimenti automaticamente ogni giorno | `ricorrenti.service.js` |
 | **Migrazioni DB** | Auto-run all'avvio SOLO fuori produzione (disabilitato quando `NODE_ENV=production`, vedi `RUN_MIGRATIONS_ON_BOOT`); 25 file con possibili duplicati. Su Supabase si lanciano a mano con `npm run migrate:production` (`NODE_ENV=migration` + `DATABASE_MIGRATION_URL`) | `server.js`, `migrations/` |
 | **Feature access minori** | Logica duplicata frontend/backend | `featureAccess.js` (client + server), `ageRestriction.js` |
@@ -219,7 +221,7 @@ Configurazione DB: `server/config/database.js` accetta `DATABASE_URL` **oppure**
 4. **Codice morto**: `minorRestriction.middleware.js`, componenti dashboard non usati, `PlaceholderView.vue`.
 5. ~~**`.env.test` non in `.gitignore`**~~ — **Risolto**: aggiunto a `.gitignore` e rimosso dal tracking git. Era stato committato in 2 commit con una password DB reale (locale/dev): quella password va considerata compromessa e ruotata prima del lancio (MANUAL ACTION, vedi `docs/SECURITY.md`).
 6. **Operazioni distruttive senza riverifica di identità per gli account Google** (rischio accettato esplicitamente, iterazione 4): `reset-account`, `delete-account` ed `esporta` richiedono lo step-up solo agli utenti con password locale. Per gli account Google bastano JWT + stringa pubblica. Da richiudere prima della produzione: registrare l'origin JavaScript in Google Cloud e rimettere `requireStepUp` sulle tre rotte in `impostazioni.routes.js`. Vedi Authentication, `docs/SECURITY.md` e `docs/DECISIONS.md`.
-7. **Test coverage**: 12 suite (auth, security, gdpr, profilo, import, categorization, isolation, googleStepUp, financialConsistency, ricorrenti, excelParser, validateEnv) — 125 test. Isolamento cross-user, coerenza saldi/movimenti/trasferimenti (incluse race condition), step-up Google, cron ricorrenti e config produzione coperti. Non coperti: budget/obiettivi/investimenti/scommesse a livello di logica di business (solo isolamento).
+7. **Test coverage**: 28 suite — 330 test (fra cui `categorieDefault` per l'eliminazione per-utente delle predefinite). Isolamento cross-user, coerenza saldi/movimenti/trasferimenti (incluse race condition), step-up Google, cron ricorrenti e config produzione coperti. Non coperti: budget/obiettivi/investimenti/scommesse a livello di logica di business (solo isolamento).
 8. **Migrazioni duplicate**: `add-social-auth` e `add_auth_provider` fanno cose simili.
 9. **Session reset incompleto**: logout non pulisce `recentiHome` nello store `movimenti`, né i campi `panoramica`/`analisi` interni allo store `scommesse`. Lo store `analisi` principale viene invece resettato correttamente.
 10. ~~**Nessuna CI/CD**~~ — **Risolto**: `.github/workflows/ci.yml` esegue test backend con un service container PostgreSQL + test/build frontend su ogni push/PR su `main`.

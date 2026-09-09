@@ -210,6 +210,35 @@ Migrazioni: `npm run migrate` o auto-run all'avvio (`server.js`).
 | `priorita` | INTEGER | |
 | `attiva` | BOOLEAN | |
 
+### `categorie_personali`
+| Campo | Tipo | Note |
+|---|---|---|
+| `id` | STRING(50) PK | `custom_<uuid>` |
+| `user_id` | INTEGER FK → users | CASCADE |
+| `nome` | STRING(80) | |
+| `nome_normalizzato` | STRING(80) | UNIQUE con `user_id` + `tipo` |
+| `tipo` | STRING(10) | CHECK `entrata`/`uscita` |
+| `icona` | STRING(40) | Whitelist in `categorie.routes.js` |
+| `colore` | STRING(7) | `#rrggbb` |
+| `attiva` | BOOLEAN | `false` = archiviata, non eliminata |
+
+### `categorie_default_nascoste`
+Una riga = "questo utente ha eliminato questa categoria predefinita". Le
+predefinite vivono in un catalogo statico condiviso (`constants/catalogoCategorie.json`)
+e non sono cancellabili: i movimenti storici le referenziano per id e devono
+restare risolvibili. L'eliminazione è quindi per-utente e reversibile.
+
+| Campo | Tipo | Note |
+|---|---|---|
+| `user_id` | INTEGER PK, FK → users | CASCADE |
+| `categoria_id` | STRING(50) PK | id nel catalogo predefinito |
+| `tipo` | STRING(10) PK | CHECK `entrata`/`uscita` |
+
+La chiave è composta e comprende `tipo` perché lo stesso id può esistere su
+entrambi i versi (`da_verificare`). Le categorie di sistema
+(`CATEGORIE_SISTEMA_IDS`) non possono comparire in questa tabella: l'API le
+rifiuta con 409.
+
 ### `password_reset_tokens`
 | Campo | Tipo | Note |
 |---|---|---|

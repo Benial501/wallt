@@ -49,6 +49,7 @@ if (configuredDatabase !== TEST_DATABASE) {
 }
 
 const TABLES = [
+  'categorie_default_nascoste',
   'categorie_personali',
   'notifiche',
   'push_subscriptions',

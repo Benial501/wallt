@@ -4,6 +4,9 @@ const User = require('./User');
 const CategoriaPersonale = require('./CategoriaPersonale');
 User.hasMany(CategoriaPersonale, { foreignKey: 'user_id', as: 'categoriePersonali', onDelete: 'CASCADE' });
 CategoriaPersonale.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+const CategoriaDefaultNascosta = require('./CategoriaDefaultNascosta');
+User.hasMany(CategoriaDefaultNascosta, { foreignKey: 'user_id', as: 'categorieDefaultNascoste', onDelete: 'CASCADE' });
+CategoriaDefaultNascosta.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 const ProfiloUtente = require('./ProfiloUtente');
 const Conto = require('./Conto');
 const Movimento = require('./Movimento');
@@ -83,6 +86,7 @@ PushSubscription.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
 module.exports = {
   CategoriaPersonale,
+  CategoriaDefaultNascosta,
   sequelize,
   User,
   ProfiloUtente,

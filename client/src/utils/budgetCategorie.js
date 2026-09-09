@@ -1,4 +1,4 @@
-import { CATEGORIE_USCITA } from './categorie';
+import { CATEGORIE_USCITA, CATEGORIE_ARCHIVIATE } from './categorie';
 
 const BUDGET_CAT_MAP = {
   cibo: 'cibo_spesa',
@@ -16,7 +16,10 @@ const BUDGET_CAT_MAP = {
 
 export const getCategoriaBudgetInfo = (id) => {
   const movId = BUDGET_CAT_MAP[id] || id;
-  const cat = CATEGORIE_USCITA.find((c) => c.id === movId);
+  // Anche fra le archiviate: un budget può riferirsi a una categoria che
+  // l'utente ha eliminato, e mostrarne l'id grezzo non direbbe nulla.
+  const cat = CATEGORIE_USCITA.find((c) => c.id === movId)
+    || CATEGORIE_ARCHIVIATE.find((c) => c.id === movId && c.tipo === 'uscita');
   if (cat) return cat;
   return { id, nome: id, emoji: '📊', colore: '#95A5A6' };
 };

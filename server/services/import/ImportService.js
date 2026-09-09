@@ -1,5 +1,5 @@
 const { moneyMovement } = require('./category/ContextCategoryRules');
-const { assertCategory } = require('../categorie.service');
+const { assertCategory, loadHiddenDefaults } = require('../categorie.service');
 const logger = require('../../utils/logger');
 const { Op } = require('sequelize');
 const { sequelize, Conto, Movimento } = require('../../models');
@@ -226,12 +226,16 @@ class ImportService {
         throw Object.assign(new Error('Uno o più conti non validi per l’utente'), { statusCode: 400 });
       }
 
+      // Caricato una volta sola: assertCategory gira per ogni movimento
+      // importato, e senza questo farebbe una query a testa.
+      const hiddenDefaults = await loadHiddenDefaults(userId, { transaction: t });
+
       for (const tx of importabili) {
         const contoId = Number(tx.conto_id);
         const conto = contoMap.get(contoId);
         if (!conto) continue;
 
-        await assertCategory(userId, tx.categoria_finale, tx.tipo, { transaction: t });
+        await assertCategory(userId, tx.categoria_finale, tx.tipo, { transaction: t, hiddenDefaults });
         const importoNum = toNumber(tx.importo);
         const categoriaAutomatica = !!tx.categoria_suggerita;
         const categoriaModificata = categoriaAutomatica && tx.categoria_finale !== tx.categoria_suggerita;
