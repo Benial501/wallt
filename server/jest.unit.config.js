@@ -15,6 +15,7 @@ module.exports = {
     '<rootDir>/tests/vercelHandler.test.js',
     '<rootDir>/tests/cron.test.js',
     '<rootDir>/tests/avatarImage.test.js',
+    '<rootDir>/tests/welcomeEmail.test.js',
   ],
   testTimeout: 20000,
   verbose: true,

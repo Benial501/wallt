@@ -1,6 +1,7 @@
 const { User, ProfiloUtente } = require('../models');
 const { findUserByEmail } = require('../utils/findUserByEmail');
 const { repairUserProfilo } = require('./onboarding.service');
+const EmailService = require('./email/EmailService');
 
 const buildGoogleUserPayload = (profile, email, { useAiCategorization = false } = {}) => {
   const now = new Date();
@@ -54,6 +55,7 @@ const resolveGoogleUser = async (profile, { useAiCategorization = false } = {}) 
   const now = new Date();
 
   let user = await User.findOne({ where: { google_id: profile.id } });
+  let created = false;
 
   if (!user) {
     user = await findUserByEmail(User, email);
@@ -67,6 +69,7 @@ const resolveGoogleUser = async (profile, { useAiCategorization = false } = {}) 
 
   if (!user) {
     user = await User.create(buildGoogleUserPayload(profile, email, { useAiCategorization: useAi }));
+    created = true;
   } else {
     const updates = {
       last_login_at: now,
@@ -100,9 +103,11 @@ const resolveGoogleUser = async (profile, { useAiCategorization = false } = {}) 
 
   await repairUserProfilo(user.id);
 
-  return User.findByPk(user.id, {
+  const completeUser = await User.findByPk(user.id, {
     include: [{ model: ProfiloUtente, as: 'profilo' }],
   });
+  if (created) await EmailService.sendWelcomeEmail(completeUser);
+  return completeUser;
 };
 
 module.exports = {

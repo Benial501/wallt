@@ -5,6 +5,7 @@ const {
   buildPasswordResetHtml,
   buildPasswordResetText,
 } = require('./templates/PasswordResetTemplate');
+const { buildWelcomeEmail } = require('./templates/WelcomeTemplate');
 
 let resendClient = null;
 let isReady = false;
@@ -70,7 +71,7 @@ const initEmailService = () => {
 
 const isEmailServiceReady = () => isReady;
 
-const sendEmail = async ({ to, subject, html, text }) => {
+const sendEmail = async ({ to, subject, html, text, idempotencyKey }) => {
   if (!to || !subject) {
     logger.warn('[email] Parametri mancanti (to/subject), invio saltato');
     return { ok: false, skipped: true, reason: 'missing_params' };
@@ -90,7 +91,7 @@ const sendEmail = async ({ to, subject, html, text }) => {
       subject,
       html,
       text: text || undefined,
-    });
+    }, idempotencyKey ? { idempotencyKey } : undefined);
 
     if (error) {
       logger.error('[email] Errore Resend', { to: recipient, subject, err: error });
@@ -115,10 +116,33 @@ const sendPasswordResetEmail = async ({ to, resetUrl, userName }) => {
   });
 };
 
+// Chiamato solo dal backend dopo la creazione riuscita dell'utente.
+// Attendere l'invio prima della risposta mantiene il lavoro vivo su Vercel.
+const sendWelcomeEmail = async (user) => {
+  try {
+    if (!user?.id || !user.email) return { ok: false, reason: 'missing_user' };
+    const appUrl = new URL(process.env.APP_URL || 'https://wallt.it');
+    if (appUrl.protocol !== 'https:' || appUrl.username || appUrl.password) {
+      return { ok: false, reason: 'invalid_app_url' };
+    }
+    const content = buildWelcomeEmail({ userName: user.nome, appUrl: appUrl.href });
+    return await sendEmail({
+      to: user.email,
+      subject: 'Benvenuto su Wallt 👋',
+      ...content,
+      idempotencyKey: `welcome-user-${user.id}`,
+    });
+  } catch {
+    logger.warn('[email] Email di benvenuto non inviata', { userId: user?.id });
+    return { ok: false, reason: 'welcome_email_failed' };
+  }
+};
+
 module.exports = {
   initEmailService,
   isEmailServiceReady,
   sendEmail,
   sendPasswordResetEmail,
+  sendWelcomeEmail,
   resolveResendRecipient,
 };

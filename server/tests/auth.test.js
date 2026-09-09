@@ -16,11 +16,13 @@ describe('Auth API', () => {
   let app;
   let emailStub;
   let emailReadyStub;
+  let welcomeStub;
 
   beforeEach(() => {
     app = createApp({ enableRateLimit: false });
     emailReadyStub = sinon.stub(EmailService, 'isEmailServiceReady').returns(true);
     emailStub = sinon.stub(EmailService, 'sendPasswordResetEmail').resolves({ ok: true });
+    welcomeStub = sinon.stub(EmailService, 'sendWelcomeEmail').resolves({ ok: true });
   });
 
   afterEach(() => {
@@ -28,6 +30,35 @@ describe('Auth API', () => {
   });
 
   describe('Registrazione', () => {
+    it('invia il benvenuto una volta al nuovo utente salvato, mai su login o registrazione duplicata', async () => {
+      const { res, payload } = await registerUser(app, { to: 'arbitrary@example.com' });
+      expect(res.status).toBe(201);
+      expect(welcomeStub.callCount).toBe(1);
+      const recipient = welcomeStub.firstCall.args[0];
+      expect(recipient.id).toBe(res.body.user.id);
+      expect(recipient.email).toBe(payload.email);
+      expect((await User.findByPk(recipient.id)).email).toBe(payload.email);
+      expect((await request(app).post('/api/auth/register').send(payload)).status).toBe(409);
+      expect((await loginUser(app, payload.email, payload.password)).status).toBe(200);
+      expect(welcomeStub.callCount).toBe(1);
+    });
+
+    it('mantiene la registrazione riuscita quando il provider non consegna il benvenuto', async () => {
+      welcomeStub.resolves({ ok: false });
+      const { res } = await registerUser(app);
+      expect(res.status).toBe(201);
+      expect(welcomeStub.callCount).toBe(1);
+    });
+
+    it('invia il benvenuto Google solo alla prima creazione', async () => {
+      const { resolveGoogleUser } = require('../services/googleAuth.service');
+      const profile = { id: 'welcome-google', displayName: 'Test', emails: [{ value: 'welcome-google@test.local' }] };
+      const first = await resolveGoogleUser(profile);
+      await resolveGoogleUser(profile);
+      expect(welcomeStub.callCount).toBe(1);
+      expect(welcomeStub.firstCall.args[0].id).toBe(first.id);
+    });
+
     it('registra utente con consenso privacy e termini', async () => {
       const { res, payload } = await registerUser(app);
 

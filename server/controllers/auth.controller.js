@@ -7,6 +7,7 @@ const { isOnboardingComplete } = require('../utils/onboarding');
 const { isMinorProfilo, maskUserFeaturesForMinor } = require('../utils/ageRestriction');
 const { findUserByEmail } = require('../utils/findUserByEmail');
 const { maskUserFeatureFlags } = require('../utils/featureAccess');
+const EmailService = require('../services/email/EmailService');
 
 const toBool = (value, defaultValue = true) => {
   if (value === false || value === 0 || value === '0') return false;
@@ -94,6 +95,8 @@ const register = async (req, res) => {
     });
 
     const token = generateToken(userCompleto);
+
+    await EmailService.sendWelcomeEmail(userCompleto);
 
     res.status(201).json({
       message: 'Registrazione completata',
