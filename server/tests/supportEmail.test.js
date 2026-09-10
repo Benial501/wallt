@@ -1,118 +1,90 @@
-const mockSendMail = jest.fn();
-const mockClose = jest.fn();
-const nodemailer = require('nodemailer');
+const EmailService = require('../services/email/EmailService');
 const service = require('../services/email/SupportEmailService');
 
 const originalEnv = { ...process.env };
-const data = { user: { id: 42, email: 'user@example.com' }, category: 'Problema tecnico', subject: 'Spesa non salvata', message: 'Non riesco a salvare.\n<test>' };
+const data = {
+  user: { id: 42, email: 'user@example.com' },
+  category: 'Problema tecnico',
+  subject: 'Spesa non salvata',
+  message: 'Non riesco a salvare.\n<test>',
+};
+let sendEmail;
 beforeEach(() => {
-  jest.spyOn(nodemailer, 'createTransport').mockReturnValue({ sendMail: mockSendMail, close: mockClose });
-  Object.assign(process.env, { SMTP_HOST: 'smtps.pec.aruba.it', SMTP_PORT: '465', SMTP_USER: 'support@example.com', SMTP_PASSWORD: 'test-only-secret', SUPPORT_EMAIL: 'support@example.com' });
-  mockSendMail.mockReset().mockResolvedValue({ accepted: ['support@example.com'] });
-  mockClose.mockClear();
+  Object.assign(process.env, { SUPPORT_EMAIL: 'support@example.com' });
+  sendEmail = jest.spyOn(EmailService, 'sendEmail').mockResolvedValue({ ok: true, messageId: 'x' });
 });
-afterEach(() => { jest.restoreAllMocks(); });
-afterAll(() => { process.env = originalEnv; });
+afterEach(() => { jest.restoreAllMocks(); process.env = { ...originalEnv }; });
 
-test('usa TLS e From configurati, Reply-To utente e metadati server', async () => {
-  mockSendMail.mockResolvedValueOnce({ accepted: ['support@example.com'] }).mockResolvedValueOnce({ accepted: ['user@example.com'] });
+test('destinatario, Reply-To utente e metadati del server', async () => {
   expect(await service.sendSupportRequest(data)).toEqual({ confirmationSent: true });
-  expect(nodemailer.createTransport).toHaveBeenCalledWith(expect.objectContaining({ secure: true, port: 465, auth: { user: 'support@example.com', pass: 'test-only-secret' } }));
-  const support = mockSendMail.mock.calls[0][0];
-  expect(support.from).toEqual({ name: 'Wallt Support', address: 'support@example.com' });
-  expect(support.to).toEqual({ address: 'support@example.com' });
-  expect(support.replyTo).toEqual({ address: 'user@example.com' });
+
+  const support = sendEmail.mock.calls[0][0];
+  expect(support.to).toBe('support@example.com');
+  expect(support.replyTo).toBe('user@example.com');
   expect(support.subject).toBe('[Wallt Support] Problema tecnico - Spesa non salvata');
   expect(support.text).toContain('User ID: 42');
   expect(support.text).toContain('Email utente: user@example.com');
   expect(support.text).toContain('Data e ora (UTC):');
   expect(support.text).toContain('Versione API:');
   expect(support.text).toContain(data.message);
+  // Il testo dell'utente non viene mai interpretato come HTML.
   expect(support.html).toBeUndefined();
-  const confirmation = mockSendMail.mock.calls[1][0];
-  expect(confirmation.to).toEqual({ address: 'user@example.com' });
+
+  const confirmation = sendEmail.mock.calls[1][0];
+  expect(confirmation.to).toBe('user@example.com');
+  expect(confirmation.replyTo).toBe('support@example.com');
   expect(confirmation.text).toContain(data.subject);
   expect(confirmation.text).toContain('abbiamo ricevuto la tua richiesta');
-  expect(mockClose).toHaveBeenCalledTimes(2);
 });
 
 test('attende la prima email prima della conferma', async () => {
   let complete;
-  mockSendMail.mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+  sendEmail.mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
   const pending = service.sendSupportRequest(data);
-  expect(mockSendMail).toHaveBeenCalledTimes(1);
-  complete({ accepted: ['support@example.com'] });
+  expect(sendEmail).toHaveBeenCalledTimes(1);
+  complete({ ok: true });
   await pending;
-  expect(mockSendMail).toHaveBeenCalledTimes(2);
+  expect(sendEmail).toHaveBeenCalledTimes(2);
 });
 
-test('non invia conferma quando il supporto rifiuta il destinatario', async () => {
-  mockSendMail.mockResolvedValueOnce({ accepted: [], rejected: ['support@example.com'] });
+test('non invia la conferma se il supporto non ha ricevuto la richiesta', async () => {
+  sendEmail.mockResolvedValueOnce({ ok: false, error: 'destinatario rifiutato' });
   await expect(service.sendSupportRequest(data)).rejects.toThrow();
-  expect(mockSendMail).toHaveBeenCalledTimes(1);
+  expect(sendEmail).toHaveBeenCalledTimes(1);
 });
 
-test('non trasforma il fallimento della conferma in una richiesta da reinviare', async () => {
-  mockSendMail.mockResolvedValueOnce({ accepted: ['support@example.com'] }).mockRejectedValueOnce(new Error('SMTP secret'));
+test('il fallimento della sola conferma non fa reinviare la richiesta', async () => {
+  sendEmail.mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: false, error: 'boom' });
   expect(await service.sendSupportRequest(data)).toEqual({ confirmationSent: false });
 });
 
-test.each(['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'SUPPORT_EMAIL'])('non invia con configurazione incompleta: %s', async key => {
-  const value = process.env[key];
-  delete process.env[key];
-  // Il motivo nomina la variabile mancante, cosi' il 502 e' diagnosticabile dai
-  // log, ma non ne rivela mai il valore.
-  await expect(service.sendSupportRequest(data)).rejects.toMatchObject({ reason: `config:${key}` });
-  await expect(service.sendSupportRequest(data)).rejects.not.toMatchObject({ reason: expect.stringContaining(value) });
-  expect(mockSendMail).not.toHaveBeenCalled();
+test('non invia senza SUPPORT_EMAIL configurata', async () => {
+  delete process.env.SUPPORT_EMAIL;
+  await expect(service.sendSupportRequest(data)).rejects.toMatchObject({ reason: 'config:SUPPORT_EMAIL' });
+  expect(sendEmail).not.toHaveBeenCalled();
 });
 
-test('il motivo di un errore SMTP riporta il codice, mai la password', async () => {
-  mockSendMail.mockRejectedValue(Object.assign(new Error('Invalid login: 535 auth failed for test-only-secret'), { code: 'EAUTH', responseCode: 535 }));
-  await expect(service.sendSupportRequest(data)).rejects.toMatchObject({ reason: 'smtp:EAUTH:535' });
+test('il motivo riporta lo stato del servizio, mai il messaggio del provider', async () => {
+  sendEmail.mockResolvedValueOnce({ ok: false, reason: 'email_service_not_ready' });
+  await expect(service.sendSupportRequest(data))
+    .rejects.toMatchObject({ reason: 'email:email_service_not_ready' });
+
+  // Un errore del provider non ha `reason`: non deve trascinarsi dietro il testo.
+  sendEmail.mockResolvedValueOnce({ ok: false, error: 'API key re_segreta non valida' });
+  await expect(service.sendSupportRequest(data)).rejects.toMatchObject({ reason: 'email:send_failed' });
+  const thrown = await service.sendSupportRequest({ ...data }).catch(e => e);
+  expect(JSON.stringify(thrown.reason || '')).not.toContain('re_segreta');
 });
 
-test.each([
-  [{ code: 'ETIMEDOUT' }, 'smtp:ETIMEDOUT'],
-  [{ code: 'ECONNECTION' }, 'smtp:ECONNECTION'],
-  [{}, 'smtp:UNKNOWN'],
-])('classifica il fallimento di rete %j', async (props, reason) => {
-  mockSendMail.mockRejectedValue(Object.assign(new Error('boom'), props));
-  await expect(service.sendSupportRequest(data)).rejects.toMatchObject({ reason });
+test('rifiuta header injection nell indirizzo utente', async () => {
+  await expect(service.sendSupportRequest({
+    ...data, user: { id: 42, email: 'user@example.com\r\nBcc: victim@example.com' },
+  })).rejects.toMatchObject({ reason: 'invalid_user_data' });
+  expect(sendEmail).not.toHaveBeenCalled();
 });
 
-test('il destinatario rifiutato si distingue da un errore di rete', async () => {
-  mockSendMail.mockResolvedValueOnce({ accepted: [], rejected: ['support@example.com'] });
-  await expect(service.sendSupportRequest(data)).rejects.toMatchObject({ reason: 'smtp:REJECTED' });
-});
-
-test('rifiuta header injection nell’indirizzo utente', async () => {
-  await expect(service.sendSupportRequest({ ...data, user: { id: 42, email: 'user@example.com\r\nBcc: victim@example.com' } })).rejects.toThrow();
-  expect(mockSendMail).not.toHaveBeenCalled();
-});
-
-test.each([false, true])('interrompe il socket al timeout anche con TLS già connesso: %s', async connected => {
-  const tls = require('tls');
-  const { EventEmitter } = require('events');
-  const socket = new EventEmitter();
-  socket.destroy = jest.fn();
-  jest.spyOn(tls, 'connect').mockReturnValue(socket);
-  jest.useFakeTimers();
-  nodemailer.createTransport.mockImplementation(options => ({
-    sendMail: () => new Promise((resolve, reject) => {
-      if (options.getSocket) options.getSocket({}, error => { if (error) reject(error); });
-    }),
-    close: mockClose,
-  }));
-  try {
-    const pending = service.sendSupportRequest(data);
-    if (connected) socket.emit('secureConnect');
-    const rejected = expect(pending).rejects.toThrow('Invio supporto scaduto');
-    await jest.advanceTimersByTimeAsync(20000);
-    await rejected;
-    expect(socket.destroy).toHaveBeenCalled();
-    expect(tls.connect).toHaveBeenCalledWith(expect.objectContaining({
-      host: 'smtps.pec.aruba.it', port: 465, servername: 'smtps.pec.aruba.it', rejectUnauthorized: true,
-    }));
-  } finally { jest.useRealTimers(); }
+test.each(['\r\n', '\n', '\x00'])('rifiuta caratteri di controllo nell oggetto: %j', async bad => {
+  await expect(service.sendSupportRequest({ ...data, subject: `x${bad}Bcc: v@e.com` }))
+    .rejects.toMatchObject({ reason: 'invalid_user_data' });
+  expect(sendEmail).not.toHaveBeenCalled();
 });

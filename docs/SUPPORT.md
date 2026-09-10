@@ -7,32 +7,40 @@ Il footer nelle pagine legali porta al form per gli utenti autenticati.
 
 ## Configurazione Vercel
 
-Nel progetto **API `wallt-api`**, directory `server`, aggiungere:
+L'assistenza usa **Resend**, lo stesso mittente delle email di benvenuto e
+recupero password: `RESEND_API_KEY` e `EMAIL_FROM` sono gia' configurate e non
+vanno duplicate. Nel progetto **API `wallt-api`**, directory `server`, serve una
+sola variabile in piu':
 
 ```env
-SMTP_HOST=smtps.pec.aruba.it
-SMTP_PORT=465
-SMTP_USER=support@pec.wallt.it
-SMTP_PASSWORD=<password della casella PEC configurata su Vercel>
 SUPPORT_EMAIL=support@pec.wallt.it
 ```
 
-`SMTP_PASSWORD` va salvata come secret nelle Environment Variables, mai in Git,
-nel frontend o in una variabile `VITE_*`. Applicare i valori a Production;
-configurare separatamente Preview/Development solo se si desidera inviare email
-anche da tali ambienti. Dopo la configurazione, ridistribuire backend e frontend.
-Non occorrono nuove variabili del frontend per il form.
+Applicarla a Production e ridistribuire l'API. Non occorrono variabili del
+frontend per il form, e nessun segreto nuovo: la chiave Resend esisteva gia'.
 
-Si usa la **PEC** confermata per questa funzione: `smtps.pec.aruba.it`, porta 465,
-TLS implicito (`secure: true`), verifica del certificato attiva. `smtps.aruba.it`
-è invece il server della posta ordinaria Aruba. I protocolli SMTP della casella
-PEC devono essere abilitati. Consultare la [guida ufficiale Aruba](https://guide.aruba.it/pec/configurazione-programmi-di-posta/client-posta-e-dispositivi-mobili).
+`From` e' `EMAIL_FROM`, l'unico mittente sul dominio verificato in Resend. La
+richiesta arriva a `SUPPORT_EMAIL` con `Reply-To` uguale all'email dell'utente
+letta nel database, quindi rispondere dalla casella scrive direttamente a lui.
+La conferma va all'utente, con `Reply-To` del supporto.
 
-`From` usa il nome `Wallt Support` e l'indirizzo `SMTP_USER`. La richiesta arriva
-all'indirizzo `SUPPORT_EMAIL`, con `Reply-To` uguale all'email dell'utente letta
-nel database. Entrambe le variabili indirizzo vanno impostate alla PEC sopra.
-La conferma va all'utente, con `Reply-To` del supporto. Il mittente Resend delle
-email di benvenuto e recupero password rimane invariato.
+**`SUPPORT_EMAIL` deve leggere posta ordinaria.** Una casella PEC configurata
+per accettare solo altre PEC rifiuterebbe il messaggio, perche' Resend invia da
+un dominio normale.
+
+### Perche' non SMTP PEC Aruba
+
+La prima versione usava Nodemailer verso `smtps.pec.aruba.it:465`. In produzione
+l'autenticazione veniva rifiutata con `EAUTH` e stato SMTP `535`, riproducibile
+anche da rete italiana: quindi non un blocco dell'IP di Vercel, ma credenziali
+non accettate dalla casella (su Aruba, con la verifica in due passaggi attiva
+serve una password dedicata al programma di posta).
+
+Oltre a questo, la PEC era comunque inadatta alla **conferma all'utente**: le PEC
+incapsulano i messaggi in una busta di trasporto che le caselle ordinarie
+gestiscono male. Resend risolve entrambi i problemi e non aggiunge dipendenze:
+era gia' nel progetto e gia' in uso. `nodemailer` e le variabili `SMTP_*` sono
+state rimosse.
 
 ## API e protezioni
 
@@ -61,17 +69,19 @@ L'autenticazione precede il limiter. Nessun destinatario arbitrario dal client.
 Risposte:
 
 - `200`: `{ "message": "Richiesta inviata", "confirmationSent": true }`.
-- `200` con `confirmationSent: false`: richiesta accettata dal server SMTP del
+- `200` con `confirmationSent: false`: richiesta accettata dal provider del
   supporto, ma conferma utente fallita. L'interfaccia lo spiega e non chiede di
   reinviare la richiesta.
 - `400`: campi non validi; `401`: sessione assente/non valida; `405`: metodo diverso
-  da POST; `429`: troppi tentativi; `502`: invio SMTP o configurazione non riusciti.
+  da POST; `429`: troppi tentativi; `502`: invio o configurazione non riusciti. Il
+  motivo esatto non raggiunge mai il client: viene registrato lato server come
+  `reason` (`config:<NOME>`, `email:<stato>`, `invalid_user_data`), e compare
+  anche nel testo del log perche' resti leggibile dove `meta` e' collassato.
 
-Il backend attende l'invio principale e poi quello di conferma. Ogni invio ha
-un limite di attesa di 20 secondi e timeout SMTP ridotti, entro la durata Vercel
-configurata di 60 secondi. Alla scadenza viene distrutto anche il socket TLS,
-interrompendo lo scambio SMTP ancora attivo. Il client attende fino a 60 secondi. I log contengono
-solo avvisi generici: niente password, testo dei messaggi o errori SMTP grezzi.
+Il backend attende l'invio principale e poi quello di conferma, entro la durata
+Vercel configurata di 60 secondi; il client attende altrettanto. I log riportano
+il solo `reason`: mai chiavi API, testo dei messaggi o messaggi grezzi del
+provider, che possono contenere dati dell'utente.
 Le email al supporto includono email utente, ID, categoria, oggetto, messaggio,
 data UTC, versione API e ambiente server.
 
@@ -94,7 +104,7 @@ La protezione per utente non sostituisce un limite globale multi-account.
 
 - `cd client && npm test` e `npm run build`.
 - `cd server && npm test`: inclusi test endpoint con PostgreSQL isolato.
-- `cd server && npm run test:unit`: inclusi test del servizio con SMTP simulato.
+- `cd server && npm run test:unit`: inclusi i test del servizio con Resend simulato.
 - Controllo manuale del form in anteprima locale con invio simulato: apertura,
   validazione, caricamento, successo, errore, limite e conferma parziale;
   dark/light e viewport mobile.
@@ -109,7 +119,7 @@ Creati:
 - `client/src/components/help/SupportContact.vue`: form e feedback.
 - `server/routes/support.routes.js`: autenticazione, validazione, limiter e POST.
 - `server/controllers/support.controller.js`: identità database e risposte sicure.
-- `server/services/email/SupportEmailService.js`: trasporto SMTP PEC e due email.
+- `server/services/email/SupportEmailService.js`: composizione delle due email su Resend.
 - `server/tests/support.test.js`: test endpoint e limiter persistente.
 - `server/tests/supportEmail.test.js`: test email, configurazione e cancellazione timeout.
 - `docs/SUPPORT.md`: questa guida.
@@ -119,9 +129,10 @@ Modificati per la funzione:
 - `client/src/views/AiutoView.vue`: integrazione del form.
 - `client/src/components/layout/LegalFooter.vue`: link al form per utenti autenticati.
 - `server/app.js`: collegamento dell'endpoint.
-- `server/package.json` e `server/package-lock.json`: dipendenza Nodemailer.
-- `server/jest.unit.config.js`: inclusione dei test SMTP senza database.
-- `server/.env.example`: configurazione pubblica di esempio, password vuota.
+- `server/package.json` e `server/package-lock.json`: rimozione di Nodemailer,
+  non piu' necessario con Resend.
+- `server/jest.unit.config.js`: inclusione dei test del servizio email senza database.
+- `server/.env.example`: solo `SUPPORT_EMAIL`; le `SMTP_*` sono state rimosse.
 - `docs/API.md` e `docs/EMAIL.md`: riferimenti alla nuova funzione.
 
 Restano inoltre le modifiche della precedente richiesta ai contatti pubblici:

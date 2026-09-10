@@ -19,7 +19,9 @@ Il mittente automatico Resend resta `noreply@auth.wallt.it`.
 ## Assistenza in-app
 
 Gli utenti autenticati possono inviare richieste da **Aiuto → Contatta il supporto**
-tramite SMTP PEC Aruba. Configurazione, endpoint e limiti sono in [SUPPORT.md](SUPPORT.md).
+tramite Resend, lo stesso mittente delle altre email transazionali: serve solo
+`SUPPORT_EMAIL` come destinatario. Configurazione, endpoint e limiti sono in
+[SUPPORT.md](SUPPORT.md).
 Questo flusso è separato dagli invii Resend descritti sotto.
 
 ## Produzione

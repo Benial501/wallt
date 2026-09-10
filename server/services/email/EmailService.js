@@ -71,7 +71,7 @@ const initEmailService = () => {
 
 const isEmailServiceReady = () => isReady;
 
-const sendEmail = async ({ to, subject, html, text, idempotencyKey }) => {
+const sendEmail = async ({ to, subject, html, text, idempotencyKey, replyTo }) => {
   if (!to || !subject) {
     logger.warn('[email] Parametri mancanti (to/subject), invio saltato');
     return { ok: false, skipped: true, reason: 'missing_params' };
@@ -91,6 +91,9 @@ const sendEmail = async ({ to, subject, html, text, idempotencyKey }) => {
       subject,
       html,
       text: text || undefined,
+      // Resend accetta `replyTo` e lo traduce in reply_to: serve all'assistenza,
+      // dove la risposta deve arrivare all'utente e non al mittente verificato.
+      ...(replyTo ? { replyTo } : {}),
     }, idempotencyKey ? { idempotencyKey } : undefined);
 
     if (error) {

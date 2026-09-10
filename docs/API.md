@@ -624,6 +624,6 @@ tutta la cascata di categorizzazione (`CategoryMatcherService._finalize`).
 ## Assistenza email
 
 `POST /api/support` — JWT obbligatorio, categoria/oggetto/messaggio validati,
-3 tentativi ogni 15 minuti per utente. Invia la richiesta tramite SMTP PEC Aruba
+3 tentativi ogni 15 minuti per utente. Invia la richiesta tramite Resend
 e una conferma all'email dell'utente letta dal database. Nessuna tabella ticket
 aggiuntiva. Contratto, errori e configurazione: [SUPPORT.md](SUPPORT.md).
