@@ -518,12 +518,23 @@ tutta la cascata di categorizzazione (`CategoryMatcherService._finalize`).
 - **Frontend**: `analisi.store.js` → `AnalisiView.vue`
 
 ### GET /api/analisi/confronto-mesi
-- **Query**: `mesi` (numero)
+Confronto fra periodi. L'unità segue il periodo scelto nella pagina Analisi.
+- **Query**: `unita` (`settimana` | `mese` | `anno`, default `mese`), `quantita` (2–12, default 6)
+- **Query alternativa**: `da` + `a` → i mesi toccati dall'intervallo (periodo "Custom"); hanno la precedenza su `unita`/`quantita`
+- **Query storica**: `mesi` (2–12) — equivalente a `quantita` con `unita=mese`, mantenuta perché client e API deployano separatamente
+- **Risposta**: `{ mesi: [{ chiave, label, labelEsteso, da, a, entrate, uscite, saldo }], unita }`
+  (la chiave `mesi` è storica: contiene i periodi qualunque sia l'unità)
+- **File**: `analisi.controller.js`, intervalli in `services/confrontoPeriodi.service.js`
 - **Frontend**: `analisi.store.js` → `AnalisiView.vue`
 
 ### GET /api/analisi/andamento-patrimonio
-- **Query**: `periodo` (es. `3m`, `6m`, `1y`)
-- **Frontend**: `analisi.store.js` → `DashboardView.vue`, `AnalisiView.vue`
+Un punto per periodo, con la stessa unità del confronto. Il patrimonio è ricostruito
+a ritroso dal saldo di oggi: WALLT non conserva uno storico dei saldi.
+- **Query**: `unita` (`settimana` | `mese` | `anno`, default `mese`), `quantita` (2–12, default 6)
+- **Query alternativa**: `da` + `a` → i mesi toccati dall'intervallo (periodo "Custom")
+- **Query storica**: `periodo` (`3m` | `6m` | `1a` | `tutto`), mappato sulle unità nuove
+- **Risposta**: `{ punti: [{ data, fine, label, labelEsteso, delta, patrimonio }], unita, min, max, inizio, fine, variazione_importo, variazione_percentuale }`
+- **Frontend**: `analisi.store.js` → `DashboardView.vue` (sparkline, 12 settimane), `AnalisiView.vue`
 
 ### GET /api/analisi/suggerimenti
 - **Risposta**: Suggerimenti automatici basati su dati utente

@@ -33,8 +33,8 @@ const { baseOptions } = useChartTheme();
 
 const activeTab = ref('spese');
 const periodo = ref('mese');
-const mesiConfronto = ref(6);
-const periodoPatrimonio = ref('6m');
+const quantitaConfronto = ref(6);
+const quantitaPatrimonio = ref(6);
 const customDa = ref(dayjs().startOf('month').format('YYYY-MM-DD'));
 const customA = ref(dayjs().format('YYYY-MM-DD'));
 const highlightCat = ref(null);
@@ -162,6 +162,76 @@ const getDateRange = () => periodoRange(periodo.value, {
   customDa: customDa.value, customA: customA.value,
 });
 
+/**
+ * Confronto e Patrimonio seguono il periodo scelto in cima alla pagina: e' lo
+ * stesso selettore, cambia solo cosa viene disegnato (barre affiancate contro
+ * una linea nel tempo).
+ *
+ *   Settimana → ultime N settimane      selettore 2-12
+ *   Mese      → ultimi N mesi           selettore 2-12
+ *   Trimestre → ultimi 3 mesi           fisso, nessun selettore
+ *   Anno      → ultimi N anni           selettore 2-12
+ *   Custom    → i mesi fra Da e A       derivato dall'intervallo
+ */
+const REGOLA_PER_PERIODO = {
+  settimana: { unita: 'settimana', selezionabile: true },
+  mese: { unita: 'mese', selezionabile: true },
+  trimestre: { unita: 'mese', selezionabile: false, quantita: 3 },
+  anno: { unita: 'anno', selezionabile: true },
+  custom: { unita: 'mese', selezionabile: false, daIntervallo: true },
+};
+
+const regolaPeriodo = computed(() => REGOLA_PER_PERIODO[periodo.value] || REGOLA_PER_PERIODO.mese);
+const quantitaSelezionabile = computed(() => regolaPeriodo.value.selezionabile);
+
+/** I due tab che dipendono dal periodo e mostrano il selettore di quantita'. */
+const TAB_CON_QUANTITA = ['confronto', 'patrimonio'];
+const mostraSelettoreQuantita = computed(() => TAB_CON_QUANTITA.includes(activeTab.value));
+
+/**
+ * Quantita' del tab attivo. Confronto e Patrimonio ricordano la propria
+ * scelta: sono due domande diverse ("quanti periodi metto a confronto" e
+ * "quanto indietro traccio la linea") e condividerne il valore sorprenderebbe.
+ */
+const quantitaAttiva = computed({
+  get: () => (activeTab.value === 'patrimonio' ? quantitaPatrimonio.value : quantitaConfronto.value),
+  set: (n) => {
+    if (activeTab.value === 'patrimonio') quantitaPatrimonio.value = n;
+    else quantitaConfronto.value = n;
+  },
+});
+
+/** Quanti periodi chiedere: il valore scelto, o quello imposto dal periodo. */
+const quantitaRichiesta = (scelta) => (
+  quantitaSelezionabile.value ? scelta : (regolaPeriodo.value.quantita ?? 6)
+);
+
+const CONFRONTO_ETICHETTE = {
+  settimana: { singolare: 'Settimana', plurale: 'settimane' },
+  mese: { singolare: 'Mese', plurale: 'mesi' },
+  anno: { singolare: 'Anno', plurale: 'anni' },
+};
+
+/** Nome dell'unita' realmente caricata, non di quella richiesta. */
+const etichetteConfronto = computed(() => (
+  CONFRONTO_ETICHETTE[analisiStore.confrontoUnita] || CONFRONTO_ETICHETTE.mese
+));
+
+const etichettaUnitaScelta = computed(() => (
+  (CONFRONTO_ETICHETTE[regolaPeriodo.value.unita] || CONFRONTO_ETICHETTE.mese).plurale
+));
+
+/** Scorciatoie del selettore, oltre alla scelta libera da 2 a 12. */
+const PRESET_CONFRONTO = [3, 6, 12];
+const QUANTITA_CONFRONTO = Array.from({ length: 11 }, (_, i) => i + 2);
+
+/** Riassunto di cosa si sta confrontando quando non c'e' un selettore. */
+const descrizionePeriodoFisso = computed(() => {
+  if (quantitaSelezionabile.value) return '';
+  if (regolaPeriodo.value.daIntervallo) return 'I mesi dell\'intervallo scelto';
+  return 'Ultimi 3 mesi';
+});
+
 const doughnutData = computed(() => ({
   labels: distribuzioneCorrente.value.map((d) => d.nome_display),
   datasets: [{
@@ -187,10 +257,10 @@ const doughnutOptions = computed(() => ({
 }));
 
 const barData = computed(() => ({
-  labels: analisiStore.confrontoMesi.map((m) => m.label),
+  labels: analisiStore.confrontoPeriodi.map((m) => m.label),
   datasets: [
-    { label: 'Entrate', data: analisiStore.confrontoMesi.map((m) => m.entrate), backgroundColor: '#00D4AA' },
-    { label: 'Uscite', data: analisiStore.confrontoMesi.map((m) => m.uscite), backgroundColor: '#FF4757' },
+    { label: 'Entrate', data: analisiStore.confrontoPeriodi.map((m) => m.entrate), backgroundColor: '#00D4AA' },
+    { label: 'Uscite', data: analisiStore.confrontoPeriodi.map((m) => m.uscite), backgroundColor: '#FF4757' },
   ],
 }));
 
@@ -209,7 +279,7 @@ const barOptions = computed(() => ({
 const lineData = computed(() => {
   const punti = analisiStore.andamentoPatrimonio.punti || [];
   return {
-    labels: punti.map((p) => dayjs(p.data).format('DD/MM')),
+    labels: punti.map((p) => p.label || dayjs(p.data).format('DD/MM')),
     datasets: [{
       label: 'Patrimonio',
       data: punti.map((p) => p.patrimonio),
@@ -246,14 +316,23 @@ const loadTabData = async () => {
       else closeCategoryPanel();
     }
   }
-  if (activeTab.value === 'confronto') await analisiStore.fetchConfrontoMesi(mesiConfronto.value);
-  if (activeTab.value === 'patrimonio') await analisiStore.fetchAndamentoPatrimonio(periodoPatrimonio.value);
+  const { unita, daIntervallo } = regolaPeriodo.value;
+  if (activeTab.value === 'confronto') {
+    await analisiStore.fetchConfrontoPeriodi(
+      daIntervallo ? { da, a } : { unita, quantita: quantitaRichiesta(quantitaConfronto.value) },
+    );
+  }
+  if (activeTab.value === 'patrimonio') {
+    await analisiStore.fetchAndamentoPatrimonio(
+      daIntervallo ? { da, a } : { unita, quantita: quantitaRichiesta(quantitaPatrimonio.value) },
+    );
+  }
   if (activeTab.value === 'suggerimenti') await analisiStore.fetchSuggerimenti();
 };
 
 watch(activeTab, () => closeCategoryPanel());
 
-watch([activeTab, periodo, mesiConfronto, periodoPatrimonio, customDa, customA], loadTabData);
+watch([activeTab, periodo, quantitaConfronto, quantitaPatrimonio, customDa, customA], loadTabData);
 
 onMounted(async () => {
   await contiStore.fetchConti();
@@ -277,7 +356,7 @@ const esportaDati = async () => {
 
 const hasData = computed(() =>
   distribuzioneCorrente.value.length > 0
-  || analisiStore.confrontoMesi.some((m) => m.uscite > 0 || m.entrate > 0)
+  || analisiStore.confrontoPeriodi.some((m) => m.uscite > 0 || m.entrate > 0)
 );
 </script>
 
@@ -305,6 +384,30 @@ const hasData = computed(() =>
         <span>{{ tab.label }}</span>
       </button>
     </div>
+
+    <!-- Confronto e Patrimonio seguono il periodo scelto in cima: qui si
+         sceglie solo quanti periodi. Con Trimestre e Custom la quantita' e'
+         gia' decisa dal periodo, quindi resta solo la descrizione. -->
+    <template v-if="mostraSelettoreQuantita">
+      <div v-if="quantitaSelezionabile" class="quantita-picker">
+        <div class="sub-tabs quantita-picker__preset">
+          <button
+            v-for="n in PRESET_CONFRONTO"
+            :key="n"
+            :class="{ active: quantitaAttiva === n }"
+            @click="quantitaAttiva = n"
+          >{{ n }} {{ etichettaUnitaScelta }}</button>
+        </div>
+        <label class="quantita-picker__libero">
+          <span>Oppure</span>
+          <select v-model.number="quantitaAttiva" class="filtro-select" aria-label="Quanti periodi mostrare">
+            <option v-for="n in QUANTITA_CONFRONTO" :key="n" :value="n">{{ n }}</option>
+          </select>
+          <span>{{ etichettaUnitaScelta }}</span>
+        </label>
+      </div>
+      <p v-else class="quantita-fissa">{{ descrizionePeriodoFisso }}</p>
+    </template>
 
     <WSkeleton v-if="analisiStore.loading && !isDistribuzione" type="card" />
 
@@ -399,18 +502,13 @@ const hasData = computed(() =>
 
       <!-- TAB CONFRONTO -->
       <div v-else-if="activeTab === 'confronto'" key="confronto">
-        <div class="sub-tabs">
-          <button :class="{ active: mesiConfronto === 3 }" @click="mesiConfronto = 3">3 mesi</button>
-          <button :class="{ active: mesiConfronto === 6 }" @click="mesiConfronto = 6">6 mesi</button>
-          <button :class="{ active: mesiConfronto === 12 }" @click="mesiConfronto = 12">12 mesi</button>
-        </div>
         <WCard><Bar :data="barData" :options="barOptions" /></WCard>
         <WCard class="mt-4">
           <table class="data-table">
-            <thead><tr><th>Mese</th><th>Entrate</th><th>Uscite</th><th>Saldo</th></tr></thead>
+            <thead><tr><th>{{ etichetteConfronto.singolare }}</th><th>Entrate</th><th>Uscite</th><th>Saldo</th></tr></thead>
             <tbody>
-              <tr v-for="m in analisiStore.confrontoMesi" :key="m.label">
-                <td>{{ m.label }}</td>
+              <tr v-for="m in analisiStore.confrontoPeriodi" :key="m.chiave || m.label">
+                <td>{{ m.labelEsteso || m.label }}</td>
                 <td class="positive">{{ formatValuta(m.entrate) }}</td>
                 <td class="negative">{{ formatValuta(m.uscite) }}</td>
                 <td :class="m.saldo >= 0 ? 'positive' : 'negative'">{{ formatValuta(m.saldo) }}</td>
@@ -422,11 +520,6 @@ const hasData = computed(() =>
 
       <!-- TAB PATRIMONIO -->
       <div v-else-if="activeTab === 'patrimonio'" key="patrimonio">
-        <div class="sub-tabs">
-          <button v-for="p in ['3m','6m','1a','tutto']" :key="p" :class="{ active: periodoPatrimonio === p }" @click="periodoPatrimonio = p">
-            {{ p === '3m' ? '3M' : p === '6m' ? '6M' : p === '1a' ? '1A' : 'Tutto' }}
-          </button>
-        </div>
         <WCard><Line :data="lineData" :options="lineOptions" /></WCard>
         <div class="stats-grid">
           <WCard><span class="stat-label">Inizio</span><span class="stat-val">{{ formatValuta(analisiStore.andamentoPatrimonio.inizio) }}</span></WCard>
@@ -489,6 +582,54 @@ const hasData = computed(() =>
 .custom-dates { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
 /* .form-input: aspetto condiviso in assets/styles/main.css */
 .form-input { min-height: 44px; }
+.quantita-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+.quantita-picker__preset { margin-bottom: 0; }
+.quantita-picker__libero {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+.quantita-picker__libero .filtro-select { width: auto; min-width: 4.5rem; }
+.quantita-fissa {
+  margin-bottom: 1rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+/* Stesso chevron dei campi condivisi (assets/styles/main.css): qui la select
+   e' fuori dal sistema .form-select perche' e' larga quanto il contenuto. */
+.filtro-select {
+  background: var(--glass-interactive-bg);
+  border: 1px solid var(--glass-interactive-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--glass-highlight);
+  padding: 0.5rem 2.25rem 0.5rem 0.875rem;
+  color: var(--text-primary);
+  font-size: 16px;
+  min-height: 44px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent calc(50% - 0.7px), currentColor calc(50% - 0.7px), currentColor calc(50% + 0.7px), transparent calc(50% + 0.7px)),
+    linear-gradient(135deg, transparent calc(50% - 0.7px), currentColor calc(50% - 0.7px), currentColor calc(50% + 0.7px), transparent calc(50% + 0.7px));
+  background-position: right 1.08rem center, right 0.65rem center;
+  background-size: 7px 7px, 7px 7px;
+  background-repeat: no-repeat;
+  transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+.filtro-select:focus {
+  outline: none;
+  border-color: var(--accent-green);
+  box-shadow: var(--focus-ring), var(--glass-highlight);
+}
 .chart-card { margin-bottom: 1rem; }
 .chart-skeleton { min-height: 220px; border-radius: var(--radius-lg); }
 .donut-wrap { position: relative; max-width: 280px; margin: 0 auto; }

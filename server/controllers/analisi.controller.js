@@ -1,4 +1,5 @@
 const { list: listCategories } = require('../services/categorie.service');
+const { buildPeriodi } = require('../services/confrontoPeriodi.service');
 const logger = require('../utils/logger');
 const { Op } = require('sequelize');
 const {
@@ -91,65 +92,106 @@ const getDistribuzioneEntrate = async (req, res) => {
   }
 };
 
+/**
+ * Confronto fra periodi.
+ *
+ * L'unita' segue il periodo scelto nella pagina Analisi: `unita` vale
+ * 'settimana', 'mese' o 'anno' e `quantita` dice quanti periodi (2-12).
+ * Passando invece `da`/`a` si ottengono i mesi toccati da quell'intervallo,
+ * che e' il caso del periodo "Custom".
+ *
+ * Retrocompatibilita': senza parametri, o con il solo `mesi` di prima, la
+ * risposta e' identica a quella storica (ultimi N mesi, default 6). Serve
+ * perche' client e API stanno su due deploy separati: durante un rilascio
+ * una delle due parti e' momentaneamente la versione precedente.
+ */
 const getConfrontoMesi = async (req, res) => {
   try {
-    const mesi = parseInt(req.query.mesi, 10) || 6;
-    const now = new Date();
-    const risultato = [];
+    const { unita, da, a } = req.query;
+    const quantita = req.query.quantita ?? req.query.mesi;
 
-    for (let i = mesi - 1; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const mese = d.getMonth() + 1;
-      const anno = d.getFullYear();
-      const ultimo = new Date(anno, mese, 0).getDate();
-      const da = `${anno}-${String(mese).padStart(2, '0')}-01`;
-      const a = `${anno}-${String(mese).padStart(2, '0')}-${ultimo}`;
+    const periodi = buildPeriodi({ unita, quantita, da, a });
+    if (!periodi.length) return res.json({ mesi: [], unita: unita || 'mese' });
 
-      const movimenti = await Movimento.findAll({
-        where: {
-          user_id: req.userId,
-          data: { [Op.between]: [da, a] },
-          tipo: { [Op.in]: ['entrata', 'uscita'] },
-        },
-      });
+    // Una sola query sull'intero arco invece di una per periodo: con 12
+    // intervalli erano 12 round trip al database per disegnare un grafico.
+    const movimenti = await Movimento.findAll({
+      where: {
+        user_id: req.userId,
+        data: { [Op.between]: [periodi[0].da, periodi[periodi.length - 1].a] },
+        tipo: { [Op.in]: ['entrata', 'uscita'] },
+      },
+      attributes: ['data', 'tipo', 'importo'],
+    });
 
-      let entrate = 0;
-      let uscite = 0;
-      movimenti.forEach((m) => {
-        if (m.tipo === 'entrata') entrate += toNumber(m.importo);
-        else uscite += toNumber(m.importo);
-      });
+    const totali = new Map(periodi.map((p) => [p.chiave, { entrate: 0, uscite: 0 }]));
 
-      risultato.push({
-        mese,
-        anno,
-        label: `${MESI_SHORT[mese - 1]} ${String(anno).slice(2)}`,
+    movimenti.forEach((m) => {
+      // `data` e' DATEONLY: Sequelize la restituisce come stringa YYYY-MM-DD.
+      // Confrontare stringhe ISO equivale a confrontare date ed evita di
+      // reintrodurre il fuso orario del processo nel calcolo.
+      const giorno = String(m.data).slice(0, 10);
+      const periodo = periodi.find((p) => giorno >= p.da && giorno <= p.a);
+      if (!periodo) return;
+      const acc = totali.get(periodo.chiave);
+      if (m.tipo === 'entrata') acc.entrate += toNumber(m.importo);
+      else acc.uscite += toNumber(m.importo);
+    });
+
+    const risultato = periodi.map((p) => {
+      const { entrate, uscite } = totali.get(p.chiave);
+      return {
+        chiave: p.chiave,
+        label: p.label,
+        labelEsteso: p.labelEsteso,
+        da: p.da,
+        a: p.a,
+        // Campi storici: la vista precedente li leggeva per i mesi.
+        mese: p.mese,
+        anno: p.anno,
         entrate: Math.round(entrate * 100) / 100,
         uscite: Math.round(uscite * 100) / 100,
         saldo: Math.round((entrate - uscite) * 100) / 100,
-      });
-    }
+      };
+    });
 
-    res.json({ mesi: risultato });
+    // La chiave resta `mesi` per non rompere un client della versione
+    // precedente durante il rilascio.
+    res.json({ mesi: risultato, unita: da && a ? 'mese' : (unita || 'mese') });
   } catch (error) {
     logger.error('Errore getConfrontoMesi', { err: error });
-    res.status(500).json({ message: 'Errore nel confronto mesi' });
+    res.status(500).json({ message: 'Errore nel confronto periodi' });
   }
 };
 
+/**
+ * Mappa i valori del vecchio parametro `periodo` sulle unita' nuove.
+ * Serve solo finche' puo' arrivare una richiesta dal client precedente:
+ * `wallt-api` e `wallt-client` sono due deploy separati.
+ */
+const PERIODO_LEGACY = {
+  '3m': { unita: 'mese', quantita: 3 },
+  '6m': { unita: 'mese', quantita: 6 },
+  '1a': { unita: 'mese', quantita: 12 },
+  tutto: { unita: 'anno', quantita: 12 },
+};
+
+/**
+ * Andamento del patrimonio: un punto per periodo, con la stessa unita' del
+ * confronto (settimane, mesi o anni) oppure i mesi di un intervallo custom.
+ *
+ * Il calcolo parte dal patrimonio di oggi e torna indietro sottraendo i saldi
+ * dei periodi successivi: e' una ricostruzione, non uno storico registrato —
+ * WALLT non conserva il saldo dei conti giorno per giorno.
+ */
 const getAndamentoPatrimonio = async (req, res) => {
   try {
-    const periodo = req.query.periodo || '6m';
-    const now = new Date();
-    let startDate = new Date(now);
+    const { da, a } = req.query;
+    const legacy = PERIODO_LEGACY[req.query.periodo];
+    const unita = req.query.unita || legacy?.unita;
+    const quantita = req.query.quantita ?? legacy?.quantita;
 
-    switch (periodo) {
-      case '3m': startDate.setMonth(startDate.getMonth() - 3); break;
-      case '6m': startDate.setMonth(startDate.getMonth() - 6); break;
-      case '1a': startDate.setFullYear(startDate.getFullYear() - 1); break;
-      case 'tutto': startDate = new Date(2020, 0, 1); break;
-      default: startDate.setMonth(startDate.getMonth() - 6);
-    }
+    const periodi = buildPeriodi({ unita, quantita, da, a });
 
     const conti = await Conto.findAll({ where: { user_id: req.userId, attivo: true } });
     const investimenti = await Investimento.findAll({ where: { user_id: req.userId, attivo: true } });
@@ -157,36 +199,52 @@ const getAndamentoPatrimonio = async (req, res) => {
     const patrimonioInvestimenti = investimenti.reduce((s, i) => s + toNumber(i.saldo_attuale), 0);
     const patrimonioAttuale = patrimonioConti + patrimonioInvestimenti;
 
+    if (!periodi.length) {
+      return res.json({
+        punti: [],
+        unita: unita || 'mese',
+        min: patrimonioAttuale,
+        max: patrimonioAttuale,
+        inizio: patrimonioAttuale,
+        fine: patrimonioAttuale,
+        variazione_importo: 0,
+        variazione_percentuale: 0,
+      });
+    }
+
     const movimenti = await Movimento.findAll({
       where: {
         user_id: req.userId,
-        data: { [Op.gte]: startDate.toISOString().split('T')[0] },
+        data: { [Op.between]: [periodi[0].da, periodi[periodi.length - 1].a] },
         tipo: { [Op.in]: ['entrata', 'uscita'] },
       },
-      order: [['data', 'ASC']],
+      attributes: ['data', 'tipo', 'importo'],
     });
 
-    const punti = [];
-    let current = new Date(startDate);
-    current.setHours(0, 0, 0, 0);
+    // Saldo netto di ogni periodo. Una sola passata sui movimenti invece di
+    // una scansione completa per punto, come faceva la versione precedente.
+    const delta = new Map(periodi.map((p) => [p.chiave, 0]));
+    movimenti.forEach((m) => {
+      const giorno = String(m.data).slice(0, 10);
+      const periodo = periodi.find((p) => giorno >= p.da && giorno <= p.a);
+      if (!periodo) return;
+      const importo = toNumber(m.importo);
+      delta.set(periodo.chiave, delta.get(periodo.chiave) + (m.tipo === 'entrata' ? importo : -importo));
+    });
 
-    while (current <= now) {
-      const weekEnd = new Date(current);
-      weekEnd.setDate(weekEnd.getDate() + 7);
-      const dataStr = current.toISOString().split('T')[0];
+    const punti = periodi.map((p) => ({
+      // `data` resta l'inizio del periodo: e' il campo che leggeva il client
+      // precedente. `label` e' quella gia' pronta per l'asse del grafico.
+      data: p.da,
+      fine: p.a,
+      label: p.label,
+      labelEsteso: p.labelEsteso,
+      chiave: p.chiave,
+      delta: Math.round(delta.get(p.chiave) * 100) / 100,
+    }));
 
-      let delta = 0;
-      movimenti.forEach((m) => {
-        const md = new Date(m.data);
-        if (md >= current && md < weekEnd) {
-          delta += m.tipo === 'entrata' ? toNumber(m.importo) : -toNumber(m.importo);
-        }
-      });
-
-      punti.push({ data: dataStr, delta });
-      current = weekEnd;
-    }
-
+    // A ritroso: l'ultimo punto vale il patrimonio di adesso, ogni punto
+    // precedente vale quello successivo meno il saldo del periodo che segue.
     let running = patrimonioAttuale;
     for (let i = punti.length - 1; i >= 0; i--) {
       punti[i].patrimonio = Math.round(running * 100) / 100;
@@ -194,8 +252,8 @@ const getAndamentoPatrimonio = async (req, res) => {
     }
 
     const patrimoni = punti.map((p) => p.patrimonio);
-    const inizio = patrimoni[0] || patrimonioAttuale;
-    const fine = patrimoni[patrimoni.length - 1] || patrimonioAttuale;
+    const inizio = patrimoni[0] ?? patrimonioAttuale;
+    const fine = patrimoni[patrimoni.length - 1] ?? patrimonioAttuale;
     const min = Math.min(...patrimoni);
     const max = Math.max(...patrimoni);
     const variazioneImporto = Math.round((fine - inizio) * 100) / 100;
@@ -205,6 +263,7 @@ const getAndamentoPatrimonio = async (req, res) => {
 
     res.json({
       punti,
+      unita: da && a ? 'mese' : (unita || 'mese'),
       min,
       max,
       inizio,

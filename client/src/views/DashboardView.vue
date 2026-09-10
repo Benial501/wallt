@@ -154,7 +154,9 @@ const loadBudget = async () => {
 };
 
 const loadAnalisi = async () => {
-  await analisiStore.fetchAndamentoPatrimonio('3m').catch(() => null);
+  // Sparkline del riepilogo: 12 settimane danno la stessa densita' di punti
+  // di prima, dove l'andamento era sempre settimanale a prescindere.
+  await analisiStore.fetchAndamentoPatrimonio({ unita: 'settimana', quantita: 12 }).catch(() => null);
 };
 
 const loadScommesse = async () => {

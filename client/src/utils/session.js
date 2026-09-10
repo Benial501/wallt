@@ -77,7 +77,7 @@ export function resetPiniaStores() {
     const analisiStore = useAnalisiStore();
     analisiStore.distribuzioneSpese = [];
     analisiStore.totaleSpese = 0;
-    analisiStore.confrontoMesi = [];
+    analisiStore.confrontoPeriodi = [];
     analisiStore.andamentoPatrimonio = {};
     analisiStore.suggerimenti = [];
   } catch { /* ignore */ }

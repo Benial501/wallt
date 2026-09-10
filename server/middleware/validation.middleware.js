@@ -1,4 +1,5 @@
 const { assertCategory } = require('../services/categorie.service');
+const { UNITA_VALIDE, QUANTITA_MIN, QUANTITA_MAX } = require('../services/confrontoPeriodi.service');
 const {
   body, param, query, validationResult,
 } = require('express-validator');
@@ -52,6 +53,27 @@ const validateMovimentiQuery = [
 ];
 
 const validateAnalisiQuery = [...intervalloDate, validate];
+
+// Confronto periodi: l'unita' e' una whitelist, la quantita' e' il selettore
+// 2-12 della pagina. `mesi` e' il parametro storico della versione precedente
+// del client e resta accettato durante i rilasci (client e API deployano
+// separatamente).
+const validateConfrontoQuery = [
+  query('unita')
+    .optional({ values: 'falsy' })
+    .isIn(UNITA_VALIDE)
+    .withMessage('Unita di confronto non valida'),
+  query('quantita')
+    .optional({ values: 'falsy' })
+    .isInt({ min: QUANTITA_MIN, max: QUANTITA_MAX })
+    .withMessage(`Scegli da ${QUANTITA_MIN} a ${QUANTITA_MAX} periodi`),
+  query('mesi')
+    .optional({ values: 'falsy' })
+    .isInt({ min: QUANTITA_MIN, max: QUANTITA_MAX })
+    .withMessage(`Scegli da ${QUANTITA_MIN} a ${QUANTITA_MAX} periodi`),
+  ...intervalloDate,
+  validate,
+];
 
 const validateMovimentiInvestimentoQuery = [
   idParam,
@@ -1020,6 +1042,7 @@ module.exports = {
   validateIdParam,
   validateMovimentiQuery,
   validateAnalisiQuery,
+  validateConfrontoQuery,
   validateMovimentiInvestimentoQuery,
   validateAnalisiInvestimentiQuery,
   validateMovimentiScommesseQuery,
