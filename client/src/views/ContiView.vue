@@ -354,7 +354,7 @@ const confermaElimina = async () => {
 .tipo-chip { display: inline-flex; align-items: center; gap: 0.375rem; }
 .form-space { display: flex; flex-direction: column; gap: 1rem; }
 .field label { display: block; font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 0.375rem; }
-.form-input { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.75rem 1rem; color: var(--text-primary); }
+/* .form-input: aspetto condiviso in assets/styles/main.css */
 .tipo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 .tipo-chip { padding: 0.625rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); font-size: 0.75rem; cursor: pointer; text-align: left; }
 .tipo-chip.active { border-color: var(--accent-green); color: var(--accent-green); }

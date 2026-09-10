@@ -508,11 +508,17 @@ onUnmounted(() => {
 .w-overview { margin-bottom: 1.25rem; }
 
 .w-overview__card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 1.5rem;
-  box-shadow: var(--shadow-card);
+  background: var(--glass-primary-bg);
+  backdrop-filter: blur(var(--blur-md)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--blur-md)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-primary-border);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-md), var(--glass-highlight);
   overflow: hidden;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .w-overview__card { background: var(--glass-primary-solid); }
 }
 
 .w-overview__track {

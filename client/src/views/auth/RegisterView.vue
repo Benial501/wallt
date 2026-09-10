@@ -96,7 +96,7 @@ const startGoogleLogin = () => {
 </script>
 
 <template>
-  <div class="flex flex-1 items-center justify-center px-4 py-6 bg-[var(--bg-primary)]">
+  <div class="flex flex-1 items-center justify-center px-4 py-6">
     <div class="w-full max-w-md">
       <div class="text-center mb-8">
         <img src="/brand/wallt-app-icon-96.png" alt="WALLT" class="inline-block w-16 h-16 rounded-2xl mb-4" width="96" height="96">
@@ -322,9 +322,10 @@ const startGoogleLogin = () => {
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin: 1.25rem 0;
+  margin: 1.375rem 0;
   color: var(--text-muted);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
+  letter-spacing: var(--tracking-wide);
 }
 
 .social-divider::before,
@@ -332,36 +333,50 @@ const startGoogleLogin = () => {
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--border);
+  background: var(--divider);
 }
 
 .btn-social {
   border-radius: var(--radius-md);
+  min-height: 48px;
   padding: 12px 24px;
   font-weight: 600;
+  font-size: 0.9375rem;
+  letter-spacing: var(--tracking-tight);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
   text-decoration: none;
-  transition: opacity 0.2s;
   cursor: pointer;
+  transition:
+    filter var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
 }
 
-.btn-social:hover:not(:disabled) {
-  opacity: 0.9;
+@media (hover: hover) {
+  .btn-social:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
 }
+
+.btn-social:active:not(:disabled) { transform: scale(0.985); }
 
 .btn-social:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
+/* Il bianco e' obbligato dalle linee guida del marchio Google: e' l'unico
+   elemento dell'app che non segue i token del tema. */
 .btn-google {
   background: #FFFFFF;
   color: #1F1F1F;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  box-shadow: var(--shadow-sm);
 }
 
 .consent-fieldset {
@@ -384,13 +399,10 @@ const startGoogleLogin = () => {
   color: var(--text-muted);
 }
 
+/* Misura e disegno arrivano da assets/styles/glass.css: qui resta solo
+   l'allineamento con la prima riga del testo di consenso. */
 .consent-checkbox {
-  margin-top: 0.125rem;
-  width: 1rem;
-  height: 1rem;
-  flex-shrink: 0;
-  accent-color: var(--accent-green);
-  cursor: pointer;
+  margin-top: 0.0625rem;
 }
 
 .consent-text {

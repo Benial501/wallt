@@ -73,32 +73,58 @@ onBeforeUnmount(release);
   touch-action: none;
 }
 .transaction-dialog[open] { display: grid; place-items: center; }
-.transaction-dialog::backdrop { background: rgb(10 17 26 / 45%); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+/* Velatura sfocata, non un nero pieno: la pagina sotto resta percepibile e il
+   pannello sembra sollevato. */
+.transaction-dialog::backdrop {
+  background: var(--overlay);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+}
+/* Livello "elevated" del sistema del vetro: qui sopra si compila un form,
+   quindi la superficie e' la piu' opaca della scala. */
 .transaction-dialog__panel {
   width: 100%; max-width: 520px; max-height: 100%; min-height: 0;
   display: flex; flex-direction: column; overflow: hidden;
-  background: var(--bg-card);
-  background: linear-gradient(145deg, color-mix(in srgb, var(--bg-card) 94%, white), color-mix(in srgb, var(--bg-card) 94%, transparent));
-  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-  border: 1px solid color-mix(in srgb, var(--border) 75%, white 25%);
-  border-radius: 26px; box-shadow: 0 24px 80px rgb(0 0 0 / 20%);
+  background: var(--glass-elevated-bg);
+  backdrop-filter: blur(var(--blur-xl)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--blur-xl)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-elevated-border);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--glass-shadow-elevated);
 }
-.transaction-dialog__header { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
-.transaction-dialog__header h2 { font-size: 1.0625rem; font-weight: 650; letter-spacing: -.02em; }
-.transaction-dialog__header button { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); cursor: pointer; }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .transaction-dialog__panel { background: var(--glass-elevated-solid); }
+}
+.transaction-dialog__header { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--divider); }
+.transaction-dialog__header h2 { font-size: 1.0625rem; font-weight: 650; letter-spacing: var(--tracking-title); }
+.transaction-dialog__header button {
+  display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid var(--glass-interactive-border); background: var(--glass-interactive-bg);
+  color: var(--text-secondary); cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) {
+  .transaction-dialog__header button:hover { background: var(--glass-interactive-bg-hover); color: var(--text-primary); }
+}
+.transaction-dialog__header button:active { transform: scale(0.94); }
 .transaction-dialog__body { padding: 20px; overflow-y: auto; overflow-x: hidden; min-height: 0; overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
 .transaction-dialog__header button:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 3px; }
-.transaction-dialog-enter-active, .transaction-dialog-leave-active { transition: opacity 180ms ease; }
-.transaction-dialog-enter-active .transaction-dialog__panel, .transaction-dialog-leave-active .transaction-dialog__panel { transition: transform 180ms ease; }
+.transaction-dialog-enter-active, .transaction-dialog-leave-active { transition: opacity var(--dur-base) var(--ease-out); }
+.transaction-dialog-enter-active .transaction-dialog__panel { transition: transform var(--dur-slow) var(--ease-spring); }
+.transaction-dialog-leave-active .transaction-dialog__panel { transition: transform var(--dur-fast) var(--ease-out); }
 .transaction-dialog-enter-from, .transaction-dialog-leave-to { opacity: 0; }
-.transaction-dialog-enter-from .transaction-dialog__panel, .transaction-dialog-leave-to .transaction-dialog__panel { transform: translateY(8px) scale(.99); }
+.transaction-dialog-enter-from .transaction-dialog__panel, .transaction-dialog-leave-to .transaction-dialog__panel { transform: translateY(12px) scale(.98); }
 @media (max-width: 767px) {
   .transaction-dialog { padding: max(12px, env(safe-area-inset-top)) 0 0; }
   .transaction-dialog[open] { align-items: end; }
-  .transaction-dialog__panel { max-width: none; border-radius: 26px 26px 0 0; }
+  .transaction-dialog__panel { max-width: none; border-radius: var(--radius-2xl) var(--radius-2xl) 0 0; }
   .transaction-dialog__body { padding: 16px max(20px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); }
+  /* Da sotto, come un foglio: e' il gesto che il layout a bottom sheet
+     suggerisce, e sostituisce il semplice sollevamento del desktop. */
+  .transaction-dialog-enter-from .transaction-dialog__panel, .transaction-dialog-leave-to .transaction-dialog__panel { transform: translateY(100%) scale(1); }
 }
 @media (prefers-reduced-motion: reduce) {
   .transaction-dialog, .transaction-dialog__panel { transition: none !important; }
+  .transaction-dialog-enter-from .transaction-dialog__panel, .transaction-dialog-leave-to .transaction-dialog__panel { transform: none; }
 }
 </style>

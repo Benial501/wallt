@@ -468,7 +468,8 @@ const getPiattaformaPan = (id) => pan.value.piattaforme?.find((p) => p.id === id
 .positive { color: var(--positive); }
 .negative { color: var(--negative); }
 .form-space { display: flex; flex-direction: column; gap: 0.75rem; }
-.form-input { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.75rem; color: var(--text-primary); font-size: 16px; min-height: 44px; }
+/* .form-input: aspetto condiviso in assets/styles/main.css */
+.form-input { min-height: 44px; }
 .form-input--lg { font-size: 1.5rem; font-weight: 700; text-align: center; }
 .tipo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 .tipo-grid button { padding: 0.75rem 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); cursor: pointer; font-size: 0.8125rem; min-height: 44px; }

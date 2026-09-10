@@ -50,18 +50,29 @@ const icons = {
   }
 }
 
+/* Livello "elevated": il toast compare sopra qualunque cosa, quindi la
+   superficie deve reggere la lettura anche su una schermata affollata. */
 .w-toast {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  border-radius: var(--radius-md);
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-card);
+  gap: 0.625rem;
+  padding: 0.8125rem 1.125rem;
+  border-radius: var(--radius-lg);
+  background: var(--glass-elevated-bg);
+  backdrop-filter: blur(var(--blur-lg)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--blur-lg)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-elevated-border);
+  box-shadow: var(--shadow-lg), var(--glass-highlight);
   font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: var(--tracking-tight);
   color: var(--text-primary);
   pointer-events: auto;
+  max-width: min(26rem, calc(100vw - 2rem));
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .w-toast { background: var(--glass-elevated-solid); }
 }
 
 .w-toast__icon { flex-shrink: 0; stroke: currentColor; }
@@ -70,23 +81,26 @@ const icons = {
 .w-toast--warning .w-toast__icon { color: var(--warning); }
 .w-toast--info .w-toast__icon { color: var(--text-muted); }
 
-.w-toast--success { border-color: var(--positive); }
-.w-toast--error { border-color: var(--negative); }
-.w-toast--warning { border-color: var(--warning); }
-.w-toast--info { border-color: var(--neutral); }
+.w-toast--success { border-color: color-mix(in srgb, var(--positive) 40%, var(--glass-elevated-border)); }
+.w-toast--error { border-color: color-mix(in srgb, var(--negative) 40%, var(--glass-elevated-border)); }
+.w-toast--warning { border-color: color-mix(in srgb, var(--warning) 40%, var(--glass-elevated-border)); }
+.w-toast--info { border-color: color-mix(in srgb, var(--neutral) 40%, var(--glass-elevated-border)); }
 
-.toast-enter-active,
+.toast-enter-active {
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-slow) var(--ease-spring);
+}
+
 .toast-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 
 .toast-enter-from {
   opacity: 0;
-  transform: translateY(-12px);
+  transform: translateY(-14px) scale(0.96);
 }
 
 .toast-leave-to {
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translateY(-8px) scale(0.98);
 }
 </style>

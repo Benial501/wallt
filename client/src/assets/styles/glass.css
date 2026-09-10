@@ -1,0 +1,287 @@
+/* =============================================================================
+   WALLT — Sistema di superfici in vetro
+   -----------------------------------------------------------------------------
+   Classi condivise costruite sui token di variables.css. Prima di scrivere una
+   nuova superficie sfocata in un componente, verificare se uno di questi
+   livelli va gia' bene: e' l'unico modo perche' card, modali e barre continuino
+   a sembrare parte della stessa applicazione.
+
+   Livelli disponibili:
+     .glass              card di pagina (primary)
+     .glass--sub         superficie annidata dentro una card (secondary)
+     .glass--elevated    modali, sheet, popover
+     .glass--chrome      barre fisse: sidebar, header, bottom nav
+     .glass-interactive  elemento cliccabile in vetro (chip, bottone secondario)
+
+   Costo: backdrop-filter e' l'effetto piu' caro della pagina. Va messo sulle
+   superfici grandi e ferme, mai su elementi ripetuti decine di volte in una
+   lista o su qualcosa che si anima di continuo.
+   ============================================================================= */
+
+/* -----------------------------------------------------------------------------
+   Sfondo ambientale
+   -------------------------------------------------------------------------- */
+/* Il vetro senza niente dietro e' solo grigio. Queste tre sorgenti luminose,
+   ferme e molto tenui, sono cio' che le superfici traslucide rifrangono.
+   Vivono su un livello -1 sotto al contenuto: body dipinge il proprio colore,
+   poi questo pseudo-elemento, poi #app. Nessuna animazione, nessun costo di
+   ridisegno dopo il primo paint. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* I centri stanno sui bordi del viewport, non fuori: con un inset negativo
+     finirebbero oltre il raggio e non si vedrebbe piu' nulla. */
+  background:
+    radial-gradient(58vmax 52vmax at 6% 0%, var(--ambient-1), transparent 62%),
+    radial-gradient(52vmax 48vmax at 100% 6%, var(--ambient-2), transparent 60%),
+    radial-gradient(64vmax 54vmax at 58% 100%, var(--ambient-3), transparent 62%);
+}
+
+/* I contenitori a tutta pagina non devono ridipingere il fondo: coprirebbero
+   l'alone e il vetro sopra non rifrangerebbe piu' nulla. */
+#app {
+  background: transparent;
+}
+
+/* -----------------------------------------------------------------------------
+   Livelli di vetro
+   -------------------------------------------------------------------------- */
+.glass {
+  background: var(--glass-primary-bg);
+  border: 1px solid var(--glass-primary-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm), var(--glass-highlight);
+  backdrop-filter: blur(var(--blur-md)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--blur-md)) saturate(var(--glass-saturate));
+}
+
+.glass--sub {
+  background: var(--glass-secondary-bg);
+  border-color: var(--glass-secondary-border);
+  box-shadow: none;
+  backdrop-filter: blur(var(--blur-sm)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(var(--glass-saturate));
+}
+
+.glass--elevated {
+  background: var(--glass-elevated-bg);
+  border-color: var(--glass-elevated-border);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--glass-shadow-elevated);
+  backdrop-filter: blur(var(--blur-xl)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--blur-xl)) saturate(var(--glass-saturate));
+}
+
+.glass--chrome {
+  background: var(--glass-chrome-bg);
+  border-color: var(--glass-chrome-border);
+  box-shadow: var(--shadow-sm), var(--glass-highlight);
+  backdrop-filter: blur(var(--blur-lg)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--blur-lg)) saturate(var(--glass-saturate));
+}
+
+/* Ripiego per i browser senza backdrop-filter (Firefox con il flag spento,
+   WebView datate): senza sfocatura la trasparenza va tolta, non attenuata,
+   altrimenti il testo finisce sopra il contenuto sottostante. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass { background: var(--glass-primary-solid); }
+  .glass--sub { background: var(--surface-subtle); }
+  .glass--elevated { background: var(--glass-elevated-solid); }
+  .glass--chrome { background: var(--glass-chrome-solid); }
+}
+
+/* Superficie cliccabile. Nessun backdrop-filter: questi elementi si ripetono
+   molte volte per schermata e il costo non sarebbe giustificato. */
+.glass-interactive {
+  background: var(--glass-interactive-bg);
+  border: 1px solid var(--glass-interactive-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .glass-interactive:hover {
+    background: var(--glass-interactive-bg-hover);
+    border-color: var(--border-strong);
+  }
+}
+
+.glass-interactive:active {
+  background: var(--glass-interactive-bg-active);
+  transform: scale(0.985);
+}
+
+/* -----------------------------------------------------------------------------
+   Overlay dei livelli modali
+   -------------------------------------------------------------------------- */
+/* Non un nero pieno: una velatura sfocata, cosi' la pagina sotto resta
+   percepibile e il pannello sopra sembra sollevato invece che incollato. */
+.glass-overlay {
+  background: var(--overlay);
+  backdrop-filter: blur(6px) saturate(140%);
+  -webkit-backdrop-filter: blur(6px) saturate(140%);
+}
+
+/* -----------------------------------------------------------------------------
+   Focus
+   -------------------------------------------------------------------------- */
+/* Un solo stato di fuoco per tutta l'app, piu' visibile dell'outline di
+   sistema che sostituisce. Solo :focus-visible: chi clicca col mouse non lo
+   vede, chi naviga da tastiera si'. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-green);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* -----------------------------------------------------------------------------
+   Tipografia di base
+   -------------------------------------------------------------------------- */
+/* Gerarchia: piu' il testo e' grande, piu' la crenatura si stringe. E' la
+   regola che distingue un titolo composto da un titolo solo ingrandito. */
+h1, .t-display {
+  letter-spacing: var(--tracking-display);
+  line-height: var(--leading-tight);
+}
+
+h2, h3, .t-title {
+  letter-spacing: var(--tracking-title);
+  line-height: var(--leading-snug);
+}
+
+h4, h5, h6 {
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-snug);
+}
+
+/* Le cifre in colonna devono incolonnarsi: in un'app finanziaria non e' un
+   vezzo tipografico. */
+.tabular-nums,
+.t-numeric {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Occhiello in maiuscoletto spaziato, per le etichette di sezione. */
+.t-eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* -----------------------------------------------------------------------------
+   Controlli nativi
+   --------------------------------------------------------------------------
+   Checkbox, radio, range e selettore colore restano i widget del sistema — piu'
+   accessibili di qualunque replica in CSS — ma prendono il colore dell'app e
+   una dimensione utilizzabile col dito.
+   -------------------------------------------------------------------------- */
+/* Checkbox e radio disegnate a mano: quelle di sistema non prendono il vetro
+   ne' il raggio del resto dell'app. Restano elementi nativi — quindi
+   raggiungibili da tastiera e annunciate dallo screen reader — cambia solo il
+   disegno. accent-color resta come ripiego per i browser che ignorano
+   appearance: none. */
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--accent-green);
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+  display: inline-grid;
+  place-content: center;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--glass-interactive-bg);
+  box-shadow: var(--glass-highlight);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+input[type='radio'] { border-radius: 50%; }
+
+@media (hover: hover) {
+  input[type='checkbox']:hover:not(:disabled),
+  input[type='radio']:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--accent-green) 55%, var(--border-strong));
+  }
+}
+
+input[type='checkbox']:checked,
+input[type='radio']:checked {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+}
+
+/* Il segno di spunta e' un angolo ruotato: nessuna immagine da caricare e
+   scala con la dimensione del controllo. */
+input[type='checkbox']::after {
+  content: '';
+  width: 0.3125rem;
+  height: 0.5625rem;
+  margin-top: -2px;
+  border: solid var(--accent-on);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) scale(0);
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+
+input[type='checkbox']:checked::after { transform: rotate(45deg) scale(1); }
+
+input[type='radio']::after {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--accent-on);
+  transform: scale(0);
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+
+input[type='radio']:checked::after { transform: scale(1); }
+
+input[type='checkbox']:disabled,
+input[type='radio']:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+input[type='range'] {
+  accent-color: var(--accent-green);
+}
+
+/* Il campione di colore diventa una pastiglia coerente con gli altri campi. */
+input[type='color'] {
+  width: 3.25rem;
+  height: 2.5rem;
+  padding: 3px;
+  border: 1px solid var(--glass-interactive-border);
+  border-radius: var(--radius-sm);
+  background: var(--glass-interactive-bg);
+  cursor: pointer;
+}
+input[type='color']::-webkit-color-swatch-wrapper { padding: 0; }
+input[type='color']::-webkit-color-swatch { border: none; border-radius: 6px; }
+
+/* L'icona del calendario e' un bersaglio da toccare: va allargata e resa
+   discreta finche' non ci si passa sopra. */
+::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}

@@ -246,7 +246,7 @@ onMounted(() => obiettiviStore.fetchObiettivi());
 .obj-deadline, .obj-badge { display: inline-flex; align-items: center; gap: 0.375rem; }
 .proiezione-tip { display: flex; align-items: center; gap: 0.5rem; }
 .form-space { display: flex; flex-direction: column; gap: 0.75rem; }
-.form-input { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.75rem; color: var(--text-primary); }
+/* .form-input: aspetto condiviso in assets/styles/main.css */
 .form-input--lg { font-size: 2rem; font-weight: 800; text-align: center; }
 .emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.375rem; }
 .emoji-btn { padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-input); font-size: 1.25rem; cursor: pointer; }

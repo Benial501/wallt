@@ -68,8 +68,8 @@ const backLabel = computed(() => (
 </script>
 
 <template>
-  <div class="min-h-full bg-[var(--bg-primary)] text-[var(--text-primary)]">
-    <header class="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--bg-primary)]/95 backdrop-blur-sm">
+  <div class="min-h-full text-[var(--text-primary)] doc-page">
+    <header class="doc-topbar">
       <div class="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
         <router-link
           to="/"
@@ -99,7 +99,7 @@ const backLabel = computed(() => (
         <p class="text-sm text-[var(--text-muted)] mb-2">
           Ultimo aggiornamento: {{ lastUpdated }}
         </p>
-        <h1 class="text-3xl sm:text-4xl font-bold tracking-tight mb-3">
+        <h1 class="mb-4">
           Informativa sulla Privacy
         </h1>
         <p class="text-[var(--text-secondary)] leading-relaxed">
@@ -361,61 +361,98 @@ const backLabel = computed(() => (
 </template>
 
 <style scoped>
+/* La tipografia di base (h1/h2/h3, misura della riga, interlinea) arriva da
+   .doc-page in assets/styles/documents.css: qui restano solo i blocchi
+   specifici di questa pagina. */
 .privacy-section h2 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin-bottom: 0.75rem;
-  color: var(--text-primary);
+  margin-bottom: 0.875rem;
 }
 
 .section-lead {
   color: var(--text-secondary);
-  margin-bottom: 1rem;
-  line-height: 1.625;
+  margin-bottom: 1.125rem;
 }
 
+/* Riquadro di contenuto: vetro leggero, per staccare un blocco dal flusso
+   del testo senza interromperne la lettura. */
 .privacy-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 1.25rem;
-  line-height: 1.625;
+  background: var(--glass-primary-bg);
+  border: 1px solid var(--glass-primary-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-highlight);
+  backdrop-filter: blur(var(--blur-md)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--blur-md)) saturate(var(--glass-saturate));
+  padding: 1.375rem 1.5rem;
+  font-size: 1rem;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .privacy-card { background: var(--glass-primary-solid); }
 }
 
 .privacy-list {
-  list-style: disc;
-  padding-left: 1.25rem;
-  space-y: 0.5rem;
+  list-style: none;
+  padding-left: 0;
   color: var(--text-secondary);
-  line-height: 1.625;
+  font-size: 1rem;
 }
 
+/* Pallino disegnato invece del marcatore di lista: allineato all'altezza
+   della prima riga anche quando la voce va a capo. */
 .privacy-list li {
-  margin-bottom: 0.5rem;
+  position: relative;
+  padding-left: 1.25rem;
+  margin-bottom: 0.625rem;
+}
+
+.privacy-list li::before {
+  content: '';
+  position: absolute;
+  left: 0.25rem;
+  top: 0.72em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  opacity: 0.7;
 }
 
 .privacy-list strong {
   color: var(--text-primary);
+  font-weight: 600;
 }
 
+/* La tabella scorre dentro al proprio contenitore (overflow-x nel markup):
+   la pagina non deve mai muoversi di lato. */
 .privacy-table {
   width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.9375rem;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 
 .privacy-table th,
 .privacy-table td {
-  padding: 0.75rem 1rem;
+  padding: 0.8125rem 1rem;
   text-align: left;
-  border: 1px solid var(--border);
   vertical-align: top;
+  border-bottom: 1px solid var(--divider);
+  line-height: var(--leading-normal);
+}
+
+.privacy-table tr:last-child td {
+  border-bottom: none;
 }
 
 .privacy-table th {
-  background: var(--bg-card);
+  background: var(--surface-inset);
   color: var(--text-primary);
   font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -423,29 +460,9 @@ const backLabel = computed(() => (
   color: var(--text-secondary);
 }
 
+/* Righe alternate appena percepibili: aiutano a seguire la riga senza
+   trasformare la tabella in una scacchiera. */
 .privacy-table tbody tr:nth-child(even) td {
-  background: var(--bg-secondary);
-}
-
-.privacy-table tbody tr:nth-child(odd) td {
-  background: var(--bg-card);
-}
-
-.wallt-btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.625rem 1.25rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  font-weight: 500;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.wallt-btn-secondary:hover {
-  background: var(--bg-card-hover);
-  border-color: var(--accent-green);
+  background: var(--surface-subtle);
 }
 </style>

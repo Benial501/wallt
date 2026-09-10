@@ -268,7 +268,7 @@ const totaleRimanente = computed(() => totaleBudget.value - budgetStore.totaleSp
 .cat-icon { flex-shrink: 0; color: var(--text-muted); }
 .empty-desc { color: var(--text-secondary); margin: 0.5rem 0 1.5rem; }
 .field-label { display: block; font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 0.5rem; }
-.form-input { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.75rem; color: var(--text-primary); }
+/* .form-input: aspetto condiviso in assets/styles/main.css */
 .form-input--lg { font-size: 1.5rem; font-weight: 700; text-align: center; }
 /* 16px: sotto questa soglia iOS ingrandisce la pagina appena il campo
    prende il fuoco. Vedi la nota in assets/styles/main.css. */

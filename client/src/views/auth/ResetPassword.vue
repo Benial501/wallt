@@ -83,7 +83,7 @@ const handleSubmit = async () => {
 </script>
 
 <template>
-  <div class="flex flex-1 items-center justify-center px-4 py-6 bg-[var(--bg-primary)]">
+  <div class="flex flex-1 items-center justify-center px-4 py-6">
     <div class="w-full max-w-md">
       <div class="text-center mb-8">
         <img src="/brand/wallt-app-icon-96.png" alt="WALLT" class="inline-block w-16 h-16 rounded-2xl mb-4" width="96" height="96">

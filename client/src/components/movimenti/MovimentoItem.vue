@@ -172,7 +172,7 @@ const handleClick = () => {
   overflow: hidden;
   /* Il trascinamento non deve propagarsi allo scroll della pagina. */
   overscroll-behavior-x: contain;
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   margin-bottom: 0.5rem;
 }
 
@@ -182,14 +182,19 @@ const handleClick = () => {
   gap: 0.75rem;
   padding: 0.875rem 1rem;
   min-height: 44px;
-  background: var(--bg-card);
-  background: color-mix(in srgb, var(--bg-card) 90%, transparent);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border);
-  border-radius: 18px;
+  /* Superficie piena, non traslucida: dietro la riga c'e' l'azione "elimina"
+     rivelata dallo swipe, e con un fondo trasparente si vedrebbe in rosso
+     attraverso ogni riga. Niente backdrop-filter nemmeno: in una lista lunga
+     sarebbe l'effetto piu' caro della pagina, ripetuto decine di volte. */
+  background: var(--glass-primary-solid);
+  border: 1px solid var(--glass-primary-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-highlight);
   cursor: pointer;
-  transition: transform 0.2s ease, background-color 0.15s ease, border-color 0.15s ease;
+  transition:
+    transform var(--dur-base) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
   position: relative;
   z-index: 1;
   /* Il browser gestisce da solo lo scorrimento verticale; solo il gesto
@@ -207,8 +212,8 @@ const handleClick = () => {
 .mov-icon {
   width: 38px;
   height: 38px;
-  border-radius: 12px;
-  background: linear-gradient(145deg, var(--bg-input), transparent);
+  border-radius: var(--radius-md);
+  background: var(--glass-interactive-bg);
   border: 1px solid var(--border);
   color: var(--text-secondary);
   display: flex;
@@ -252,10 +257,10 @@ const handleClick = () => {
   z-index: 0;
 }
 
-.mov-item:hover { background-color: var(--bg-card-hover); }
-.mov-item:active { background-color: var(--bg-input); }
+.mov-item:hover { background-color: color-mix(in srgb, var(--glass-primary-solid) 88%, var(--text-primary)); }
+.mov-item:active { background-color: color-mix(in srgb, var(--glass-primary-solid) 82%, var(--text-primary)); }
 .mov-item:focus-visible { outline: 2px solid var(--accent-green); outline-offset: -3px; }
-.is-selected .mov-item { border-color: var(--accent-green); background-color: var(--bg-input); }
+.is-selected .mov-item { border-color: var(--accent-green); background-color: color-mix(in srgb, var(--glass-primary-solid) 88%, var(--accent-green)); }
 /* Su desktop lo spazio del cestino e' riservato in permanenza: l'azione
    compare in dissolvenza al passaggio del mouse senza spostare la riga.
    Prima l'hover traslava l'intera riga di 80px, ed e' esattamente il

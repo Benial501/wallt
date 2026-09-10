@@ -784,12 +784,31 @@ onMounted(async () => {
 
 .select {
   width: 100%;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
+  background: var(--glass-interactive-bg);
+  border: 1px solid var(--glass-interactive-border);
   border-radius: var(--radius-md);
-  padding: 0.5rem 0.75rem;
+  box-shadow: var(--glass-highlight);
+  padding: 0.5rem 2.25rem 0.5rem 0.75rem;
   color: var(--text-primary);
+  min-height: 40px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  /* Stesso chevron in gradienti dei campi .form-select (assets/styles/main.css). */
+  background-image:
+    linear-gradient(45deg, transparent calc(50% - 0.7px), currentColor calc(50% - 0.7px), currentColor calc(50% + 0.7px), transparent calc(50% + 0.7px)),
+    linear-gradient(135deg, transparent calc(50% - 0.7px), currentColor calc(50% - 0.7px), currentColor calc(50% + 0.7px), transparent calc(50% + 0.7px));
+  background-position: right 1.08rem center, right 0.65rem center;
+  background-size: 7px 7px, 7px 7px;
+  background-repeat: no-repeat;
+  transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 }
+.select:focus {
+  outline: none;
+  border-color: var(--accent-green);
+  box-shadow: var(--focus-ring), var(--glass-highlight);
+}
+.select:disabled { opacity: 0.55; cursor: not-allowed; }
 .cat-pill { display: inline-flex; align-items: center; padding: 0.35rem 0.55rem; border-radius: var(--radius-md); border: 1px solid rgba(0, 212, 170, 0.35); background: rgba(0, 212, 170, 0.12); }
 .cat-pill__label { color: var(--accent-green); font-weight: 800; font-size: 0.8125rem; text-transform: capitalize; }
 

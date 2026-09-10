@@ -371,32 +371,39 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
 </template>
 
 <style scoped>
-.form-space { display: flex; flex-direction: column; gap: 1rem; }
-.form-intro { font-size: 0.8125rem; line-height: 1.5; color: var(--text-muted); }
+.form-space { display: flex; flex-direction: column; gap: 1.125rem; }
+.form-intro { font-size: 0.8125rem; line-height: var(--leading-normal); color: var(--text-muted); }
 .prereq {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 0.625rem;
   padding: 0.875rem 1rem;
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(251, 191, 36, 0.35);
-  background: rgba(251, 191, 36, 0.08);
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--warning) 32%, transparent);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
 }
-.prereq__text { font-size: 0.8125rem; line-height: 1.5; color: var(--text-secondary); }
-.field label { display: block; font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 0.375rem; }
-.form-input, .form-select {
-  width: 100%;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 0.75rem 1rem;
-  color: var(--text-primary);
-  font-size: 0.9375rem;
+.prereq__text { font-size: 0.8125rem; line-height: var(--leading-normal); color: var(--text-secondary); }
+.field label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.4375rem;
 }
-.form-input--lg { font-size: 2rem; font-weight: 800; text-align: center; }
-.form-input:focus, .form-select:focus { outline: none; border-color: var(--accent-green); }
-.tipo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+/* .form-input e .form-select: aspetto condiviso in assets/styles/main.css.
+   Qui restano solo le varianti specifiche del form movimento. */
+.form-input--lg {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-display);
+  text-align: center;
+  padding: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+.tipo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; }
 .tipo-btn {
   display: flex;
   flex-direction: column;
@@ -404,28 +411,41 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
   justify-content: center;
   gap: 0.5rem;
   padding: 1.5rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--bg-input);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-interactive-border);
+  background: var(--glass-interactive-bg);
+  box-shadow: var(--glass-highlight);
   color: var(--text-primary);
-  font-size: 1rem;
+  font-size: 0.9375rem;
+  font-weight: 550;
   cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
+@media (hover: hover) {
+  .tipo-btn:hover { background: var(--glass-interactive-bg-hover); }
+}
+.tipo-btn:active { transform: scale(0.98); }
 .tipo-btn svg { color: var(--accent-green); stroke: currentColor; }
-.tipo-btn.active { border-color: var(--accent-green); background: var(--accent-light); }
-.cat-btn {
-  display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
-  padding: 0.625rem 0.25rem; border-radius: var(--radius-sm);
-  border: 1px solid var(--border); background: var(--bg-input);
-  cursor: pointer; color: var(--text-secondary);
-}
-.cat-btn.active { border-color: var(--cat-color, var(--accent-green)); background: rgba(0,212,170,0.1); color: var(--accent-green); }
+.tipo-btn.active { border-color: color-mix(in srgb, var(--accent-green) 55%, transparent); background: var(--accent-light); }
+
+/* --- Selettore categoria -------------------------------------------------
+   E' il controllo piu' usato del form: griglia scorrevole con ricerca sopra.
+   Lo stato selezionato si legge dal bordo tinto e dalla pastiglia dell'icona,
+   non da un fondo pieno che coprirebbe l'etichetta. */
 .cat-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.5rem;
+  gap: 0.4375rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
   max-height: 250px;
   overflow-y: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-secondary-border);
+  background: var(--glass-secondary-bg);
   /* Per le regole CSS sull'overflow, impostare solo overflow-y a un valore
      diverso da visible porta overflow-x ad "auto": la griglia diventava
      trascinabile lateralmente. Va dichiarato esplicitamente. */
@@ -435,6 +455,25 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
   overscroll-behavior: contain;
   touch-action: pan-y;
 }
+.cat-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 0.3125rem;
+  padding: 0.625rem 0.25rem; border-radius: var(--radius-md);
+  border: 1px solid transparent; background: transparent;
+  cursor: pointer; color: var(--text-secondary);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) {
+  .cat-btn:hover { background: var(--glass-interactive-bg); }
+}
+.cat-btn:active { transform: scale(0.95); }
+.cat-btn.active {
+  border-color: color-mix(in srgb, var(--cat-color, var(--accent-green)) 45%, transparent);
+  background: color-mix(in srgb, var(--cat-color, var(--accent-green)) 12%, transparent);
+  color: var(--text-primary);
+}
 /* Un grid item vale di default min-width: auto, quindi una categoria dal
    nome lungo allargava la colonna oltre 1fr e mandava la griglia in
    overflow orizzontale. E' la causa vera del trascinamento laterale. */
@@ -443,33 +482,45 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
    squadrata, fondo tinto dal colore dell'elemento, bordo sottile e riflesso
    interno. Cambiano solo le proporzioni, il linguaggio e' quello. */
 .cat-btn__icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 11px;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
   color: var(--text-primary);
-  background: color-mix(in srgb, var(--cat-color, var(--accent-green)) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--cat-color, var(--accent-green)) 18%, var(--border));
+  background: color-mix(in srgb, var(--cat-color, var(--accent-green)) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cat-color, var(--accent-green)) 20%, var(--border));
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%);
   flex-shrink: 0;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
 }
 .cat-btn.active .cat-btn__icon {
-  background: color-mix(in srgb, var(--cat-color, var(--accent-green)) 18%, transparent);
-  border-color: color-mix(in srgb, var(--cat-color, var(--accent-green)) 40%, var(--border));
+  background: color-mix(in srgb, var(--cat-color, var(--accent-green)) 24%, transparent);
+  border-color: color-mix(in srgb, var(--cat-color, var(--accent-green)) 50%, var(--border));
 }
 .cat-label {
   font-size: 0.625rem;
+  line-height: 1.25;
   color: var(--text-muted);
   text-align: center;
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.transfer-arrow { text-align: center; font-size: 1.5rem; color: var(--accent-green); }
+.cat-btn.active .cat-label { color: var(--text-primary); font-weight: 600; }
+.transfer-arrow { text-align: center; font-size: 1.25rem; color: var(--accent-green); opacity: 0.7; }
 .error-text { color: var(--negative); font-size: 0.8125rem; margin-top: 0.25rem; }
 /* Lo spazio resta occupato anche senza messaggio: comparendo e sparendo
    spingerebbe in basso i campi sottostanti. */
 .error-text--reserved { min-height: 1.125rem; }
-.toggle-label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
-.ricorrente-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem; }
+/* Piu' specifica di `.field label`, altrimenti erediterebbe il maiuscoletto
+   delle etichette di campo: qui l'etichetta e' una frase, non un titolo. */
+.field .toggle-label {
+  display: flex; align-items: center; gap: 0.625rem; cursor: pointer;
+  font-size: 0.875rem; font-weight: 400; color: var(--text-primary);
+  text-transform: none; letter-spacing: var(--tracking-tight);
+  margin-bottom: 0;
+}
+.ricorrente-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.625rem; }
 </style>

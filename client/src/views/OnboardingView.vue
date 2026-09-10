@@ -649,23 +649,21 @@ watch(() => form.value.paga_bollette, (val) => {
 </template>
 
 <style scoped>
+/* Lo sfondo e' quello ambientale di tutta l'app (assets/styles/glass.css):
+   prima qui c'era un gradiente scuro fisso, che ignorava il tema chiaro, e
+   un'animazione infinita di 8 secondi sempre in esecuzione. */
 .onboarding-bg {
-  background: linear-gradient(135deg, #0A0A0F 0%, #1A1A2E 50%, #0A0A0F 100%);
-  background-size: 200% 200%;
-  animation: gradientShift 8s ease infinite;
-}
-
-@keyframes gradientShift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  background: transparent;
 }
 
 .progress-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--border);
-  transition: all 0.3s ease;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+  transition:
+    width var(--dur-slow) var(--ease-out),
+    background var(--dur-base) var(--ease-out);
 }
 
 .progress-dot.active {
@@ -674,45 +672,58 @@ watch(() => form.value.paga_bollette, (val) => {
 
 .progress-dot.current {
   width: 24px;
-  border-radius: 5px;
-  box-shadow: 0 0 8px var(--accent-green-glow);
 }
 
+/* Pastiglia di scelta: vetro interattivo, piena quando e' selezionata. */
 .pill-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
+  min-height: 40px;
   padding: 0.625rem 1rem;
-  border-radius: 9999px;
-  border: 1px solid var(--border);
-  background: var(--bg-input);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-interactive-border);
+  background: var(--glass-interactive-bg);
+  box-shadow: var(--glass-highlight);
   color: var(--text-secondary);
   font-size: 0.8125rem;
+  font-weight: 550;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
-.pill-btn:hover {
-  border-color: var(--accent-green);
-  color: var(--text-primary);
+@media (hover: hover) {
+  .pill-btn:hover:not(.selected) {
+    background: var(--glass-interactive-bg-hover);
+    border-color: color-mix(in srgb, var(--accent-green) 40%, transparent);
+    color: var(--text-primary);
+  }
 }
+
+.pill-btn:active { transform: scale(0.97); }
 
 .pill-btn.selected {
   background: var(--accent-green);
-  color: #0A0A0F;
-  border-color: var(--accent-green);
+  color: var(--accent-on);
+  border-color: transparent;
   font-weight: 600;
+  box-shadow: var(--shadow-xs), inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 .step-title {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 1.25rem;
+  font-size: 1.375rem;
   font-weight: 700;
+  letter-spacing: var(--tracking-title);
   color: var(--text-primary);
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.375rem;
 }
 
 .step-title svg, .option-icon {
@@ -722,87 +733,105 @@ watch(() => form.value.paga_bollette, (val) => {
 }
 
 .pill-btn.selected .option-icon {
-  color: #0A0A0F;
+  color: var(--accent-on);
 }
 
+/* Riga di scelta a tutta larghezza: stessa grammatica della pastiglia, in
+   formato lista. */
 .option-btn {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   width: 100%;
+  min-height: 52px;
   padding: 0.875rem 1rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--bg-input);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-interactive-border);
+  background: var(--glass-interactive-bg);
+  box-shadow: var(--glass-highlight);
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   cursor: pointer;
-  transition: all 0.2s ease;
   text-align: left;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
-.option-btn:hover {
-  border-color: var(--accent-green);
-  color: var(--text-primary);
+@media (hover: hover) {
+  .option-btn:hover:not(.selected) {
+    background: var(--glass-interactive-bg-hover);
+    border-color: color-mix(in srgb, var(--accent-green) 35%, transparent);
+    color: var(--text-primary);
+  }
 }
+
+.option-btn:active { transform: scale(0.99); }
 
 .option-btn.selected {
   background: var(--accent-light);
-  border-color: var(--accent-green);
+  border-color: color-mix(in srgb, var(--accent-green) 55%, transparent);
   color: var(--text-primary);
+  font-weight: 550;
 }
 
 .nav-btn-next {
-  padding: 0.625rem 1.25rem;
+  min-height: 44px;
+  padding: 0.625rem 1.5rem;
   border-radius: var(--radius-md);
-  background: var(--accent-green);
-  color: #0A0A0F;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--accent-green) 92%, white),
+    var(--accent-green));
+  color: var(--accent-on);
   font-size: 0.875rem;
   font-weight: 600;
+  letter-spacing: var(--tracking-tight);
   border: none;
   cursor: pointer;
-  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition:
+    box-shadow var(--dur-base) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out),
+    filter var(--dur-fast) var(--ease-out);
 }
 
-.nav-btn-next:hover:not(:disabled) {
-  box-shadow: var(--shadow-glow);
-  transform: translateY(-1px);
+@media (hover: hover) {
+  .nav-btn-next:hover:not(:disabled) {
+    box-shadow: var(--shadow-glow), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    transform: translateY(-1px);
+    filter: brightness(1.04);
+  }
 }
+
+.nav-btn-next:active:not(:disabled) { transform: scale(0.985); }
 
 .nav-btn-next:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.wallt-btn-secondary {
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.wallt-btn-secondary:hover:not(:disabled) {
-  border-color: var(--accent-green);
-}
+/* .wallt-btn-secondary: aspetto condiviso in assets/styles/documents.css */
 
 .wallt-btn-ghost {
+  min-height: 44px;
   padding: 0.75rem 1.5rem;
   border-radius: var(--radius-md);
   border: none;
   background: transparent;
   color: var(--text-muted);
   font-size: 0.875rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: color 0.2s ease;
+  transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
 
-.wallt-btn-ghost:hover:not(:disabled) {
-  color: var(--text-secondary);
+@media (hover: hover) {
+  .wallt-btn-ghost:hover:not(:disabled) {
+    color: var(--text-primary);
+    background: var(--surface-hover);
+  }
 }
 
 .step-container {
@@ -813,26 +842,33 @@ watch(() => form.value.paga_bollette, (val) => {
 .slide-forward-leave-active,
 .slide-back-enter-active,
 .slide-back-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
 
 .slide-forward-enter-from {
   opacity: 0;
-  transform: translateX(30px);
+  transform: translateX(24px);
 }
 
 .slide-forward-leave-to {
   opacity: 0;
-  transform: translateX(-30px);
+  transform: translateX(-24px);
 }
 
 .slide-back-enter-from {
   opacity: 0;
-  transform: translateX(-30px);
+  transform: translateX(-24px);
 }
 
 .slide-back-leave-to {
   opacity: 0;
-  transform: translateX(30px);
+  transform: translateX(24px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slide-forward-enter-from,
+  .slide-forward-leave-to,
+  .slide-back-enter-from,
+  .slide-back-leave-to { transform: none; }
 }
 </style>

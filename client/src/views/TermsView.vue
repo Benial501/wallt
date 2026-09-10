@@ -51,8 +51,8 @@ const backLabel = computed(() => (
 </script>
 
 <template>
-  <div class="min-h-full bg-[var(--bg-primary)] text-[var(--text-primary)]">
-    <header class="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--bg-primary)]/95 backdrop-blur-sm">
+  <div class="min-h-full text-[var(--text-primary)] doc-page">
+    <header class="doc-topbar">
       <div class="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
         <router-link
           to="/"
@@ -82,7 +82,7 @@ const backLabel = computed(() => (
         <p class="text-sm text-[var(--text-muted)] mb-2">
           Ultimo aggiornamento: {{ lastUpdated }}
         </p>
-        <h1 class="text-3xl sm:text-4xl font-bold tracking-tight mb-3">
+        <h1 class="mb-4">
           Termini e Condizioni d'uso
         </h1>
         <p class="text-[var(--text-secondary)] leading-relaxed">
@@ -360,71 +360,91 @@ const backLabel = computed(() => (
 </template>
 
 <style scoped>
+/* La tipografia di base (h1/h2/h3, misura della riga, interlinea) arriva da
+   .doc-page in assets/styles/documents.css: qui restano solo i blocchi
+   specifici di questa pagina. */
 .legal-section h2 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin-bottom: 0.75rem;
-  color: var(--text-primary);
+  margin-bottom: 0.875rem;
 }
 
 .section-lead {
   color: var(--text-secondary);
-  margin-bottom: 1rem;
-  line-height: 1.625;
+  margin-bottom: 1.125rem;
 }
 
+/* Riquadro di contenuto: vetro leggero, per staccare un blocco dal flusso
+   del testo senza interromperne la lettura. */
 .legal-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 1.25rem;
-  line-height: 1.625;
+  background: var(--glass-primary-bg);
+  border: 1px solid var(--glass-primary-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-highlight);
+  backdrop-filter: blur(var(--blur-md)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--blur-md)) saturate(var(--glass-saturate));
+  padding: 1.375rem 1.5rem;
+  font-size: 1rem;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .legal-card { background: var(--glass-primary-solid); }
 }
 
+/* Richiamo: stesso vetro, ma con una barra colorata a sinistra invece di un
+   fondo pieno — si nota senza gridare. */
 .notice-box {
-  padding: 1rem 1.125rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(0, 212, 170, 0.25);
+  position: relative;
+  padding: 1.125rem 1.25rem 1.125rem 1.5rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--accent-green) 22%, transparent);
   background: var(--accent-light);
   color: var(--text-secondary);
-  font-size: 0.9375rem;
-  line-height: 1.625;
+  font-size: 1rem;
+  overflow: hidden;
+}
+
+.notice-box::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent-green);
 }
 
 .notice-box strong {
   color: var(--text-primary);
+  font-weight: 600;
 }
 
 .legal-list {
-  list-style: disc;
-  padding-left: 1.25rem;
+  list-style: none;
+  padding-left: 0;
   color: var(--text-secondary);
-  line-height: 1.625;
+  font-size: 1rem;
 }
 
+/* Pallino disegnato invece del marcatore di lista: allineato all'altezza
+   della prima riga anche quando la voce va a capo. */
 .legal-list li {
-  margin-bottom: 0.5rem;
+  position: relative;
+  padding-left: 1.25rem;
+  margin-bottom: 0.625rem;
+}
+
+.legal-list li::before {
+  content: '';
+  position: absolute;
+  left: 0.25rem;
+  top: 0.72em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  opacity: 0.7;
 }
 
 .legal-list strong {
   color: var(--text-primary);
-}
-
-.wallt-btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.625rem 1.25rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  font-weight: 500;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.wallt-btn-secondary:hover {
-  background: var(--bg-card-hover);
-  border-color: var(--accent-green);
+  font-weight: 600;
 }
 </style>

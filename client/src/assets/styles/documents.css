@@ -1,0 +1,98 @@
+/* =============================================================================
+   WALLT — Pagine testuali
+   -----------------------------------------------------------------------------
+   Privacy Policy, Termini, Contatto: pagine lunghe da leggere, non da usare.
+   Qui la priorita' e' la leggibilita' — misura della riga, ritmo verticale,
+   gerarchia dei titoli — e il vetro compare solo dove serve a separare un
+   blocco dal fondo.
+   ============================================================================= */
+
+/* Barra superiore condivisa: vetro "chrome", come sidebar e bottom nav. */
+.doc-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid var(--glass-chrome-border);
+  background: var(--glass-chrome-bg);
+  backdrop-filter: blur(var(--blur-lg)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--blur-lg)) saturate(var(--glass-saturate));
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .doc-topbar { background: var(--glass-chrome-solid); }
+}
+
+/* Il corpo del documento. 17px con interlinea generosa e' la combinazione che
+   regge la lettura di un testo legale lungo su schermo. */
+.doc-page {
+  font-size: 1.0625rem;
+  line-height: var(--leading-relaxed);
+  letter-spacing: var(--tracking-normal);
+}
+
+.doc-page h1 {
+  font-weight: 700;
+  letter-spacing: var(--tracking-display);
+  line-height: var(--leading-tight);
+  /* Il titolo di una pagina lunga puo' respirare oltre i 30px senza gridare. */
+  font-size: clamp(2rem, 4.5vw, 2.5rem);
+}
+
+.doc-page h2 {
+  font-size: 1.3125rem;
+  font-weight: 650;
+  letter-spacing: var(--tracking-title);
+  line-height: var(--leading-snug);
+  color: var(--text-primary);
+}
+
+.doc-page h3 {
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
+}
+
+/* Misura della riga: oltre le ~72 battute l'occhio perde la riga successiva.
+   Vale per i paragrafi e le liste, non per tabelle e card a griglia. */
+.doc-page p,
+.doc-page li {
+  max-width: 72ch;
+}
+
+.doc-page a {
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+}
+
+/* Bottone secondario delle pagine legali: stesso vetro interattivo dei
+   controlli in app, cosi' i due mondi non sembrano due prodotti. */
+.wallt-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-interactive-border);
+  background: var(--glass-interactive-bg);
+  box-shadow: var(--glass-highlight);
+  color: var(--text-primary);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .wallt-btn-secondary:hover {
+    background: var(--glass-interactive-bg-hover);
+    border-color: color-mix(in srgb, var(--accent-green) 45%, transparent);
+  }
+}
+
+.wallt-btn-secondary:active {
+  transform: scale(0.97);
+}

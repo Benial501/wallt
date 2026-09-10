@@ -844,7 +844,8 @@ const eliminaAccountOAuth = async () => {
 .theme-icon-svg { stroke: currentColor; color: var(--accent-green); }
 .toggle-row { display: flex; align-items: center; gap: 0.5rem; }
 .section-body { padding: 0 1.25rem 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
-.form-input { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.75rem 1rem; color: var(--text-primary); font-size: 16px; min-height: 44px; }
+/* .form-input: aspetto condiviso in assets/styles/main.css */
+.form-input { min-height: 44px; }
 .profilo-summary { font-size: 0.875rem; color: var(--text-secondary); }
 .conti-mini-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
 .conti-mini-list li { display: flex; align-items: center; gap: 0.625rem; padding: 0.625rem 0.75rem; border-radius: var(--radius-md); background: var(--bg-input); font-size: 0.875rem; }

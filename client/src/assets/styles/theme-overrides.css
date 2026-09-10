@@ -1,4 +1,7 @@
-/* Global light-mode polish for shared UI patterns */
+/* Ritocchi per tema chiaro sui pattern condivisi.
+   Qui sta solo cio' che non si puo' esprimere con un token: widget nativi che
+   ignorano le variabili CSS e icone che devono cambiare colore per restare
+   leggibili. Tutto il resto vive in variables.css. */
 
 html.light input,
 html.light select,
@@ -6,37 +9,33 @@ html.light textarea {
   color-scheme: light;
 }
 
+/* La tendina di una select e' disegnata dal sistema operativo: non eredita
+   ne' il vetro ne' i token del resto dell'app. */
 html.light select option {
   background: #FFFFFF;
   color: #0F172A;
 }
 
+/* L'icona del calendario e' una bitmap del browser: sul tema scuro va
+   invertita, altrimenti resta nera su fondo scuro. */
 html.light ::-webkit-calendar-picker-indicator {
   filter: none;
-  opacity: 0.65;
+  opacity: 0.6;
 }
 
 html.dark ::-webkit-calendar-picker-indicator {
   filter: invert(1);
-  opacity: 0.7;
+  opacity: 0.6;
 }
 
 html.light .logo-ll {
   color: var(--accent-green);
 }
 
-/* Lucide icons inherit readable colors in light mode */
+/* Le icone Lucide ereditano currentColor: sul chiaro serve un grigio leggibile. */
 html.light .app-icon,
 html.light .category-icon {
   color: var(--text-secondary);
-}
-
-html.light .bottom-nav__item.active .bottom-nav__icon-svg {
-  filter: none;
-}
-
-html.light .funz-grid__item--active .funz-grid__icon {
-  filter: none;
 }
 
 html.light .sidebar__link.active .sidebar__icon {

@@ -438,18 +438,41 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
 }
 .anno-filtro__label { font-size: 0.8125rem; color: var(--text-secondary); font-weight: 600; }
 .anno-filtro__select { min-width: 120px; }
-.add-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--accent-green); border: none; font-size: 1.5rem; cursor: pointer; color: var(--accent-on); }
+.add-btn {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-green) 92%, white), var(--accent-green));
+  border: none; font-size: 1.5rem; line-height: 1; cursor: pointer; color: var(--accent-on);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  transition: filter var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) { .add-btn:hover { filter: brightness(1.06); transform: translateY(-1px); } }
+.add-btn:active { transform: scale(0.94); }
 .filtri-section { margin-bottom: 1.25rem; }
 .filtri-toggle { background: none; border: none; color: var(--text-secondary); cursor: pointer; margin-bottom: 0.5rem; font-size: 0.875rem; }
 .filtri { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 @media (max-width: 767px) { .filtri:not(.open) { display: none; } }
 .filtro-tabs { display: flex; gap: 0.375rem; }
 .filtro-tabs button {
-  padding: 0.5rem 0.875rem; border-radius: 999px; border: 1px solid var(--border);
-  background: var(--bg-input); color: var(--text-secondary); font-size: 0.8125rem; cursor: pointer;
+  padding: 0.5rem 1rem; border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-interactive-border);
+  background: var(--glass-interactive-bg); box-shadow: var(--glass-highlight);
+  color: var(--text-secondary); font-size: 0.8125rem; font-weight: 550; cursor: pointer;
   min-height: 44px;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
-.filtro-tabs button.active { background: var(--accent-green); color: var(--accent-on); border-color: var(--accent-green); font-weight: 600; }
+@media (hover: hover) {
+  .filtro-tabs button:hover:not(.active) { background: var(--glass-interactive-bg-hover); color: var(--text-primary); }
+}
+.filtro-tabs button:active { transform: scale(0.97); }
+.filtro-tabs button.active {
+  background: var(--accent-green); color: var(--accent-on);
+  border-color: transparent; font-weight: 600;
+  box-shadow: var(--shadow-xs), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
 .filtro-tabs--periodo { flex-wrap: wrap; }
 .range-filtro {
   display: flex;
@@ -464,37 +487,79 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
 .range-filtro__field { display: flex; flex-direction: column; gap: 0.25rem; }
 .range-filtro__label { font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; }
 .range-filtro__input {
-  background: var(--bg-card, var(--bg-input));
-  border: 1px solid var(--border);
+  background: var(--glass-interactive-bg);
+  border: 1px solid var(--glass-interactive-border);
   border-radius: var(--radius-md);
+  box-shadow: var(--glass-highlight);
   padding: 0.5rem 0.75rem;
   color: var(--text-primary);
   font-size: 0.875rem;
   min-height: 44px;
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+}
+.range-filtro__input:focus {
+  outline: none;
+  border-color: var(--accent-green);
+  box-shadow: var(--focus-ring), var(--glass-highlight);
 }
 .range-filtro__btn {
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 1.25rem;
   border-radius: var(--radius-md);
   border: none;
-  background: var(--accent-green);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-green) 92%, white), var(--accent-green));
   color: var(--accent-on);
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   min-height: 44px;
+  box-shadow: var(--shadow-xs), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition: filter var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
+@media (hover: hover) { .range-filtro__btn:hover { filter: brightness(1.05); } }
+.range-filtro__btn:active { transform: scale(0.97); }
 /* 16px: sotto questa soglia iOS ingrandisce la pagina appena il select
    prende il fuoco. Vedi la nota in assets/styles/main.css. */
-.filtro-select { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.375rem 0.75rem; color: var(--text-primary); font-size: 16px; }
+.filtro-select {
+  background: var(--glass-interactive-bg);
+  border: 1px solid var(--glass-interactive-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--glass-highlight);
+  padding: 0.5rem 2.25rem 0.5rem 0.875rem;
+  color: var(--text-primary);
+  font-size: 16px;
+  min-height: 44px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  /* Stesso chevron in gradienti dei campi .form-select (assets/styles/main.css). */
+  background-image:
+    linear-gradient(45deg, transparent calc(50% - 0.7px), currentColor calc(50% - 0.7px), currentColor calc(50% + 0.7px), transparent calc(50% + 0.7px)),
+    linear-gradient(135deg, transparent calc(50% - 0.7px), currentColor calc(50% - 0.7px), currentColor calc(50% + 0.7px), transparent calc(50% + 0.7px));
+  background-position: right 1.08rem center, right 0.65rem center;
+  background-size: 7px 7px, 7px 7px;
+  background-repeat: no-repeat;
+  transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+.filtro-select:focus {
+  outline: none;
+  border-color: var(--accent-green);
+  box-shadow: var(--focus-ring), var(--glass-highlight);
+}
 .results-meta { margin: 0 0 1rem; font-size: 0.8125rem; color: var(--text-secondary); }
 .load-more { display: flex; justify-content: center; margin: 1.5rem 0; }
 .load-more__btn {
-  padding: 0.75rem 1.25rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--bg-input);
+  padding: 0.75rem 1.5rem;
+  min-height: 44px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-interactive-border);
+  background: var(--glass-interactive-bg);
+  box-shadow: var(--glass-highlight);
   color: var(--text-primary);
   font-weight: 600;
   cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) {
+  .load-more__btn:hover:not(:disabled) { background: var(--glass-interactive-bg-hover); border-color: var(--border-strong); }
 }
 .load-more__btn:disabled { opacity: 0.6; cursor: wait; }
 .gruppo { margin-bottom: 1.5rem; }

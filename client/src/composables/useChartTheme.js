@@ -10,7 +10,10 @@ export function useChartTheme() {
   const chartColors = computed(() => ({
     grid: getCssVar('--border') || 'rgba(255,255,255,0.06)',
     text: getCssVar('--text-secondary') || '#8E8EA0',
-    tooltipBg: getCssVar('--bg-card') || '#1C1C28',
+    // Il tooltip viene disegnato su canvas: non puo' sfocare cio' che ha
+    // dietro, quindi gli serve una tinta piena. --bg-card fa parte della
+    // scala del vetro ed e' traslucido: qui sarebbe illeggibile.
+    tooltipBg: getCssVar('--glass-elevated-solid') || '#191924',
     tooltipText: getCssVar('--text-primary') || '#FFFFFF',
   }));
 

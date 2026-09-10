@@ -1,13 +1,36 @@
+/* =============================================================================
+   WALLT — Design tokens
+   -----------------------------------------------------------------------------
+   Unica sorgente di verita' per colore, vetro, raggi, ombre, tipografia e
+   motion. Ogni componente deve leggere da qui: se un valore si ripete in due
+   file scoped, va promosso a token invece di essere duplicato.
+
+   Il sistema del vetro ha quattro livelli, in ordine di elevazione percepita:
+
+     --glass-secondary-*  superfici annidate, riquadri interni, righe di lista
+     --glass-primary-*    card di pagina, il livello piu' usato
+     --glass-chrome-*     barre fisse (sidebar, header, bottom nav)
+     --glass-elevated-*   modali, bottom sheet, popover: sopra tutto il resto
+
+   Regola: piu' un livello e' in alto, piu' e' opaco. Sopra un modale si legge
+   del testo, quindi la trasparenza li' e' un accento, non la sostanza.
+   ============================================================================= */
+
 :root,
 html.dark {
   color-scheme: dark;
 
-  --bg-primary: #000000;
+  --bg-primary: #06060A;
   --bg-secondary: #0F172A;
-  --bg-card: #1C1C28;
-  --bg-card-hover: #242436;
-  --bg-input: #16161F;
-  --border: rgba(255, 255, 255, 0.08);
+  /* --bg-card / --bg-input non sono piu' tinte piene: valgono gli stessi
+     valori del vetro "primary" e "interactive". Cosi' ogni superficie scritta
+     prima del sistema del vetro entra nel linguaggio comune senza pagare un
+     backdrop-filter — che resta riservato alle superfici grandi e ferme. */
+  --bg-card: rgba(255, 255, 255, 0.055);
+  --bg-card-hover: rgba(255, 255, 255, 0.085);
+  --bg-input: rgba(255, 255, 255, 0.05);
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.16);
   --border-focus: #00D4AA;
 
   --text-primary: #FFFFFF;
@@ -15,6 +38,7 @@ html.dark {
   --text-muted: #6B6B80;
   --text-subtle: #94A3B8;
   --text-link: #74B9FF;
+  --text-on-glass: #F5F5FA;
 
   --accent-green: #00D4AA;
   --accent-hover: #00B894;
@@ -29,52 +53,89 @@ html.dark {
   --accent-purple: #6C5CE7;
   --accent-blue: #74B9FF;
 
-  --surface-hover: rgba(255, 255, 255, 0.04);
-  --surface-subtle: rgba(255, 255, 255, 0.03);
+  --surface-hover: rgba(255, 255, 255, 0.05);
+  --surface-subtle: rgba(255, 255, 255, 0.035);
   --surface-inset: rgba(255, 255, 255, 0.05);
-  --surface-elevated: rgba(255, 255, 255, 0.06);
+  --surface-elevated: rgba(255, 255, 255, 0.07);
   --divider: rgba(255, 255, 255, 0.08);
   --chart-track: rgba(255, 255, 255, 0.1);
-  --ring-center: #000000;
+  --ring-center: #06060A;
 
-  --glass-bg: rgba(255, 255, 255, 0.06);
-  --glass-border: rgba(255, 255, 255, 0.12);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  /* --- Vetro: livelli ----------------------------------------------------- */
+  --glass-primary-bg: rgba(255, 255, 255, 0.055);
+  --glass-primary-border: rgba(255, 255, 255, 0.10);
+
+  --glass-secondary-bg: rgba(255, 255, 255, 0.03);
+  --glass-secondary-border: rgba(255, 255, 255, 0.07);
+
+  --glass-elevated-bg: rgba(22, 22, 32, 0.82);
+  --glass-elevated-border: rgba(255, 255, 255, 0.14);
+
+  --glass-chrome-bg: rgba(10, 10, 16, 0.72);
+  --glass-chrome-border: rgba(255, 255, 255, 0.09);
+
+  --glass-interactive-bg: rgba(255, 255, 255, 0.05);
+  --glass-interactive-bg-hover: rgba(255, 255, 255, 0.085);
+  --glass-interactive-bg-active: rgba(255, 255, 255, 0.12);
+  --glass-interactive-border: rgba(255, 255, 255, 0.10);
+
+  /* Riflesso sul bordo superiore: e' cio' che fa leggere una superficie come
+     vetro invece che come pannello semitrasparente. Va sempre in inset. */
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  --glass-highlight-strong: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+
+  /* Versioni piene degli stessi livelli. Servono in due casi: dove
+     backdrop-filter non e' supportato (senza sfocatura una superficie al 5%
+     di bianco sarebbe illeggibile) e dove sotto la superficie c'e' qualcosa
+     che non deve trasparire — per esempio l'azione "elimina" nascosta dietro
+     una riga di movimento. Devono restare completamente opache. */
+  --glass-primary-solid: #171720;
+  --glass-elevated-solid: #191924;
+  --glass-chrome-solid: #0A0A10;
+
+  /* Alone ambientale della pagina: tre sorgenti luminose molto tenui che danno
+     al vetro qualcosa da rifrangere. Nessuna animazione, e' un'immagine ferma. */
+  --ambient-1: rgba(0, 212, 170, 0.15);
+  --ambient-2: rgba(108, 92, 231, 0.14);
+  --ambient-3: rgba(116, 185, 255, 0.09);
 
   --nav-item: #64748B;
   --nav-active-bg: rgba(0, 212, 170, 0.14);
   --nav-active-glow: rgba(0, 212, 170, 0.22);
 
   --sidebar-active-bg: rgba(0, 212, 170, 0.1);
-  --sidebar-hover-bg: rgba(255, 255, 255, 0.04);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.05);
 
-  --cta-bg: #E8E8ED;
-  --cta-bg-hover: #F2F2F7;
+  /* Pastiglia ad alto contrasto della dashboard: chiara sul buio, scura sul
+     chiaro. Il contrasto e' la gerarchia — non serve un colore in piu'. */
+  --cta-bg: #F0F0F5;
+  --cta-bg-hover: #FFFFFF;
   --cta-text: #0A0A0F;
 
-  --overlay: rgba(0, 0, 0, 0.6);
+  --overlay: rgba(4, 6, 12, 0.55);
 
-  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 20px rgba(0, 212, 170, 0.15);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.32);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.38);
+  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.46);
+  --shadow-xl: 0 32px 80px rgba(0, 0, 0, 0.56);
+  --shadow-card: var(--shadow-md);
+  --shadow-glow: 0 6px 20px rgba(0, 212, 170, 0.22);
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  --glass-shadow: var(--shadow-md), var(--glass-highlight);
+  --glass-shadow-elevated: var(--shadow-xl), var(--glass-highlight-strong);
 }
 
 html.light {
   color-scheme: light;
 
-  --bg-primary: #F1F5F9;
+  --bg-primary: #EEF1F6;
   --bg-secondary: #FFFFFF;
-  --bg-card: #FFFFFF;
-  --bg-card-hover: #F8FAFC;
-  --bg-input: #FFFFFF;
-  --border: #E2E8F0;
+  --bg-card: rgba(255, 255, 255, 0.72);
+  --bg-card-hover: rgba(255, 255, 255, 0.92);
+  --bg-input: rgba(255, 255, 255, 0.62);
+  --border: rgba(15, 23, 42, 0.09);
+  --border-strong: rgba(15, 23, 42, 0.16);
   --border-focus: #00A884;
 
   --text-primary: #0F172A;
@@ -82,6 +143,7 @@ html.light {
   --text-muted: #64748B;
   --text-subtle: #64748B;
   --text-link: #2563EB;
+  --text-on-glass: #0F172A;
 
   --accent-green: #00A884;
   --accent-hover: #008F72;
@@ -96,34 +158,137 @@ html.light {
   --accent-purple: #7C3AED;
   --accent-blue: #2563EB;
 
-  --surface-hover: #F1F5F9;
-  --surface-subtle: #F8FAFC;
-  --surface-inset: #EEF2F7;
+  --surface-hover: rgba(15, 23, 42, 0.045);
+  --surface-subtle: rgba(15, 23, 42, 0.025);
+  --surface-inset: rgba(15, 23, 42, 0.04);
   --surface-elevated: #FFFFFF;
-  --divider: #E2E8F0;
-  --chart-track: #E2E8F0;
+  --divider: rgba(15, 23, 42, 0.08);
+  --chart-track: rgba(15, 23, 42, 0.1);
   --ring-center: #FFFFFF;
 
-  --glass-bg: rgba(255, 255, 255, 0.94);
-  --glass-border: rgba(15, 23, 42, 0.08);
-  --glass-shadow: 0 4px 24px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --glass-primary-bg: rgba(255, 255, 255, 0.72);
+  --glass-primary-border: rgba(255, 255, 255, 0.9);
+
+  --glass-secondary-bg: rgba(255, 255, 255, 0.5);
+  --glass-secondary-border: rgba(15, 23, 42, 0.06);
+
+  --glass-elevated-bg: rgba(255, 255, 255, 0.88);
+  --glass-elevated-border: rgba(255, 255, 255, 0.95);
+
+  --glass-chrome-bg: rgba(250, 251, 253, 0.78);
+  --glass-chrome-border: rgba(15, 23, 42, 0.07);
+
+  --glass-interactive-bg: rgba(255, 255, 255, 0.62);
+  --glass-interactive-bg-hover: rgba(255, 255, 255, 0.92);
+  --glass-interactive-bg-active: rgba(255, 255, 255, 1);
+  --glass-interactive-border: rgba(15, 23, 42, 0.08);
+
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --glass-highlight-strong: inset 0 1px 0 rgba(255, 255, 255, 1);
+
+  --glass-primary-solid: #FFFFFF;
+  --glass-elevated-solid: #FFFFFF;
+  --glass-chrome-solid: #FAFBFD;
+
+  --ambient-1: rgba(0, 168, 132, 0.16);
+  --ambient-2: rgba(124, 58, 237, 0.11);
+  --ambient-3: rgba(37, 99, 235, 0.10);
 
   --nav-item: #64748B;
   --nav-active-bg: rgba(0, 168, 132, 0.12);
   --nav-active-glow: rgba(0, 168, 132, 0.16);
 
-  --sidebar-active-bg: rgba(0, 168, 132, 0.08);
-  --sidebar-hover-bg: #F1F5F9;
+  --sidebar-active-bg: rgba(0, 168, 132, 0.09);
+  --sidebar-hover-bg: rgba(15, 23, 42, 0.045);
 
-  --cta-bg: #FFFFFF;
-  --cta-bg-hover: #F8FAFC;
-  --cta-text: #0F172A;
+  --cta-bg: #111827;
+  --cta-bg-hover: #1F2937;
+  --cta-text: #FFFFFF;
 
-  --overlay: rgba(15, 23, 42, 0.35);
+  --overlay: rgba(15, 23, 42, 0.28);
 
-  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.06);
-  --shadow-glow: 0 4px 16px rgba(0, 168, 132, 0.15);
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
-  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.1);
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.07), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.10), 0 2px 8px rgba(15, 23, 42, 0.05);
+  --shadow-xl: 0 30px 70px rgba(15, 23, 42, 0.14), 0 4px 12px rgba(15, 23, 42, 0.06);
+  --shadow-card: var(--shadow-md);
+  --shadow-glow: 0 6px 20px rgba(0, 168, 132, 0.22);
+
+  --glass-shadow: var(--shadow-md), var(--glass-highlight);
+  --glass-shadow-elevated: var(--shadow-xl), var(--glass-highlight-strong);
+}
+
+/* =============================================================================
+   Token non tematizzati: identici in chiaro e in scuro.
+   ============================================================================= */
+:root {
+  /* --- Tipografia --------------------------------------------------------- */
+  /* SF su Apple, Inter altrove: la resa e' nativa dove il sistema ha un font
+     migliore, coerente dove non ce l'ha. Inter e' gia' caricato in index.html,
+     non serve nessuna dipendenza nuova. */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter',
+    system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --tracking-display: -0.028em;
+  --tracking-title: -0.021em;
+  --tracking-tight: -0.012em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+  --tracking-caps: 0.06em;
+
+  --leading-tight: 1.18;
+  --leading-snug: 1.35;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  /* --- Raggi -------------------------------------------------------------- */
+  --radius-xs: 8px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-2xl: 28px;
+  --radius-pill: 999px;
+
+  /* --- Sfocatura ---------------------------------------------------------- */
+  /* Scala volutamente corta: piu' valori diversi in giro significano solo
+     superfici che sembrano appartenere ad app diverse. */
+  --blur-sm: 12px;
+  --blur-md: 20px;
+  --blur-lg: 30px;
+  --blur-xl: 44px;
+
+  /* Saturazione: senza di essa il vetro spegne i colori dietro e sembra
+     plastica opaca. E' il dettaglio che rende la resa "di sistema". */
+  --glass-saturate: 180%;
+
+  /* --- Spaziature --------------------------------------------------------- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+
+  /* --- Motion ------------------------------------------------------------- */
+  /* ease-out e' la curva di decelerazione tipica delle transizioni di sistema:
+     parte veloce e si posa. ease-spring aggiunge un rientro appena percepibile
+     e va usata solo su comparse (modali, sheet), mai su hover. */
+  --ease-out: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.28, 0.64, 1);
+
+  --dur-instant: 90ms;
+  --dur-fast: 150ms;
+  --dur-base: 220ms;
+  --dur-slow: 320ms;
+
+  /* --- Focus -------------------------------------------------------------- */
+  /* Anello unico per tutta l'app: sostituisce l'outline di sistema con
+     qualcosa di piu' visibile, non con qualcosa di meno. */
+  --focus-ring: 0 0 0 3.5px color-mix(in srgb, var(--accent-green) 32%, transparent);
+  --focus-ring-tight: 0 0 0 2.5px color-mix(in srgb, var(--accent-green) 34%, transparent);
 }

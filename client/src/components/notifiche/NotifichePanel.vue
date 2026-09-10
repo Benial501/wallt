@@ -174,20 +174,32 @@ onBeforeUnmount(() => {
   inset: 0;
   z-index: 1050;
   background: var(--overlay);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
   display: flex;
   align-items: flex-end;
   justify-content: center;
 }
 
+/* Livello "elevated": il pannello sta sopra tutta l'app, quindi e' la
+   superficie piu' opaca — qui si legge, non si guarda attraverso. */
 .notifiche-panel {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-height: 85vh;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 24px 24px 0 0;
+  max-height: min(85vh, 85dvh);
+  background: var(--glass-elevated-bg);
+  backdrop-filter: blur(var(--blur-xl)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--blur-xl)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-elevated-border);
+  border-bottom: none;
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  box-shadow: var(--glass-shadow-elevated);
   overflow: hidden;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .notifiche-panel { background: var(--glass-elevated-solid); }
 }
 
 .notifiche-panel__header {
@@ -196,7 +208,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 0.75rem;
   padding: 1rem 1.25rem 0.75rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--divider);
 }
 
 .notifiche-panel__titolo {
@@ -204,8 +216,9 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.5rem;
   margin: 0;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 1.0625rem;
+  font-weight: 650;
+  letter-spacing: var(--tracking-title);
   color: var(--text-primary);
 }
 
@@ -236,12 +249,19 @@ onBeforeUnmount(() => {
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
-.notifiche-panel__icon-btn:hover {
-  background: var(--surface-subtle);
-  color: var(--text-primary);
+@media (hover: hover) {
+  .notifiche-panel__icon-btn:hover {
+    background: var(--glass-interactive-bg-hover);
+    color: var(--text-primary);
+  }
 }
+
+.notifiche-panel__icon-btn:active { transform: scale(0.92); }
 
 .notifiche-panel__lista {
   flex: 1;
@@ -290,7 +310,7 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: 0.5rem;
   padding: 0.75rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--divider);
 }
 
 .notifiche-panel__azione {
@@ -298,24 +318,41 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.375rem;
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-subtle);
+  border: 1px solid var(--glass-interactive-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-interactive-bg);
   color: var(--text-secondary);
   font-size: 0.8125rem;
+  font-weight: 550;
   cursor: pointer;
   min-height: 36px;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
-.notifiche-panel__azione:hover {
-  color: var(--text-primary);
-  border-color: rgba(0, 168, 132, 0.35);
+@media (hover: hover) {
+  .notifiche-panel__azione:hover {
+    color: var(--text-primary);
+    background: var(--glass-interactive-bg-hover);
+    border-color: color-mix(in srgb, var(--accent-green) 35%, transparent);
+  }
 }
 
 .notifiche-fade-enter-active,
-.notifiche-fade-leave-active { transition: opacity 200ms ease-out; }
+.notifiche-fade-leave-active { transition: opacity var(--dur-base) var(--ease-out); }
+.notifiche-fade-enter-active .notifiche-panel { transition: transform var(--dur-slow) var(--ease-spring); }
+.notifiche-fade-leave-active .notifiche-panel { transition: transform var(--dur-fast) var(--ease-out); }
 .notifiche-fade-enter-from,
 .notifiche-fade-leave-to { opacity: 0; }
+.notifiche-fade-enter-from .notifiche-panel,
+.notifiche-fade-leave-to .notifiche-panel { transform: translateY(100%); }
+
+@media (prefers-reduced-motion: reduce) {
+  .notifiche-fade-enter-from .notifiche-panel,
+  .notifiche-fade-leave-to .notifiche-panel { transform: none; }
+}
 
 /* Su desktop il pannello è un popover ancorato alla campanella in sidebar. */
 @media (min-width: 768px) {
@@ -323,6 +360,11 @@ onBeforeUnmount(() => {
     align-items: flex-start;
     justify-content: flex-start;
     background: transparent;
+    /* Su desktop questo e' un popover ancorato alla campanella, non un foglio
+       a tutta pagina: sfocare l'intera schermata per un pannello di 380px
+       sarebbe sproporzionato — e caro. */
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .notifiche-panel {
@@ -331,8 +373,17 @@ onBeforeUnmount(() => {
     bottom: 24px;
     width: 380px;
     max-height: min(560px, 80vh);
-    border-radius: var(--radius-lg);
-    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--glass-elevated-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--glass-shadow-elevated);
+  }
+
+  /* Ancorato alla campanella: si apre scostandosi di poco da sinistra,
+     come un menu di sistema. */
+  .notifiche-fade-enter-from .notifiche-panel,
+  .notifiche-fade-leave-to .notifiche-panel {
+    transform: translateX(-8px) scale(0.97);
+    transform-origin: left bottom;
   }
 }
 </style>

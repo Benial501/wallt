@@ -115,8 +115,9 @@ const hasMovimenti = computed(() => props.movimenti.length > 0);
 }
 
 .recent-tx__title {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.0625rem;
+  font-weight: 650;
+  letter-spacing: var(--tracking-title);
   color: var(--text-primary);
 }
 
@@ -136,33 +137,42 @@ const hasMovimenti = computed(() => props.movimenti.length > 0);
   gap: 0.625rem;
 }
 
+/* Riga di lista, non card: vetro interattivo senza backdrop-filter, perche'
+   se ne disegnano molte per schermata. */
 .recent-tx__item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   width: 100%;
   padding: 0.875rem 1rem;
-  border-radius: 16px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-primary-bg);
+  border: 1px solid var(--glass-primary-border);
   cursor: pointer;
   text-align: left;
-  transition: background 300ms ease-out, transform 300ms ease-out;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-xs), var(--glass-highlight);
+  transition:
+    background var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
-.recent-tx__item:hover {
-  background: var(--bg-card-hover);
+@media (hover: hover) {
+  .recent-tx__item:hover {
+    background: var(--glass-interactive-bg-hover);
+    border-color: var(--border-strong);
+  }
 }
 
 .recent-tx__item:active {
   transform: scale(0.99);
+  transition-duration: var(--dur-instant);
 }
 
 .recent-tx__avatar {
   width: 40px;
   height: 40px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -268,7 +278,7 @@ const hasMovimenti = computed(() => props.movimenti.length > 0);
 
 .recent-tx__skeleton {
   height: 72px;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
 }
 
 .tabular-nums {

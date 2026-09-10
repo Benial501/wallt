@@ -21,7 +21,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col bg-[var(--bg-primary)]">
+  <div class="min-h-screen flex flex-col">
     <main class="flex flex-1 flex-col">
       <RouterView />
     </main>

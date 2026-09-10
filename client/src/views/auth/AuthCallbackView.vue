@@ -77,7 +77,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  background: var(--bg-primary);
+  background: transparent;
   color: var(--text-secondary);
 }
 

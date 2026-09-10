@@ -1,5 +1,7 @@
 @import './variables.css';
 @import './animations.css';
+@import './glass.css';
+@import './documents.css';
 @import './theme-overrides.css';
 
 @tailwind base;
@@ -24,9 +26,12 @@
        le regole piu' strette gia' presenti sui componenti continuano a
        valere (pan-y sulle righe movimento, none sul dialog a tutto schermo). */
     touch-action: pan-x pan-y;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    /* Stack definito in variables.css: SF dove il sistema ce l'ha, Inter
+       altrove. Non scriverlo a mano nei componenti. */
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   body {
@@ -34,6 +39,8 @@
     color: var(--text-primary);
     min-height: 100vh;
     overflow-x: hidden;
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-normal);
   }
 
   /* Barra di scorrimento nascosta ovunque: documento, pannelli, bottom sheet,
@@ -85,57 +92,180 @@
   input, button, textarea, select {
     font-family: inherit;
   }
+
+  /* Le cifre monetarie sono ovunque nell'app: incolonnarle di default evita
+     che ogni componente debba ricordarselo. */
+  input[type='number'] {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 @layer components {
+  /* ---------------------------------------------------------------------------
+     Card
+     ------------------------------------------------------------------------ */
   .wallt-card {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-card);
+    background: var(--glass-primary-bg);
+    border: 1px solid var(--glass-primary-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-sm), var(--glass-highlight);
+    backdrop-filter: blur(var(--blur-md)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--blur-md)) saturate(var(--glass-saturate));
   }
 
-  .wallt-input {
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .wallt-card { background: var(--glass-primary-solid); }
+  }
+
+  /* ---------------------------------------------------------------------------
+     Campi
+     ---------------------------------------------------------------------------
+     Definizione unica per tutti i campi dell'app. I componenti che usavano
+     .form-input / .form-select con la propria copia delle stesse proprieta'
+     sono stati ripuliti: aggiungere qui, non li'. Nelle SFC le regole scoped
+     hanno specificita' maggiore e ridichiararle spegnerebbe questa.
+     ------------------------------------------------------------------------ */
+  .wallt-input,
+  .form-input,
+  .form-select,
+  .form-textarea {
     width: 100%;
-    background-color: var(--bg-input);
-    border: 1px solid var(--border);
+    background: var(--glass-interactive-bg);
+    border: 1px solid var(--glass-interactive-border);
     border-radius: var(--radius-md);
-    padding: 0.75rem 1rem 0.75rem 2.75rem;
+    padding: 0.75rem 1rem;
     color: var(--text-primary);
     font-size: 0.9375rem;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    line-height: 1.4;
+    box-shadow: var(--glass-highlight);
+    transition:
+      border-color var(--dur-fast) var(--ease-out),
+      background var(--dur-fast) var(--ease-out),
+      box-shadow var(--dur-base) var(--ease-out);
+    -webkit-appearance: none;
+    appearance: none;
   }
 
-  .wallt-input:focus {
+  /* Il campo di ricerca globale conserva il padding a sinistra per l'icona. */
+  .wallt-input {
+    padding-left: 2.75rem;
+  }
+
+  @media (hover: hover) {
+    .wallt-input:hover:not(:focus):not(:disabled),
+    .form-input:hover:not(:focus):not(:disabled),
+    .form-select:hover:not(:focus):not(:disabled),
+    .form-textarea:hover:not(:focus):not(:disabled) {
+      border-color: var(--border-strong);
+    }
+  }
+
+  /* Fuoco alla maniera di sistema: la superficie si schiarisce appena, il
+     bordo si definisce e attorno compare un alone morbido. Nessun lampo. */
+  .wallt-input:focus,
+  .form-input:focus,
+  .form-select:focus,
+  .form-textarea:focus {
     outline: none;
-    border-color: var(--border-focus);
-    box-shadow: 0 0 0 3px var(--accent-light);
+    background: var(--glass-interactive-bg-hover);
+    border-color: var(--accent-green);
+    box-shadow: var(--focus-ring), var(--glass-highlight);
   }
 
-  .wallt-input::placeholder {
+  .wallt-input::placeholder,
+  .form-input::placeholder,
+  .form-textarea::placeholder {
     color: var(--text-muted);
   }
 
+  .wallt-input:disabled,
+  .form-input:disabled,
+  .form-select:disabled,
+  .form-textarea:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  /* Chevron disegnato in CSS al posto della freccia di sistema: e' l'unico
+     modo perche' la select somigli al resto dei campi su tutte le
+     piattaforme. Lo spazio a destra e' riservato di conseguenza. */
+  .form-select,
+  select.wallt-input,
+  select.form-input {
+    padding-right: 2.5rem;
+    /* Due tratti diagonali sottili che si incontrano: un chevron, non il
+       triangolo pieno del widget di sistema. Disegnati con i gradienti perche'
+       una select non ammette pseudo-elementi. */
+    background-image:
+      linear-gradient(45deg, transparent calc(50% - 0.7px), currentColor calc(50% - 0.7px), currentColor calc(50% + 0.7px), transparent calc(50% + 0.7px)),
+      linear-gradient(135deg, transparent calc(50% - 0.7px), currentColor calc(50% - 0.7px), currentColor calc(50% + 0.7px), transparent calc(50% + 0.7px));
+    background-position:
+      right 1.28rem center,
+      right 0.85rem center;
+    background-size: 7px 7px, 7px 7px;
+    background-repeat: no-repeat;
+    cursor: pointer;
+  }
+
+  /* Il gradiente del chevron sostituirebbe il fondo: va riaffermato come
+     ultimo livello della pila di background. */
+  .form-select,
+  select.wallt-input,
+  select.form-input {
+    background-color: var(--glass-interactive-bg);
+  }
+
+  .form-select:focus,
+  select.wallt-input:focus,
+  select.form-input:focus {
+    background-color: var(--glass-interactive-bg-hover);
+  }
+
+  .form-textarea,
+  textarea.wallt-input,
+  textarea.form-input {
+    resize: vertical;
+    line-height: var(--leading-normal);
+  }
+
+  /* ---------------------------------------------------------------------------
+     Bottoni
+     ------------------------------------------------------------------------ */
   .wallt-btn-primary {
     width: 100%;
-    background: linear-gradient(135deg, var(--accent-green), var(--accent-hover));
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--accent-green) 92%, white),
+      var(--accent-green));
     color: var(--accent-on);
     font-weight: 600;
     font-size: 0.9375rem;
+    letter-spacing: var(--tracking-tight);
     padding: 0.875rem 1.5rem;
     border: none;
     border-radius: var(--radius-md);
     cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.2s;
+    box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    transition:
+      transform var(--dur-fast) var(--ease-out),
+      box-shadow var(--dur-base) var(--ease-out),
+      filter var(--dur-fast) var(--ease-out);
   }
 
-  .wallt-btn-primary:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-glow);
+  @media (hover: hover) {
+    .wallt-btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-glow), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+      filter: brightness(1.04);
+    }
+  }
+
+  .wallt-btn-primary:active:not(:disabled) {
+    transform: scale(0.985);
+    box-shadow: var(--shadow-xs), inset 0 1px 0 rgba(255, 255, 255, 0.18);
   }
 
   .wallt-btn-primary:disabled {
-    opacity: 0.6;
+    opacity: 0.5;
     cursor: not-allowed;
   }
 }

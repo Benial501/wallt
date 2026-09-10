@@ -487,7 +487,8 @@ const hasData = computed(() =>
   background: var(--accent-green); color: var(--accent-on); border-color: var(--accent-green); font-weight: 600;
 }
 .custom-dates { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-.form-input { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.625rem; color: var(--text-primary); font-size: 16px; min-height: 44px; }
+/* .form-input: aspetto condiviso in assets/styles/main.css */
+.form-input { min-height: 44px; }
 .chart-card { margin-bottom: 1rem; }
 .chart-skeleton { min-height: 220px; border-radius: var(--radius-lg); }
 .donut-wrap { position: relative; max-width: 280px; margin: 0 auto; }

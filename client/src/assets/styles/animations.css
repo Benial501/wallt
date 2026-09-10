@@ -30,7 +30,7 @@
 
 .page-enter-active,
 .page-leave-active {
-  transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
 
 .page-enter-from {
@@ -45,7 +45,7 @@
 
 /* Navigazione interna app: solo fade-in, niente out-in (evita schermate nere) */
 .route-in-enter-active {
-  transition: opacity 140ms ease, transform 140ms ease;
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 
 .route-in-enter-from {
@@ -58,13 +58,18 @@
   transform: translateY(0);
 }
 
+/* Il riflesso deve leggersi anche sul vetro: --bg-card e' traslucido, quindi
+   qui si parte da una base opaca e ci si passa sopra una banda chiara. */
 .skeleton {
-  background: linear-gradient(90deg,
-    var(--bg-card) 25%,
-    var(--bg-card-hover) 50%,
-    var(--bg-card) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  background:
+    linear-gradient(90deg,
+      transparent 25%,
+      var(--surface-elevated) 50%,
+      transparent 75%),
+    var(--glass-primary-solid);
+  background-size: 200% 100%, auto;
+  animation: shimmer 1.6s var(--ease-in-out) infinite;
+  border-radius: var(--radius-md);
 }
 
 .animate-slide-up {
@@ -100,7 +105,7 @@
 .w-card-hoverable:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
-  transition: all 250ms ease;
+  transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -94,7 +94,7 @@ const primoNome = computed(() => authStore.user?.nome?.split(' ')[0] || 'Utente'
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #10B981;
+  background: var(--positive);
   border: 2px solid var(--bg-primary);
 }
 </style>

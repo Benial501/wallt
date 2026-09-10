@@ -331,30 +331,42 @@ onMounted(async () => {
   margin-bottom: 0.625rem;
 }
 
+/* L'azione principale della dashboard: pastiglia ad alto contrasto, chiara
+   sul tema scuro e scura sul chiaro. La gerarchia arriva dal contrasto, non
+   da un colore acceso in piu'. */
 .dashboard-view__cta {
   display: block;
   width: 100%;
+  min-height: 52px;
   padding: 1rem 1.5rem;
   margin-bottom: 1.25rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
+  border: none;
+  border-radius: var(--radius-pill);
   background: var(--cta-bg);
   color: var(--cta-text);
   font-size: 0.9375rem;
   font-weight: 600;
+  letter-spacing: var(--tracking-tight);
   font-family: inherit;
   cursor: pointer;
-  transition: transform 300ms ease-out, background 300ms ease-out;
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    background var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
   box-shadow: var(--shadow-sm);
 }
 
-.dashboard-view__cta:hover {
-  background: var(--cta-bg-hover);
-  transform: translateY(-1px);
+@media (hover: hover) {
+  .dashboard-view__cta:hover {
+    background: var(--cta-bg-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
 }
 
 .dashboard-view__cta:active {
-  transform: scale(0.99);
+  transform: scale(0.985);
+  box-shadow: var(--shadow-xs);
 }
 
 @media (min-width: 768px) {

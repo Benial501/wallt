@@ -72,8 +72,8 @@ const submit = async () => {
 </script>
 
 <template>
-  <div class="min-h-full bg-[var(--bg-primary)] text-[var(--text-primary)]">
-    <header class="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--bg-primary)]/95 backdrop-blur-sm">
+  <div class="min-h-full text-[var(--text-primary)] doc-page">
+    <header class="doc-topbar">
       <div class="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
         <router-link to="/" class="flex items-center gap-2 shrink-0">
           <img src="/brand/wallt-app-icon-96.png" alt="WALLT" class="w-9 h-9 rounded-xl" width="96" height="96">
@@ -95,6 +95,7 @@ const submit = async () => {
     </header>
 
     <main class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+      <p class="contatto__eyebrow">Supporto</p>
       <h1 class="contatto__title">Contatta WALLT</h1>
       <p class="contatto__lead">
         Scrivi al team senza aprire il tuo programma di posta. Se non riesci ad accedere
@@ -112,7 +113,7 @@ const submit = async () => {
 
       <form v-else class="contatto__card" :aria-busy="sending" @submit.prevent="submit">
         <fieldset :disabled="sending" class="contatto__fields">
-          <div>
+          <div class="contatto__field">
             <label for="contatto-email">La tua email</label>
             <input
               id="contatto-email" v-model="email" type="email" class="wallt-input"
@@ -124,21 +125,21 @@ const submit = async () => {
               È l'indirizzo a cui risponderemo: controlla che sia scritto bene.
             </p>
           </div>
-          <div>
+          <div class="contatto__field">
             <label for="contatto-categoria">Categoria</label>
             <select id="contatto-categoria" v-model="category" class="wallt-input" required>
               <option disabled value="">Seleziona una categoria</option>
               <option v-for="item in SUPPORT_CATEGORIES" :key="item" :value="item">{{ item }}</option>
             </select>
           </div>
-          <div>
+          <div class="contatto__field">
             <label for="contatto-oggetto">Oggetto</label>
             <input
               id="contatto-oggetto" v-model="subject" class="wallt-input"
               required :maxlength="SUBJECT_MAX" placeholder="Descrivi brevemente la richiesta"
             >
           </div>
-          <div>
+          <div class="contatto__field">
             <label for="contatto-messaggio">Messaggio</label>
             <textarea
               id="contatto-messaggio" v-model="message" class="wallt-input"
@@ -165,22 +166,106 @@ const submit = async () => {
 </template>
 
 <style scoped>
-.contatto__title { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.01em; }
-.contatto__lead { color: var(--text-secondary); font-size: 0.9375rem; line-height: 1.6; margin: 0.75rem 0 2rem; max-width: 46ch; }
-.contatto__card { background: var(--bg-secondary, var(--bg-primary)); border: 1px solid var(--border); border-radius: var(--radius-lg, 16px); padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
-.contatto__fields { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 1.25rem; }
-label { display: block; margin-bottom: 0.375rem; color: var(--text-primary); font-weight: 600; font-size: 0.8125rem; }
-.wallt-input { width: 100%; padding-left: 1rem; }
-textarea { resize: vertical; min-height: 160px; }
-.contatto__hint { margin-top: 0.375rem; color: var(--text-muted); font-size: 0.75rem; line-height: 1.5; }
-.contatto__error { color: var(--accent-red, #dc2626); font-size: 0.875rem; margin: 0; }
-.contatto__submit { align-self: flex-start; }
-.contatto__done-title { font-size: 1.125rem; font-weight: 700; margin-bottom: 0.5rem; }
-.contatto__done { color: var(--text-secondary); font-size: 0.9375rem; line-height: 1.6; }
-.contatto__done-action { align-self: flex-start; margin-top: 0.5rem; }
-@media (max-width: 480px) {
-  .contatto__card { padding: 1.25rem; }
+.contatto__eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--accent-green);
+  margin-bottom: 0.5rem;
+}
+.contatto__title {
+  font-size: clamp(1.875rem, 4.5vw, 2.375rem);
+  font-weight: 700;
+  letter-spacing: var(--tracking-display);
+  line-height: var(--leading-tight);
+}
+.contatto__lead {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: var(--leading-relaxed);
+  margin: 0.875rem 0 2rem;
+  max-width: 52ch;
+}
+
+/* Livello "elevated": il modulo e' il soggetto della pagina, quindi e' la
+   superficie piu' definita. Il resto della pagina gli fa da sfondo. */
+.contatto__card {
+  background: var(--glass-elevated-bg);
+  backdrop-filter: blur(var(--blur-lg)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--blur-lg)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-elevated-border);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-lg), var(--glass-highlight);
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .contatto__card { background: var(--glass-elevated-solid); }
+}
+
+.contatto__fields { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 1.375rem; }
+.contatto__fields:disabled { opacity: 0.6; }
+
+/* I campi sono separati da una linea sottilissima invece che dal solo spazio:
+   il modulo si legge come un elenco di voci, non come quattro riquadri. */
+.contatto__field + .contatto__field {
+  padding-top: 1.375rem;
+  border-top: 1px solid var(--divider);
+  margin-top: -0.375rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.875rem;
+  letter-spacing: var(--tracking-tight);
+}
+
+/* Nessun padding a sinistra per l'icona: qui i campi non hanno un'icona. */
+.wallt-input { padding-left: 1rem; }
+textarea.wallt-input { resize: vertical; min-height: 170px; padding-top: 0.875rem; }
+
+.contatto__hint {
+  margin-top: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: var(--leading-normal);
+}
+
+.contatto__error {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.75rem 0.9375rem;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--negative) 35%, transparent);
+  background: color-mix(in srgb, var(--negative) 10%, transparent);
+  color: var(--negative);
+  font-size: 0.875rem;
+  line-height: var(--leading-normal);
+}
+
+.contatto__submit { align-self: flex-start; min-width: 12rem; }
+
+.contatto__done { color: var(--text-secondary); font-size: 1rem; line-height: var(--leading-relaxed); }
+.contatto__done-title {
+  font-size: 1.25rem;
+  font-weight: 650;
+  letter-spacing: var(--tracking-title);
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+.contatto__done-action { align-self: flex-start; margin-top: 0.25rem; }
+
+@media (max-width: 640px) {
+  .contatto__card { padding: 1.25rem; border-radius: var(--radius-xl); }
   .contatto__submit, .contatto__done-action { width: 100%; }
+  /* 16px: sotto questa soglia iOS ingrandisce la pagina al fuoco del campo. */
   input, select, textarea { font-size: 16px; }
 }
 </style>
