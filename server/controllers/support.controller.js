@@ -14,7 +14,10 @@ const sendSupport = async (req, res) => {
     // Non registrare errori SMTP grezzi: possono contenere credenziali o dati
     // utente. Il solo `reason` basta a distinguere configurazione mancante,
     // credenziali rifiutate e rete bloccata, e non lascia mai il server.
-    logWarn('Invio email supporto non riuscito', { reason: error?.reason || 'unknown' });
+    const reason = error?.reason || 'unknown';
+    // Il motivo sta anche nel testo del messaggio: diversi visualizzatori di log
+    // collassano `meta`, e lo renderebbero illeggibile proprio quando serve.
+    logWarn(`Invio email supporto non riuscito [${reason}]`, { reason });
     return res.status(502).json({ error: 'Non siamo riusciti a inviare la richiesta. Riprova.' });
   }
 };
