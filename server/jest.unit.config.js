@@ -16,6 +16,7 @@ module.exports = {
     '<rootDir>/tests/cron.test.js',
     '<rootDir>/tests/avatarImage.test.js',
     '<rootDir>/tests/welcomeEmail.test.js',
+    '<rootDir>/tests/supportEmail.test.js',
   ],
   testTimeout: 20000,
   verbose: true,

@@ -620,3 +620,10 @@ tutta la cascata di categorizzazione (`CategoryMatcherService._finalize`).
 | `GET /obiettivi/:id/proiezione` senza validateIdParam | Low | ID non validato come intero |
 | GET endpoints senza query validation | Low | `movimenti`, `analisi`, `bilancio` — parsing difensivo nei controller |
 | Nessuna OpenAPI/Swagger spec | Info | Documentazione solo in codice e questi docs |
+
+## Assistenza email
+
+`POST /api/support` — JWT obbligatorio, categoria/oggetto/messaggio validati,
+3 tentativi ogni 15 minuti per utente. Invia la richiesta tramite SMTP PEC Aruba
+e una conferma all'email dell'utente letta dal database. Nessuna tabella ticket
+aggiuntiva. Contratto, errori e configurazione: [SUPPORT.md](SUPPORT.md).

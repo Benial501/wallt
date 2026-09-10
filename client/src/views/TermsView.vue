@@ -8,8 +8,8 @@ const authStore = useAuthStore();
 
 const companyName = import.meta.env.VITE_COMPANY_NAME || 'WALLT';
 const companyAddress = import.meta.env.VITE_COMPANY_ADDRESS || '[Indirizzo da configurare]';
-const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL || 'support@wallt.app';
-const legalEmail = import.meta.env.VITE_LEGAL_EMAIL || 'legal@wallt.app';
+const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL || 'support@pec.wallt.it';
+const legalEmail = import.meta.env.VITE_LEGAL_EMAIL || 'support@pec.wallt.it';
 
 const lastUpdated = '14 luglio 2026';
 

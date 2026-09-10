@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import WCard from '@/components/common/WCard.vue';
+import SupportContact from '@/components/help/SupportContact.vue';
 import WButton from '@/components/common/WButton.vue';
 import { useHelpStore } from '@/stores/help.store';
 import { HELP_SECTIONS, getHelpTopic } from '@/content/helpTopics';
@@ -57,6 +58,8 @@ const riattivaPrimiPassi = () => {
         non c'è nessun collegamento automatico con la banca.
       </p>
     </header>
+
+    <SupportContact />
 
     <WCard class="indice">
       <p class="indice__title">Indice</p>

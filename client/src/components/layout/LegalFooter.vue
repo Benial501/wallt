@@ -1,5 +1,7 @@
 <script setup>
-const contactEmail = import.meta.env.VITE_SUPPORT_EMAIL || 'support@wallt.app';
+import { useAuthStore } from '@/stores/auth.store';
+const auth = useAuthStore();
+const contactEmail = import.meta.env.VITE_SUPPORT_EMAIL || 'support@pec.wallt.it';
 const year = new Date().getFullYear();
 
 const linkClass = 'text-xs sm:text-sm text-[var(--text-muted)] hover:text-[var(--accent-green)] transition-colors';
@@ -41,7 +43,14 @@ const linkClass = 'text-xs sm:text-sm text-[var(--text-muted)] hover:text-[var(-
           aria-hidden="true"
         >·</span>
 
+        <RouterLink
+          v-if="auth.user"
+          to="/aiuto#supporto"
+          class="px-0 sm:px-3"
+          :class="linkClass"
+        >Contatta il supporto</RouterLink>
         <a
+          v-else
           :href="`mailto:${contactEmail}`"
           class="px-0 sm:px-3"
           :class="linkClass"

@@ -4,6 +4,24 @@ WALLT usa il proprio backend Express/JWT per registrazione e recupero password.
 Supabase ospita PostgreSQL; Supabase Auth, i suoi template e Custom SMTP non
 intervengono in questi flussi e non richiedono configurazione.
 
+## Contatti pubblici
+
+Il recapito per assistenza, privacy e comunicazioni legali è
+`support@pec.wallt.it` (PEC Aruba). È usato nel footer condiviso, anche nelle
+pagine di accesso, e nelle pagine Privacy Policy e Termini e Condizioni.
+
+Il frontend usa questo indirizzo come valore predefinito. Le variabili
+`VITE_SUPPORT_EMAIL`, `VITE_COMPANY_EMAIL` e `VITE_LEGAL_EMAIL`, se presenti,
+hanno precedenza: impostarle tutte a `support@pec.wallt.it` anche nell'ambiente
+di deploy e ricostruire il frontend per applicare eventuali modifiche.
+Il mittente automatico Resend resta `noreply@auth.wallt.it`.
+
+## Assistenza in-app
+
+Gli utenti autenticati possono inviare richieste da **Aiuto → Contatta il supporto**
+tramite SMTP PEC Aruba. Configurazione, endpoint e limiti sono in [SUPPORT.md](SUPPORT.md).
+Questo flusso è separato dagli invii Resend descritti sotto.
+
 ## Produzione
 
 - Dominio Resend: `auth.wallt.it`, verificato il 9 settembre 2026, regione Irlanda.
