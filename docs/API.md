@@ -623,6 +623,12 @@ tutta la cascata di categorizzazione (`CategoryMatcherService._finalize`).
 
 ## Assistenza email
 
+`POST /api/contatto` — **pubblico, senza autenticazione**. Email dichiarata dal
+mittente (non verificata), categoria/oggetto/messaggio validati, 3 tentativi ogni
+15 minuti per indirizzo IP. Inoltra al supporto segnalando che il mittente non e'
+autenticato; non invia alcuna conferma all'indirizzo dichiarato, per non farne un
+amplificatore di spam. Solo `POST`, altrimenti `405`.
+
 `POST /api/support` — JWT obbligatorio, categoria/oggetto/messaggio validati,
 3 tentativi ogni 15 minuti per utente. Invia la richiesta tramite Resend
 e una conferma all'email dell'utente letta dal database. Nessuna tabella ticket

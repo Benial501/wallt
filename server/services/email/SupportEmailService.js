@@ -1,4 +1,5 @@
 const EmailService = require('./EmailService');
+const { buildSupportConfirmationEmail } = require('./templates/SupportConfirmationTemplate');
 const { Validator: { isEmail } } = require('sequelize');
 const { version } = require('../../package.json');
 
@@ -58,12 +59,8 @@ const sendSupportRequest = async ({ user, category, subject, message }) => {
       to: user.email,
       replyTo: to,
       subject: `[Wallt Support] Richiesta ricevuta - ${subject}`,
-      text: [
-        'Ciao,', '', 'abbiamo ricevuto la tua richiesta di assistenza.', '',
-        'Oggetto:', subject, '',
-        "Il team Wallt la esaminera' e potrai ricevere una risposta all'indirizzo email associato al tuo account.",
-        '', 'Grazie,', 'Supporto Wallt',
-      ].join('\n'),
+      // Categoria e oggetto finiscono in HTML: il template li escapa.
+      ...buildSupportConfirmationEmail({ category, subject, appUrl: process.env.APP_URL }),
     });
     return { confirmationSent: true };
   } catch {
@@ -71,4 +68,36 @@ const sendSupportRequest = async ({ user, category, subject, message }) => {
   }
 };
 
-module.exports = { sendSupportRequest };
+/**
+ * Contatto dal sito, senza login: l'indirizzo non e' verificato da nessuno.
+ *
+ * Per questo non parte nessuna conferma verso il mittente dichiarato: sarebbe
+ * un amplificatore di spam, perche' chiunque potrebbe far recapitare posta di
+ * Wallt a un indirizzo altrui. La ricevuta la da' l'interfaccia, non l'email.
+ */
+const sendPublicContactRequest = async ({ email, category, subject, message }) => {
+  const to = getSupportAddress();
+  if (!isSafeEmail(email) || /[\r\n\x00]/.test(subject) || /[\r\n\x00]/.test(category)) {
+    throw failure('Dati contatto non validi', 'invalid_user_data');
+  }
+
+  await deliver({
+    to,
+    replyTo: email,
+    subject: `[Wallt Contatto] ${category} - ${subject}`,
+    text: [
+      'Nuovo messaggio dal modulo di contatto pubblico', '',
+      'ATTENZIONE: mittente NON autenticato. L\'indirizzo qui sotto e\' stato',
+      'dichiarato da chi ha compilato il modulo e non e\' stato verificato:',
+      'non trattarlo come prova di identita\'.', '',
+      `Email dichiarata: ${email}`,
+      `Categoria: ${category}`, `Oggetto: ${subject}`,
+      `Data e ora (UTC): ${new Date().toISOString()}`, `Versione API: ${version}`,
+      `Ambiente: ${process.env.VERCEL_ENV || process.env.NODE_ENV || 'development'}`,
+      '', 'Messaggio:', message,
+    ].join('\n'),
+  });
+  return { confirmationSent: false };
+};
+
+module.exports = { sendSupportRequest, sendPublicContactRequest };

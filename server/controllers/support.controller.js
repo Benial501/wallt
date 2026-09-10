@@ -1,5 +1,5 @@
 const { User } = require('../models');
-const { sendSupportRequest } = require('../services/email/SupportEmailService');
+const { sendSupportRequest, sendPublicContactRequest } = require('../services/email/SupportEmailService');
 const { logWarn } = require('../utils/logger');
 
 const sendSupport = async (req, res) => {
@@ -22,4 +22,20 @@ const sendSupport = async (req, res) => {
   }
 };
 
-module.exports = { sendSupport };
+/**
+ * Contatto dal sito, senza login. L'identita' non e' verificabile: l'indirizzo
+ * lo dichiara chi compila, e il servizio lo segnala nell'email al supporto.
+ * Nessuna conferma parte verso quell'indirizzo, per non farne un amplificatore.
+ */
+const sendContatto = async (req, res) => {
+  try {
+    await sendPublicContactRequest(req.contattoData);
+    return res.status(200).json({ message: 'Richiesta inviata' });
+  } catch (error) {
+    const reason = error?.reason || 'unknown';
+    logWarn(`Invio contatto pubblico non riuscito [${reason}]`, { reason });
+    return res.status(502).json({ error: 'Non siamo riusciti a inviare la richiesta. Riprova.' });
+  }
+};
+
+module.exports = { sendSupport, sendContatto };

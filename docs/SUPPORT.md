@@ -3,7 +3,17 @@
 Gli utenti autenticati aprono **Aiuto → Contatta il supporto** e compilano
 categoria, oggetto e messaggio. L'indirizzo dell'account è mostrato automaticamente;
 il backend lo legge dal database, senza fidarsi di identità o destinatari nel body.
-Il footer nelle pagine legali porta al form per gli utenti autenticati.
+
+Chi **non** è autenticato usa la pagina pubblica **/contatto**, raggiunta dal link
+"Contatto" nel footer di login, registrazione e pagine legali. Serve ai due casi in
+cui il modulo autenticato non è utilizzabile: chi non riesce ad accedere al proprio
+account, e chi scrive per privacy o GDPR senza averne uno. Nessun `mailto:`: il
+footer non apre più il programma di posta del visitatore.
+
+Le sei categorie stanno in `server/constants/supportCategories.js` e nella copia
+frontend `client/src/utils/supportCategories.js`, che deve restare identica
+carattere per carattere: una differenza fa comparire nella UI una voce che l'API
+rifiuta con 400.
 
 ## Configurazione Vercel
 
@@ -43,6 +53,23 @@ era gia' nel progetto e gia' in uso. `nodemailer` e le variabili `SMTP_*` sono
 state rimosse.
 
 ## API e protezioni
+
+### `POST /api/contatto` — pubblico, senza login
+
+Stessa validazione della rotta autenticata, più un campo `email` obbligatorio
+(massimo 254 caratteri). Limite anti-spam di **3 invii ogni 15 minuti per
+indirizzo IP**, persistente in `auth_rate_limits` come le altre rotte.
+
+Due differenze di sostanza rispetto alla rotta autenticata, entrambe volute:
+
+- **L'indirizzo non è verificato.** Lo dichiara chi compila il modulo, e l'email
+  al supporto lo segnala in modo esplicito: non va trattato come prova di
+  identità. `Reply-To` lo usa comunque, perché serve a rispondere.
+- **Nessuna conferma parte verso quell'indirizzo.** Sarebbe un amplificatore di
+  spam: chiunque potrebbe far recapitare posta di Wallt a un indirizzo altrui.
+  La ricevuta la dà l'interfaccia, non l'email.
+
+### `POST /api/support` — autenticata
 
 `POST /api/support`, con il normale JWT Bearer WALLT. Body:
 
@@ -127,8 +154,13 @@ Creati:
 Modificati per la funzione:
 
 - `client/src/views/AiutoView.vue`: integrazione del form.
-- `client/src/components/layout/LegalFooter.vue`: link al form per utenti autenticati.
-- `server/app.js`: collegamento dell'endpoint.
+- `client/src/components/layout/LegalFooter.vue`: link al form, autenticato o pubblico; niente piu' `mailto:`.
+- `server/app.js`: collegamento dei due endpoint.
+- `server/routes/contatto.routes.js`: rotta pubblica con limite per IP.
+- `server/constants/supportCategories.js`: le sei categorie, fonte unica lato server.
+- `client/src/views/ContattoView.vue`: modulo pubblico.
+- `client/src/utils/supportCategories.js`: copia frontend delle categorie.
+- `client/src/router/index.js`: rotta pubblica `/contatto`.
 - `server/package.json` e `server/package-lock.json`: rimozione di Nodemailer,
   non piu' necessario con Resend.
 - `server/jest.unit.config.js`: inclusione dei test del servizio email senza database.

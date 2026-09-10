@@ -59,6 +59,13 @@ const router = createRouter({
       component: () => import('@/views/TermsView.vue'),
     },
     {
+      // Pubblica come le pagine legali: serve proprio a chi non riesce
+      // ad accedere e quindi non potrebbe usare il modulo in Aiuto.
+      path: '/contatto',
+      name: 'contatto',
+      component: () => import('@/views/ContattoView.vue'),
+    },
+    {
       path: '/onboarding',
       name: 'onboarding',
       component: () => import('@/views/OnboardingView.vue'),

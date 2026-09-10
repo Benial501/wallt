@@ -34,7 +34,21 @@ test('destinatario, Reply-To utente e metadati del server', async () => {
   expect(confirmation.to).toBe('user@example.com');
   expect(confirmation.replyTo).toBe('support@example.com');
   expect(confirmation.text).toContain(data.subject);
-  expect(confirmation.text).toContain('abbiamo ricevuto la tua richiesta');
+  expect(confirmation.text).toContain('Abbiamo ricevuto la tua richiesta');
+  // La conferma e' l'unica delle due email in HTML: ha il marchio.
+  expect(confirmation.html).toContain('Richiesta ricevuta');
+  expect(confirmation.html).toContain('wallt-logo-horizontal.png');
+});
+
+test('la conferma HTML escapa categoria e oggetto scritti dall utente', async () => {
+  await service.sendSupportRequest({
+    ...data,
+    category: 'Altro',
+    subject: '<img src=x onerror="alert(1)">',
+  });
+  const { html } = sendEmail.mock.calls[1][0];
+  expect(html).toContain('&lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
+  expect(html).not.toContain('<img src=x onerror');
 });
 
 test('attende la prima email prima della conferma', async () => {

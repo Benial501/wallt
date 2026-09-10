@@ -12,6 +12,7 @@ const showLegalFooter = computed(() => (
   route.meta.guest === true
   || route.path === '/privacy'
   || route.path === '/termini'
+  || route.path === '/contatto'
 ));
 
 onMounted(() => {

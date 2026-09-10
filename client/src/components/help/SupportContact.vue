@@ -1,19 +1,16 @@
 <script setup>
-import { ref, nextTick, onMounted } from 'vue';
+import { ref, nextTick, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import { useAuthStore } from '@/stores/auth.store';
 import { useToastStore } from '@/stores/toast.store';
+import { SUPPORT_CATEGORIES, SUBJECT_MAX, MESSAGE_MAX } from '@/utils/supportCategories';
 import api from '@/utils/axios';
 
 const auth = useAuthStore();
 const toast = useToastStore();
 const route = useRoute();
-const categories = [
-  'Problema tecnico', "Problema con l'account", 'Problema con entrate/uscite',
-  'Suggerimento', 'Segnalazione bug', 'Altro',
-];
 const open = ref(false);
 const sending = ref(false);
 const category = ref('');
@@ -24,24 +21,31 @@ const error = ref('');
 const categoryInput = ref(null);
 const toggleButton = ref(null);
 
-const toggle = async () => {
+const openForm = async () => {
   if (sending.value) return;
-  open.value = !open.value;
+  open.value = true;
   await nextTick();
-  if (open.value) categoryInput.value?.focus();
+  categoryInput.value?.focus();
 };
 
-onMounted(async () => {
-  if (route.hash === '#supporto') await toggle();
-});
+const toggle = async () => {
+  if (sending.value) return;
+  if (open.value) { open.value = false; return; }
+  await openForm();
+};
+
+// L'ancora va seguita anche a componente gia' montato: dal footer si arriva
+// qui anche quando si e' gia' su /aiuto, e li' onMounted non riparte.
+onMounted(() => { if (route.hash === '#supporto') openForm(); });
+watch(() => route.hash, (hash) => { if (hash === '#supporto') openForm(); });
 
 const submit = async () => {
   if (sending.value) return;
   error.value = '';
   feedback.value = '';
   const data = { category: category.value, subject: subject.value.trim(), message: message.value.trim() };
-  if (!categories.includes(data.category) || !data.subject || !data.message
-    || data.subject.length > 160 || data.message.length > 5000
+  if (!SUPPORT_CATEGORIES.includes(data.category) || !data.subject || !data.message
+    || data.subject.length > SUBJECT_MAX || data.message.length > MESSAGE_MAX
     || /[\x00-\x1f\x7f]/.test(data.subject)) {
     error.value = 'Seleziona una categoria e compila oggetto e messaggio.';
     return;
@@ -95,17 +99,17 @@ const submit = async () => {
           <label for="support-category">Categoria</label>
           <select id="support-category" ref="categoryInput" v-model="category" class="wallt-input" required>
             <option disabled value="">Seleziona una categoria</option>
-            <option v-for="item in categories" :key="item" :value="item">{{ item }}</option>
+            <option v-for="item in SUPPORT_CATEGORIES" :key="item" :value="item">{{ item }}</option>
           </select>
         </div>
         <div>
           <label for="support-subject">Oggetto</label>
-          <input id="support-subject" v-model="subject" class="wallt-input" required maxlength="160" placeholder="Descrivi brevemente la richiesta" />
+          <input id="support-subject" v-model="subject" class="wallt-input" required :maxlength="SUBJECT_MAX" placeholder="Descrivi brevemente la richiesta" />
         </div>
         <div>
           <label for="support-message">Messaggio</label>
-          <textarea id="support-message" v-model="message" class="wallt-input" required maxlength="5000" rows="6" aria-describedby="support-message-hint" placeholder="Raccontaci cosa è successo e come possiamo aiutarti." />
-          <p id="support-message-hint" class="support-contact__hint">{{ message.length }}/5000 caratteri. Non includere password o codici di accesso.</p>
+          <textarea id="support-message" v-model="message" class="wallt-input" required :maxlength="MESSAGE_MAX" rows="6" aria-describedby="support-message-hint" placeholder="Raccontaci cosa è successo e come possiamo aiutarti." />
+          <p id="support-message-hint" class="support-contact__hint">{{ message.length }}/{{ MESSAGE_MAX }} caratteri. Non includere password o codici di accesso.</p>
         </div>
       </fieldset>
       <p v-if="error" role="alert" class="support-contact__error">{{ error }}</p>

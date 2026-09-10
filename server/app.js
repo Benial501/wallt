@@ -111,6 +111,7 @@ const createApp = (options = {}) => {
   app.use('/api/importazioni', importazioniRoutes);
   app.use('/api/notifiche', notificheRoutes);
   app.use('/api/support', require('./routes/support.routes'));
+  app.use('/api/contatto', require('./routes/contatto.routes'));
 
   app.use(notFoundHandler);
   app.use(errorHandler);
