@@ -14,6 +14,7 @@ import { useAnalisiStore } from '@/stores/analisi.store';
 import { useContiStore } from '@/stores/conti.store';
 import { useChartTheme } from '@/composables/useChartTheme';
 import { useValuta } from '@/composables/useValuta';
+import { PERIODI, getDateRange as periodoRange } from '@/utils/periodoAnalisi';
 import api from '@/utils/axios';
 import { useToastStore } from '@/stores/toast.store';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
@@ -157,13 +158,9 @@ const tabs = [
   { id: 'suggerimenti', label: 'Suggerimenti', icon: LightbulbIcon },
 ];
 
-const getDateRange = () => {
-  const now = dayjs();
-  if (periodo.value === 'mese') return { da: now.startOf('month').format('YYYY-MM-DD'), a: now.format('YYYY-MM-DD') };
-  if (periodo.value === 'trimestre') return { da: now.subtract(3, 'month').format('YYYY-MM-DD'), a: now.format('YYYY-MM-DD') };
-  if (periodo.value === 'anno') return { da: now.startOf('year').format('YYYY-MM-DD'), a: now.format('YYYY-MM-DD') };
-  return { da: customDa.value, a: customA.value };
-};
+const getDateRange = () => periodoRange(periodo.value, {
+  customDa: customDa.value, customA: customA.value,
+});
 
 const doughnutData = computed(() => ({
   labels: distribuzioneCorrente.value.map((d) => d.nome_display),
@@ -292,8 +289,8 @@ const hasData = computed(() =>
         <HelpTrigger topic="analisi-come-funziona" />
       </div>
       <div class="periodo-tabs">
-        <button v-for="p in ['mese','trimestre','anno','custom']" :key="p" :class="{ active: periodo === p }" @click="periodo = p">
-          {{ p === 'mese' ? 'Mese' : p === 'trimestre' ? 'Trimestre' : p === 'anno' ? 'Anno' : 'Custom' }}
+        <button v-for="p in PERIODI" :key="p.id" :class="{ active: periodo === p.id }" @click="periodo = p.id">
+          {{ p.label }}
         </button>
       </div>
       <div v-if="periodo === 'custom'" class="custom-dates">

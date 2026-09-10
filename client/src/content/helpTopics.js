@@ -153,7 +153,8 @@ const TOPICS = [
     title: 'Come leggere le Analisi',
     summary: 'Grafici costruiti sui movimenti che hai registrato, nel periodo scelto.',
     paragraphs: [
-      'Le analisi riassumono i movimenti già presenti in WALLT: distribuzione delle spese per categoria, confronto tra mesi e andamento del patrimonio.',
+      'Le analisi riassumono i movimenti già presenti in WALLT: distribuzione di spese ed entrate per categoria, confronto tra mesi e andamento del patrimonio.',
+      'Il selettore in alto sceglie il periodo: settimana, mese, trimestre, anno oppure un intervallo di date a tua scelta. Vale sia per le spese sia per le entrate, così puoi vedere quanto hai speso e incassato in questa settimana senza aspettare la fine del mese. La settimana parte da lunedì e arriva a oggi.',
       'Se una sezione appare vuota può voler dire che in quel periodo non ci sono movimenti registrati, non che i dati siano andati persi. Cambiando periodo o registrando nuovi movimenti i grafici si aggiornano.',
     ],
     link: { label: 'Vai alle Analisi', to: '/analisi' },
