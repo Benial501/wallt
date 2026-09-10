@@ -58,9 +58,32 @@ test('non trasforma il fallimento della conferma in una richiesta da reinviare',
 });
 
 test.each(['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'SUPPORT_EMAIL'])('non invia con configurazione incompleta: %s', async key => {
+  const value = process.env[key];
   delete process.env[key];
-  await expect(service.sendSupportRequest(data)).rejects.toThrow();
+  // Il motivo nomina la variabile mancante, cosi' il 502 e' diagnosticabile dai
+  // log, ma non ne rivela mai il valore.
+  await expect(service.sendSupportRequest(data)).rejects.toMatchObject({ reason: `config:${key}` });
+  await expect(service.sendSupportRequest(data)).rejects.not.toMatchObject({ reason: expect.stringContaining(value) });
   expect(mockSendMail).not.toHaveBeenCalled();
+});
+
+test('il motivo di un errore SMTP riporta il codice, mai la password', async () => {
+  mockSendMail.mockRejectedValue(Object.assign(new Error('Invalid login: 535 auth failed for test-only-secret'), { code: 'EAUTH', responseCode: 535 }));
+  await expect(service.sendSupportRequest(data)).rejects.toMatchObject({ reason: 'smtp:EAUTH:535' });
+});
+
+test.each([
+  [{ code: 'ETIMEDOUT' }, 'smtp:ETIMEDOUT'],
+  [{ code: 'ECONNECTION' }, 'smtp:ECONNECTION'],
+  [{}, 'smtp:UNKNOWN'],
+])('classifica il fallimento di rete %j', async (props, reason) => {
+  mockSendMail.mockRejectedValue(Object.assign(new Error('boom'), props));
+  await expect(service.sendSupportRequest(data)).rejects.toMatchObject({ reason });
+});
+
+test('il destinatario rifiutato si distingue da un errore di rete', async () => {
+  mockSendMail.mockResolvedValueOnce({ accepted: [], rejected: ['support@example.com'] });
+  await expect(service.sendSupportRequest(data)).rejects.toMatchObject({ reason: 'smtp:REJECTED' });
 });
 
 test('rifiuta header injection nell’indirizzo utente', async () => {

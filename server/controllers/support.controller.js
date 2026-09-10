@@ -10,9 +10,11 @@ const sendSupport = async (req, res) => {
     const result = await sendSupportRequest({ user, ...req.supportData });
     if (!result.confirmationSent) logWarn('Conferma email supporto non inviata');
     return res.status(200).json({ message: 'Richiesta inviata', ...result });
-  } catch {
-    // Non registrare errori SMTP grezzi: possono contenere credenziali o dati utente.
-    logWarn('Invio email supporto non riuscito');
+  } catch (error) {
+    // Non registrare errori SMTP grezzi: possono contenere credenziali o dati
+    // utente. Il solo `reason` basta a distinguere configurazione mancante,
+    // credenziali rifiutate e rete bloccata, e non lascia mai il server.
+    logWarn('Invio email supporto non riuscito', { reason: error?.reason || 'unknown' });
     return res.status(502).json({ error: 'Non siamo riusciti a inviare la richiesta. Riprova.' });
   }
 };

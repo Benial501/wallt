@@ -6,11 +6,24 @@ const { version } = require('../../package.json');
 const isSafeEmail = value => typeof value === 'string'
   && !/[\x00-\x20\x7f]/.test(value) && isEmail(value);
 
+// Motivo del fallimento, sicuro da registrare: nome della variabile mancante
+// oppure codice d'errore SMTP. Il messaggio grezzo di Nodemailer puo' contenere
+// l'indirizzo autenticato o la risposta del server, quindi non entra mai nel log.
+const failure = (message, reason) => Object.assign(new Error(message), { reason });
+const smtpReason = error => `smtp:${error?.code || 'UNKNOWN'}${error?.responseCode ? `:${error.responseCode}` : ''}`;
+
 const getConfig = () => {
   const { SMTP_HOST: host, SMTP_PORT: port, SMTP_USER: user, SMTP_PASSWORD: pass, SUPPORT_EMAIL: to } = process.env;
-  if (!host || !/^[a-zA-Z0-9.-]+$/.test(host) || port !== '465'
-    || !isSafeEmail(user) || !isSafeEmail(to) || !pass) {
-    throw new Error('Configurazione supporto non disponibile');
+  // Solo i NOMI delle variabili non valide: i valori non escono mai da qui.
+  const invalid = [
+    ['SMTP_HOST', Boolean(host) && /^[a-zA-Z0-9.-]+$/.test(host)],
+    ['SMTP_PORT', port === '465'],
+    ['SMTP_USER', isSafeEmail(user)],
+    ['SMTP_PASSWORD', Boolean(pass)],
+    ['SUPPORT_EMAIL', isSafeEmail(to)],
+  ].filter(([, valid]) => !valid).map(([name]) => name);
+  if (invalid.length) {
+    throw failure('Configurazione supporto non disponibile', `config:${invalid.join(',')}`);
   }
   return { host, user, pass, to };
 };
@@ -44,12 +57,14 @@ const send = async (config, mail) => {
     const result = await Promise.race([
       transport.sendMail(mail),
       new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error('Invio supporto scaduto')), 20000);
+        timer = setTimeout(() => reject(failure('Invio supporto scaduto', 'smtp:TIMEOUT')), 20000);
       }),
     ]);
     if (!result.accepted?.some(address => address.toLowerCase() === mail.to.address.toLowerCase())) {
-      throw new Error('Destinatario supporto non accettato');
+      throw failure('Destinatario supporto non accettato', 'smtp:REJECTED');
     }
+  } catch (error) {
+    throw error.reason ? error : Object.assign(error, { reason: smtpReason(error) });
   } finally {
     clearTimeout(timer);
     socket?.destroy();
@@ -60,7 +75,7 @@ const send = async (config, mail) => {
 const sendSupportRequest = async ({ user, category, subject, message }) => {
   const config = getConfig();
   if (!isSafeEmail(user.email) || /[\r\n\x00]/.test(subject) || /[\r\n\x00]/.test(category)) {
-    throw new Error('Dati supporto non validi');
+    throw failure('Dati supporto non validi', 'invalid_user_data');
   }
   const from = { name: 'Wallt Support', address: config.user };
   await send(config, {
