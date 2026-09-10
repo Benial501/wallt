@@ -1,4 +1,5 @@
 const logger = require('../utils/logger');
+const { PushSubscription } = require('../models');
 const NotificheService = require('../services/notifiche/NotificheService');
 const PushService = require('../services/notifiche/PushService');
 const { generaPerUtente } = require('../services/notifiche/NotificheGenerator');
@@ -237,6 +238,70 @@ const generaNotifiche = async (req, res) => {
   }
 };
 
+/**
+ * Notifica di prova: verifica la catena completa (creazione → centro
+ * notifiche → push sul dispositivo) senza dover aspettare il cron o
+ * costruire artificialmente le condizioni di un avviso reale.
+ *
+ * Due accorgimenti perche' non diventi un modo per aggirare l'anti-spam:
+ *   - `conta_nel_limite: false`, quindi non consuma i due slot giornalieri
+ *     e non puo' sottrarre spazio a un avviso vero;
+ *   - la dedupe_key include il minuto corrente, quindi ripetere la richiesta
+ *     entro lo stesso minuto non crea una seconda notifica.
+ */
+const inviaNotificaDiProva = async (req, res) => {
+  try {
+    const preferenze = await NotificheService.getPreferenze(req.userId);
+    const minuto = new Date().toISOString().slice(0, 16);
+
+    const esito = await NotificheService.creaNotifica({
+      userId: req.userId,
+      preferenze,
+      tipo: 'test',
+      dedupeKey: `test:${minuto}`,
+      titolo: 'Notifica di prova',
+      messaggio: 'Se hai ricevuto questa notifica, il sistema di WALLT funziona correttamente.',
+      link: '/notifiche',
+      priorita: NotificheService.PRIORITA.NORMALE,
+      metadata: { prova: true },
+    });
+
+    if (!esito.creata) {
+      return res.status(429).json({
+        message: 'Hai già richiesto una notifica di prova poco fa. Riprova fra un minuto.',
+      });
+    }
+
+    // Le notifiche di prova non seguono le ore di silenzio né il limite:
+    // servono a verificare la consegna nel momento in cui le chiedi.
+    await esito.notifica.update({
+      canale: preferenze.push_attive ? 'push' : 'in_app',
+      conta_nel_limite: false,
+      programmata_per: new Date(),
+    });
+
+    const dispositivi = await PushSubscription.count({
+      where: { user_id: req.userId, attiva: true },
+    });
+
+    // Svuota la coda push dell'utente: parte questa e ogni altra notifica
+    // che fosse rimasta in attesa.
+    const push = await PushService.inviaNotifichePendenti({ userId: req.userId });
+
+    res.status(201).json({
+      message: 'Notifica di prova creata',
+      push_disponibile: PushService.isPushDisponibile(),
+      push_attive: preferenze.push_attive,
+      dispositivi,
+      push,
+      non_lette: await NotificheService.contaNonLette(req.userId),
+    });
+  } catch (error) {
+    logger.error('Errore inviaNotificaDiProva', { err: error });
+    res.status(500).json({ message: 'Errore nell\'invio della notifica di prova' });
+  }
+};
+
 module.exports = {
   formatPreferenze,
   getNotifiche,
@@ -249,4 +314,5 @@ module.exports = {
   rimuoviPush,
   segnaGiornataControllata,
   generaNotifiche,
+  inviaNotificaDiProva,
 };

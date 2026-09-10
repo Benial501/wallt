@@ -20,6 +20,7 @@ const toastStore = useToastStore();
 
 const salvataggioInCorso = ref(false);
 const pushInCorso = ref(false);
+const provaInCorso = ref(false);
 const permesso = ref(statoPermesso());
 
 /** Orari proposti per il promemoria: fuori dalle ore di silenzio di default. */
@@ -144,6 +145,36 @@ const attiva = async () => {
   }
 };
 
+/**
+ * Invia una notifica di prova. Non consuma il limite giornaliero e non
+ * aspetta il passaggio del cron: serve a verificare subito se la consegna
+ * sul dispositivo funziona davvero.
+ */
+const inviaProva = async () => {
+  provaInCorso.value = true;
+  try {
+    const esito = await notificheStore.inviaNotificaDiProva();
+
+    if (esito.push?.inviate > 0) {
+      toastStore.success('Notifica di prova inviata al tuo dispositivo');
+    } else if (!esito.push_attive) {
+      toastStore.info('Notifica di prova aggiunta al centro notifiche (push non attive)');
+    } else if (!esito.dispositivi) {
+      toastStore.info('Nessun dispositivo registrato: la trovi nel centro notifiche');
+    } else {
+      toastStore.info('Notifica creata, ma il dispositivo non ha accettato la push');
+    }
+  } catch (error) {
+    if (error?.response?.status === 429) {
+      toastStore.info('Hai già chiesto una prova poco fa. Riprova fra un minuto.');
+    } else {
+      toastStore.error('Non è stato possibile inviare la notifica di prova');
+    }
+  } finally {
+    provaInCorso.value = false;
+  }
+};
+
 const disattiva = async () => {
   pushInCorso.value = true;
   try {
@@ -190,7 +221,7 @@ const disattiva = async () => {
         <option v-for="orario in ORARI_PROMEMORIA" :key="orario" :value="orario">{{ orario }}</option>
       </select>
       <p class="hint hint--inline">
-        Il promemoria parte solo dopo quest'ora, e mai se hai già registrato un movimento.
+        Arriva entro un'ora dall'orario scelto, e mai se hai già registrato un movimento.
       </p>
     </div>
 
@@ -254,6 +285,21 @@ const disattiva = async () => {
         {{ pushInCorso ? 'Disattivazione…' : 'Disattiva notifiche push' }}
       </button>
     </div>
+
+    <div class="notifiche-settings__campo">
+      <span class="notifiche-settings__label">Prova la consegna</span>
+      <p class="hint hint--inline">
+        Ti manda subito una notifica di verifica. Non consuma il limite giornaliero.
+      </p>
+      <button
+        type="button"
+        class="notifiche-settings__btn notifiche-settings__btn--secondario"
+        :disabled="provaInCorso"
+        @click="inviaProva"
+      >
+        {{ provaInCorso ? 'Invio…' : 'Invia notifica di prova' }}
+      </button>
+    </div>
   </div>
 </template>
 
@@ -304,16 +350,8 @@ const disattiva = async () => {
 
 .notifiche-settings__separatore { color: var(--text-muted); }
 
-.form-input {
-  width: 100%;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 0.75rem 1rem;
-  color: var(--text-primary);
-  font-size: 16px;
-  min-height: 44px;
-}
+/* .form-input: aspetto condiviso in assets/styles/main.css */
+.form-input { min-height: 44px; }
 
 .notifiche-settings__push {
   display: flex;

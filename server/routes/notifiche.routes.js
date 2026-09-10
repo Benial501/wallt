@@ -10,6 +10,7 @@ const {
   rimuoviPush,
   segnaGiornataControllata,
   generaNotifiche,
+  inviaNotificaDiProva,
 } = require('../controllers/notifiche.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 const {
@@ -34,6 +35,7 @@ router.post('/push', validatePushSubscription, registraPush);
 router.delete('/push', validateRimuoviPushSubscription, rimuoviPush);
 router.post('/giornata-controllata', segnaGiornataControllata);
 router.post('/genera', generaNotifiche);
+router.post('/prova', inviaNotificaDiProva);
 // `/lette` va dichiarata prima di `/:id/letta` non per conflitto di path, ma
 // per tenere insieme le due rotte di lettura massiva.
 router.put('/lette', segnaTutteLette);

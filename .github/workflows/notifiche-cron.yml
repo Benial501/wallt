@@ -1,0 +1,59 @@
+# Esecuzione oraria del job notifiche.
+#
+# PERCHÉ NON BASTA VERCEL CRON: sul piano Hobby i cron girano una volta al
+# giorno. Con un solo passaggio, l'orario del promemoria scelto dall'utente
+# non può essere rispettato: qualunque cosa scelga, la notifica gli arriva
+# quando passa il job (le 21 italiane). Questo workflow chiama lo stesso
+# endpoint ogni ora, così l'orario scelto viene onorato entro l'ora.
+#
+# È sicuro rieseguirlo a qualunque frequenza: la dedupe_key su `notifiche`
+# ha un vincolo UNIQUE, quindi un secondo passaggio non crea doppioni.
+#
+# Il cron su vercel.json resta come rete di sicurezza: se GitHub Actions è
+# fermo o in ritardo, la consegna giornaliera avviene comunque.
+#
+# CONFIGURAZIONE RICHIESTA
+#   Settings → Secrets and variables → Actions → New repository secret
+#     CRON_SECRET  = lo stesso valore impostato su Vercel (progetto wallt-api)
+#   Opzionale, se l'URL dell'API cambia:
+#     WALLT_API_URL = https://wallt-api.vercel.app
+name: Cron notifiche
+
+on:
+  schedule:
+    # Al minuto 5 e non allo scoccare dell'ora: GitHub mette in coda i job
+    # schedulati e all'ora tonda il ritardo è maggiore.
+    - cron: '5 * * * *'
+  # Permette di lanciarlo a mano da Actions → Run workflow, utile per provare.
+  workflow_dispatch:
+
+# Se un'esecuzione è ancora in corso, la successiva non si accavalla.
+concurrency:
+  group: notifiche-cron
+  cancel-in-progress: false
+
+jobs:
+  notifiche:
+    name: Genera e consegna le notifiche
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Chiama l'endpoint cron
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          API_URL: ${{ vars.WALLT_API_URL || 'https://wallt-api.vercel.app' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET non configurato fra i secret del repository."
+            exit 1
+          fi
+
+          # --fail-with-body: esce con errore sui 4xx/5xx mostrando comunque
+          # il corpo della risposta, che contiene il motivo.
+          risposta=$(curl --silent --show-error --fail-with-body \
+            --max-time 120 \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            "$API_URL/api/cron/notifiche")
+
+          echo "Riepilogo: $risposta"

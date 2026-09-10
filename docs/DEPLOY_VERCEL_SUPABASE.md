@@ -187,15 +187,30 @@ Roma: sempre dopo l'orario di promemoria predefinito (20:00) e fuori dalle ore
 di silenzio. Due cron è il massimo del piano Hobby.
 
 Il job è **idempotente** (unique su `notifiche.dedupe_key`): può essere
-richiamato a qualunque frequenza senza creare duplicati. Su piano Pro conviene
-passare a `"schedule": "0 * * * *"`, così l'`orario_promemoria` scelto
-dall'utente viene rispettato al minuto e le notifiche rinviate dalle ore di
-silenzio partono entro l'ora invece che il giorno dopo. È l'unica modifica
-necessaria: nessun cambio di codice.
+richiamato a qualunque frequenza senza creare duplicati.
 
-Con la schedulazione giornaliera, un `orario_promemoria` successivo all'ora del
-cron non viene mai raggiunto nella stessa giornata: la UI propone orari fino
-alle 21:00 e lo spiega, ma è bene saperlo prima di cambiare lo schedule.
+**Un solo passaggio al giorno non basta.** Con la sola schedulazione Vercel,
+l'`orario_promemoria` scelto dall'utente non viene rispettato: qualunque ora
+imposti, la notifica arriva quando passa il job (le 21 italiane). Per questo
+l'esecuzione oraria vera è affidata a GitHub Actions, che è gratuito:
+`.github/workflows/notifiche-cron.yml` chiama lo stesso endpoint ogni ora al
+minuto 5.
+
+Configurazione richiesta una sola volta, su GitHub → **Settings → Secrets and
+variables → Actions → New repository secret**:
+
+| Secret | Valore |
+|---|---|
+| `CRON_SECRET` | lo stesso valore impostato su Vercel nel progetto `wallt-api` |
+
+Il cron Vercel giornaliero resta come rete di sicurezza, nel caso GitHub
+Actions sia fermo o in ritardo. I workflow schedulati di GitHub sono
+best-effort e possono slittare di qualche minuto sotto carico: l'orario del
+promemoria è quindi rispettato **entro l'ora**, non al minuto. Per una
+precisione al minuto serve il piano Vercel Pro con
+`"schedule": "0 * * * *"` in `server/vercel.json` — nessun cambio di codice.
+
+Per provare subito il workflow: **Actions → Cron notifiche → Run workflow**.
 
 Verifica dopo il deploy: **Vercel → Settings → Cron Jobs** deve elencare
 entrambi i job. Per una prova manuale:

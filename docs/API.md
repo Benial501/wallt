@@ -97,6 +97,12 @@ notifiche dell'utente autenticato.
 - Marca il giorno locale dell'utente come già controllato: nessun promemoria per quella data
 - **Risposta**: `{ message, giorno }`
 
+### POST /api/notifiche/prova
+- Crea e consegna subito una notifica di prova all'utente autenticato
+- Non consuma il limite giornaliero (`conta_nel_limite: false`) e non attende il cron
+- Una sola prova al minuto per utente (dedupe key al minuto) → `429` oltre
+- **Risposta**: `{ message, push_disponibile, push_attive, dispositivi, push, non_lette }`
+
 ### POST /api/notifiche/genera
 - Rigenerazione on-demand per il solo utente autenticato (idempotente)
 - **Risposta**: `{ esito, non_lette }`

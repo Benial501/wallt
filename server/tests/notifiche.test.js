@@ -684,6 +684,32 @@ describe('Sistema di notifiche', () => {
     expect(await NotificheService.contaNonLette(userId)).toBe(0);
   });
 
+  it('14c) la notifica di prova non consuma il limite giornaliero ed è limitata a una al minuto', async () => {
+    const prima = await request(app)
+      .post('/api/notifiche/prova')
+      .set(authHeader(token))
+      .expect(201);
+
+    expect(prima.body.non_lette).toBe(1);
+
+    const [prova] = await notifichePerTipo('test');
+    expect(prova.titolo).toBe('Notifica di prova');
+    // Non deve rubare uno dei due slot giornalieri a un avviso vero.
+    expect(prova.conta_nel_limite).toBe(false);
+
+    // Seconda richiesta ravvicinata: la dedupe_key al minuto la blocca.
+    await request(app)
+      .post('/api/notifiche/prova')
+      .set(authHeader(token))
+      .expect(429);
+
+    expect(await notifichePerTipo('test')).toHaveLength(1);
+
+    // E il promemoria della giornata resta possibile: il limite è intatto.
+    await generaPerUtente({ userId, adesso: SERA_ROMA });
+    expect(await notifichePerTipo('promemoria_giornaliero')).toHaveLength(1);
+  });
+
   it('14b) preferenze: lettura, aggiornamento e giornata controllata via API', async () => {
     const iniziali = await request(app)
       .get('/api/notifiche/preferenze')

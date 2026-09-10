@@ -125,7 +125,7 @@ Express API (/api/*)
 - **Monorepo** con frontend e backend separati ma nello stesso repository.
 - **Nessun SSR**: il frontend è una SPA statica servita da Vite.
 - **Nessun WebSocket**: comunicazione solo REST.
-- **Cron**: su Vercel è Vercel Cron che chiama `GET /api/cron/ricorrenti` e `GET /api/cron/notifiche` con `Authorization: Bearer $CRON_SECRET`; `node-cron` resta solo per il server locale (`server.js`). Il job notifiche è idempotente: la schedulazione committata è giornaliera (`0 19 * * *` UTC, compatibile con il piano Hobby), ma può passare a oraria (`0 * * * *`) su piano Pro senza altre modifiche — con il controllo orario l'`orario_promemoria` scelto dall'utente viene rispettato al minuto.
+- **Cron**: su Vercel è Vercel Cron che chiama `GET /api/cron/ricorrenti` e `GET /api/cron/notifiche` con `Authorization: Bearer $CRON_SECRET`; `node-cron` resta solo per il server locale (`server.js`). Il job notifiche è idempotente. **L'esecuzione oraria vera è su GitHub Actions** (`.github/workflows/notifiche-cron.yml`, ogni ora al minuto 5, richiede il secret `CRON_SECRET` sul repository): con un solo passaggio giornaliero l'`orario_promemoria` scelto dall'utente non sarebbe rispettato, perché tutto verrebbe consegnato quando passa il job. Il cron Vercel giornaliero (`0 19 * * *` UTC) resta come rete di sicurezza.
 - **Import pipeline duale**: `services/import/` (core) + `services/importazioni/` (nuova pipeline con detector/parser bancari).
 
 ## Important Business Rules
