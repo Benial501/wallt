@@ -33,13 +33,7 @@ export function resetPiniaStores() {
     profiloStore.error = null;
   } catch { /* ignore */ }
 
-  try {
-    const contiStore = useContiStore();
-    contiStore.conti = [];
-    contiStore.patrimonioTotale = 0;
-    contiStore.variazioneImporto = 0;
-    contiStore.variazionePercentuale = 0;
-  } catch { /* ignore */ }
+  try { useContiStore().reset(); } catch { /* ignore */ }
 
   try {
     const movimentiStore = useMovimentiStore();

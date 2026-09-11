@@ -7,6 +7,8 @@ import {
   PointElement, LineElement, Filler,
 } from 'chart.js';
 import WSkeleton from '@/components/common/WSkeleton.vue';
+import HelpTrigger from '@/components/help/HelpTrigger.vue';
+import { etichetta } from '@/content/glossario';
 import { useNumberCounter } from '@/composables/useNumberCounter';
 import { useValuta } from '@/composables/useValuta';
 import { useChartTheme } from '@/composables/useChartTheme';
@@ -22,6 +24,7 @@ const props = defineProps({
   conti: { type: Array, default: () => [] },
   loadingConti: { type: Boolean, default: false },
   patrimonio: { type: Number, default: 0 },
+  composizione: { type: Object, default: () => ({ conti: 0, investimenti: 0 }) },
   entrateMese: { type: Number, default: 0 },
   usciteMese: { type: Number, default: 0 },
   entrateOggi: { type: Number, default: 0 },
@@ -214,15 +217,23 @@ onUnmounted(() => {
         class="w-overview__track flex overflow-x-auto snap-x snap-mandatory"
         @scroll="onScroll"
       >
-        <!-- Saldo del conto -->
+        <!-- Patrimonio totale -->
         <div v-if="slides.includes('saldo')" class="w-overview__slide w-full shrink-0 snap-center">
           <template v-if="loadingSaldo">
             <WSkeleton type="text" :lines="3" />
             <WSkeleton type="card" class="mt-3" />
           </template>
           <template v-else>
-            <p class="w-overview__eyebrow">Saldo del conto</p>
+            <p class="w-overview__eyebrow">
+              {{ etichetta('patrimonio_totale') }}
+              <HelpTrigger topic="patrimonio-come-si-calcola" variant="quiet" />
+            </p>
             <p class="w-overview__amount tabular-nums">{{ formatValuta(animatedPatrimonio) }}</p>
+            <p class="w-overview__composizione">
+              {{ etichetta('componente_conti') }} <span class="tabular-nums">{{ formatValuta(composizione.conti) }}</span>
+              ·
+              {{ etichetta('componente_investimenti') }} <span class="tabular-nums">{{ formatValuta(composizione.investimenti) }}</span>
+            </p>
             <p class="w-overview__variation" :class="trendPositive ? 'is-positive' : 'is-negative'">
               {{ formatVariazione(variazionePercentuale) }} questo mese
             </p>
@@ -537,10 +548,9 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--text-muted);
   margin-bottom: 0.375rem;
 }
@@ -989,5 +999,14 @@ onUnmounted(() => {
   }
   .w-overview__doughnut-wrap { width: 150px; height: 150px; }
   .w-overview__line-wrap { height: 140px; }
+}
+
+/* La composizione spiega il totale invece di lasciarlo da interpretare:
+   quanta parte e' sui conti e quanta e' investita. */
+.w-overview__composizione {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  line-height: var(--leading-snug);
+  color: var(--text-secondary);
 }
 </style>

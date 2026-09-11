@@ -271,6 +271,7 @@ onMounted(async () => {
       :conti="contiStore.contiAttivi"
       :loading-conti="contiStore.loading"
       :patrimonio="contiStore.patrimonioTotale"
+      :composizione="contiStore.composizionePatrimonio"
       :entrate-mese="entrateMese"
       :uscite-mese="usciteMese"
       :entrate-oggi="entrateOggi"
