@@ -2,7 +2,7 @@
    WALLT — Pagine testuali
    -----------------------------------------------------------------------------
    Privacy Policy, Termini, Contatto: pagine lunghe da leggere, non da usare.
-   Qui la priorità e' la leggibilita' — misura della riga, ritmo verticale,
+   Qui la priorita' e' la leggibilita' — misura della riga, ritmo verticale,
    gerarchia dei titoli — e il vetro compare solo dove serve a separare un
    blocco dal fondo.
    ============================================================================= */
@@ -34,7 +34,7 @@
   font-weight: 700;
   letter-spacing: var(--tracking-display);
   line-height: var(--leading-tight);
-  /* Il titolo di una pagina lunga può respirare oltre i 30px senza gridare. */
+  /* Il titolo di una pagina lunga puo' respirare oltre i 30px senza gridare. */
   font-size: clamp(2rem, 4.5vw, 2.5rem);
 }
 
@@ -66,7 +66,7 @@
 }
 
 /* Bottone secondario delle pagine legali: stesso vetro interattivo dei
-   controlli in app, così i due mondi non sembrano due prodotti. */
+   controlli in app, cosi' i due mondi non sembrano due prodotti. */
 .wallt-btn-secondary {
   display: inline-flex;
   align-items: center;

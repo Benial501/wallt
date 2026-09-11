@@ -137,7 +137,7 @@ const hasMovimenti = computed(() => props.movimenti.length > 0);
   gap: 0.625rem;
 }
 
-/* Riga di lista, non card: vetro interattivo senza backdrop-filter, perché
+/* Riga di lista, non card: vetro interattivo senza backdrop-filter, perche'
    se ne disegnano molte per schermata. */
 .recent-tx__item {
   display: flex;

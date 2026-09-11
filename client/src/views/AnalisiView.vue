@@ -212,7 +212,7 @@ const CONFRONTO_ETICHETTE = {
   anno: { singolare: 'Anno', plurale: 'anni' },
 };
 
-/** Nome dell'unità realmente caricata, non di quella richiesta. */
+/** Nome dell'unita' realmente caricata, non di quella richiesta. */
 const etichetteConfronto = computed(() => (
   CONFRONTO_ETICHETTE[analisiStore.confrontoUnita] || CONFRONTO_ETICHETTE.mese
 ));
@@ -387,7 +387,7 @@ const hasData = computed(() =>
 
     <!-- Confronto e Patrimonio seguono il periodo scelto in cima: qui si
          sceglie solo quanti periodi. Con Trimestre e Custom la quantita' e'
-         già decisa dal periodo, quindi resta solo la descrizione. -->
+         gia' decisa dal periodo, quindi resta solo la descrizione. -->
     <template v-if="mostraSelettoreQuantita">
       <div v-if="quantitaSelezionabile" class="quantita-picker">
         <div class="sub-tabs quantita-picker__preset">
@@ -604,7 +604,7 @@ const hasData = computed(() =>
   color: var(--text-muted);
 }
 /* Stesso chevron dei campi condivisi (assets/styles/main.css): qui la select
-   e' fuori dal sistema .form-select perché e' larga quanto il contenuto. */
+   e' fuori dal sistema .form-select perche' e' larga quanto il contenuto. */
 .filtro-select {
   background: var(--glass-interactive-bg);
   border: 1px solid var(--glass-interactive-border);

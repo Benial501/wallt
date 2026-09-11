@@ -355,7 +355,7 @@ const handleLogout = async () => {
   .sidebar__link:hover { color: var(--text-primary); background: var(--sidebar-hover-bg); }
 }
 .sidebar__link:active { transform: scale(0.99); }
-/* La voce attiva non sposta più il testo: il segno e' una barretta
+/* La voce attiva non sposta piu' il testo: il segno e' una barretta
    posizionata in assoluto, non un bordo che ruba 3px al padding. */
 .sidebar__link.active { background: var(--sidebar-active-bg); color: var(--accent-green); font-weight: 600; }
 .sidebar__link.active::before {

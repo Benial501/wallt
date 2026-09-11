@@ -31,7 +31,7 @@ defineEmits(['close']);
 
 <style scoped>
 /* La velatura non e' un nero pieno: sfoca la pagina invece di cancellarla,
-   così il pannello sopra sembra sollevato e non incollato allo schermo. */
+   cosi' il pannello sopra sembra sollevato e non incollato allo schermo. */
 .w-modal-overlay {
   position: fixed;
   inset: 0;
@@ -45,7 +45,7 @@ defineEmits(['close']);
   padding: 1rem;
 }
 
-/* Livello "elevated": e' la superficie più opaca del sistema, perché qui
+/* Livello "elevated": e' la superficie piu' opaca del sistema, perche' qui
    sopra si legge e si compila. */
 .w-modal {
   background: var(--glass-elevated-bg);

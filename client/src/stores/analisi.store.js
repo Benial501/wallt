@@ -40,12 +40,12 @@ export const useAnalisiStore = defineStore('analisi', () => {
   };
 
   /**
-   * Confronto fra periodi. L'unità segue il periodo scelto nella pagina:
+   * Confronto fra periodi. L'unita' segue il periodo scelto nella pagina:
    * settimane, mesi o anni. Con `da`/`a` (periodo "Custom") l'API risponde
-   * invece con i mesi toccati dall'intervallo e ignora unità/quantità.
+   * invece con i mesi toccati dall'intervallo e ignora unita/quantita.
    *
-   * `mesi` viene inviato accanto a `quantità` per i soli mesi: durante un
-   * rilascio l'API può essere ancora la versione precedente, che conosce
+   * `mesi` viene inviato accanto a `quantita` per i soli mesi: durante un
+   * rilascio l'API puo' essere ancora la versione precedente, che conosce
    * solo quel parametro. Vedi il commento in analisi.controller.js.
    */
   const fetchConfrontoPeriodi = async ({ unita = 'mese', quantita = 6, da, a } = {}) => {
@@ -63,12 +63,12 @@ export const useAnalisiStore = defineStore('analisi', () => {
   };
 
   /**
-   * Andamento del patrimonio: un punto per periodo, con la stessa unità del
+   * Andamento del patrimonio: un punto per periodo, con la stessa unita' del
    * confronto. Con `da`/`a` (periodo "Custom") l'API usa i mesi
-   * dell'intervallo e ignora unità/quantità.
+   * dell'intervallo e ignora unita/quantita.
    *
    * `periodo` viene inviato accanto ai parametri nuovi per la stessa ragione
-   * di fetchConfrontoPeriodi: durante un rilascio l'API può essere ancora
+   * di fetchConfrontoPeriodi: durante un rilascio l'API puo' essere ancora
    * quella precedente, che conosce solo quel parametro.
    */
   const PERIODO_LEGACY = { 3: '3m', 6: '6m', 12: '1a' };
