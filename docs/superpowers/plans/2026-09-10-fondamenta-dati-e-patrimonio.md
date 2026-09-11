@@ -967,11 +967,19 @@ export const useContiStore = defineStore('conti', () => {
    * (`totale_conti`, `totale_investimenti`): prima venivano scartate, ed è
    * il motivo per cui la scheda poteva solo dire un numero senza spiegarlo.
    */
-  const composizionePatrimonio = computed(() => ({
-    totale: patrimonioTotale.value,
-    conti: risorsaPatrimonio.data.value?.totale_conti ?? 0,
-    investimenti: risorsaPatrimonio.data.value?.totale_investimenti ?? 0,
-  }));
+  const composizionePatrimonio = computed(() => {
+    const p = risorsaPatrimonio.data.value;
+    // `null` finche' la risposta dedicata non c'e'. Il totale ha un fallback
+    // su /conti, la scomposizione no: restituire zeri la farebbe contraddire
+    // il numero scritto sopra, ed e' proprio l'invariante che la scheda deve
+    // rendere evidente. Meglio nessuna composizione che una falsa.
+    if (!p) return null;
+    return {
+      totale: patrimonioTotale.value,
+      conti: p.totale_conti ?? 0,
+      investimenti: p.totale_investimenti ?? 0,
+    };
+  });
 
   const fetchConti = () => risorsaConti.carica();
   const fetchPatrimonio = () => risorsaPatrimonio.carica();
@@ -1078,7 +1086,7 @@ import { etichetta } from '@/content/glossario';
 Aggiungi la proprietà per la composizione accanto alle altre `defineProps`:
 
 ```js
-  composizione: { type: Object, default: () => ({ conti: 0, investimenti: 0 }) },
+  composizione: { type: Object, default: null },
 ```
 
 Poi sostituisci il blocco della prima scheda (righe 217-249, quello che comincia con `<!-- Saldo del conto -->`) con:
@@ -1096,7 +1104,7 @@ Poi sostituisci il blocco della prima scheda (righe 217-249, quello che comincia
               <HelpTrigger topic="patrimonio-come-si-calcola" variant="quiet" />
             </p>
             <p class="w-overview__amount tabular-nums">{{ formatValuta(animatedPatrimonio) }}</p>
-            <p class="w-overview__composizione">
+            <p v-if="composizione" class="w-overview__composizione">
               {{ etichetta('componente_conti') }} <span class="tabular-nums">{{ formatValuta(composizione.conti) }}</span>
               ·
               {{ etichetta('componente_investimenti') }} <span class="tabular-nums">{{ formatValuta(composizione.investimenti) }}</span>
@@ -1166,6 +1174,19 @@ In `client/src/views/DashboardView.vue`, aggiungi al `<WOverviewCarousel>` la pr
 ```vue
       :composizione="contiStore.composizionePatrimonio"
 ```
+
+Infine, nello stesso `<WOverviewCarousel>`, estendi il gate di caricamento della
+scheda anche alla risorsa del patrimonio, altrimenti la composizione compare un
+istante dopo il totale e fa saltare il layout:
+
+```vue
+      :loading-saldo="contiStore.loading || contiStore.risorsaPatrimonio.loading.value || movimentiStore.loadingBilancio"
+```
+
+`/conti/patrimonio` fa piu' lavoro sul server di `/conti` (interroga anche
+movimenti e investimenti), quindi in condizioni normali - non solo in casi
+avversi - risponde dopo. Senza questo gate la scheda resta scoperta proprio
+nella finestra in cui i due numeri non tornano.
 
 - [ ] **Step 5: Allineare l'etichetta della pagina Conti**
 
