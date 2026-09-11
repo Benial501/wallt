@@ -299,18 +299,18 @@ import { ref, computed } from 'vue';
 /**
  * Stato di una lettura dall'API.
  *
- * Nasce da un difetto concreto: piu' store azzeravano i dati nel gestore
+ * Nasce da un difetto concreto: più store azzeravano i dati nel gestore
  * dell'errore (`catch { lista.value = [] }`), e la vista mostrava lo stato
  * vuoto — "Nessun budget per settembre" — al posto di un errore di rete.
  * L'utente leggeva una perdita di dati dove c'era solo una richiesta fallita.
  *
- * Qui la regola non e' una convenzione da ricordare: e' l'unico modo in cui
- * `carica` e' scritta. In caso di fallimento viene scritto SOLO `error`.
+ * Qui la regola non è una convenzione da ricordare: è l'unico modo in cui
+ * `carica` è scritta. In caso di fallimento viene scritto SOLO `error`.
  *
  * I dati vivono in memoria e basta: niente localStorage, mai. Un saldo non
- * deve finire su disco (stessa scelta gia' fatta per il payload delle push).
+ * deve finire su disco (stessa scelta già fatta per il payload delle push).
  *
- * @param {Function} fetcher  funzione asincrona che restituisce i dati gia'
+ * @param {Function} fetcher  funzione asincrona che restituisce i dati già
  *                            estratti dalla risposta.
  * @param {Object}   opzioni
  * @param {*}        opzioni.iniziale  valore di partenza di `data`.
@@ -336,12 +336,12 @@ export const creaRisorsa = (fetcher, { iniziale = null, vuotoSe } = {}) => {
   const isVuoto = typeof vuotoSe === 'function' ? vuotoSe : vuotoPredefinito;
 
   /**
-   * L'ordine e' vincolante. `caricamento` precede `errore` cosi' un "Riprova"
+   * L'ordine è vincolante. `caricamento` precede `errore` così un "Riprova"
    * dopo un fallimento senza dati mostra di nuovo lo scheletro, invece di
    * lasciare il pannello d'errore fino alla risposta. Con dati precedenti,
    * invece, `errore-con-dati` sopravvive al tentativo in corso: il dato a
-   * schermo e' ancora vecchio finche' non arriva quello nuovo, e dirlo a
-   * meta' strada e poi ridirlo sarebbe un lampeggio.
+   * schermo è ancora vecchio finche' non arriva quello nuovo, e dirlo a
+   * metà strada e poi ridirlo sarebbe un lampeggio.
    */
   const stato = computed(() => {
     if (loading.value && lastUpdated.value === null) return 'caricamento';
@@ -352,7 +352,7 @@ export const creaRisorsa = (fetcher, { iniziale = null, vuotoSe } = {}) => {
   });
 
   /**
-   * Non lancia mai: l'errore e' uno stato, non un'eccezione. Chi chiama non
+   * Non lancia mai: l'errore è uno stato, non un'eccezione. Chi chiama non
    * deve incatenare `.catch()` per evitare una rejection non gestita, e chi
    * ha bisogno di sapere com'e' andata guarda `error` oppure il valore di
    * ritorno (i dati, oppure `undefined`).
@@ -382,8 +382,8 @@ export const creaRisorsa = (fetcher, { iniziale = null, vuotoSe } = {}) => {
   const riprova = () => carica(...ultimiArgs);
 
   /**
-   * L'incremento di `sequenza` non e' un dettaglio: invalida le richieste in
-   * volo, cosi' una risposta che arriva dopo il logout non puo' ripopolare la
+   * L'incremento di `sequenza` non è un dettaglio: invalida le richieste in
+   * volo, così una risposta che arriva dopo il logout non può ripopolare la
    * risorsa con i dati dell'utente precedente.
    */
   const reset = () => {
@@ -421,10 +421,10 @@ Atteso: 79 test verdi (65 di baseline + 14 nuovi), 0 falliti.
 git add client/src/utils/risorsa.js client/tests/risorsa.test.js
 git commit -m "Aggiunge creaRisorsa, lo stato di una lettura dall'API
 
-Un fallimento non puo' piu' azzerare i dati gia' ottenuti: e' una
+Un fallimento non può più azzerare i dati già ottenuti: è una
 proprieta' della funzione, non una convenzione. Include la guardia di
-sequenza contro le risposte sorpassate, gia' possibile oggi sulla
-dashboard, e l'invalidazione delle richieste in volo al reset, perche'
+sequenza contro le risposte sorpassate, già possibile oggi sulla
+dashboard, e l'invalidazione delle richieste in volo al reset, perché
 una risposta in ritardo non ripopoli la risorsa dopo il logout."
 ```
 
@@ -462,8 +462,8 @@ dayjs.locale('it');
 /**
  * Traduce lo stato di una risorsa (utils/risorsa.js) in cio' che si vede.
  *
- * Il caso che questo componente esiste per risolvere e' `errore-con-dati`:
- * la richiesta e' fallita ma i dati precedenti sono ancora a schermo. Prima
+ * Il caso che questo componente esiste per risolvere è `errore-con-dati`:
+ * la richiesta è fallita ma i dati precedenti sono ancora a schermo. Prima
  * quel caso non esisteva — un errore svuotava la pagina e l'utente credeva
  * di aver perso i propri dati.
  */
@@ -618,8 +618,8 @@ const orarioAggiornamento = computed(() => {
   color: var(--text-secondary);
 }
 
-/* L'orario e' un elemento a se', non un inciso dentro la frase: la frase
-   dell'avviso e' vincolata alla lettera e deve restare intatta. */
+/* L'orario è un elemento a sé, non un inciso dentro la frase: la frase
+   dell'avviso è vincolata alla lettera e deve restare intatta. */
 .data-state__avviso-orario {
   margin: 0.25rem 0 0;
   font-size: 0.8125rem;
@@ -680,9 +680,9 @@ git add client/src/components/common/DataState.vue
 git commit -m "Aggiunge DataState, la presentazione dello stato di una lettura
 
 Traduce lo stato di una risorsa in cio' che si vede. Il caso per cui
-esiste e' 'errore-con-dati': la richiesta e' fallita ma i dati
+esiste è 'errore-con-dati': la richiesta è fallita ma i dati
 precedenti restano a schermo, con un avviso sopra invece del vuoto.
-L'avviso e' role=status, il pannello d'errore role=alert, e ogni
+L'avviso è role=status, il pannello d'errore role=alert, e ogni
 segnale porta icona e testo, mai il solo colore."
 ```
 
@@ -773,7 +773,7 @@ Crea `client/src/content/glossario.js`:
  * Nasce da un difetto concreto: lo stesso numero aveva tre nomi diversi.
  * "Saldo del conto" nella dashboard, "Patrimonio totale" nella pagina Conti
  * e "Patrimonio Totale" in un componente non usato — tutti e tre erano conti
- * piu' investimenti. Chi confrontava due pagine trovava definizioni in
+ * più investimenti. Chi confrontava due pagine trovava definizioni in
  * conflitto e non poteva sapere quale credere.
  *
  * Da qui in avanti l'etichetta si legge, non si scrive in linea. Aggiungere
@@ -788,7 +788,7 @@ const CONCETTI = [
     id: 'patrimonio_totale',
     etichetta: 'Patrimonio totale',
     descrizione:
-      'Tutto quello che hai registrato in WALLT: i saldi dei conti attivi piu\' il valore attuale degli investimenti.',
+      'Tutto quello che hai registrato in WALLT: i saldi dei conti attivi più il valore attuale degli investimenti.',
     formula: 'conti attivi + investimenti attivi',
     origine: 'GET /conti/patrimonio → totale',
     topic: 'patrimonio-come-si-calcola',
@@ -812,7 +812,7 @@ const CONCETTI = [
     id: 'risultato_mese',
     etichetta: 'Risultato del mese',
     descrizione:
-      'Quanto e\' entrato meno quanto e\' uscito nel mese. Gli spostamenti fra due tuoi conti non contano ne\' come entrata ne\' come uscita.',
+      'Quanto è entrato meno quanto è uscito nel mese. Gli spostamenti fra due tuoi conti non contano né come entrata né come uscita.',
     formula: 'entrate − uscite, trasferimenti esclusi',
     origine: 'GET /movimenti/bilancio → saldo',
   },
@@ -844,13 +844,13 @@ In `client/src/content/helpTopics.js`, inserisci questo argomento nell'array `TO
     title: 'Come si calcola il patrimonio',
     summary: 'Patrimonio totale = saldi dei conti attivi + valore attuale degli investimenti.',
     paragraphs: [
-      'Il "Patrimonio totale" della home somma due cose: i saldi di tutti i tuoi conti attivi e il valore attuale dei tuoi investimenti. Sotto la cifra trovi la composizione, cosi\' vedi sempre quanta parte e\' su conti e quanta e\' investita.',
-      'Dentro "Conti" c\'e\' ogni conto che hai registrato come attivo: conto corrente, contanti, wallet, risparmio e anche le piattaforme di scommesse. Non e\' quindi la cifra che puoi spendere domani, ma tutto il denaro che tieni tracciato in WALLT.',
-      'I trasferimenti fra due tuoi conti non cambiano il patrimonio: spostano denaro da una tasca all\'altra, quindi non sono ne\' entrate ne\' uscite e non compaiono nel risultato del mese.',
+      'Il "Patrimonio totale" della home somma due cose: i saldi di tutti i tuoi conti attivi e il valore attuale dei tuoi investimenti. Sotto la cifra trovi la composizione, così vedi sempre quanta parte è su conti e quanta è investita.',
+      'Dentro "Conti" c\'è ogni conto che hai registrato come attivo: conto corrente, contanti, wallet, risparmio e anche le piattaforme di scommesse. Non è quindi la cifra che puoi spendere domani, ma tutto il denaro che tieni tracciato in WALLT.',
+      'I trasferimenti fra due tuoi conti non cambiano il patrimonio: spostano denaro da una tasca all\'altra, quindi non sono né entrate né uscite e non compaiono nel risultato del mese.',
     ],
     bullets: [
-      'Un conto eliminato non entra piu\' nel totale: i suoi movimenti restano pero\' nello storico.',
-      'Il "Risultato del mese" e\' entrate meno uscite, senza i trasferimenti.',
+      'Un conto eliminato non entra più nel totale: i suoi movimenti restano però nello storico.',
+      'Il "Risultato del mese" è entrate meno uscite, senza i trasferimenti.',
     ],
     related: ['trasferimenti', 'dashboard-riepilogo'],
   },
@@ -878,9 +878,9 @@ git commit -m "Aggiunge il glossario delle etichette finanziarie
 
 Lo stesso numero aveva tre nomi diversi in tre pagine: 'Saldo del
 conto', 'Patrimonio totale' e 'Patrimonio Totale' erano tutti conti
-piu' investimenti. Da qui in avanti l'etichetta si legge da un posto
+più investimenti. Da qui in avanti l'etichetta si legge da un posto
 solo. Aggiunge anche l'argomento di aiuto che spiega la formula e
-chiarisce che i trasferimenti fra conti non sono entrate ne' uscite.
+chiarisce che i trasferimenti fra conti non sono entrate né uscite.
 
 La prima voce si chiama 'Conti' e non 'Disponibilita' totale': il
 calcolo comprende scommesse e risparmio, quindi 'immediatamente
@@ -945,7 +945,7 @@ export const useContiStore = defineStore('conti', () => {
   /**
    * Il patrimonio arriva da due endpoint che usano la stessa identica
    * formula (conti attivi + investimenti attivi). Vince quello dedicato
-   * quando c'e', perche' porta anche la scomposizione.
+   * quando c'è, perché porta anche la scomposizione.
    */
   const patrimonioTotale = computed(() => (
     risorsaPatrimonio.data.value?.totale
@@ -963,8 +963,8 @@ export const useContiStore = defineStore('conti', () => {
   });
 
   /**
-   * Le tre voci mostrate sotto il totale. Il server le manda gia' entrambe
-   * (`totale_conti`, `totale_investimenti`): prima venivano scartate, ed e'
+   * Le tre voci mostrate sotto il totale. Il server le manda già entrambe
+   * (`totale_conti`, `totale_investimenti`): prima venivano scartate, ed è
    * il motivo per cui la scheda poteva solo dire un numero senza spiegarlo.
    */
   const composizionePatrimonio = computed(() => ({
@@ -1135,7 +1135,7 @@ che vince sul primo e ne cambia il `gap`.
 
 ```css
 /* La composizione spiega il totale invece di lasciarlo da interpretare:
-   quanta parte e' sui conti e quanta e' investita. */
+   quanta parte è sui conti e quanta è investita. */
 .w-overview__composizione {
   margin-top: 0.25rem;
   font-size: 0.875rem;
@@ -1235,15 +1235,15 @@ Il punto 2 è il controllo che conta: se i due addendi non fanno il totale, la s
 
 ```bash
 git add client/src/stores/conti.store.js client/src/components/custom/WOverviewCarousel.vue client/src/views/DashboardView.vue client/src/views/ContiView.vue client/src/utils/session.js
-git commit -m "Mostra il patrimonio con la sua composizione, e non piu' come 'saldo'
+git commit -m "Mostra il patrimonio con la sua composizione, e non più come 'saldo'
 
-La scheda principale diceva 'Saldo del conto' per un numero che e'
-conti piu' investimenti: sembrava riferito a un conto solo. Ora dice
-'Patrimonio totale' e sotto mostra da cosa e' composto.
+La scheda principale diceva 'Saldo del conto' per un numero che è
+conti più investimenti: sembrava riferito a un conto solo. Ora dice
+'Patrimonio totale' e sotto mostra da cosa è composto.
 
-Il server mandava gia' totale_conti e totale_investimenti, e il client
+Il server mandava già totale_conti e totale_investimenti, e il client
 li scartava: nessun calcolo nuovo, nessuna modifica all'API. conti.store
-passa a creaRisorsa mantenendo invariata l'interfaccia pubblica, cosi'
+passa a creaRisorsa mantenendo invariata l'interfaccia pubblica, così
 le viste non ancora migrate continuano a funzionare."
 ```
 
@@ -1277,9 +1277,9 @@ export const useBudgetStore = defineStore('budget', () => {
       const { data } = await api.get(`/budget/${anno}/${mese}`);
       return data;
     },
-    // "Vuoto" qui significa: il server ha risposto e il budget non c'e'.
-    // Non significa "la richiesta e' fallita" — quella e' un'altra cosa,
-    // ed e' precisamente la confusione che questo task elimina.
+    // "Vuoto" qui significa: il server ha risposto e il budget non c'è.
+    // Non significa "la richiesta è fallita" — quella è un'altra cosa,
+    // ed è precisamente la confusione che questo task elimina.
     { iniziale: null, vuotoSe: (d) => !d || d.esiste === false },
   );
 
@@ -1426,8 +1426,8 @@ azzerava lo stato nel catch e BudgetView mostrava 'Nessun budget per
 <mese>' ogni volta che la richiesta falliva. All'utente veniva
 comunicata l'assenza di un dato che invece esisteva.
 
-Lo stato vuoto non e' stato riscritto: e' stato spostato nello slot
-dove non puo' piu' essere confuso con un errore."
+Lo stato vuoto non è stato riscritto: è stato spostato nello slot
+dove non può più essere confuso con un errore."
 ```
 
 ---
@@ -1476,12 +1476,12 @@ export const useAnalisiStore = defineStore('analisi', () => {
   );
 
   /**
-   * Confronto fra periodi. L'unita' segue il periodo scelto nella pagina:
+   * Confronto fra periodi. L'unità segue il periodo scelto nella pagina:
    * settimane, mesi o anni. Con `da`/`a` (periodo "Custom") l'API risponde
    * invece con i mesi toccati dall'intervallo e ignora unita/quantita.
    *
    * `mesi` viene inviato accanto a `quantita` per i soli mesi: durante un
-   * rilascio l'API puo' essere ancora la versione precedente, che conosce
+   * rilascio l'API può essere ancora la versione precedente, che conosce
    * solo quel parametro. Vedi il commento in analisi.controller.js.
    */
   const risorsaConfronto = creaRisorsa(
@@ -1495,12 +1495,12 @@ export const useAnalisiStore = defineStore('analisi', () => {
   );
 
   /**
-   * Andamento del patrimonio: un punto per periodo, con la stessa unita' del
+   * Andamento del patrimonio: un punto per periodo, con la stessa unità del
    * confronto. Con `da`/`a` (periodo "Custom") l'API usa i mesi
    * dell'intervallo e ignora unita/quantita.
    *
    * `periodo` viene inviato accanto ai parametri nuovi per la stessa ragione
-   * di risorsaConfronto: durante un rilascio l'API puo' essere ancora
+   * di risorsaConfronto: durante un rilascio l'API può essere ancora
    * quella precedente, che conosce solo quel parametro.
    */
   const risorsaAndamento = creaRisorsa(
@@ -1614,7 +1614,7 @@ Avvolgi la sezione della distribuzione in `<DataState>` usando la risorsa corris
       <template #vuoto>
         <!-- il div.empty-state esistente, copiato senza modifiche al testo -->
       </template>
-      <!-- il contenuto che oggi viene mostrato quando hasData e' vero -->
+      <!-- il contenuto che oggi viene mostrato quando hasData è vero -->
     </DataState>
 ```
 
@@ -1657,7 +1657,7 @@ Un solo 'loading' era condiviso da cinque fetch: caricare la
 distribuzione delle spese accendeva lo scheletro anche del confronto e
 dei suggerimenti, e spegnerlo per una lo spegneva per tutte.
 
-AnalisiView non mostra piu' lo stato vuoto quando la richiesta e'
+AnalisiView non mostra più lo stato vuoto quando la richiesta è
 fallita. I commenti sui parametri legacy 'mesi' e 'periodo' sono
 riportati identici: documentano la compatibilita' fra rilasci separati
 di client e API."
@@ -1691,9 +1691,9 @@ In `client/src/stores/movimenti.store.js`, mantieni `mergeGruppi`, `saldoInsuffi
   );
 
   /**
-   * Ultime transazioni della home. L'API puo' rispondere con `movimenti`
-   * gia' piatti oppure con `gruppi` da appiattire: la normalizzazione stava
-   * gia' nel codice precedente e va conservata, altrimenti la home resta
+   * Ultime transazioni della home. L'API può rispondere con `movimenti`
+   * già piatti oppure con `gruppi` da appiattire: la normalizzazione stava
+   * già nel codice precedente e va conservata, altrimenti la home resta
    * vuota su una delle due forme di risposta.
    */
   const risorsaRecenti = creaRisorsa(
@@ -1763,7 +1763,7 @@ Le pagine successive vengono accumulate fuori dalla risorsa, perché `creaRisors
   };
 
   /**
-   * Una pagina successiva che fallisce non rende vecchi i dati gia' a
+   * Una pagina successiva che fallisce non rende vecchi i dati già a
    * schermo: sono validi e freschi, manca solo il seguito. L'errore resta
    * quindi locale al pulsante e non passa da DataState.
    */
@@ -1881,7 +1881,7 @@ git commit -m "Separa 'nessun movimento' da 'movimenti non caricabili'
 La lista vuota per un filtro senza risultati e la lista vuota per una
 richiesta fallita erano indistinguibili. Aggiunge anche la distinzione
 opposta: una pagina successiva che non arriva non rende vecchi i dati
-gia' a schermo, quindi l'errore resta accanto al pulsante e non
+già a schermo, quindi l'errore resta accanto al pulsante e non
 diventa un avviso 'dati non aggiornati' in cima alla pagina."
 ```
 
@@ -1933,7 +1933,7 @@ export const useObiettiviStore = defineStore('obiettivi', () => {
 
   // Le funzioni di scrittura restano identiche a quelle attuali: createObiettivo,
   // updateObiettivo, deleteObiettivo e le eventuali altre presenti nel file,
-  // ciascuna seguita da `await fetchObiettivi()` come gia' fa oggi.
+  // ciascuna seguita da `await fetchObiettivi()` come già fa oggi.
 
   return { risorsaObiettivi, obiettivi, loading, fetchObiettivi, reset /* + scritture */ };
 });
@@ -1995,12 +1995,12 @@ Atteso: build completata, 79 test verdi.
 git add client/src/stores/obiettivi.store.js client/src/stores/investimenti.store.js client/src/stores/scommesse.store.js client/src/views/ObiettiviView.vue client/src/views/InvestimentiView.vue client/src/views/ScommesseView.vue
 git commit -m "Porta obiettivi, investimenti e scommesse allo stesso stato di lettura
 
-I tre conservavano gia' i dati in caso di errore, ma per due meccanismi
+I tre conservavano già i dati in caso di errore, ma per due meccanismi
 diversi e senza dirlo all'utente: un catch nella vista per due, un
 try/finally nello store per il terzo. Ora sono la stessa cosa e la
 scheda dichiara quando sta mostrando un dato vecchio.
 
-I campi panoramica e analisi di scommesse rientrano nel reset: e' la
+I campi panoramica e analisi di scommesse rientrano nel reset: è la
 parte del difetto noto numero 9 che si chiude qui."
 ```
 
@@ -2155,14 +2155,14 @@ Atteso: build completata, 79 test verdi.
 git add client/src/views/DashboardView.vue client/src/components/custom/WOverviewCarousel.vue client/src/components/dashboard/RecentTransactions.vue
 git commit -m "Ogni scheda della dashboard dichiara se sta mostrando un dato vecchio
 
-L'avviso e' per scheda e non per pagina: quando fallisce solo il
-budget, dire 'non e' stato possibile aggiornare i dati' farebbe
+L'avviso è per scheda e non per pagina: quando fallisce solo il
+budget, dire 'non è stato possibile aggiornare i dati' farebbe
 dubitare anche dei saldi, che invece sono corretti.
 
-I try/catch intorno ai caricamenti spariscono perche' carica() non
+I try/catch intorno ai caricamenti spariscono perché carica() non
 lancia, e i flag di 'Primi passi' leggono lastUpdated invece di essere
-tenuti a mano: 'mai ricevuta una risposta valida' e' esattamente la
-definizione di 'sconosciuto' che il riquadro usava gia'."
+tenuti a mano: 'mai ricevuta una risposta valida' è esattamente la
+definizione di 'sconosciuto' che il riquadro usava già."
 ```
 
 ---
@@ -2225,11 +2225,11 @@ Atteso: build completata, 79 test verdi.
 git add client/src/utils/session.js
 git commit -m "Azzera gli store al logout chiamando reset invece di elencare campi
 
-Elencare i campi a mano e' la forma di difetto che ha lasciato
+Elencare i campi a mano è la forma di difetto che ha lasciato
 recentiHome e i campi di scommesse popolati dopo il logout (difetto
 noto numero 9). Ora ogni store migrato sa azzerare se stesso, e
 reset() invalida anche le richieste in volo: una risposta in ritardo
-non puo' ripopolare la vista con i dati dell'utente precedente."
+non può ripopolare la vista con i dati dell'utente precedente."
 ```
 
 ---
@@ -2286,7 +2286,7 @@ Atteso: build completata (fallirebbe su un import mancante, ed è la prova che n
 ```bash
 git commit -m "Elimina cinque componenti non utilizzati
 
-Nessuno era importato. Il motivo non e' la pulizia: GlassBalanceCard
+Nessuno era importato. Il motivo non è la pulizia: GlassBalanceCard
 conteneva 'Patrimonio Totale', un'etichetta concorrente per lo stesso
 numero appena centralizzato nel glossario, e il prossimo che avesse
 aperto quel file l'avrebbe usata in buona fede.
