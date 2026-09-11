@@ -24,7 +24,7 @@ const props = defineProps({
   conti: { type: Array, default: () => [] },
   loadingConti: { type: Boolean, default: false },
   patrimonio: { type: Number, default: 0 },
-  composizione: { type: Object, default: () => ({ conti: 0, investimenti: 0 }) },
+  composizione: { type: Object, default: null },
   entrateMese: { type: Number, default: 0 },
   usciteMese: { type: Number, default: 0 },
   entrateOggi: { type: Number, default: 0 },
@@ -229,7 +229,7 @@ onUnmounted(() => {
               <HelpTrigger topic="patrimonio-come-si-calcola" variant="quiet" />
             </p>
             <p class="w-overview__amount tabular-nums">{{ formatValuta(animatedPatrimonio) }}</p>
-            <p class="w-overview__composizione">
+            <p v-if="composizione" class="w-overview__composizione">
               {{ etichetta('componente_conti') }} <span class="tabular-nums">{{ formatValuta(composizione.conti) }}</span>
               ·
               {{ etichetta('componente_investimenti') }} <span class="tabular-nums">{{ formatValuta(composizione.investimenti) }}</span>

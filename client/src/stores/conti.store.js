@@ -32,7 +32,7 @@ export const useContiStore = defineStore('conti', () => {
   /**
    * Il patrimonio arriva da due endpoint che usano la stessa identica
    * formula (conti attivi + investimenti attivi). Vince quello dedicato
-   * quando c'e', perche' porta anche la scomposizione.
+   * quando c'è, perché porta anche la scomposizione.
    */
   const patrimonioTotale = computed(() => (
     risorsaPatrimonio.data.value?.totale
@@ -50,15 +50,23 @@ export const useContiStore = defineStore('conti', () => {
   });
 
   /**
-   * Le tre voci mostrate sotto il totale. Il server le manda gia' entrambe
-   * (`totale_conti`, `totale_investimenti`): prima venivano scartate, ed e'
+   * Le tre voci mostrate sotto il totale. Il server le manda già entrambe
+   * (`totale_conti`, `totale_investimenti`): prima venivano scartate, ed è
    * il motivo per cui la scheda poteva solo dire un numero senza spiegarlo.
    */
-  const composizionePatrimonio = computed(() => ({
-    totale: patrimonioTotale.value,
-    conti: risorsaPatrimonio.data.value?.totale_conti ?? 0,
-    investimenti: risorsaPatrimonio.data.value?.totale_investimenti ?? 0,
-  }));
+  const composizionePatrimonio = computed(() => {
+    const p = risorsaPatrimonio.data.value;
+    // `null` finché la risposta dedicata non c'è. Il totale ha un fallback
+    // su /conti, la scomposizione no: restituire zeri la farebbe contraddire
+    // il numero scritto sopra, ed è proprio l'invariante che la scheda deve
+    // rendere evidente. Meglio nessuna composizione che una falsa.
+    if (!p) return null;
+    return {
+      totale: patrimonioTotale.value,
+      conti: p.totale_conti ?? 0,
+      investimenti: p.totale_investimenti ?? 0,
+    };
+  });
 
   const fetchConti = () => risorsaConti.carica();
   const fetchPatrimonio = () => risorsaPatrimonio.carica();
