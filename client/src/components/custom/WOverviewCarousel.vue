@@ -1002,7 +1002,7 @@ onUnmounted(() => {
 }
 
 /* La composizione spiega il totale invece di lasciarlo da interpretare:
-   quanta parte e' sui conti e quanta e' investita. */
+   quanta parte è sui conti e quanta è investita. */
 .w-overview__composizione {
   margin-top: 0.25rem;
   font-size: 0.875rem;
