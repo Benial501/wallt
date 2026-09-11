@@ -9,7 +9,7 @@ import { ref, computed } from 'vue';
  * L'utente leggeva una perdita di dati dove c'era solo una richiesta fallita.
  *
  * Qui la regola non è una convenzione da ricordare: è l'unico modo in cui
- * `carica` e' scritta. In caso di fallimento viene scritto SOLO `error`.
+ * `carica` è scritta. In caso di fallimento viene scritto SOLO `error`.
  *
  * I dati vivono in memoria e basta: niente localStorage, mai. Un saldo non
  * deve finire su disco (stessa scelta già fatta per il payload delle push).
@@ -44,8 +44,8 @@ export const creaRisorsa = (fetcher, { iniziale = null, vuotoSe } = {}) => {
    * dopo un fallimento senza dati mostra di nuovo lo scheletro, invece di
    * lasciare il pannello d'errore fino alla risposta. Con dati precedenti,
    * invece, `errore-con-dati` sopravvive al tentativo in corso: il dato a
-   * schermo e' ancora vecchio finche' non arriva quello nuovo, e dirlo a
-   * meta' strada e poi ridirlo sarebbe un lampeggio.
+   * schermo è ancora vecchio finché non arriva quello nuovo, e dirlo a
+   * metà strada e poi ridirlo sarebbe un lampeggio.
    */
   const stato = computed(() => {
     if (loading.value && lastUpdated.value === null) return 'caricamento';

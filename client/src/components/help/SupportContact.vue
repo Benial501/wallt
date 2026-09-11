@@ -34,8 +34,8 @@ const toggle = async () => {
   await openForm();
 };
 
-// L'ancora va seguita anche a componente gia' montato: dal footer si arriva
-// qui anche quando si e' gia' su /aiuto, e li' onMounted non riparte.
+// L'ancora va seguita anche a componente già montato: dal footer si arriva
+// qui anche quando si e' già su /aiuto, e li' onMounted non riparte.
 onMounted(() => { if (route.hash === '#supporto') openForm(); });
 watch(() => route.hash, (hash) => { if (hash === '#supporto') openForm(); });
 

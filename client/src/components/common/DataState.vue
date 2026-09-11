@@ -11,7 +11,7 @@ dayjs.locale('it');
  * Traduce lo stato di una risorsa (utils/risorsa.js) in ciò che si vede.
  *
  * Il caso che questo componente esiste per risolvere è `errore-con-dati`:
- * la richiesta e' fallita ma i dati precedenti sono ancora a schermo. Prima
+ * la richiesta è fallita ma i dati precedenti sono ancora a schermo. Prima
  * quel caso non esisteva — un errore svuotava la pagina e l'utente credeva
  * di aver perso i propri dati.
  */
@@ -167,7 +167,7 @@ const orarioAggiornamento = computed(() => {
 }
 
 /* L'orario è un elemento a sé, non un inciso dentro la frase: la frase
-   dell'avviso e' vincolata alla lettera e deve restare intatta. */
+   dell'avviso è vincolata alla lettera e deve restare intatta. */
 .data-state__avviso-orario {
   margin: 0.25rem 0 0;
   font-size: 0.8125rem;

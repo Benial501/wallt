@@ -189,7 +189,7 @@ const submit = async () => {
 }
 
 /* Livello "elevated": il modulo e' il soggetto della pagina, quindi e' la
-   superficie piu' definita. Il resto della pagina gli fa da sfondo. */
+   superficie più definita. Il resto della pagina gli fa da sfondo. */
 .contatto__card {
   background: var(--glass-elevated-bg);
   backdrop-filter: blur(var(--blur-lg)) saturate(var(--glass-saturate));

@@ -222,7 +222,7 @@ const titolo = computed(() => {
 // Una sola shell per tutti i punti di apertura: il dialog nativo gestisce da
 // solo il layout a bottom sheet sotto i 768px via media query. Prima la scelta
 // dipendeva da un ref JS aggiornato sul resize, che cambiando componente a
-// caldo distruggeva e ricreava il dialog gia' aperto.
+// caldo distruggeva e ricreava il dialog già aperto.
 const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
 </script>
 
@@ -432,7 +432,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
 .tipo-btn.active { border-color: color-mix(in srgb, var(--accent-green) 55%, transparent); background: var(--accent-light); }
 
 /* --- Selettore categoria -------------------------------------------------
-   E' il controllo piu' usato del form: griglia scorrevole con ricerca sopra.
+   E' il controllo più usato del form: griglia scorrevole con ricerca sopra.
    Lo stato selezionato si legge dal bordo tinto e dalla pastiglia dell'icona,
    non da un fondo pieno che coprirebbe l'etichetta. */
 .cat-grid {

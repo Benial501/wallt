@@ -93,7 +93,7 @@ const onTouchEnd = () => {
 
 const onTouchCancel = () => {
   // Chiamata in arrivo o gesture di sistema: senza questo la riga restava
-  // a meta' corsa e il gesto successivo ripartiva da uno stato sporco.
+  // a metà corsa e il gesto successivo ripartiva da uno stato sporco.
   offsetX.value = startOffset;
   asse = null;
   dragging.value = false;
@@ -185,7 +185,7 @@ const handleClick = () => {
   /* Superficie piena, non traslucida: dietro la riga c'e' l'azione "elimina"
      rivelata dallo swipe, e con un fondo trasparente si vedrebbe in rosso
      attraverso ogni riga. Niente backdrop-filter nemmeno: in una lista lunga
-     sarebbe l'effetto piu' caro della pagina, ripetuto decine di volte. */
+     sarebbe l'effetto più caro della pagina, ripetuto decine di volte. */
   background: var(--glass-primary-solid);
   border: 1px solid var(--glass-primary-border);
   border-radius: var(--radius-lg);

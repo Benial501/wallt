@@ -48,9 +48,9 @@ export const useImportazioniStore = defineStore('importazioni', () => {
       if (err.response?.status === 429) {
         error.value = err.response?.data?.error || 'Troppi tentativi di import. Riprova tra qualche minuto.';
       } else if (err.code === 'ECONNABORTED') {
-        // Il server puo' aver completato comunque: dire "errore" e basta
+        // Il server può aver completato comunque: dire "errore" e basta
         // porterebbe a ripetere l'import credendolo fallito.
-        error.value = 'L\'import sta ancora finendo sul server. Ricarica i movimenti fra qualche secondo prima di riprovare: potrebbero essere gia\' stati salvati.';
+        error.value = 'L\'import sta ancora finendo sul server. Ricarica i movimenti fra qualche secondo prima di riprovare: potrebbero essere già stati salvati.';
       } else {
         error.value = err.response?.data?.error || err.response?.data?.message || 'Errore conferma import';
       }

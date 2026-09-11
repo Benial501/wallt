@@ -5,7 +5,7 @@
 /** Sotto questa distanza il gesto non e' ancora interpretabile. */
 export const SOGLIA_DIREZIONE = 10;
 /**
- * Lo scorrimento verticale vince a parita': in una lista si scorre molto piu'
+ * Lo scorrimento verticale vince a parita': in una lista si scorre molto più
  * spesso di quanto si trascini una riga, e il pollice devia sempre un po'.
  */
 export const RAPPORTO_ORIZZONTALE = 1.4;
@@ -13,8 +13,8 @@ export const REVEAL = 80;
 export const MAX_DRAG = 96;
 
 /**
- * Decide l'asse del gesto. Va chiamata finche' restituisce null; una volta
- * deciso, l'asse non cambia piu' per tutta la durata del gesto.
+ * Decide l'asse del gesto. Va chiamata finché restituisce null; una volta
+ * deciso, l'asse non cambia più per tutta la durata del gesto.
  * @returns {'x'|'y'|null} null se il movimento e' ancora troppo piccolo.
  */
 export const decidiAsse = (dx, dy, {
@@ -27,7 +27,7 @@ export const decidiAsse = (dx, dy, {
 
 /**
  * Posizione della riga durante il trascinamento. Parte dall'offset corrente,
- * cosi' riprendendo il gesto su una riga gia' aperta non salta a zero.
+ * così riprendendo il gesto su una riga già aperta non salta a zero.
  */
 export const calcolaOffset = (offsetIniziale, dx, max = MAX_DRAG) => (
   Math.min(0, Math.max(offsetIniziale + dx, -max))

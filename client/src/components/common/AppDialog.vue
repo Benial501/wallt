@@ -6,8 +6,8 @@ import { lockDialogScroll } from './dialogScrollLock';
 const props = defineProps({ open: Boolean, title: { type: String, default: '' } });
 const emit = defineEmits(['close']);
 const dialog = ref(null);
-// Il contenuto resta montato finche' l'animazione di uscita non e' finita,
-// altrimenti il dialog si svuoterebbe a meta' chiusura. Deve essere un ref:
+// Il contenuto resta montato finché l'animazione di uscita non e' finita,
+// altrimenti il dialog si svuoterebbe a metà chiusura. Deve essere un ref:
 // il template ci si basa e una variabile normale non farebbe ri-renderizzare.
 const contentMounted = ref(false);
 let releaseScroll;
@@ -81,7 +81,7 @@ onBeforeUnmount(release);
   -webkit-backdrop-filter: blur(8px) saturate(140%);
 }
 /* Livello "elevated" del sistema del vetro: qui sopra si compila un form,
-   quindi la superficie e' la piu' opaca della scala. */
+   quindi la superficie e' la più opaca della scala. */
 .transaction-dialog__panel {
   width: 100%; max-width: 520px; max-height: 100%; min-height: 0;
   display: flex; flex-direction: column; overflow: hidden;

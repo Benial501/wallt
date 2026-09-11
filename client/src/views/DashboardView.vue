@@ -336,7 +336,7 @@ onMounted(async () => {
 
 /* L'azione principale della dashboard: pastiglia ad alto contrasto, chiara
    sul tema scuro e scura sul chiaro. La gerarchia arriva dal contrasto, non
-   da un colore acceso in piu'. */
+   da un colore acceso in più. */
 .dashboard-view__cta {
   display: block;
   width: 100%;

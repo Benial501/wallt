@@ -3,7 +3,7 @@
    -----------------------------------------------------------------------------
    Classi condivise costruite sui token di variables.css. Prima di scrivere una
    nuova superficie sfocata in un componente, verificare se uno di questi
-   livelli va gia' bene: e' l'unico modo perche' card, modali e barre continuino
+   livelli va già bene: e' l'unico modo perché card, modali e barre continuino
    a sembrare parte della stessa applicazione.
 
    Livelli disponibili:
@@ -13,7 +13,7 @@
      .glass--chrome      barre fisse: sidebar, header, bottom nav
      .glass-interactive  elemento cliccabile in vetro (chip, bottone secondario)
 
-   Costo: backdrop-filter e' l'effetto piu' caro della pagina. Va messo sulle
+   Costo: backdrop-filter e' l'effetto più caro della pagina. Va messo sulle
    superfici grandi e ferme, mai su elementi ripetuti decine di volte in una
    lista o su qualcosa che si anima di continuo.
    ============================================================================= */
@@ -33,7 +33,7 @@ body::before {
   z-index: -1;
   pointer-events: none;
   /* I centri stanno sui bordi del viewport, non fuori: con un inset negativo
-     finirebbero oltre il raggio e non si vedrebbe piu' nulla. */
+     finirebbero oltre il raggio e non si vedrebbe più nulla. */
   background:
     radial-gradient(58vmax 52vmax at 6% 0%, var(--ambient-1), transparent 62%),
     radial-gradient(52vmax 48vmax at 100% 6%, var(--ambient-2), transparent 60%),
@@ -41,7 +41,7 @@ body::before {
 }
 
 /* I contenitori a tutta pagina non devono ridipingere il fondo: coprirebbero
-   l'alone e il vetro sopra non rifrangerebbe piu' nulla. */
+   l'alone e il vetro sopra non rifrangerebbe più nulla. */
 #app {
   background: transparent;
 }
@@ -122,7 +122,7 @@ body::before {
 /* -----------------------------------------------------------------------------
    Overlay dei livelli modali
    -------------------------------------------------------------------------- */
-/* Non un nero pieno: una velatura sfocata, cosi' la pagina sotto resta
+/* Non un nero pieno: una velatura sfocata, così la pagina sotto resta
    percepibile e il pannello sopra sembra sollevato invece che incollato. */
 .glass-overlay {
   background: var(--overlay);
@@ -133,7 +133,7 @@ body::before {
 /* -----------------------------------------------------------------------------
    Focus
    -------------------------------------------------------------------------- */
-/* Un solo stato di fuoco per tutta l'app, piu' visibile dell'outline di
+/* Un solo stato di fuoco per tutta l'app, più visibile dell'outline di
    sistema che sostituisce. Solo :focus-visible: chi clicca col mouse non lo
    vede, chi naviga da tastiera si'. */
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
@@ -145,7 +145,7 @@ body::before {
 /* -----------------------------------------------------------------------------
    Tipografia di base
    -------------------------------------------------------------------------- */
-/* Gerarchia: piu' il testo e' grande, piu' la crenatura si stringe. E' la
+/* Gerarchia: più il testo e' grande, più la crenatura si stringe. E' la
    regola che distingue un titolo composto da un titolo solo ingrandito. */
 h1, .t-display {
   letter-spacing: var(--tracking-display);
@@ -182,12 +182,12 @@ h4, h5, h6 {
 /* -----------------------------------------------------------------------------
    Controlli nativi
    --------------------------------------------------------------------------
-   Checkbox, radio, range e selettore colore restano i widget del sistema — piu'
+   Checkbox, radio, range e selettore colore restano i widget del sistema — più
    accessibili di qualunque replica in CSS — ma prendono il colore dell'app e
    una dimensione utilizzabile col dito.
    -------------------------------------------------------------------------- */
 /* Checkbox e radio disegnate a mano: quelle di sistema non prendono il vetro
-   ne' il raggio del resto dell'app. Restano elementi nativi — quindi
+   né il raggio del resto dell'app. Restano elementi nativi — quindi
    raggiungibili da tastiera e annunciate dallo screen reader — cambia solo il
    disegno. accent-color resta come ripiego per i browser che ignorano
    appearance: none. */
@@ -278,7 +278,7 @@ input[type='color']::-webkit-color-swatch-wrapper { padding: 0; }
 input[type='color']::-webkit-color-swatch { border: none; border-radius: 6px; }
 
 /* L'icona del calendario e' un bersaglio da toccare: va allargata e resa
-   discreta finche' non ci si passa sopra. */
+   discreta finché non ci si passa sopra. */
 ::-webkit-calendar-picker-indicator {
   cursor: pointer;
   padding: 4px;

@@ -1,18 +1,18 @@
 /* =============================================================================
    WALLT — Design tokens
    -----------------------------------------------------------------------------
-   Unica sorgente di verita' per colore, vetro, raggi, ombre, tipografia e
+   Unica sorgente di verità per colore, vetro, raggi, ombre, tipografia e
    motion. Ogni componente deve leggere da qui: se un valore si ripete in due
    file scoped, va promosso a token invece di essere duplicato.
 
    Il sistema del vetro ha quattro livelli, in ordine di elevazione percepita:
 
      --glass-secondary-*  superfici annidate, riquadri interni, righe di lista
-     --glass-primary-*    card di pagina, il livello piu' usato
+     --glass-primary-*    card di pagina, il livello più usato
      --glass-chrome-*     barre fisse (sidebar, header, bottom nav)
      --glass-elevated-*   modali, bottom sheet, popover: sopra tutto il resto
 
-   Regola: piu' un livello e' in alto, piu' e' opaco. Sopra un modale si legge
+   Regola: più un livello e' in alto, più e' opaco. Sopra un modale si legge
    del testo, quindi la trasparenza li' e' un accento, non la sostanza.
    ============================================================================= */
 
@@ -22,7 +22,7 @@ html.dark {
 
   --bg-primary: #06060A;
   --bg-secondary: #0F172A;
-  /* --bg-card / --bg-input non sono piu' tinte piene: valgono gli stessi
+  /* --bg-card / --bg-input non sono più tinte piene: valgono gli stessi
      valori del vetro "primary" e "interactive". Cosi' ogni superficie scritta
      prima del sistema del vetro entra nel linguaggio comune senza pagare un
      backdrop-filter — che resta riservato alle superfici grandi e ferme. */
@@ -107,7 +107,7 @@ html.dark {
   --sidebar-hover-bg: rgba(255, 255, 255, 0.05);
 
   /* Pastiglia ad alto contrasto della dashboard: chiara sul buio, scura sul
-     chiaro. Il contrasto e' la gerarchia — non serve un colore in piu'. */
+     chiaro. Il contrasto e' la gerarchia — non serve un colore in più. */
   --cta-bg: #F0F0F5;
   --cta-bg-hover: #FFFFFF;
   --cta-text: #0A0A0F;
@@ -225,7 +225,7 @@ html.light {
 :root {
   /* --- Tipografia --------------------------------------------------------- */
   /* SF su Apple, Inter altrove: la resa e' nativa dove il sistema ha un font
-     migliore, coerente dove non ce l'ha. Inter e' gia' caricato in index.html,
+     migliore, coerente dove non ce l'ha. Inter e' già caricato in index.html,
      non serve nessuna dipendenza nuova. */
   --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter',
     system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -252,7 +252,7 @@ html.light {
   --radius-pill: 999px;
 
   /* --- Sfocatura ---------------------------------------------------------- */
-  /* Scala volutamente corta: piu' valori diversi in giro significano solo
+  /* Scala volutamente corta: più valori diversi in giro significano solo
      superfici che sembrano appartenere ad app diverse. */
   --blur-sm: 12px;
   --blur-md: 20px;
@@ -288,7 +288,7 @@ html.light {
 
   /* --- Focus -------------------------------------------------------------- */
   /* Anello unico per tutta l'app: sostituisce l'outline di sistema con
-     qualcosa di piu' visibile, non con qualcosa di meno. */
+     qualcosa di più visibile, non con qualcosa di meno. */
   --focus-ring: 0 0 0 3.5px color-mix(in srgb, var(--accent-green) 32%, transparent);
   --focus-ring-tight: 0 0 0 2.5px color-mix(in srgb, var(--accent-green) 34%, transparent);
 }

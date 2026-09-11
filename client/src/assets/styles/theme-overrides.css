@@ -1,5 +1,5 @@
 /* Ritocchi per tema chiaro sui pattern condivisi.
-   Qui sta solo cio' che non si puo' esprimere con un token: widget nativi che
+   Qui sta solo cio' che non si può esprimere con un token: widget nativi che
    ignorano le variabili CSS e icone che devono cambiare colore per restare
    leggibili. Tutto il resto vive in variables.css. */
 
@@ -10,7 +10,7 @@ html.light textarea {
 }
 
 /* La tendina di una select e' disegnata dal sistema operativo: non eredita
-   ne' il vetro ne' i token del resto dell'app. */
+   né il vetro né i token del resto dell'app. */
 html.light select option {
   background: #FFFFFF;
   color: #0F172A;

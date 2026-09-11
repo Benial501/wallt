@@ -16,7 +16,7 @@ defineProps({
 </template>
 
 <style scoped>
-/* Livello "primary" del sistema del vetro: e' la card di pagina piu' usata. */
+/* Livello "primary" del sistema del vetro: e' la card di pagina più usata. */
 .w-card {
   position: relative;
   background: var(--glass-primary-bg);
@@ -36,7 +36,7 @@ defineProps({
 }
 
 /* Il sollevamento e' minimo di proposito: due pixel bastano a comunicare che
-   l'elemento risponde, di piu' diventa un rimbalzo. */
+   l'elemento risponde, di più diventa un rimbalzo. */
 @media (hover: hover) {
   .w-card--hoverable:hover {
     transform: translateY(-2px);

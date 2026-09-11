@@ -182,7 +182,7 @@ onBeforeUnmount(() => {
 }
 
 /* Livello "elevated": il pannello sta sopra tutta l'app, quindi e' la
-   superficie piu' opaca — qui si legge, non si guarda attraverso. */
+   superficie più opaca — qui si legge, non si guarda attraverso. */
 .notifiche-panel {
   display: flex;
   flex-direction: column;

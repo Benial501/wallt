@@ -11,7 +11,7 @@
  * `dblclick`, quindi tap, doppio tap dei componenti, scorrimento, selezione e
  * long-press restano invariati. Su Android e nella PWA installata questi
  * eventi non vengono mai emessi e il listener non fa nulla: li' il blocco
- * arriva gia' dal meta viewport e da `touch-action` in main.css.
+ * arriva già dal meta viewport e da `touch-action` in main.css.
  *
  * Accessibilita': lo zoom della pagina resta disponibile fuori dal browser
  * (Zoom schermo di iOS, dimensione testo di sistema, "Forza zoom" di Chrome
