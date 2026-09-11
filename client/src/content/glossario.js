@@ -4,7 +4,7 @@
  * Nasce da un difetto concreto: lo stesso numero aveva tre nomi diversi.
  * "Saldo del conto" nella dashboard, "Patrimonio totale" nella pagina Conti
  * e "Patrimonio Totale" in un componente non usato — tutti e tre erano conti
- * piu' investimenti. Chi confrontava due pagine trovava definizioni in
+ * più investimenti. Chi confrontava due pagine trovava definizioni in
  * conflitto e non poteva sapere quale credere.
  *
  * Da qui in avanti l'etichetta si legge, non si scrive in linea. Aggiungere
@@ -19,7 +19,7 @@ const CONCETTI = [
     id: 'patrimonio_totale',
     etichetta: 'Patrimonio totale',
     descrizione:
-      'Tutto quello che hai registrato in WALLT: i saldi dei conti attivi piu\' il valore attuale degli investimenti.',
+      'Tutto quello che hai registrato in WALLT: i saldi dei conti attivi più il valore attuale degli investimenti.',
     formula: 'conti attivi + investimenti attivi',
     origine: 'GET /conti/patrimonio → totale',
     topic: 'patrimonio-come-si-calcola',
@@ -43,7 +43,7 @@ const CONCETTI = [
     id: 'risultato_mese',
     etichetta: 'Risultato del mese',
     descrizione:
-      'Quanto e\' entrato meno quanto e\' uscito nel mese. Gli spostamenti fra due tuoi conti non contano ne\' come entrata ne\' come uscita.',
+      'Quanto è entrato meno quanto è uscito nel mese. Gli spostamenti fra due tuoi conti non contano né come entrata né come uscita.',
     formula: 'entrate − uscite, trasferimenti esclusi',
     origine: 'GET /movimenti/bilancio → saldo',
   },

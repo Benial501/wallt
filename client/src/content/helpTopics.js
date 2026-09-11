@@ -131,13 +131,13 @@ const TOPICS = [
     title: 'Come si calcola il patrimonio',
     summary: 'Patrimonio totale = saldi dei conti attivi + valore attuale degli investimenti.',
     paragraphs: [
-      'Il "Patrimonio totale" della home somma due cose: i saldi di tutti i tuoi conti attivi e il valore attuale dei tuoi investimenti. Sotto la cifra trovi la composizione, cosi\' vedi sempre quanta parte e\' su conti e quanta e\' investita.',
-      'Dentro "Conti" c\'e\' ogni conto che hai registrato come attivo: conto corrente, contanti, wallet, risparmio e anche le piattaforme di scommesse. Non e\' quindi la cifra che puoi spendere domani, ma tutto il denaro che tieni tracciato in WALLT.',
-      'I trasferimenti fra due tuoi conti non cambiano il patrimonio: spostano denaro da una tasca all\'altra, quindi non sono ne\' entrate ne\' uscite e non compaiono nel risultato del mese.',
+      'Il "Patrimonio totale" della home somma due cose: i saldi di tutti i tuoi conti attivi e il valore attuale dei tuoi investimenti. Sotto la cifra trovi la composizione, così vedi sempre quanta parte è su conti e quanta è investita.',
+      'Dentro "Conti" c\'è ogni conto che hai registrato come attivo: conto corrente, contanti, wallet, risparmio e anche le piattaforme di scommesse. Non è quindi la cifra che puoi spendere domani, ma tutto il denaro che tieni tracciato in WALLT.',
+      'I trasferimenti fra due tuoi conti non cambiano il patrimonio: spostano denaro da una tasca all\'altra, quindi non sono né entrate né uscite e non compaiono nel risultato del mese.',
     ],
     bullets: [
-      'Un conto eliminato non entra piu\' nel totale: i suoi movimenti restano pero\' nello storico.',
-      'Il "Risultato del mese" e\' entrate meno uscite, senza i trasferimenti.',
+      'Un conto eliminato non entra più nel totale: i suoi movimenti restano però nello storico.',
+      'Il "Risultato del mese" è entrate meno uscite, senza i trasferimenti.',
     ],
     related: ['trasferimenti', 'dashboard-riepilogo'],
   },

@@ -3,18 +3,18 @@ import { ref, computed } from 'vue';
 /**
  * Stato di una lettura dall'API.
  *
- * Nasce da un difetto concreto: piu' store azzeravano i dati nel gestore
+ * Nasce da un difetto concreto: più store azzeravano i dati nel gestore
  * dell'errore (`catch { lista.value = [] }`), e la vista mostrava lo stato
  * vuoto — "Nessun budget per settembre" — al posto di un errore di rete.
  * L'utente leggeva una perdita di dati dove c'era solo una richiesta fallita.
  *
- * Qui la regola non e' una convenzione da ricordare: e' l'unico modo in cui
+ * Qui la regola non è una convenzione da ricordare: è l'unico modo in cui
  * `carica` e' scritta. In caso di fallimento viene scritto SOLO `error`.
  *
  * I dati vivono in memoria e basta: niente localStorage, mai. Un saldo non
- * deve finire su disco (stessa scelta gia' fatta per il payload delle push).
+ * deve finire su disco (stessa scelta già fatta per il payload delle push).
  *
- * @param {Function} fetcher  funzione asincrona che restituisce i dati gia'
+ * @param {Function} fetcher  funzione asincrona che restituisce i dati già
  *                            estratti dalla risposta.
  * @param {Object}   opzioni
  * @param {*}        opzioni.iniziale  valore di partenza di `data`.
@@ -40,7 +40,7 @@ export const creaRisorsa = (fetcher, { iniziale = null, vuotoSe } = {}) => {
   const isVuoto = typeof vuotoSe === 'function' ? vuotoSe : vuotoPredefinito;
 
   /**
-   * L'ordine e' vincolante. `caricamento` precede `errore` cosi' un "Riprova"
+   * L'ordine è vincolante. `caricamento` precede `errore` così un "Riprova"
    * dopo un fallimento senza dati mostra di nuovo lo scheletro, invece di
    * lasciare il pannello d'errore fino alla risposta. Con dati precedenti,
    * invece, `errore-con-dati` sopravvive al tentativo in corso: il dato a
@@ -56,9 +56,9 @@ export const creaRisorsa = (fetcher, { iniziale = null, vuotoSe } = {}) => {
   });
 
   /**
-   * Non lancia mai: l'errore e' uno stato, non un'eccezione. Chi chiama non
+   * Non lancia mai: l'errore è uno stato, non un'eccezione. Chi chiama non
    * deve incatenare `.catch()` per evitare una rejection non gestita, e chi
-   * ha bisogno di sapere com'e' andata guarda `error` oppure il valore di
+   * ha bisogno di sapere com'è andata guarda `error` oppure il valore di
    * ritorno (i dati, oppure `undefined`).
    */
   const carica = async (...args) => {
@@ -86,8 +86,8 @@ export const creaRisorsa = (fetcher, { iniziale = null, vuotoSe } = {}) => {
   const riprova = () => carica(...ultimiArgs);
 
   /**
-   * L'incremento di `sequenza` non e' un dettaglio: invalida le richieste in
-   * volo, cosi' una risposta che arriva dopo il logout non puo' ripopolare la
+   * L'incremento di `sequenza` non è un dettaglio: invalida le richieste in
+   * volo, così una risposta che arriva dopo il logout non può ripopolare la
    * risorsa con i dati dell'utente precedente.
    */
   const reset = () => {
