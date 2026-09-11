@@ -1326,6 +1326,26 @@ Le funzioni di scrittura (`createBudget`, `updateBudget`, ed eventuali altre pre
 
 Ricordati di aggiungere `risorsaBudget`, `risorsaStato` e `reset` all'oggetto restituito dallo store.
 
+- [ ] **Step 1b: Neutralizzare il reset di sessione**
+
+**Neutralizza il blocco di questo store in `session.js`.** `resetPiniaStores`
+(`client/src/utils/session.js`, righe 36-82) assegna direttamente i campi di
+tutti e sette gli store. Le proprietà che questo task trasforma in `computed`
+non sono più scrivibili: l'assegnazione fallisce e l'errore viene inghiottito
+dal `catch { /* ignore */ }` che avvolge ogni blocco. Nessun crash, ma **il
+logout smette di ripulire questo store** e i dati dell'utente precedente
+restano in memoria.
+
+Sostituisci il blocco `try { ... } catch` di questo store con:
+
+```js
+  try { useBudgetStore().reset(); } catch { /* ignore */ }
+```
+
+Il Task 10 unificherà i sette one-liner in un ciclo. Farlo qui serve a tenere
+ogni commit pubblicabile per conto suo: un logout che non pulisce è un difetto
+di privacy, non un dettaglio di refactoring.
+
 - [ ] **Step 2: Correggere la vista**
 
 In `client/src/views/BudgetView.vue`, aggiungi agli import:
@@ -1540,6 +1560,26 @@ export const useAnalisiStore = defineStore('analisi', () => {
 });
 ```
 
+- [ ] **Step 1b: Neutralizzare il reset di sessione**
+
+**Neutralizza il blocco di questo store in `session.js`.** `resetPiniaStores`
+(`client/src/utils/session.js`, righe 36-82) assegna direttamente i campi di
+tutti e sette gli store. Le proprietà che questo task trasforma in `computed`
+non sono più scrivibili: l'assegnazione fallisce e l'errore viene inghiottito
+dal `catch { /* ignore */ }` che avvolge ogni blocco. Nessun crash, ma **il
+logout smette di ripulire questo store** e i dati dell'utente precedente
+restano in memoria.
+
+Sostituisci il blocco `try { ... } catch` di questo store con:
+
+```js
+  try { useAnalisiStore().reset(); } catch { /* ignore */ }
+```
+
+Il Task 10 unificherà i sette one-liner in un ciclo. Farlo qui serve a tenere
+ogni commit pubblicabile per conto suo: un logout che non pulisce è un difetto
+di privacy, non un dettaglio di refactoring.
+
 - [ ] **Step 2: Correggere lo stato vuoto della vista**
 
 In `client/src/views/AnalisiView.vue`, aggiungi l'import di `DataState` e sostituisci la riga 414, oggi:
@@ -1736,6 +1776,26 @@ Le pagine successive vengono accumulate fuori dalla risorsa, perché `creaRisors
 
 Esponi `risorsaMovimenti`, `risorsaRecenti`, `risorsaBilancio`, `errorMore` e una `reset()` che azzera le tre risorse più `paginaExtra`, `paginaCorrente`, `errorMore` e `filtri`.
 
+- [ ] **Step 1b: Neutralizzare il reset di sessione**
+
+**Neutralizza il blocco di questo store in `session.js`.** `resetPiniaStores`
+(`client/src/utils/session.js`, righe 36-82) assegna direttamente i campi di
+tutti e sette gli store. Le proprietà che questo task trasforma in `computed`
+non sono più scrivibili: l'assegnazione fallisce e l'errore viene inghiottito
+dal `catch { /* ignore */ }` che avvolge ogni blocco. Nessun crash, ma **il
+logout smette di ripulire questo store** e i dati dell'utente precedente
+restano in memoria.
+
+Sostituisci il blocco `try { ... } catch` di questo store con:
+
+```js
+  try { useMovimentiStore().reset(); } catch { /* ignore */ }
+```
+
+Il Task 10 unificherà i sette one-liner in un ciclo. Farlo qui serve a tenere
+ogni commit pubblicabile per conto suo: un logout che non pulisce è un difetto
+di privacy, non un dettaglio di refactoring.
+
 - [ ] **Step 2: Correggere la vista**
 
 In `client/src/views/MovimentiView.vue`:
@@ -1890,6 +1950,21 @@ Punti a cui fare attenzione:
 - `investimenti.store` espone tre `ref` derivati — `patrimonioInvestitoTotale` (riga 9), `rendimentoTotale` (riga 10), `rendimentoTotalePercentuale` (riga 11) — che oggi vengono **assegnati dentro `fetchInvestimenti`**. Diventano `computed` che leggono da `risorsaInvestimenti.data`, riproducendo lo stesso calcolo che oggi sta nella `fetch`. Copialo dal file, non reinventarlo: sono cifre di rendimento e un errore qui si vede in dashboard.
 - `scommesse.store` ha i campi `panoramica` e `analisi` che il difetto noto numero 9 del `CLAUDE.md` segnala come non ripuliti al logout. Diventando risorse, la loro `reset()` li copre: è la parte di quel difetto che si chiude qui.
 - Entrambe le viste sono dietro un controllo di accesso per fascia d'età. **Non toccare** `canAccessScommesseFeature` / `canAccessInvestimentiFeature` né le guardie del router: sono estranei a questo lavoro.
+
+- [ ] **Step 2b: Neutralizzare i tre blocchi nel reset di sessione**
+
+`resetPiniaStores` (`client/src/utils/session.js`, righe 36-82) assegna
+direttamente i campi di questi tre store. Diventati `computed`, quelle
+assegnazioni falliscono in silenzio dentro il `catch { /* ignore */ }`: il
+logout smette di ripulirli e i dati dell'utente precedente restano in memoria.
+
+Sostituisci i tre blocchi corrispondenti con:
+
+```js
+  try { useObiettiviStore().reset(); } catch { /* ignore */ }
+  try { useScommesseStore().reset(); } catch { /* ignore */ }
+  try { useInvestimentiStore().reset(); } catch { /* ignore */ }
+```
 
 - [ ] **Step 3: Avvolgere le tre viste in `DataState`**
 
@@ -2094,7 +2169,9 @@ definizione di 'sconosciuto' che il riquadro usava gia'."
 
 - [ ] **Step 1: Sostituire le assegnazioni a mano**
 
-In `client/src/utils/session.js`, sostituisci i blocchi che assegnano campi dei sette store migrati con chiamate a `reset()`:
+In `client/src/utils/session.js` i sette blocchi sono già stati convertiti in
+altrettante chiamate `reset()` una alla volta dai Task 4-8, per non lasciare il
+logout rotto fra un task e l'altro. Questo task li unifica in un ciclo solo:
 
 ```js
   // Ogni store migrato azzera le proprie risorse: elencare i campi a mano
