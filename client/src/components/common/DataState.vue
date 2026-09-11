@@ -78,7 +78,10 @@ const orarioAggiornamento = computed(() => {
           <p class="data-state__avviso-titolo">Dati non aggiornati</p>
           <p class="data-state__avviso-dettaglio">
             Non è stato possibile aggiornare i dati. Stai visualizzando l'ultimo
-            aggiornamento disponibile<template v-if="orarioAggiornamento">, {{ orarioAggiornamento }}</template>.
+            aggiornamento disponibile.
+          </p>
+          <p v-if="orarioAggiornamento" class="data-state__avviso-orario">
+            Aggiornati {{ orarioAggiornamento }}
           </p>
         </div>
         <button
@@ -161,6 +164,14 @@ const orarioAggiornamento = computed(() => {
   font-size: 0.875rem;
   line-height: var(--leading-snug);
   color: var(--text-secondary);
+}
+
+/* L'orario e' un elemento a se', non un inciso dentro la frase: la frase
+   dell'avviso e' vincolata alla lettera e deve restare intatta. */
+.data-state__avviso-orario {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
 }
 
 /* --- Riprova ------------------------------------------------------------- */
