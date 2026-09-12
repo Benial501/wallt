@@ -1,21 +1,25 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { computed } from 'vue';
 import api from '@/utils/axios';
+import { creaRisorsa } from '@/utils/risorsa';
 
 export const useObiettiviStore = defineStore('obiettivi', () => {
-  const obiettivi = ref({ attivi: [], completati: [] });
-  const loading = ref(false);
-
-  const fetchObiettivi = async () => {
-    loading.value = true;
-    try {
+  const risorsaObiettivi = creaRisorsa(
+    async () => {
       const { data } = await api.get('/obiettivi');
-      obiettivi.value = { attivi: data.attivi, completati: data.completati };
-      return data;
-    } finally {
-      loading.value = false;
-    }
-  };
+      return { attivi: data.attivi, completati: data.completati };
+    },
+    {
+      iniziale: { attivi: [], completati: [] },
+      vuotoSe: (d) => !d || ((d.attivi || []).length === 0 && (d.completati || []).length === 0),
+    },
+  );
+
+  const obiettivi = computed(() => risorsaObiettivi.data.value || { attivi: [], completati: [] });
+  const loading = computed(() => risorsaObiettivi.loading.value);
+
+  const fetchObiettivi = () => risorsaObiettivi.carica();
+  const reset = () => risorsaObiettivi.reset();
 
   const createObiettivo = async (dati) => {
     const { data } = await api.post('/obiettivi', dati);
@@ -46,8 +50,9 @@ export const useObiettiviStore = defineStore('obiettivi', () => {
   };
 
   return {
+    risorsaObiettivi,
     obiettivi, loading,
     fetchObiettivi, createObiettivo, updateObiettivo, deleteObiettivo,
-    addContributo, fetchProiezione,
+    addContributo, fetchProiezione, reset,
   };
 });

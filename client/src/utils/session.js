@@ -39,22 +39,11 @@ export function resetPiniaStores() {
 
   try { useBudgetStore().reset(); } catch { /* ignore */ }
 
-  try {
-    const obiettiviStore = useObiettiviStore();
-    obiettiviStore.obiettivi = { attivi: [], completati: [] };
-  } catch { /* ignore */ }
+  try { useObiettiviStore().reset(); } catch { /* ignore */ }
 
-  try {
-    const scommesseStore = useScommesseStore();
-    scommesseStore.piattaforme = [];
-    scommesseStore.movimenti = [];
-  } catch { /* ignore */ }
+  try { useScommesseStore().reset(); } catch { /* ignore */ }
 
-  try {
-    const investimentiStore = useInvestimentiStore();
-    investimentiStore.investimenti = [];
-    investimentiStore.movimenti = [];
-  } catch { /* ignore */ }
+  try { useInvestimentiStore().reset(); } catch { /* ignore */ }
 
   try { useAnalisiStore().reset(); } catch { /* ignore */ }
 

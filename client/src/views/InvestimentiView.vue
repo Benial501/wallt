@@ -8,7 +8,7 @@ import {
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import WModal from '@/components/common/WModal.vue';
-import WSkeleton from '@/components/common/WSkeleton.vue';
+import DataState from '@/components/common/DataState.vue';
 import { useInvestimentiStore } from '@/stores/investimenti.store';
 import { useContiStore } from '@/stores/conti.store';
 import { useToastStore } from '@/stores/toast.store';
@@ -272,25 +272,32 @@ const messaggioTipo = computed(() => {
       <h1 class="page-title">I miei investimenti</h1>
     </header>
 
-    <WCard v-if="investimentiStore.loading" class="hero-card"><WSkeleton type="text" :lines="2" /></WCard>
-    <WCard v-else class="hero-card">
-      <p class="hero-label">PATRIMONIO INVESTITO</p>
-      <p class="hero-amount">{{ formatValuta(investimentiStore.patrimonioInvestitoTotale) }}</p>
-      <p class="hero-rend" :class="(investimentiStore.rendimentoTotale || 0) >= 0 ? 'positive' : 'negative'">
-        Rendimento netto:
-        {{ (investimentiStore.rendimentoTotale || 0) >= 0 ? '+' : '' }}{{ formatValuta(investimentiStore.rendimentoTotale) }}
-        ({{ investimentiStore.rendimentoTotalePercentuale || 0 }}%)
-      </p>
-    </WCard>
+    <DataState
+      :stato="investimentiStore.risorsaInvestimenti.stato.value"
+      :last-updated="investimentiStore.risorsaInvestimenti.lastUpdated.value"
+      messaggio-errore="Non è stato possibile caricare i tuoi investimenti."
+      skeleton-type="card"
+      @riprova="investimentiStore.risorsaInvestimenti.riprova()"
+    >
+      <template #vuoto>
+        <div class="empty">
+          <LineChart class="empty-icon" :size="48" :stroke-width="1.5" />
+          <h2>Monitora i tuoi investimenti</h2>
+          <p>Aggiungi le tue piattaforme e tieni traccia di versamenti, rendimenti e prelievi</p>
+          <WButton variant="primary" size="md" @click="showNuovo = true">+ Nuovo investimento</WButton>
+        </div>
+      </template>
 
-    <div v-if="!investimentiStore.investimenti.length && !investimentiStore.loading" class="empty">
-      <LineChart class="empty-icon" :size="48" :stroke-width="1.5" />
-      <h2>Monitora i tuoi investimenti</h2>
-      <p>Aggiungi le tue piattaforme e tieni traccia di versamenti, rendimenti e prelievi</p>
-      <WButton variant="primary" size="md" @click="showNuovo = true">+ Nuovo investimento</WButton>
-    </div>
+      <WCard class="hero-card">
+        <p class="hero-label">PATRIMONIO INVESTITO</p>
+        <p class="hero-amount">{{ formatValuta(investimentiStore.patrimonioInvestitoTotale) }}</p>
+        <p class="hero-rend" :class="(investimentiStore.rendimentoTotale || 0) >= 0 ? 'positive' : 'negative'">
+          Rendimento netto:
+          {{ (investimentiStore.rendimentoTotale || 0) >= 0 ? '+' : '' }}{{ formatValuta(investimentiStore.rendimentoTotale) }}
+          ({{ investimentiStore.rendimentoTotalePercentuale || 0 }}%)
+        </p>
+      </WCard>
 
-    <template v-else>
       <div class="tab-nav">
         <button v-for="tab in tabs" :key="tab.id" :class="{ active: activeTab === tab.id }" @click="activeTab = tab.id">
           <component :is="tab.icon" class="tab-icon" :size="16" :stroke-width="1.75" />
@@ -387,7 +394,7 @@ const messaggioTipo = computed(() => {
         </WCard>
         <WCard v-else class="empty-small">Nessun movimento</WCard>
       </div>
-    </template>
+    </DataState>
 
     <WModal :open="showNuovo" title="Nuovo investimento" @close="showNuovo = false">
       <div class="form-space">

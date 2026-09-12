@@ -1,15 +1,70 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import api from '@/utils/axios';
+import { creaRisorsa } from '@/utils/risorsa';
 
 export const useInvestimentiStore = defineStore('investimenti', () => {
-  const investimenti = ref([]);
-  const analisi = ref({});
-  const movimenti = ref([]);
-  const patrimonioInvestitoTotale = ref(0);
-  const rendimentoTotale = ref(0);
-  const rendimentoTotalePercentuale = ref(0);
-  const loading = ref(false);
+  const risorsaInvestimenti = creaRisorsa(
+    async () => {
+      const { data } = await api.get('/investimenti');
+      return data;
+    },
+    { iniziale: null, vuotoSe: (d) => !d || (d.investimenti || []).length === 0 },
+  );
+
+  const risorsaAnalisi = creaRisorsa(
+    async (filtri = {}) => {
+      const { data } = await api.get('/investimenti/analisi', { params: filtri });
+      return data;
+    },
+    { iniziale: {} },
+  );
+
+  const risorsaMovimenti = creaRisorsa(
+    async (id, filtri = {}) => {
+      const { data } = await api.get(`/investimenti/${id}/movimenti`, { params: filtri });
+      return data.movimenti;
+    },
+    { iniziale: [] },
+  );
+
+  // --- Interfaccia pubblica invariata -------------------------------------
+  const investimenti = computed(() => risorsaInvestimenti.data.value?.investimenti || []);
+  const analisi = computed(() => risorsaAnalisi.data.value || {});
+  const loading = computed(() => risorsaInvestimenti.loading.value);
+
+  const risorsaTuttiMovimenti = creaRisorsa(
+    async (filtri = {}) => {
+      const all = [];
+      for (const inv of investimenti.value) {
+        const { data } = await api.get(`/investimenti/${inv.id}/movimenti`, { params: filtri });
+        all.push(...data.movimenti.map((m) => ({ ...m, investimento_nome: inv.nome_piattaforma })));
+      }
+      all.sort((a, b) => new Date(b.data) - new Date(a.data));
+      return all;
+    },
+    { iniziale: [] },
+  );
+
+  /**
+   * `movimenti` è condiviso da due letture diverse (storico di un singolo
+   * investimento o di tutti): vince l'ultima invocata esplicitamente dalla
+   * vista, non quella con l'aggiornamento più recente. Se la vista ha chiesto
+   * lo storico di un investimento e la richiesta fallisce, non deve
+   * ricomparire silenziosamente lo storico di "tutti" da una fetch precedente.
+   */
+  const fonteMovimenti = ref('tutti');
+  const movimenti = computed(() => (
+    fonteMovimenti.value === 'singolo' ? risorsaMovimenti.data.value : risorsaTuttiMovimenti.data.value
+  ));
+
+  /**
+   * Cifre di rendimento mostrate in dashboard: stesso calcolo che prima
+   * veniva assegnato dentro fetchInvestimenti, ora letto dalla risorsa.
+   */
+  const patrimonioInvestitoTotale = computed(() => risorsaInvestimenti.data.value?.patrimonio_investito_totale ?? 0);
+  const rendimentoTotale = computed(() => risorsaInvestimenti.data.value?.rendimento_totale ?? 0);
+  const rendimentoTotalePercentuale = computed(() => risorsaInvestimenti.data.value?.rendimento_totale_percentuale ?? 0);
 
   const patrimonioInvestito = computed(() =>
     investimenti.value.reduce((s, i) => s + (parseFloat(i.saldo_attuale) || 0), 0)
@@ -19,19 +74,7 @@ export const useInvestimentiStore = defineStore('investimenti', () => {
     investimenti.value.reduce((s, i) => s + (parseFloat(i.rendimento_netto) || 0), 0)
   );
 
-  const fetchInvestimenti = async () => {
-    loading.value = true;
-    try {
-      const { data } = await api.get('/investimenti');
-      investimenti.value = data.investimenti;
-      patrimonioInvestitoTotale.value = data.patrimonio_investito_totale;
-      rendimentoTotale.value = data.rendimento_totale;
-      rendimentoTotalePercentuale.value = data.rendimento_totale_percentuale;
-      return data;
-    } finally {
-      loading.value = false;
-    }
-  };
+  const fetchInvestimenti = () => risorsaInvestimenti.carica();
 
   const createInvestimento = async (dati) => {
     const { data } = await api.post('/investimenti', dati);
@@ -56,30 +99,31 @@ export const useInvestimentiStore = defineStore('investimenti', () => {
     return data;
   };
 
-  const fetchAnalisi = async (filtri = {}) => {
-    const { data } = await api.get('/investimenti/analisi', { params: filtri });
-    analisi.value = data;
-    return data;
+  const fetchAnalisi = (filtri = {}) => risorsaAnalisi.carica(filtri);
+
+  const fetchMovimenti = (id, filtri = {}) => {
+    fonteMovimenti.value = 'singolo';
+    return risorsaMovimenti.carica(id, filtri);
   };
 
-  const fetchMovimenti = async (id, filtri = {}) => {
-    const { data } = await api.get(`/investimenti/${id}/movimenti`, { params: filtri });
-    movimenti.value = data.movimenti;
-    return data.movimenti;
+  const fetchAllMovimenti = (filtri = {}) => {
+    fonteMovimenti.value = 'tutti';
+    return risorsaTuttiMovimenti.carica(filtri);
   };
 
-  const fetchAllMovimenti = async (filtri = {}) => {
-    const all = [];
-    for (const inv of investimenti.value) {
-      const { data } = await api.get(`/investimenti/${inv.id}/movimenti`, { params: filtri });
-      all.push(...data.movimenti.map((m) => ({ ...m, investimento_nome: inv.nome_piattaforma })));
-    }
-    all.sort((a, b) => new Date(b.data) - new Date(a.data));
-    movimenti.value = all;
-    return all;
+  const reset = () => {
+    risorsaInvestimenti.reset();
+    risorsaAnalisi.reset();
+    risorsaMovimenti.reset();
+    risorsaTuttiMovimenti.reset();
+    fonteMovimenti.value = 'tutti';
   };
 
   return {
+    risorsaInvestimenti,
+    risorsaAnalisi,
+    risorsaMovimenti,
+    risorsaTuttiMovimenti,
     investimenti,
     analisi,
     movimenti,
@@ -97,5 +141,6 @@ export const useInvestimentiStore = defineStore('investimenti', () => {
     fetchAnalisi,
     fetchMovimenti,
     fetchAllMovimenti,
+    reset,
   };
 });
