@@ -2277,8 +2277,8 @@ Nel template di `DashboardView.vue`:
 ```vue
       :stato-saldo="contiStore.risorsaPatrimonio.stato.value"
       :last-updated-saldo="contiStore.risorsaPatrimonio.lastUpdated.value"
-      :stato-budget-sezione="budgetStore.risorsaBudget.stato.value"
-      :last-updated-budget="budgetStore.risorsaBudget.lastUpdated.value"
+      :stato-budget-sezione="budgetStore.statoPagina"
+      :last-updated-budget="budgetStore.lastUpdatedPagina"
       :stato-scommesse="scommesseStore.risorsaPiattaforme.stato.value"
       :last-updated-scommesse="scommesseStore.risorsaPiattaforme.lastUpdated.value"
       :stato-investimenti="investimentiStore.risorsaInvestimenti.stato.value"
@@ -2286,11 +2286,17 @@ Nel template di `DashboardView.vue`:
       :stato-obiettivi="obiettiviStore.risorsaObiettivi.stato.value"
       :last-updated-obiettivi="obiettiviStore.risorsaObiettivi.lastUpdated.value"
       @riprova-saldo="contiStore.risorsaPatrimonio.riprova()"
-      @riprova-budget="budgetStore.risorsaBudget.riprova()"
+      @riprova-budget="budgetStore.riprovaPagina()"
       @riprova-scommesse="scommesseStore.risorsaPiattaforme.riprova()"
       @riprova-investimenti="investimentiStore.risorsaInvestimenti.riprova()"
       @riprova-obiettivi="obiettiviStore.risorsaObiettivi.riprova()"
 ```
+
+**La scheda budget usa lo stato combinato, non `risorsaBudget` da solo.** Il suo
+contenuto viene da `statoBudget`, cioe' da `risorsaStato`: legandola alla sola
+`risorsaBudget` puo' dire "Pianifica il tuo budget" mentre un budget esiste. Il
+Task 5 ha creato `statoPagina`, `lastUpdatedPagina` e `riprovaPagina` esattamente
+per questo — questo binding e' stato scritto prima che esistessero.
 
 **Nota:** questi nomi sono quelli fissati dalla tabella del Task 8. Se non
 combaciano con ciò che trovi negli store, è il Task 8 a essere stato eseguito
