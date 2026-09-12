@@ -2122,6 +2122,52 @@ Sostituisci i tre blocchi corrispondenti con:
 
 Per ciascuna di `ObiettiviView`, `InvestimentiView` e `ScommesseView`: importa `DataState`, avvolgi la sezione principale usando la risorsa corrispondente, sposta lo stato vuoto esistente nello slot `#vuoto` **senza riscriverne il testo**, e collega `@riprova` alla `riprova()` della risorsa.
 
+- [ ] **Step 3b: Avvolgere anche lo Storico degli investimenti**
+
+`InvestimentiView` ha una seconda sezione di lettura oltre a quella principale: lo
+Storico movimenti, alimentato da due risorse diverse a seconda che sia filtrato su
+un singolo investimento (`risorsaMovimenti`) o su tutti (`risorsaTuttiMovimenti`).
+
+Va avvolta in `DataState` come le altre. Lasciarla scoperta reintroduce lì il
+difetto che l'intero sotto-progetto elimina: una fetch fallita si legge come
+"Nessun movimento", con sicurezza e senza modo di accorgersene.
+
+Esponi dallo store la risorsa attiva:
+
+```js
+  /** Quale delle due risorse alimenta `movimenti` in questo momento: serve
+   *  alla vista per sapere di quale stato parlare. */
+  const risorsaMovimentiAttiva = computed(() => (
+    fonteMovimenti.value === 'tutti' ? risorsaTuttiMovimenti : risorsaMovimenti
+  ));
+```
+
+e usala nella vista:
+
+```vue
+      <DataState
+        :stato="investimentiStore.risorsaMovimentiAttiva.stato.value"
+        :last-updated="investimentiStore.risorsaMovimentiAttiva.lastUpdated.value"
+        messaggio-errore="Non è stato possibile caricare lo storico."
+        @riprova="investimentiStore.risorsaMovimentiAttiva.riprova()"
+      >
+        <template #vuoto>
+          <!-- lo stato vuoto attuale dello Storico, invariato -->
+        </template>
+        <!-- la lista attuale, invariata -->
+      </DataState>
+```
+
+Con lo stato dichiarato, il momento in cui `fonteMovimenti` commuta smette di
+contare: l'errore si vede comunque. Non spostare quindi la commutazione dopo il
+successo — mostrerebbe i movimenti dell'investimento precedente sotto l'etichetta
+di quello nuovo, che è peggio di una lista vuota.
+
+**La scheda di riepilogo (patrimonio investito e rendimento) va resa anche nello
+slot `#vuoto`.** Con zero investimenti mostrava `0,00 €`, ed è un valore legittimo,
+non un dato finto: nasconderla lì è una regressione. Nello stato di errore resta
+invece nascosta, perché lì `0,00 €` sarebbe una bugia.
+
 - [ ] **Step 4: Verificare build e test**
 
 ```bash
