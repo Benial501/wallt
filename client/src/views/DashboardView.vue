@@ -34,7 +34,7 @@ const obiettiviStore = useObiettiviStore();
 const helpStore = useHelpStore();
 const router = useRouter();
 const { canAccessScommesseFeature, canAccessInvestimentiFeature } = storeToRefs(authStore);
-const { recentiHome, loadingRecenti } = storeToRefs(movimentiStore);
+const { recentiHome } = storeToRefs(movimentiStore);
 const { gettingStartedVisible } = storeToRefs(helpStore);
 
 const oggi = dayjs();
@@ -45,28 +45,41 @@ const formOpen = ref(false);
 const formTipo = ref('uscita');
 const movimentoEdit = ref(null);
 const loadingOggi = ref(false);
-const loadingScommesse = ref(false);
-const loadingInvestimenti = ref(false);
 
 const entrateOggi = ref(0);
 const usciteOggi = ref(0);
 
-// Traguardi di "Primi passi": marcati solo su dati caricati con successo.
-// null = non ancora noto (o richiesta fallita) → stato "sconosciuto".
-const contiCaricati = ref(null);
-const budgetCaricato = ref(null);
+// Traguardo di "Primi passi" non coperto da una risorsa: è una lettura non
+// filtrata a parte (vedi checkHaMovimenti), quindi resta un flag tenuto a
+// mano. null = non ancora noto (o richiesta fallita) → stato "sconosciuto".
 const haMovimenti = ref(null);
 
-const statoTraguardo = (caricato, raggiunto) => {
-  if (caricato !== true) return 'sconosciuto';
-  return raggiunto ? 'fatto' : 'da-fare';
-};
-
-const contiState = computed(() => statoTraguardo(contiCaricati.value, contiStore.contiAttivi.length > 0));
+const contiState = computed(() => {
+  if (contiStore.risorsaConti.lastUpdated.value === null) return 'sconosciuto';
+  return contiStore.contiAttivi.length > 0 ? 'fatto' : 'da-fare';
+});
 const movimentiState = computed(() => (
   haMovimenti.value === null ? 'sconosciuto' : (haMovimenti.value ? 'fatto' : 'da-fare')
 ));
-const budgetState = computed(() => statoTraguardo(budgetCaricato.value, budgetStore.hasBudget));
+const budgetState = computed(() => {
+  if (budgetStore.risorsaBudget.lastUpdated.value === null) return 'sconosciuto';
+  return budgetStore.hasBudget ? 'fatto' : 'da-fare';
+});
+
+/**
+ * Il patrimonio ha due dipendenze oltre a se stesso: il totale ricade su
+ * risorsaConti quando risorsaPatrimonio non ha ancora risposto, e la scheda
+ * mostra anche entrate/uscite del mese lette da risorsaBilancio. Finché
+ * conti o bilancio sono al primo caricamento la scheda resta a scheletro
+ * anche se il patrimonio è già pronto: altrimenti la composizione (che
+ * arriva solo con risorsaPatrimonio) comparirebbe un istante dopo il
+ * totale, o le voci del mese lampeggerebbero da zero al valore vero.
+ */
+const statoSaldo = computed(() => {
+  if (contiStore.risorsaConti.stato.value === 'caricamento') return 'caricamento';
+  if (movimentiStore.risorsaBilancio.stato.value === 'caricamento') return 'caricamento';
+  return contiStore.risorsaPatrimonio.stato.value;
+});
 
 const entrateMese = computed(() => movimentiStore.bilancioMese.entrate || 0);
 const usciteMese = computed(() => movimentiStore.bilancioMese.uscite || 0);
@@ -79,14 +92,7 @@ const budgetTotale = computed(() =>
   parseFloat(budgetStore.budgetCorrente?.importo_totale) || 0,
 );
 
-const loadConti = async () => {
-  try {
-    await contiStore.fetchConti();
-    contiCaricati.value = true;
-  } catch {
-    contiCaricati.value = false;
-  }
-};
+const loadConti = () => contiStore.fetchConti();
 
 /**
  * Verifica non filtrata dell'esistenza di movimenti (limit 1), usata solo dal
@@ -142,59 +148,41 @@ const loadDashboardMovimenti = async () => {
 };
 
 const loadBudget = async () => {
-  try {
-    await budgetStore.fetchBudget(oggi.month() + 1, oggi.year());
-    budgetCaricato.value = true;
-  } catch {
-    budgetCaricato.value = false;
-  }
-  if (budgetStore.esiste) {
-    await budgetStore.fetchStatoBudget(oggi.month() + 1, oggi.year()).catch(() => null);
+  await budgetStore.fetchBudget(oggi.month() + 1, oggi.year());
+  // `hasBudget`, non `esiste`: dopo una scrittura riuscita ma una rilettura
+  // di /budget fallita, il budget arriva comunque da /stato, e `esiste`
+  // resterebbe false anche se c'è un budget da mostrare.
+  if (budgetStore.hasBudget) {
+    await budgetStore.fetchStatoBudget(oggi.month() + 1, oggi.year());
   }
 };
 
-const loadAnalisi = async () => {
+const loadAnalisi = () => (
   // Sparkline del riepilogo: 12 settimane danno la stessa densita' di punti
   // di prima, dove l'andamento era sempre settimanale a prescindere.
-  await analisiStore.fetchAndamentoPatrimonio({ unita: 'settimana', quantita: 12 }).catch(() => null);
-};
+  analisiStore.fetchAndamentoPatrimonio({ unita: 'settimana', quantita: 12 })
+);
 
 const loadScommesse = async () => {
   if (!canAccessScommesseFeature.value) return;
-  loadingScommesse.value = true;
-  try {
-    await scommesseStore.fetchPiattaforme();
-    if (scommesseStore.piattaforme.length) {
-      await scommesseStore.fetchAnalisi({ da: meseStart, a: oggiStr });
-    }
-  } catch {
-    // Ignora: la card scommesse resta nello stato precedente.
-  } finally {
-    loadingScommesse.value = false;
+  await scommesseStore.fetchPiattaforme();
+  if (scommesseStore.piattaforme.length) {
+    await scommesseStore.fetchAnalisi({ da: meseStart, a: oggiStr });
   }
 };
 
 const loadInvestimenti = async () => {
   if (!canAccessInvestimentiFeature.value) return;
-  loadingInvestimenti.value = true;
-  try {
-    await investimentiStore.fetchInvestimenti();
-    if (investimentiStore.investimenti.length) {
-      await investimentiStore.fetchAnalisi({
-        da: oggi.subtract(6, 'month').format('YYYY-MM-DD'),
-        a: oggiStr,
-      });
-    }
-  } catch {
-    // Ignora: la card investimenti resta nello stato precedente.
-  } finally {
-    loadingInvestimenti.value = false;
+  await investimentiStore.fetchInvestimenti();
+  if (investimentiStore.investimenti.length) {
+    await investimentiStore.fetchAnalisi({
+      da: oggi.subtract(6, 'month').format('YYYY-MM-DD'),
+      a: oggiStr,
+    });
   }
 };
 
-const loadObiettivi = async () => {
-  await obiettiviStore.fetchObiettivi().catch(() => null);
-};
+const loadObiettivi = () => obiettiviStore.fetchObiettivi();
 
 const openForm = (tipo = 'uscita', mov = null) => {
   formTipo.value = tipo;
@@ -236,7 +224,7 @@ const onSaved = async () => {
 onMounted(async () => {
   await Promise.all([
     loadConti(),
-    contiStore.fetchPatrimonio().catch(() => null),
+    contiStore.fetchPatrimonio(),
     checkHaMovimenti(),
     movimentiStore.fetchBilancioMese(oggi.month() + 1, oggi.year()),
     loadBudget(),
@@ -291,14 +279,24 @@ onMounted(async () => {
       :patrimonio-investimenti="investimentiStore.patrimonioInvestitoTotale"
       :rendimento-investimenti="investimentiStore.rendimentoTotale"
       :rendimento-investimenti-pct="investimentiStore.rendimentoTotalePercentuale"
-      :loading-saldo="contiStore.loading || contiStore.risorsaPatrimonio.loading.value || movimentiStore.loadingBilancio"
-      :loading-budget="budgetStore.loading"
       :loading-oggi="loadingOggi && !recentiHome.length"
-      :loading-scommesse="loadingScommesse"
-      :loading-investimenti="loadingInvestimenti"
       :obiettivi-attivi="obiettiviStore.obiettivi.attivi"
       :obiettivi-completati-count="obiettiviStore.obiettivi.completati.length"
-      :loading-obiettivi="obiettiviStore.loading"
+      :stato-saldo="statoSaldo"
+      :last-updated-saldo="contiStore.risorsaPatrimonio.lastUpdated.value"
+      :stato-budget-sezione="budgetStore.risorsaBudget.stato.value"
+      :last-updated-budget="budgetStore.risorsaBudget.lastUpdated.value"
+      :stato-scommesse="scommesseStore.risorsaPiattaforme.stato.value"
+      :last-updated-scommesse="scommesseStore.risorsaPiattaforme.lastUpdated.value"
+      :stato-investimenti="investimentiStore.risorsaInvestimenti.stato.value"
+      :last-updated-investimenti="investimentiStore.risorsaInvestimenti.lastUpdated.value"
+      :stato-obiettivi="obiettiviStore.risorsaObiettivi.stato.value"
+      :last-updated-obiettivi="obiettiviStore.risorsaObiettivi.lastUpdated.value"
+      @riprova-saldo="contiStore.risorsaPatrimonio.riprova()"
+      @riprova-budget="budgetStore.risorsaBudget.riprova()"
+      @riprova-scommesse="scommesseStore.risorsaPiattaforme.riprova()"
+      @riprova-investimenti="investimentiStore.risorsaInvestimenti.riprova()"
+      @riprova-obiettivi="obiettiviStore.risorsaObiettivi.riprova()"
     />
 
     <button type="button" class="dashboard-view__cta" @click="openForm('uscita')">
@@ -307,7 +305,9 @@ onMounted(async () => {
 
     <RecentTransactions
       :movimenti="recentiHome"
-      :loading="loadingRecenti && !recentiHome.length"
+      :stato="movimentiStore.risorsaRecenti.stato.value"
+      :last-updated="movimentiStore.risorsaRecenti.lastUpdated.value"
+      @riprova="movimentiStore.risorsaRecenti.riprova()"
       @select="onSelectMovimento"
     />
 
