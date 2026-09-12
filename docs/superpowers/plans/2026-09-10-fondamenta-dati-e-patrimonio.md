@@ -1845,7 +1845,15 @@ Le pagine successive vengono accumulate fuori dalla risorsa, perché `creaRisors
     pages: risorsaMovimenti.data.value?.pagination?.pages || 0,
   }));
 
+  /**
+   * Token di generazione condiviso fra la lettura principale, le pagine
+   * successive e il reset. `creaRisorsa` ha la propria guardia di sequenza,
+   * ma le pagine accumulate vivono FUORI dalla risorsa e ne servono una loro.
+   */
+  let generazione = 0;
+
   const fetchMovimenti = async (params = {}) => {
+    generazione += 1;
     filtri.value = params;
     // Una nuova ricerca annulla le pagine accumulate: appartenevano ai
     // filtri precedenti.
@@ -1862,23 +1870,31 @@ Le pagine successive vengono accumulate fuori dalla risorsa, perché `creaRisors
    */
   const loadMoreMovimenti = async () => {
     if (loadingMore.value) return;
+    const mia = generazione;
     loadingMore.value = true;
     errorMore.value = null;
     try {
       const { data } = await api.get('/movimenti', {
         params: { ...filtri.value, page: paginaCorrente.value + 1, limit: PAGE_SIZE },
       });
+      // Se nel frattempo i filtri sono cambiati, queste righe appartengono a
+      // una ricerca che non e' piu' a schermo. Mescolarle sarebbe peggio di
+      // un errore visibile: sembrerebbero dati veri.
+      if (mia !== generazione) return;
       paginaExtra.value = mergeGruppi(paginaExtra.value, data.gruppi || []);
       paginaCorrente.value += 1;
     } catch (e) {
+      if (mia !== generazione) return;
       errorMore.value = e;
     } finally {
+      // Una sola pagina successiva puo' essere in volo (guardia in testa),
+      // quindi chi finisce e' sempre il proprietario del flag.
       loadingMore.value = false;
     }
   };
 ```
 
-Esponi `risorsaMovimenti`, `risorsaRecenti`, `risorsaBilancio`, `errorMore` e una `reset()` che azzera le tre risorse più `paginaExtra`, `paginaCorrente`, `errorMore` e `filtri`.
+Esponi `risorsaMovimenti`, `risorsaRecenti`, `risorsaBilancio`, `errorMore` e una `reset()` che incrementa `generazione` e azzera le tre risorse più `paginaExtra`, `paginaCorrente`, `errorMore` e `filtri`. L'incremento serve a scartare una pagina successiva che tornasse dopo il logout.
 
 - [ ] **Step 1b: Neutralizzare il reset di sessione**
 
