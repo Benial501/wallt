@@ -280,6 +280,16 @@ const messaggioTipo = computed(() => {
       @riprova="investimentiStore.risorsaInvestimenti.riprova()"
     >
       <template #vuoto>
+        <WCard class="hero-card">
+          <p class="hero-label">PATRIMONIO INVESTITO</p>
+          <p class="hero-amount">{{ formatValuta(investimentiStore.patrimonioInvestitoTotale) }}</p>
+          <p class="hero-rend" :class="(investimentiStore.rendimentoTotale || 0) >= 0 ? 'positive' : 'negative'">
+            Rendimento netto:
+            {{ (investimentiStore.rendimentoTotale || 0) >= 0 ? '+' : '' }}{{ formatValuta(investimentiStore.rendimentoTotale) }}
+            ({{ investimentiStore.rendimentoTotalePercentuale || 0 }}%)
+          </p>
+        </WCard>
+
         <div class="empty">
           <LineChart class="empty-icon" :size="48" :stroke-width="1.5" />
           <h2>Monitora i tuoi investimenti</h2>
@@ -384,15 +394,25 @@ const messaggioTipo = computed(() => {
             <option v-for="inv in investimentiStore.investimenti" :key="inv.id" :value="inv.id">{{ inv.nome_piattaforma }}</option>
           </select>
         </div>
-        <WCard v-if="investimentiStore.movimenti.length">
-          <div v-for="m in investimentiStore.movimenti" :key="m.id" class="mov-row stagger-item">
-            <component :is="tipoIcon(m.tipo)" :size="16" :stroke-width="1.75" />
-            <span>{{ m.tipo }} {{ m.investimento?.nome_piattaforma || m.investimento_nome }}</span>
-            <span :class="importoClass(m.tipo)">{{ importoPrefix(m.tipo) }}{{ formatValuta(m.importo) }}</span>
-            <span class="mov-data">{{ formatData(m.data, 'corto') }}</span>
-          </div>
-        </WCard>
-        <WCard v-else class="empty-small">Nessun movimento</WCard>
+        <DataState
+          :stato="investimentiStore.risorsaMovimentiAttiva.stato.value"
+          :last-updated="investimentiStore.risorsaMovimentiAttiva.lastUpdated.value"
+          messaggio-errore="Non è stato possibile caricare lo storico."
+          @riprova="investimentiStore.risorsaMovimentiAttiva.riprova()"
+        >
+          <template #vuoto>
+            <WCard class="empty-small">Nessun movimento</WCard>
+          </template>
+
+          <WCard>
+            <div v-for="m in investimentiStore.movimenti" :key="m.id" class="mov-row stagger-item">
+              <component :is="tipoIcon(m.tipo)" :size="16" :stroke-width="1.75" />
+              <span>{{ m.tipo }} {{ m.investimento?.nome_piattaforma || m.investimento_nome }}</span>
+              <span :class="importoClass(m.tipo)">{{ importoPrefix(m.tipo) }}{{ formatValuta(m.importo) }}</span>
+              <span class="mov-data">{{ formatData(m.data, 'corto') }}</span>
+            </div>
+          </WCard>
+        </DataState>
       </div>
     </DataState>
 

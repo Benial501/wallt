@@ -58,6 +58,12 @@ export const useInvestimentiStore = defineStore('investimenti', () => {
     fonteMovimenti.value === 'singolo' ? risorsaMovimenti.data.value : risorsaTuttiMovimenti.data.value
   ));
 
+  /** Quale delle due risorse alimenta `movimenti` in questo momento: serve
+   *  alla vista per sapere di quale stato parlare. */
+  const risorsaMovimentiAttiva = computed(() => (
+    fonteMovimenti.value === 'tutti' ? risorsaTuttiMovimenti : risorsaMovimenti
+  ));
+
   /**
    * Cifre di rendimento mostrate in dashboard: stesso calcolo che prima
    * veniva assegnato dentro fetchInvestimenti, ora letto dalla risorsa.
@@ -124,6 +130,7 @@ export const useInvestimentiStore = defineStore('investimenti', () => {
     risorsaAnalisi,
     risorsaMovimenti,
     risorsaTuttiMovimenti,
+    risorsaMovimentiAttiva,
     investimenti,
     analisi,
     movimenti,
