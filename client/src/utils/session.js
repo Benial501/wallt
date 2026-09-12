@@ -61,14 +61,7 @@ export function resetPiniaStores() {
     investimentiStore.movimenti = [];
   } catch { /* ignore */ }
 
-  try {
-    const analisiStore = useAnalisiStore();
-    analisiStore.distribuzioneSpese = [];
-    analisiStore.totaleSpese = 0;
-    analisiStore.confrontoPeriodi = [];
-    analisiStore.andamentoPatrimonio = {};
-    analisiStore.suggerimenti = [];
-  } catch { /* ignore */ }
+  try { useAnalisiStore().reset(); } catch { /* ignore */ }
 
   try {
     useUiStore().chiudiForm();

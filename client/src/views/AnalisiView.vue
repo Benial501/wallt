@@ -4,6 +4,7 @@ import dayjs from 'dayjs';
 import WCard from '@/components/common/WCard.vue';
 import WSkeleton from '@/components/common/WSkeleton.vue';
 import WButton from '@/components/common/WButton.vue';
+import DataState from '@/components/common/DataState.vue';
 import SuggerimentoCard from '@/components/analisi/SuggerimentoCard.vue';
 import { Doughnut, Bar, Line } from 'vue-chartjs';
 import {
@@ -140,6 +141,9 @@ const onMovimentoSaved = async () => {
 // Spese ed entrate condividono grafico, elenco e pannello transazioni:
 // cambiano solo la sorgente dei dati e il tipo di movimento.
 const isDistribuzione = computed(() => activeTab.value === 'spese' || activeTab.value === 'entrate');
+const risorsaDistribuzione = computed(() => (
+  activeTab.value === 'entrate' ? analisiStore.risorsaEntrate : analisiStore.risorsaSpese
+));
 const tipoCorrente = computed(() => (activeTab.value === 'entrate' ? 'entrata' : 'uscita'));
 const distribuzioneCorrente = computed(() => (activeTab.value === 'entrate'
   ? analisiStore.distribuzioneEntrate
@@ -353,11 +357,6 @@ const esportaDati = async () => {
     toastStore.error('Errore nell\'esportazione');
   }
 };
-
-const hasData = computed(() =>
-  distribuzioneCorrente.value.length > 0
-  || analisiStore.confrontoPeriodi.some((m) => m.uscite > 0 || m.entrate > 0)
-);
 </script>
 
 <template>
@@ -411,97 +410,101 @@ const hasData = computed(() =>
 
     <WSkeleton v-if="analisiStore.loading && !isDistribuzione" type="card" />
 
-    <div v-else-if="!hasData && isDistribuzione && !analisiStore.loading" class="empty-state">
-      <BarChart3 class="empty-icon" :size="48" :stroke-width="1.5" />
-      <p>Aggiungi movimenti per vedere le analisi</p>
-      <p class="empty-hint">
-        I grafici si costruiscono sui movimenti registrati nel periodo selezionato:
-        prova a cambiare periodo, oppure registra o importa qualche movimento.
-      </p>
-      <router-link to="/movimenti" class="link-accent">Aggiungi movimento →</router-link>
-    </div>
-
-    <Transition v-else name="fade">
-      <!-- TAB SPESE -->
-      <div v-if="isDistribuzione" :key="activeTab">
-        <WCard class="chart-card">
-          <WSkeleton v-if="analisiStore.loading" type="card" class="chart-skeleton" />
-          <div v-else class="donut-wrap">
-            <Doughnut :data="doughnutData" :options="doughnutOptions" />
-            <div class="donut-center">
-              <span class="donut-label">{{ activeTab === 'entrate' ? 'Totale entrate' : 'Totale spese' }}</span>
-              <span class="donut-value">{{ formatValuta(totaleCorrente) }}</span>
-            </div>
-          </div>
-        </WCard>
-
-        <div v-if="analisiStore.loading" class="cat-list">
-          <WSkeleton v-for="i in 4" :key="i" type="card" class="cat-row-skeleton" />
+    <DataState
+      v-else-if="isDistribuzione"
+      :stato="risorsaDistribuzione.stato.value"
+      :last-updated="risorsaDistribuzione.lastUpdated.value"
+      messaggio-errore="Non è stato possibile caricare le analisi."
+      skeleton-type="text"
+      :skeleton-lines="5"
+      @riprova="risorsaDistribuzione.riprova()"
+    >
+      <template #vuoto>
+        <div class="empty-state">
+          <BarChart3 class="empty-icon" :size="48" :stroke-width="1.5" />
+          <p>Aggiungi movimenti per vedere le analisi</p>
+          <p class="empty-hint">
+            I grafici si costruiscono sui movimenti registrati nel periodo selezionato:
+            prova a cambiare periodo, oppure registra o importa qualche movimento.
+          </p>
+          <router-link to="/movimenti" class="link-accent">Aggiungi movimento →</router-link>
         </div>
+      </template>
 
-        <div v-else-if="distribuzioneCorrente.length" class="cat-list">
-          <div
-            v-for="(cat, i) in distribuzioneCorrente"
-            :key="cat.categoria"
-            class="cat-block"
+      <WCard class="chart-card">
+        <div class="donut-wrap">
+          <Doughnut :data="doughnutData" :options="doughnutOptions" />
+          <div class="donut-center">
+            <span class="donut-label">{{ activeTab === 'entrate' ? 'Totale entrate' : 'Totale spese' }}</span>
+            <span class="donut-value">{{ formatValuta(totaleCorrente) }}</span>
+          </div>
+        </div>
+      </WCard>
+
+      <div v-if="distribuzioneCorrente.length" class="cat-list">
+        <div
+          v-for="(cat, i) in distribuzioneCorrente"
+          :key="cat.categoria"
+          class="cat-block"
+        >
+          <button
+            type="button"
+            class="cat-row stagger-item"
+            :class="{ highlighted: highlightCat === cat.categoria, expanded: highlightCat === cat.categoria }"
+            @click="toggleCategory(cat)"
           >
-            <button
-              type="button"
-              class="cat-row stagger-item"
-              :class="{ highlighted: highlightCat === cat.categoria, expanded: highlightCat === cat.categoria }"
-              @click="toggleCategory(cat)"
-            >
-              <span class="cat-bullet" :style="{ background: CHART_COLORS[i % CHART_COLORS.length] }" />
-              <CategoryIcon :categoria="cat.categoria" :tipo="tipoCorrente" :size="16" class="cat-row-icon" />
-              <span class="cat-row__name">{{ cat.nome_display }}</span>
-              <span class="cat-importo">{{ formatValuta(cat.importo) }}</span>
-              <span class="cat-pct">{{ cat.percentuale }}%</span>
-              <div class="cat-bar">
-                <div :style="{ width: cat.percentuale + '%', background: CHART_COLORS[i % CHART_COLORS.length] }" />
-              </div>
-            </button>
+            <span class="cat-bullet" :style="{ background: CHART_COLORS[i % CHART_COLORS.length] }" />
+            <CategoryIcon :categoria="cat.categoria" :tipo="tipoCorrente" :size="16" class="cat-row-icon" />
+            <span class="cat-row__name">{{ cat.nome_display }}</span>
+            <span class="cat-importo">{{ formatValuta(cat.importo) }}</span>
+            <span class="cat-pct">{{ cat.percentuale }}%</span>
+            <div class="cat-bar">
+              <div :style="{ width: cat.percentuale + '%', background: CHART_COLORS[i % CHART_COLORS.length] }" />
+            </div>
+          </button>
 
-            <div v-if="highlightCat === cat.categoria" class="cat-transactions">
-              <div class="cat-transactions__header">
-                <div>
-                  <p class="cat-transactions__title">{{ cat.nome_display }}</p>
-                  <p class="cat-transactions__hint">
-                    {{ loadingCategoryMovimenti ? 'Caricamento…' : `${categoryMovimenti.length} transazioni · tocca per modificare` }}
-                  </p>
-                </div>
-                <button type="button" class="cat-transactions__close" aria-label="Chiudi" @click.stop="closeCategoryPanel">
-                  <X :size="18" :stroke-width="2" />
-                </button>
-              </div>
-
-              <div class="cat-transactions__list">
-                <WSkeleton v-if="loadingCategoryMovimenti" type="card" class="cat-transactions__skeleton" />
-                <p v-else-if="!categoryMovimenti.length" class="cat-transactions__empty">
-                  Nessuna transazione in questo periodo
+          <div v-if="highlightCat === cat.categoria" class="cat-transactions">
+            <div class="cat-transactions__header">
+              <div>
+                <p class="cat-transactions__title">{{ cat.nome_display }}</p>
+                <p class="cat-transactions__hint">
+                  {{ loadingCategoryMovimenti ? 'Caricamento…' : `${categoryMovimenti.length} transazioni · tocca per modificare` }}
                 </p>
-                <template v-else>
-                  <section
-                    v-for="gruppo in categoryMovimentiGrouped"
-                    :key="gruppo.key"
-                    class="cat-transactions__group"
-                  >
-                    <h4 class="cat-transactions__group-label">{{ gruppo.label }}</h4>
-                    <AnalisiMovimentoRow
-                      v-for="mov in gruppo.items"
-                      :key="mov.id"
-                      :movimento="mov"
-                      @click="apriFormModifica"
-                    />
-                  </section>
-                </template>
               </div>
+              <button type="button" class="cat-transactions__close" aria-label="Chiudi" @click.stop="closeCategoryPanel">
+                <X :size="18" :stroke-width="2" />
+              </button>
+            </div>
+
+            <div class="cat-transactions__list">
+              <WSkeleton v-if="loadingCategoryMovimenti" type="card" class="cat-transactions__skeleton" />
+              <p v-else-if="!categoryMovimenti.length" class="cat-transactions__empty">
+                Nessuna transazione in questo periodo
+              </p>
+              <template v-else>
+                <section
+                  v-for="gruppo in categoryMovimentiGrouped"
+                  :key="gruppo.key"
+                  class="cat-transactions__group"
+                >
+                  <h4 class="cat-transactions__group-label">{{ gruppo.label }}</h4>
+                  <AnalisiMovimentoRow
+                    v-for="mov in gruppo.items"
+                    :key="mov.id"
+                    :movimento="mov"
+                    @click="apriFormModifica"
+                  />
+                </section>
+              </template>
             </div>
           </div>
         </div>
       </div>
+    </DataState>
 
+    <Transition v-else name="fade">
       <!-- TAB CONFRONTO -->
-      <div v-else-if="activeTab === 'confronto'" key="confronto">
+      <div v-if="activeTab === 'confronto'" key="confronto">
         <WCard><Bar :data="barData" :options="barOptions" /></WCard>
         <WCard class="mt-4">
           <table class="data-table">
