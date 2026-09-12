@@ -1900,6 +1900,38 @@ Il Task 10 unificherà i sette one-liner in un ciclo. Farlo qui serve a tenere
 ogni commit pubblicabile per conto suo: un logout che non pulisce è un difetto
 di privacy, non un dettaglio di refactoring.
 
+- [ ] **Step 1c: Correggere anche il reset account**
+
+`client/src/views/ImpostazioniView.vue:346-348` azzera a mano tre campi dello store
+prima di ricaricare:
+
+```js
+    movimentiStore.movimentiPerData = [];
+    movimentiStore.bilancioMese = {};
+    movimentiStore.pagination = { page: 1, total: 0, pages: 0 };
+```
+
+Diventati `computed`, quelle tre righe non fanno più nulla e l'errore viene
+inghiottito. Di solito non si nota, perché subito dopo c'è una ricarica — ma se la
+ricarica fallisce, l'utente resta a guardare le proprie transazioni sotto il
+messaggio "Transazioni eliminate". In un'operazione distruttiva è la cosa peggiore
+che possa vedere.
+
+Sostituiscile con:
+
+```js
+    movimentiStore.reset();
+```
+
+**Nota di metodo:** `session.js` non è l'unico posto che scrive nei campi degli
+store. Prima di considerare finita una migrazione, cerca gli altri:
+
+```bash
+grep -rnE "(contiStore|movimentiStore|budgetStore|analisiStore|obiettiviStore|investimentiStore|scommesseStore)\.[a-zA-Z_]+ *= *[^=]" client/src | grep -v "\.value"
+```
+
+Le righe che riguardano store non ancora migrati sono legittime e vanno lasciate.
+
 - [ ] **Step 2: Correggere la vista**
 
 In `client/src/views/MovimentiView.vue`:
