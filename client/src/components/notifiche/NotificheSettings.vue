@@ -20,7 +20,6 @@ const toastStore = useToastStore();
 
 const salvataggioInCorso = ref(false);
 const pushInCorso = ref(false);
-const provaInCorso = ref(false);
 const permesso = ref(statoPermesso());
 
 /** Orari proposti per il promemoria: fuori dalle ore di silenzio di default. */
@@ -145,36 +144,6 @@ const attiva = async () => {
   }
 };
 
-/**
- * Invia una notifica di prova. Non consuma il limite giornaliero e non
- * aspetta il passaggio del cron: serve a verificare subito se la consegna
- * sul dispositivo funziona davvero.
- */
-const inviaProva = async () => {
-  provaInCorso.value = true;
-  try {
-    const esito = await notificheStore.inviaNotificaDiProva();
-
-    if (esito.push?.inviate > 0) {
-      toastStore.success('Notifica di prova inviata al tuo dispositivo');
-    } else if (!esito.push_attive) {
-      toastStore.info('Notifica di prova aggiunta al centro notifiche (push non attive)');
-    } else if (!esito.dispositivi) {
-      toastStore.info('Nessun dispositivo registrato: la trovi nel centro notifiche');
-    } else {
-      toastStore.info('Notifica creata, ma il dispositivo non ha accettato la push');
-    }
-  } catch (error) {
-    if (error?.response?.status === 429) {
-      toastStore.info('Hai già chiesto una prova poco fa. Riprova fra un minuto.');
-    } else {
-      toastStore.error('Non è stato possibile inviare la notifica di prova');
-    }
-  } finally {
-    provaInCorso.value = false;
-  }
-};
-
 const disattiva = async () => {
   pushInCorso.value = true;
   try {
@@ -283,21 +252,6 @@ const disattiva = async () => {
         @click="disattiva"
       >
         {{ pushInCorso ? 'Disattivazione…' : 'Disattiva notifiche push' }}
-      </button>
-    </div>
-
-    <div class="notifiche-settings__campo">
-      <span class="notifiche-settings__label">Prova la consegna</span>
-      <p class="hint hint--inline">
-        Ti manda subito una notifica di verifica. Non consuma il limite giornaliero.
-      </p>
-      <button
-        type="button"
-        class="notifiche-settings__btn notifiche-settings__btn--secondario"
-        :disabled="provaInCorso"
-        @click="inviaProva"
-      >
-        {{ provaInCorso ? 'Invio…' : 'Invia notifica di prova' }}
       </button>
     </div>
   </div>

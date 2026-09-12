@@ -120,13 +120,6 @@ export const useNotificheStore = defineStore('notifiche', () => {
     return preferenze.value;
   };
 
-  /** Notifica di prova: verifica la consegna senza aspettare il cron. */
-  const inviaNotificaDiProva = async () => {
-    const { data } = await api.post('/notifiche/prova');
-    await fetchNotifiche();
-    return data;
-  };
-
   const segnaGiornataControllata = async () => {
     const { data } = await api.post('/notifiche/giornata-controllata');
     preferenze.value = { ...preferenze.value, giornata_controllata_il: data.giorno };
@@ -195,7 +188,6 @@ export const useNotificheStore = defineStore('notifiche', () => {
     updatePreferenze,
     registraPush,
     rimuoviPush,
-    inviaNotificaDiProva,
     segnaGiornataControllata,
     apriPanel,
     chiudiPanel,

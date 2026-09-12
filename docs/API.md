@@ -98,6 +98,10 @@ notifiche dell'utente autenticato.
 - **Risposta**: `{ message, giorno }`
 
 ### POST /api/notifiche/prova
+- **Endpoint diagnostico: nessun pulsante nella UI lo chiama.** Serve a
+  verificare la consegna push su un dispositivo reale senza aspettare il cron
+  né costruire ad arte le condizioni di un avviso vero. Si invoca a mano con
+  il JWT dell'utente.
 - Crea e consegna subito una notifica di prova all'utente autenticato
 - Non consuma il limite giornaliero (`conta_nel_limite: false`) e non attende il cron
 - Una sola prova al minuto per utente (dedupe key al minuto) → `429` oltre
