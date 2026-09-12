@@ -67,19 +67,67 @@ const budgetState = computed(() => {
 });
 
 /**
- * Il patrimonio ha due dipendenze oltre a se stesso: il totale ricade su
- * risorsaConti quando risorsaPatrimonio non ha ancora risposto, e la scheda
- * mostra anche entrate/uscite del mese lette da risorsaBilancio. Finché
- * conti o bilancio sono al primo caricamento la scheda resta a scheletro
- * anche se il patrimonio è già pronto: altrimenti la composizione (che
- * arriva solo con risorsaPatrimonio) comparirebbe un istante dopo il
- * totale, o le voci del mese lampeggerebbero da zero al valore vero.
+ * Stato di una scheda alimentata da più letture.
+ *
+ * Il pannello d'errore pieno solo quando NESSUNA ha mai risposto: se anche una
+ * sola ha dati, mostrarli con l'avviso è meglio che nascondere numeri corretti
+ * perché un'altra lettura è caduta.
  */
-const statoSaldo = computed(() => {
-  if (contiStore.risorsaConti.stato.value === 'caricamento') return 'caricamento';
-  if (movimentiStore.risorsaBilancio.stato.value === 'caricamento') return 'caricamento';
-  return contiStore.risorsaPatrimonio.stato.value;
+const statoCombinato = (...risorse) => computed(() => {
+  if (risorse.some((r) => r.stato.value === 'caricamento')) return 'caricamento';
+  if (!risorse.some((r) => r.error.value)) return 'pronto';
+  return risorse.some((r) => r.lastUpdated.value !== null) ? 'errore-con-dati' : 'errore';
 });
+
+/** Il più vecchio dei successi: l'avviso non deve vantare una freschezza che
+ *  una delle letture non ha. */
+const lastUpdatedCombinato = (...risorse) => computed(() => {
+  const valori = risorse.map((r) => r.lastUpdated.value).filter((v) => v !== null);
+  return valori.length ? Math.min(...valori) : null;
+});
+
+/**
+ * Il patrimonio ha tre dipendenze: il totale ricade su risorsaConti quando
+ * risorsaPatrimonio non ha ancora risposto, la composizione arriva solo con
+ * risorsaPatrimonio, e la scheda mostra anche entrate/uscite del mese lette
+ * da risorsaBilancio. Le tre devono dichiararsi insieme, altrimenti una
+ * fallita in silenzio lascia "Entrate mese"/"Uscite mese" a 0,00 € per
+ * sempre con la scheda che si dice comunque pronta.
+ */
+const statoSaldo = statoCombinato(
+  contiStore.risorsaConti,
+  contiStore.risorsaPatrimonio,
+  movimentiStore.risorsaBilancio,
+);
+const lastUpdatedSaldo = lastUpdatedCombinato(
+  contiStore.risorsaConti,
+  contiStore.risorsaPatrimonio,
+  movimentiStore.risorsaBilancio,
+);
+const riprovaSaldo = () => {
+  contiStore.risorsaConti.riprova();
+  contiStore.risorsaPatrimonio.riprova();
+  movimentiStore.risorsaBilancio.riprova();
+};
+
+/**
+ * Le cifre della scheda scommesse (vincite, perdite, bilancio netto) vengono
+ * tutte da risorsaAnalisi, non da risorsaPiattaforme: quest'ultima serve solo
+ * a decidere se la scheda esiste. Dichiarare lo stato sulla sola piattaforme
+ * lascerebbe la scheda "pronta" con numeri a zero se risorsaAnalisi fallisse.
+ */
+const statoScommesse = statoCombinato(
+  scommesseStore.risorsaPiattaforme,
+  scommesseStore.risorsaAnalisi,
+);
+const lastUpdatedScommesse = lastUpdatedCombinato(
+  scommesseStore.risorsaPiattaforme,
+  scommesseStore.risorsaAnalisi,
+);
+const riprovaScommesse = () => {
+  scommesseStore.risorsaPiattaforme.riprova();
+  scommesseStore.risorsaAnalisi.riprova();
+};
 
 const entrateMese = computed(() => movimentiStore.bilancioMese.entrate || 0);
 const usciteMese = computed(() => movimentiStore.bilancioMese.uscite || 0);
@@ -158,7 +206,7 @@ const loadBudget = async () => {
 };
 
 const loadAnalisi = () => (
-  // Sparkline del riepilogo: 12 settimane danno la stessa densita' di punti
+  // Sparkline del riepilogo: 12 settimane danno la stessa densità di punti
   // di prima, dove l'andamento era sempre settimanale a prescindere.
   analisiStore.fetchAndamentoPatrimonio({ unita: 'settimana', quantita: 12 })
 );
@@ -283,18 +331,18 @@ onMounted(async () => {
       :obiettivi-attivi="obiettiviStore.obiettivi.attivi"
       :obiettivi-completati-count="obiettiviStore.obiettivi.completati.length"
       :stato-saldo="statoSaldo"
-      :last-updated-saldo="contiStore.risorsaPatrimonio.lastUpdated.value"
+      :last-updated-saldo="lastUpdatedSaldo"
       :stato-budget-sezione="budgetStore.statoPagina"
       :last-updated-budget="budgetStore.lastUpdatedPagina"
-      :stato-scommesse="scommesseStore.risorsaPiattaforme.stato.value"
-      :last-updated-scommesse="scommesseStore.risorsaPiattaforme.lastUpdated.value"
+      :stato-scommesse="statoScommesse"
+      :last-updated-scommesse="lastUpdatedScommesse"
       :stato-investimenti="investimentiStore.risorsaInvestimenti.stato.value"
       :last-updated-investimenti="investimentiStore.risorsaInvestimenti.lastUpdated.value"
       :stato-obiettivi="obiettiviStore.risorsaObiettivi.stato.value"
       :last-updated-obiettivi="obiettiviStore.risorsaObiettivi.lastUpdated.value"
-      @riprova-saldo="contiStore.risorsaPatrimonio.riprova()"
+      @riprova-saldo="riprovaSaldo()"
       @riprova-budget="budgetStore.riprovaPagina()"
-      @riprova-scommesse="scommesseStore.risorsaPiattaforme.riprova()"
+      @riprova-scommesse="riprovaScommesse()"
       @riprova-investimenti="investimentiStore.risorsaInvestimenti.riprova()"
       @riprova-obiettivi="obiettiviStore.risorsaObiettivi.riprova()"
     />

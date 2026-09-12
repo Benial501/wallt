@@ -58,6 +58,13 @@ export const useBudgetStore = defineStore('budget', () => {
    */
   const statoPagina = computed(() => {
     const principale = risorsaBudget.stato.value;
+    if (principale === 'caricamento') return 'caricamento';
+    // Con un budget presente la pagina non è pronta finché anche lo stato di
+    // spesa non ha risposto almeno una volta: senza, i grafici sono vuoti e la
+    // vista mostrerebbe "Pianifica il tuo budget" a chi un budget ce l'ha.
+    if (esiste.value && risorsaStato.lastUpdated.value === null && !risorsaStato.error.value) {
+      return 'caricamento';
+    }
     if (principale === 'pronto' && risorsaStato.error.value) return 'errore-con-dati';
     return principale;
   });
