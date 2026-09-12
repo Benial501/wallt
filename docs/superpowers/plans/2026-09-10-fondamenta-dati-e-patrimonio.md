@@ -2396,6 +2396,13 @@ logout rotto fra un task e l'altro. Questo task li unifica in un ciclo solo:
 
 **Non toccare** il resto della funzione: `resetCategorie()`, il salvataggio di `savedProfilo`, `useImportazioniStore().clear()` e il blocco di `profiloStore` restano esattamente come sono. Aggiungi gli `import` mancanti per gli store non ancora importati nel file.
 
+**Chiudi anche una closure sfuggita al Task 5:** `budget.store.js`'s `reset()` azzera
+le due risorse ma non la variabile `ultimoPeriodo`. Oggi non produce difetti
+osservabili — contiene solo mese e anno, e viene sovrascritta al remount prima che
+`riprovaPagina` possa leggerla — ma un `reset()` che dice di azzerare e lascia
+qualcosa dietro e' esattamente la forma di difetto che il numero 9 documenta.
+Aggiungi `ultimoPeriodo = null;` dentro quel `reset()`.
+
 - [ ] **Step 2: Verificare che il logout pulisca davvero**
 
 1. Accedi, visita dashboard, movimenti, obiettivi e — se abilitate — scommesse e investimenti, così ogni store si popola.
@@ -2515,7 +2522,19 @@ Nella tabella **Sensitive Areas**, aggiungi:
 
 - [ ] **Step 2: Documentare il pattern in `ARCHITECTURE.md`**
 
-Aggiungi una sezione che descriva: i cinque stati, le due invarianti, la guardia di sequenza, la divisione di responsabilità fra `risorsa.js` (logica, testata) e `DataState.vue` (presentazione, non testata perché non decide), e la distinzione fra `afterWrite` (scritture) e `DataState` (letture), che restano due meccanismi separati.
+Aggiungi una sezione che descriva: i cinque stati, le due invarianti, la guardia di sequenza, e la divisione di responsabilità fra `risorsa.js` (logica, testata) e `DataState.vue` (presentazione, non testata perché non decide).
+
+**Documenta anche che `refreshAfterWrite` è diventato inerte.** Il suo valore di
+ritorno booleano segnalava "la scrittura è riuscita ma la vista potrebbe essere
+rimasta indietro". Ora le funzioni che riceve non lanciano più — `carica()`
+registra l'errore e restituisce `undefined` — quindi quel booleano è sempre `true`
+e il toast `VISTA_NON_AGGIORNATA` non può più scattare. Il caso più visibile è
+`ImportaView.vue:259-271`, dove il controllo è codice morto.
+
+Non è un difetto nascosto: la vista di destinazione mostra comunque il proprio
+stato, in modo più preciso di quel toast. Ma va scritto, altrimenti qualcuno
+costruirà di nuovo su quel booleano credendolo vivo. Indica anche che `afterWrite`
+resta in uso dai percorsi di scrittura non migrati, quindi non va rimosso.
 
 - [ ] **Step 3: Aggiornare `PROJECT_STATUS.md`**
 
