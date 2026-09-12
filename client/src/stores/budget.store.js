@@ -31,19 +31,59 @@ export const useBudgetStore = defineStore('budget', () => {
   const budgetSuggerito = computed(() => (
     risorsaBudget.data.value?.esiste ? null : (risorsaBudget.data.value?.suggerito || null)
   ));
-  // INVARIANTE: su errore resta l'ultimo stato valido, non un array vuoto.
+  // Su errore resta l'ultimo stato valido: `carica` non tocca mai `data`
+  // quando fallisce. Il `|| []` copre solo il caso in cui non ci sia MAI
+  // stata una lettura riuscita, non il caso "richiesta fallita".
   const statoBudget = computed(() => risorsaStato.data.value?.stato || []);
   const esiste = computed(() => risorsaBudget.data.value?.esiste === true);
   const loading = computed(() => risorsaBudget.loading.value);
 
-  const hasBudget = computed(() => esiste.value && !!budgetCorrente.value);
+  /**
+   * "C'è un budget da mostrare", non "il server ha detto esiste:true".
+   * La differenza conta dopo una scrittura: se il POST riesce ma la
+   * rilettura di /budget fallisce, `esiste` resta false mentre il budget
+   * arriva comunque da /stato. Legandosi a `esiste` la pagina mostrerebbe
+   * un avviso sopra il vuoto subito dopo aver detto "Budget creato".
+   */
+  const hasBudget = computed(() => !!budgetCorrente.value);
   const categorieInAlert = computed(() => statoBudget.value.filter((c) => c.stato === 'superato'));
   const totaleSpeso = computed(() =>
     statoBudget.value.reduce((s, c) => s + (parseFloat(c.speso) || 0), 0)
   );
 
+  /**
+   * Stato della pagina: combina le due letture. Se il budget c'è ma lo
+   * stato di spesa non si è aggiornato, la pagina deve comunque dichiarare
+   * che i numeri sono vecchi.
+   */
+  const statoPagina = computed(() => {
+    const principale = risorsaBudget.stato.value;
+    if (principale === 'pronto' && risorsaStato.error.value) return 'errore-con-dati';
+    return principale;
+  });
+
+  /** Il più vecchio dei due aggiornamenti riusciti: l'avviso non deve
+   *  vantare una freschezza che una delle due letture non ha. */
+  const lastUpdatedPagina = computed(() => {
+    const a = risorsaBudget.lastUpdated.value;
+    const b = risorsaStato.lastUpdated.value;
+    if (a === null) return b;
+    if (b === null) return a;
+    return Math.min(a, b);
+  });
+
   const fetchBudget = (mese, anno) => risorsaBudget.carica(mese, anno);
   const fetchStatoBudget = (mese, anno) => risorsaStato.carica(mese, anno);
+
+  /** Ritenta entrambe, ma `risorsaStato` solo se era già stata chiamata:
+   *  `riprova()` senza argomenti precedenti costruirebbe un URL invalido. */
+  const riprovaPagina = () => {
+    const attese = [risorsaBudget.riprova()];
+    if (risorsaStato.lastUpdated.value !== null || risorsaStato.error.value) {
+      attese.push(risorsaStato.riprova());
+    }
+    return Promise.all(attese);
+  };
 
   const createBudget = async (dati) => {
     const { data } = await api.post('/budget', dati);
@@ -66,6 +106,7 @@ export const useBudgetStore = defineStore('budget', () => {
     risorsaBudget, risorsaStato,
     budgetCorrente, statoBudget, budgetSuggerito, esiste, loading,
     hasBudget, categorieInAlert, totaleSpeso,
+    statoPagina, lastUpdatedPagina, riprovaPagina,
     fetchBudget, fetchStatoBudget, createBudget, updateBudget, reset,
   };
 });

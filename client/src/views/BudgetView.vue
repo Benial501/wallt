@@ -146,32 +146,8 @@ const totaleRimanente = computed(() => totaleBudget.value - budgetStore.totaleSp
 
 <template>
   <div class="budget-view animate-fade-in">
-    <!-- STATO A: nessun budget, oppure impossibile saperlo -->
-    <DataState
-      v-if="modalita === 'view' && !budgetStore.hasBudget"
-      :stato="budgetStore.risorsaBudget.stato.value"
-      :last-updated="budgetStore.risorsaBudget.lastUpdated.value"
-      messaggio-errore="Non è stato possibile caricare il budget."
-      skeleton-type="text"
-      :skeleton-lines="4"
-      @riprova="budgetStore.risorsaBudget.riprova()"
-    >
-      <template #vuoto>
-        <div class="empty-budget">
-          <PieChart class="empty-icon" :size="48" :stroke-width="1.5" />
-          <h2>Nessun budget per {{ meseLabel }}</h2>
-          <p class="empty-desc">
-            Il budget è facoltativo: fissa un tetto di spesa mensile per categoria e WALLT
-            lo confronta con le uscite già registrate. I trasferimenti tra i tuoi conti non lo consumano.
-          </p>
-          <WButton variant="primary" size="md" @click="initSetup">Imposta il budget →</WButton>
-          <div class="empty-help"><HelpTrigger topic="budget-come-funziona" /></div>
-        </div>
-      </template>
-    </DataState>
-
-    <!-- STATO B/C: Setup o Edit -->
-    <div v-else-if="modalita === 'setup' || modalita === 'edit'">
+    <!-- Setup e modifica: form, non letture. Restano fuori da DataState. -->
+    <div v-if="modalita === 'setup' || modalita === 'edit'">
       <h1 class="page-title">Budget {{ meseLabel }}</h1>
 
       <WCard class="mb-4">
@@ -221,50 +197,73 @@ const totaleRimanente = computed(() => totaleBudget.value - budgetStore.totaleSp
       </WCard>
     </div>
 
-    <!-- STATO C: Budget attivo -->
-    <div v-else-if="budgetStore.hasBudget">
-      <div class="page-header">
-        <div class="page-title-row">
-          <h1 class="page-title">Budget {{ meseLabel }} · {{ formatValuta(totaleBudget) }}</h1>
-          <HelpTrigger topic="budget-come-funziona" />
-        </div>
-        <WButton variant="secondary" size="sm" @click="initEdit">Modifica</WButton>
-      </div>
-
-      <div class="budget-categories">
-        <WCard v-for="item in budgetStore.statoBudget" :key="item.categoria" class="budget-cat-card mb-3">
-          <div class="cat-header">
-            <CategoryIcon :categoria="item.categoria" tipo="uscita" :size="16" class="cat-icon" />
-            <span>{{ getCatDisplay(item.categoria).nome }}</span>
-            <span class="cat-stats">
-              {{ formatValuta(item.speso) }} spesi di {{ formatValuta(item.budget_importo) }}
-              ({{ Math.round(item.percentuale_usata) }}%)
-            </span>
-          </div>
-          <div class="progress-bar">
-            <div
-              class="progress-fill"
-              :class="{ pulse: item.stato === 'superato' }"
-              :style="{
-                width: Math.min(item.percentuale_usata, 100) + '%',
-                background: getBarColor(item.percentuale_usata),
-              }"
-            />
-          </div>
-          <p class="cat-rimanente" :class="item.rimanente < 0 ? 'negative' : ''">
-            {{ item.rimanente >= 0 ? `Rimangono ${formatValuta(item.rimanente)}` : `Superato di ${formatValuta(Math.abs(item.rimanente))}` }}
+    <!-- Vista: un solo DataState per "nessun budget" e "budget attivo" -->
+    <DataState
+      v-else
+      :stato="budgetStore.statoPagina"
+      :last-updated="budgetStore.lastUpdatedPagina"
+      messaggio-errore="Non è stato possibile caricare il budget."
+      skeleton-type="text"
+      :skeleton-lines="4"
+      @riprova="budgetStore.riprovaPagina()"
+    >
+      <template #vuoto>
+        <div class="empty-budget">
+          <PieChart class="empty-icon" :size="48" :stroke-width="1.5" />
+          <h2>Nessun budget per {{ meseLabel }}</h2>
+          <p class="empty-desc">
+            Il budget è facoltativo: fissa un tetto di spesa mensile per categoria e WALLT
+            lo confronta con le uscite già registrate. I trasferimenti tra i tuoi conti non lo consumano.
           </p>
+          <WButton variant="primary" size="md" @click="initSetup">Imposta il budget →</WButton>
+          <div class="empty-help"><HelpTrigger topic="budget-come-funziona" /></div>
+        </div>
+      </template>
+
+      <div v-if="budgetStore.hasBudget">
+        <div class="page-header">
+          <div class="page-title-row">
+            <h1 class="page-title">Budget {{ meseLabel }} · {{ formatValuta(totaleBudget) }}</h1>
+            <HelpTrigger topic="budget-come-funziona" />
+          </div>
+          <WButton variant="secondary" size="sm" @click="initEdit">Modifica</WButton>
+        </div>
+
+        <div class="budget-categories">
+          <WCard v-for="item in budgetStore.statoBudget" :key="item.categoria" class="budget-cat-card mb-3">
+            <div class="cat-header">
+              <CategoryIcon :categoria="item.categoria" tipo="uscita" :size="16" class="cat-icon" />
+              <span>{{ getCatDisplay(item.categoria).nome }}</span>
+              <span class="cat-stats">
+                {{ formatValuta(item.speso) }} spesi di {{ formatValuta(item.budget_importo) }}
+                ({{ Math.round(item.percentuale_usata) }}%)
+              </span>
+            </div>
+            <div class="progress-bar">
+              <div
+                class="progress-fill"
+                :class="{ pulse: item.stato === 'superato' }"
+                :style="{
+                  width: Math.min(item.percentuale_usata, 100) + '%',
+                  background: getBarColor(item.percentuale_usata),
+                }"
+              />
+            </div>
+            <p class="cat-rimanente" :class="item.rimanente < 0 ? 'negative' : ''">
+              {{ item.rimanente >= 0 ? `Rimangono ${formatValuta(item.rimanente)}` : `Superato di ${formatValuta(Math.abs(item.rimanente))}` }}
+            </p>
+          </WCard>
+        </div>
+
+        <WCard class="riepilogo-card">
+          <div class="riepilogo-grid">
+            <div><span class="riep-label">Totale budget</span><span class="riep-val">{{ formatValuta(totaleBudget) }}</span></div>
+            <div><span class="riep-label">Totale speso</span><span class="riep-val negative">{{ formatValuta(budgetStore.totaleSpeso) }}</span></div>
+            <div><span class="riep-label">Rimanente</span><span class="riep-val" :class="totaleRimanente >= 0 ? 'positive' : 'negative'">{{ formatValuta(totaleRimanente) }}</span></div>
+          </div>
         </WCard>
       </div>
-
-      <WCard class="riepilogo-card">
-        <div class="riepilogo-grid">
-          <div><span class="riep-label">Totale budget</span><span class="riep-val">{{ formatValuta(totaleBudget) }}</span></div>
-          <div><span class="riep-label">Totale speso</span><span class="riep-val negative">{{ formatValuta(budgetStore.totaleSpeso) }}</span></div>
-          <div><span class="riep-label">Rimanente</span><span class="riep-val" :class="totaleRimanente >= 0 ? 'positive' : 'negative'">{{ formatValuta(totaleRimanente) }}</span></div>
-        </div>
-      </WCard>
-    </div>
+    </DataState>
   </div>
 </template>
 
