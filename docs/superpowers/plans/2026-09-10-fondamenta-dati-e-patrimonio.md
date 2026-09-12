@@ -2302,6 +2302,102 @@ per questo — questo binding e' stato scritto prima che esistessero.
 combaciano con ciò che trovi negli store, è il Task 8 a essere stato eseguito
 male: correggi lì, non qui.
 
+- [ ] **Step 3c: Legare ogni scheda a TUTTE le letture che la alimentano**
+
+Il difetto che questo step chiude: una scheda dichiara lo stato di una risorsa
+mentre ne rende un'altra. Se la seconda fallisce, mostra numeri inventati come se
+fossero veri. Vale per due schede su sette.
+
+**Aggiungi a `DashboardView.vue` un helper per lo stato combinato:**
+
+```js
+/**
+ * Stato di una scheda alimentata da più letture.
+ *
+ * Il pannello d'errore pieno solo quando NESSUNA ha mai risposto: se anche una
+ * sola ha dati, mostrarli con l'avviso è meglio che nascondere numeri corretti
+ * perché un'altra lettura è caduta.
+ */
+const statoCombinato = (...risorse) => computed(() => {
+  if (risorse.some((r) => r.stato.value === 'caricamento')) return 'caricamento';
+  if (!risorse.some((r) => r.error.value)) return 'pronto';
+  return risorse.some((r) => r.lastUpdated.value !== null) ? 'errore-con-dati' : 'errore';
+});
+
+/** Il più vecchio dei successi: l'avviso non deve vantare una freschezza che
+ *  una delle letture non ha. */
+const lastUpdatedCombinato = (...risorse) => computed(() => {
+  const valori = risorse.map((r) => r.lastUpdated.value).filter((v) => v !== null);
+  return valori.length ? Math.min(...valori) : null;
+});
+```
+
+**Scheda patrimonio.** Rende il totale e la composizione da `risorsaPatrimonio`, ma
+anche entrate e uscite del mese da `risorsaBilancio`. Se quest'ultima fallisce al
+primo caricamento, `entrateMese` e `usciteMese` restano a `0,00 €` per sempre, la
+scheda dice `pronto` e il Riprova non la ritenta nemmeno: un mese senza entrate né
+uscite, indistinguibile da uno vero.
+
+```js
+const statoSaldo = statoCombinato(
+  contiStore.risorsaConti, contiStore.risorsaPatrimonio, movimentiStore.risorsaBilancio,
+);
+const lastUpdatedSaldo = lastUpdatedCombinato(
+  contiStore.risorsaConti, contiStore.risorsaPatrimonio, movimentiStore.risorsaBilancio,
+);
+```
+
+e `@riprova-saldo` deve ritentarle tutte e tre, non solo il patrimonio.
+
+**Scheda scommesse.** Ogni cifra che mostra — vincite, perdite, bilancio netto —
+viene da `risorsaAnalisi`, ma lo stato dichiarato era quello di
+`risorsaPiattaforme`. Un `fetchAnalisi` fallito lascia `0,00 €` su tutte e tre con
+la scheda che dice `pronto`. In una scheda che traccia scommesse, cifre inventate
+sono il peggio possibile.
+
+```js
+const statoScommesse = statoCombinato(
+  scommesseStore.risorsaPiattaforme, scommesseStore.risorsaAnalisi,
+);
+```
+
+più `lastUpdatedCombinato` sulle stesse due, e un `@riprova-scommesse` che ritenta
+entrambe.
+
+Gli investimenti **non** hanno questo problema: le loro cifre principali vengono
+da `risorsaInvestimenti`, la stessa che `statoInvestimenti` già segue. Lasciali
+come sono.
+
+- [ ] **Step 3d: Togliere il lampeggio "Pianifica il tuo budget"**
+
+`loadBudget()` attende che `fetchBudget` finisca del tutto prima di chiamare
+`fetchStatoBudget`: due round trip in sequenza. Per l'intera durata del secondo,
+`statoPagina` dice già `pronto` mentre i dati del grafico non ci sono ancora, e la
+scheda mostra "Pianifica il tuo budget" a chi un budget ce l'ha.
+
+Non è una race di microtask: è la durata ordinaria di una richiesta di rete, e si
+riproduce a ogni caricamento a freddo della dashboard per chiunque abbia un budget.
+
+Il posto giusto per correggerlo è `budget.store.js`, in `statoPagina`:
+
+```js
+  const statoPagina = computed(() => {
+    const principale = risorsaBudget.stato.value;
+    if (principale === 'caricamento') return 'caricamento';
+    // Con un budget presente la pagina non è pronta finché anche lo stato di
+    // spesa non ha risposto almeno una volta: senza, i grafici sono vuoti e la
+    // vista mostrerebbe "Pianifica il tuo budget" a chi un budget ce l'ha.
+    if (esiste.value && risorsaStato.lastUpdated.value === null && !risorsaStato.error.value) {
+      return 'caricamento';
+    }
+    if (principale === 'pronto' && risorsaStato.error.value) return 'errore-con-dati';
+    return principale;
+  });
+```
+
+È fuori dai tre file di questo task, ma è dove vive la causa: correggerlo nella
+vista significherebbe scriverlo due volte, qui e in `BudgetView`.
+
 - [ ] **Step 4: Le transazioni recenti**
 
 In `RecentTransactions.vue` aggiungi le proprietà `stato` e `lastUpdated` e l'evento `riprova`, avvolgendo la lista in `DataState` con lo stato vuoto attuale spostato nello slot `#vuoto`. Collega da `DashboardView`:
