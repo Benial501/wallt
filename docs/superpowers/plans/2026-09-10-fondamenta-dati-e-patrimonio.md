@@ -1357,22 +1357,39 @@ export const useBudgetStore = defineStore('budget', () => {
     return Math.min(a, b);
   });
 
-  /** Ritenta entrambe, ma `risorsaStato` solo se era gia' stata chiamata:
-   *  `riprova()` senza argomenti precedenti costruirebbe un URL invalido. */
-  const riprovaPagina = () => {
-    const attese = [risorsaBudget.riprova()];
-    if (risorsaStato.lastUpdated.value !== null || risorsaStato.error.value) {
-      attese.push(risorsaStato.riprova());
+  /**
+   * Ritenta il budget e, se dopo il ritentativo c'e' un budget da mostrare,
+   * (ri)carica il suo stato di spesa.
+   *
+   * Perche' `carica` e non `riprova`: al primo caricamento fallito lo stato
+   * di spesa non e' mai stato chiesto, quindi non ha argomenti da ripetere.
+   * Un `riprova()` li' costruirebbe un URL invalido, e saltarlo lascerebbe
+   * il budget a schermo con tutte le categorie a zero speso.
+   */
+  const riprovaPagina = async () => {
+    await risorsaBudget.riprova();
+    if (hasBudget.value && ultimoPeriodo) {
+      return risorsaStato.carica(ultimoPeriodo.mese, ultimoPeriodo.anno);
     }
-    return Promise.all(attese);
+    return undefined;
   };
   const categorieInAlert = computed(() => statoBudget.value.filter((c) => c.stato === 'superato'));
   const totaleSpeso = computed(() =>
     statoBudget.value.reduce((s, c) => s + (parseFloat(c.speso) || 0), 0)
   );
 
-  const fetchBudget = (mese, anno) => risorsaBudget.carica(mese, anno);
-  const fetchStatoBudget = (mese, anno) => risorsaStato.carica(mese, anno);
+  /** Periodo dell'ultima richiesta: serve a `riprovaPagina` per caricare lo
+   *  stato di spesa quando non e' mai stato chiesto prima. */
+  let ultimoPeriodo = null;
+
+  const fetchBudget = (mese, anno) => {
+    ultimoPeriodo = { mese, anno };
+    return risorsaBudget.carica(mese, anno);
+  };
+  const fetchStatoBudget = (mese, anno) => {
+    ultimoPeriodo = { mese, anno };
+    return risorsaStato.carica(mese, anno);
+  };
 
   const reset = () => {
     risorsaBudget.reset();
