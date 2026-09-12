@@ -93,6 +93,13 @@ export const useMovimentiStore = defineStore('movimenti', () => {
   const errorMore = ref(null);
   const paginaCorrente = ref(1);
 
+  /**
+   * Token di generazione condiviso fra la lettura principale, le pagine
+   * successive e il reset. `creaRisorsa` ha la propria guardia di sequenza,
+   * ma le pagine accumulate vivono FUORI dalla risorsa e ne servono una loro.
+   */
+  let generazione = 0;
+
   const movimentiPerData = computed(() => {
     const prima = risorsaMovimenti.data.value?.gruppi || [];
     return paginaExtra.value.length ? mergeGruppi(prima, paginaExtra.value) : prima;
@@ -105,6 +112,7 @@ export const useMovimentiStore = defineStore('movimenti', () => {
   }));
 
   const fetchMovimenti = async (params = {}) => {
+    generazione += 1;
     filtri.value = params;
     // Una nuova ricerca annulla le pagine accumulate: appartenevano ai
     // filtri precedenti.
@@ -121,17 +129,25 @@ export const useMovimentiStore = defineStore('movimenti', () => {
    */
   const loadMoreMovimenti = async () => {
     if (loadingMore.value) return;
+    const mia = generazione;
     loadingMore.value = true;
     errorMore.value = null;
     try {
       const { data } = await api.get('/movimenti', {
         params: { ...filtri.value, page: paginaCorrente.value + 1, limit: PAGE_SIZE },
       });
+      // Se nel frattempo i filtri sono cambiati, queste righe appartengono a
+      // una ricerca che non è più a schermo. Mescolarle sarebbe peggio di
+      // un errore visibile: sembrerebbero dati veri.
+      if (mia !== generazione) return;
       paginaExtra.value = mergeGruppi(paginaExtra.value, data.gruppi || []);
       paginaCorrente.value += 1;
     } catch (e) {
+      if (mia !== generazione) return;
       errorMore.value = e;
     } finally {
+      // Una sola pagina successiva può essere in volo (guardia in testa),
+      // quindi chi finisce è sempre il proprietario del flag.
       loadingMore.value = false;
     }
   };
@@ -167,6 +183,7 @@ export const useMovimentiStore = defineStore('movimenti', () => {
   };
 
   const reset = () => {
+    generazione += 1;
     risorsaMovimenti.reset();
     risorsaRecenti.reset();
     risorsaBilancio.reset();
