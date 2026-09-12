@@ -192,9 +192,9 @@ richiamato a qualunque frequenza senza creare duplicati.
 **Un solo passaggio al giorno non basta.** Con la sola schedulazione Vercel,
 l'`orario_promemoria` scelto dall'utente non viene rispettato: qualunque ora
 imposti, la notifica arriva quando passa il job (le 21 italiane). Per questo
-l'esecuzione oraria vera è affidata a GitHub Actions, che è gratuito:
-`.github/workflows/notifiche-cron.yml` chiama lo stesso endpoint ogni ora al
-minuto 5.
+l'esecuzione frequente è affidata a GitHub Actions, che su un repository
+pubblico è gratuito e illimitato: `.github/workflows/notifiche-cron.yml`
+chiama lo stesso endpoint ogni 15 minuti.
 
 Configurazione richiesta una sola volta, su GitHub → **Settings → Secrets and
 variables → Actions → New repository secret**:
@@ -204,11 +204,20 @@ variables → Actions → New repository secret**:
 | `CRON_SECRET` | lo stesso valore impostato su Vercel nel progetto `wallt-api` |
 
 Il cron Vercel giornaliero resta come rete di sicurezza, nel caso GitHub
-Actions sia fermo o in ritardo. I workflow schedulati di GitHub sono
-best-effort e possono slittare di qualche minuto sotto carico: l'orario del
-promemoria è quindi rispettato **entro l'ora**, non al minuto. Per una
-precisione al minuto serve il piano Vercel Pro con
-`"schedule": "0 * * * *"` in `server/vercel.json` — nessun cambio di codice.
+Actions sia fermo o in ritardo.
+
+**Quanto è affidabile davvero.** I workflow schedulati di GitHub sono
+best-effort: messi in coda a bassa priorità e scartati sotto carico. Misurato
+su questo repository con pianificazione oraria: **7 esecuzioni reali in 24
+ore**, con buchi fino a 5 ore. Per questo la pianificazione è ogni 15 minuti,
+così che un numero sufficiente di tentativi atterri davvero. Non è comunque
+un cron garantito: se l'orario del promemoria deve essere rispettato al
+minuto, servono `pg_cron` su Supabase oppure Vercel Pro con
+`"schedule": "0 * * * *"` in `server/vercel.json` (nessun cambio di codice).
+
+Conseguenza da conoscere: se l'unica esecuzione utile della giornata cade
+dopo l'inizio delle ore di silenzio, il promemoria viene creato ma rinviato
+alle 08:00 del giorno dopo. Arriva, ma il mattino seguente.
 
 Per provare subito il workflow: **Actions → Cron notifiche → Run workflow**.
 

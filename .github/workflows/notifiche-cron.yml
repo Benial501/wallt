@@ -21,9 +21,17 @@ name: Cron notifiche
 
 on:
   schedule:
-    # Al minuto 5 e non allo scoccare dell'ora: GitHub mette in coda i job
-    # schedulati e all'ora tonda il ritardo è maggiore.
-    - cron: '5 * * * *'
+    # Ogni 15 minuti, non ogni ora. GitHub mette i workflow schedulati in coda
+    # a bassa priorità e ne scarta parecchi: con una pianificazione oraria, in
+    # 24 ore ne venivano eseguiti davvero 7, con buchi fino a 5 ore. Più
+    # tentativi pianificati significa più esecuzioni che atterrano davvero.
+    # Il repository è pubblico, quindi i minuti Actions sono gratuiti.
+    #
+    # Il job è a vuoto quasi sempre (una manciata di query che decidono di non
+    # creare nulla): il costo reale è trascurabile. Se un giorno gli utenti
+    # diventassero molti, conviene passare a un cron vero — pg_cron su
+    # Supabase o Vercel Pro — invece di alzare ancora la frequenza qui.
+    - cron: '*/15 * * * *'
   # Permette di lanciarlo a mano da Actions → Run workflow, utile per provare.
   workflow_dispatch:
 
