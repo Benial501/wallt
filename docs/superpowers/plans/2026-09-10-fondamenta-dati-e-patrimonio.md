@@ -1320,12 +1320,52 @@ export const useBudgetStore = defineStore('budget', () => {
   const budgetSuggerito = computed(() => (
     risorsaBudget.data.value?.esiste ? null : (risorsaBudget.data.value?.suggerito || null)
   ));
-  // INVARIANTE: su errore resta l'ultimo stato valido, non un array vuoto.
+  // Su errore resta l'ultimo stato valido: `carica` non tocca mai `data`
+  // quando fallisce. Il `|| []` copre solo il caso in cui non ci sia MAI
+  // stata una lettura riuscita, non il caso "richiesta fallita".
   const statoBudget = computed(() => risorsaStato.data.value?.stato || []);
   const esiste = computed(() => risorsaBudget.data.value?.esiste === true);
   const loading = computed(() => risorsaBudget.loading.value);
 
-  const hasBudget = computed(() => esiste.value && !!budgetCorrente.value);
+  /**
+   * "C'e' un budget da mostrare", non "il server ha detto esiste:true".
+   * La differenza conta dopo una scrittura: se il POST riesce ma la
+   * rilettura di /budget fallisce, `esiste` resta false mentre il budget
+   * arriva comunque da /stato. Legandosi a `esiste` la pagina mostrerebbe
+   * un avviso sopra il vuoto subito dopo aver detto "Budget creato".
+   */
+  const hasBudget = computed(() => !!budgetCorrente.value);
+
+  /**
+   * Stato della pagina: combina le due letture. Se il budget c'e' ma lo
+   * stato di spesa non si e' aggiornato, la pagina deve comunque dichiarare
+   * che i numeri sono vecchi.
+   */
+  const statoPagina = computed(() => {
+    const principale = risorsaBudget.stato.value;
+    if (principale === 'pronto' && risorsaStato.error.value) return 'errore-con-dati';
+    return principale;
+  });
+
+  /** Il piu' vecchio dei due aggiornamenti riusciti: l'avviso non deve
+   *  vantare una freschezza che una delle due letture non ha. */
+  const lastUpdatedPagina = computed(() => {
+    const a = risorsaBudget.lastUpdated.value;
+    const b = risorsaStato.lastUpdated.value;
+    if (a === null) return b;
+    if (b === null) return a;
+    return Math.min(a, b);
+  });
+
+  /** Ritenta entrambe, ma `risorsaStato` solo se era gia' stata chiamata:
+   *  `riprova()` senza argomenti precedenti costruirebbe un URL invalido. */
+  const riprovaPagina = () => {
+    const attese = [risorsaBudget.riprova()];
+    if (risorsaStato.lastUpdated.value !== null || risorsaStato.error.value) {
+      attese.push(risorsaStato.riprova());
+    }
+    return Promise.all(attese);
+  };
   const categorieInAlert = computed(() => statoBudget.value.filter((c) => c.stato === 'superato'));
   const totaleSpeso = computed(() =>
     statoBudget.value.reduce((s, c) => s + (parseFloat(c.speso) || 0), 0)
@@ -1356,7 +1396,7 @@ Le funzioni di scrittura (`createBudget`, `updateBudget`, ed eventuali altre pre
   };
 ```
 
-Ricordati di aggiungere `risorsaBudget`, `risorsaStato` e `reset` all'oggetto restituito dallo store.
+Ricordati di aggiungere `risorsaBudget`, `risorsaStato`, `statoPagina`, `lastUpdatedPagina`, `riprovaPagina` e `reset` all'oggetto restituito dallo store.
 
 - [ ] **Step 1b: Neutralizzare il reset di sessione**
 
@@ -1392,33 +1432,48 @@ Sostituisci la condizione della riga 150, che oggi è:
     <div v-if="!budgetStore.hasBudget && modalita === 'view' && !budgetStore.loading" class="empty-budget">
 ```
 
-con una struttura che distingue vuoto ed errore. Il blocco "STATO A" diventa:
+con una struttura che distingue vuoto ed errore.
+
+**Un solo `DataState` copre entrambi gli stati di lettura**, come gia' fa
+`ContiView`. Avvolgerlo solo attorno al ramo "nessun budget" sarebbe un errore:
+quando il budget c'e' e un aggiornamento successivo fallisce, l'utente vedrebbe
+numeri vecchi senza alcun avviso e senza un "Riprova" da premere — cioe' meta'
+del blocco 1 non varrebbe per questa pagina.
+
+I rami setup/edit restano **fuori**: sono form, non letture, e uno scheletro
+sopra un form in compilazione sarebbe sbagliato. Vanno quindi per primi, e il
+`DataState` diventa il `v-else`:
 
 ```vue
-    <!-- STATO A: nessun budget, oppure impossibile saperlo -->
+    <!-- Setup e modifica: form, non letture. Restano fuori da DataState. -->
+    <div v-if="modalita === 'setup' || modalita === 'edit'">
+      <!-- contenuto attuale dei rami setup/edit, invariato -->
+    </div>
+
+    <!-- Vista: un solo DataState per "nessun budget" e "budget attivo" -->
     <DataState
-      v-if="modalita === 'view' && !budgetStore.hasBudget"
-      :stato="budgetStore.risorsaBudget.stato.value"
-      :last-updated="budgetStore.risorsaBudget.lastUpdated.value"
+      v-else
+      :stato="budgetStore.statoPagina"
+      :last-updated="budgetStore.lastUpdatedPagina"
       messaggio-errore="Non è stato possibile caricare il budget."
       skeleton-type="text"
       :skeleton-lines="4"
-      @riprova="budgetStore.risorsaBudget.riprova()"
+      @riprova="budgetStore.riprovaPagina()"
     >
       <template #vuoto>
         <div class="empty-budget">
-          <PieChart class="empty-icon" :size="48" :stroke-width="1.5" />
-          <h2>Nessun budget per {{ meseLabel }}</h2>
-          <p class="empty-desc">
-            <!-- lasciare invariato il testo già presente nel file -->
-          </p>
-          <div class="empty-help"><HelpTrigger topic="budget-come-funziona" /></div>
+          <!-- il contenuto attuale di div.empty-budget, copiato invariato -->
         </div>
       </template>
+
+      <div v-if="budgetStore.hasBudget">
+        <!-- il contenuto attuale dello STATO C, invariato -->
+      </div>
     </DataState>
 ```
 
-**Importante:** copia il contenuto dell'attuale `div.empty-budget` dentro lo slot `#vuoto` **senza riscriverlo**. Lo stato vuoto esistente va bene: sta solo cambiando il posto in cui viene mostrato, non il suo testo.
+**Importante:** sposta i blocchi esistenti **senza riscriverne il testo**. Lo
+stato vuoto e lo STATO C vanno bene come sono: cambia solo dove vivono.
 
 - [ ] **Step 3: Verificare che il difetto sia chiuso**
 
