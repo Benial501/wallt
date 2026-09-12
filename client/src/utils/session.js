@@ -42,13 +42,7 @@ export function resetPiniaStores() {
     movimentiStore.pagination = { page: 1, total: 0, pages: 0 };
   } catch { /* ignore */ }
 
-  try {
-    const budgetStore = useBudgetStore();
-    budgetStore.budgetCorrente = null;
-    budgetStore.statoBudget = [];
-    budgetStore.budgetSuggerito = null;
-    budgetStore.esiste = false;
-  } catch { /* ignore */ }
+  try { useBudgetStore().reset(); } catch { /* ignore */ }
 
   try {
     const obiettiviStore = useObiettiviStore();

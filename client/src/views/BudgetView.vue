@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
-import WSkeleton from '@/components/common/WSkeleton.vue';
+import DataState from '@/components/common/DataState.vue';
 import { useBudgetStore } from '@/stores/budget.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { useToastStore } from '@/stores/toast.store';
@@ -146,19 +146,29 @@ const totaleRimanente = computed(() => totaleBudget.value - budgetStore.totaleSp
 
 <template>
   <div class="budget-view animate-fade-in">
-    <!-- STATO A: Nessun budget -->
-    <div v-if="!budgetStore.hasBudget && modalita === 'view' && !budgetStore.loading" class="empty-budget">
-      <PieChart class="empty-icon" :size="48" :stroke-width="1.5" />
-      <h2>Nessun budget per {{ meseLabel }}</h2>
-      <p class="empty-desc">
-        Il budget è facoltativo: fissa un tetto di spesa mensile per categoria e WALLT
-        lo confronta con le uscite già registrate. I trasferimenti tra i tuoi conti non lo consumano.
-      </p>
-      <WButton variant="primary" size="md" @click="initSetup">Imposta il budget →</WButton>
-      <div class="empty-help"><HelpTrigger topic="budget-come-funziona" /></div>
-    </div>
-
-    <WSkeleton v-else-if="budgetStore.loading" type="card" />
+    <!-- STATO A: nessun budget, oppure impossibile saperlo -->
+    <DataState
+      v-if="modalita === 'view' && !budgetStore.hasBudget"
+      :stato="budgetStore.risorsaBudget.stato.value"
+      :last-updated="budgetStore.risorsaBudget.lastUpdated.value"
+      messaggio-errore="Non è stato possibile caricare il budget."
+      skeleton-type="text"
+      :skeleton-lines="4"
+      @riprova="budgetStore.risorsaBudget.riprova()"
+    >
+      <template #vuoto>
+        <div class="empty-budget">
+          <PieChart class="empty-icon" :size="48" :stroke-width="1.5" />
+          <h2>Nessun budget per {{ meseLabel }}</h2>
+          <p class="empty-desc">
+            Il budget è facoltativo: fissa un tetto di spesa mensile per categoria e WALLT
+            lo confronta con le uscite già registrate. I trasferimenti tra i tuoi conti non lo consumano.
+          </p>
+          <WButton variant="primary" size="md" @click="initSetup">Imposta il budget →</WButton>
+          <div class="empty-help"><HelpTrigger topic="budget-come-funziona" /></div>
+        </div>
+      </template>
+    </DataState>
 
     <!-- STATO B/C: Setup o Edit -->
     <div v-else-if="modalita === 'setup' || modalita === 'edit'">
