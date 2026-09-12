@@ -124,6 +124,7 @@ export const useBudgetStore = defineStore('budget', () => {
   const reset = () => {
     risorsaBudget.reset();
     risorsaStato.reset();
+    ultimoPeriodo = null;
   };
 
   return {

@@ -33,19 +33,20 @@ export function resetPiniaStores() {
     profiloStore.error = null;
   } catch { /* ignore */ }
 
-  try { useContiStore().reset(); } catch { /* ignore */ }
-
-  try { useMovimentiStore().reset(); } catch { /* ignore */ }
-
-  try { useBudgetStore().reset(); } catch { /* ignore */ }
-
-  try { useObiettiviStore().reset(); } catch { /* ignore */ }
-
-  try { useScommesseStore().reset(); } catch { /* ignore */ }
-
-  try { useInvestimentiStore().reset(); } catch { /* ignore */ }
-
-  try { useAnalisiStore().reset(); } catch { /* ignore */ }
+  // Ogni store migrato azzera le proprie risorse: elencare i campi a mano
+  // era il motivo per cui `recentiHome` e i campi di scommesse restavano
+  // popolati dopo il logout (difetto noto numero 9).
+  [
+    useContiStore,
+    useMovimentiStore,
+    useBudgetStore,
+    useAnalisiStore,
+    useObiettiviStore,
+    useInvestimentiStore,
+    useScommesseStore,
+  ].forEach((useStore) => {
+    try { useStore().reset(); } catch { /* ignore */ }
+  });
 
   try {
     useUiStore().chiudiForm();
