@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import api from '@/utils/axios';
+import { creaRisorsa } from '@/utils/risorsa';
 
 const PAGE_SIZE = 100;
 
@@ -36,78 +37,109 @@ const mergeGruppi = (existing, incoming) => {
 };
 
 export const useMovimentiStore = defineStore('movimenti', () => {
-  const movimentiPerData = ref([]);
-  const recentiHome = ref([]);
-  const bilancioMese = ref({});
-  const filtri = ref({});
-  const pagination = ref({ page: 1, total: 0, pages: 0 });
-  const loading = ref(false);
-  const loadingMore = ref(false);
-  const loadingBilancio = ref(false);
-  const loadingRecenti = ref(false);
-
-  const fetchMovimenti = async (params = {}, { append = false } = {}) => {
-    if (append) loadingMore.value = true;
-    else loading.value = true;
-
-    const page = append ? pagination.value.page + 1 : 1;
-    const requestParams = { ...params, page, limit: PAGE_SIZE };
-    filtri.value = params;
-
-    try {
-      const { data } = await api.get('/movimenti', { params: requestParams });
-      movimentiPerData.value = append
-        ? mergeGruppi(movimentiPerData.value, data.gruppi)
-        : data.gruppi;
-      pagination.value = data.pagination;
+  const risorsaMovimenti = creaRisorsa(
+    async (params = {}) => {
+      const { data } = await api.get('/movimenti', { params: { ...params, page: 1, limit: PAGE_SIZE } });
       return data;
-    } finally {
-      loading.value = false;
-      loadingMore.value = false;
-    }
-  };
+    },
+    { iniziale: null, vuotoSe: (d) => !d || (d.gruppi || []).length === 0 },
+  );
 
-  const loadMoreMovimenti = () => fetchMovimenti(filtri.value, { append: true });
-
-  const fetchBilancioMese = async (mese, anno) => {
-    loadingBilancio.value = true;
-    try {
-      const { data } = await api.get('/movimenti/bilancio', { params: { mese, anno } });
-      bilancioMese.value = data;
-      return data;
-    } catch {
-      return null;
-    } finally {
-      loadingBilancio.value = false;
-    }
-  };
-
-  /** Ultime transazioni per la home: cache in store così restano visibili tra navigazioni. */
-  const fetchRecentiHome = async ({ limit = 6 } = {}) => {
-    const hadCache = recentiHome.value.length > 0;
-    if (!hadCache) loadingRecenti.value = true;
-    try {
+  /**
+   * Ultime transazioni della home. L'API può rispondere con `movimenti`
+   * già piatti oppure con `gruppi` da appiattire: la normalizzazione stava
+   * già nel codice precedente e va conservata, altrimenti la home resta
+   * vuota su una delle due forme di risposta.
+   */
+  const risorsaRecenti = creaRisorsa(
+    async ({ limit = 6 } = {}) => {
       const { data } = await api.get('/movimenti', {
         params: { limit, ordine: 'caricamento', solo_conti_attivi: true },
       });
       const flat = Array.isArray(data?.movimenti) ? data.movimenti : [];
-      if (flat.length) {
-        recentiHome.value = flat;
-      } else if (Array.isArray(data?.gruppi)) {
-        recentiHome.value = data.gruppi.flatMap((g) =>
+      if (flat.length) return flat;
+      if (Array.isArray(data?.gruppi)) {
+        return data.gruppi.flatMap((g) =>
           (g.movimenti || []).map((m) => ({ ...m, dataLabel: g.label })),
         );
-      } else {
-        recentiHome.value = [];
       }
-      return recentiHome.value;
-    } catch {
-      // In caso di errore di rete/rate-limit, mantieni la cache precedente.
-      return recentiHome.value;
+      return [];
+    },
+    { iniziale: [] },
+  );
+
+  // Un bilancio a zero è un dato legittimo, non un'assenza: senza questo
+  // `vuotoSe`, un mese senza movimenti mostrerebbe uno stato vuoto al posto
+  // di "0,00 €".
+  const risorsaBilancio = creaRisorsa(
+    async (mese, anno) => {
+      const { data } = await api.get('/movimenti/bilancio', { params: { mese, anno } });
+      return data;
+    },
+    { iniziale: {}, vuotoSe: () => false },
+  );
+
+  // --- Interfaccia pubblica invariata -------------------------------------
+  const recentiHome = computed(() => risorsaRecenti.data.value || []);
+  const bilancioMese = computed(() => risorsaBilancio.data.value || {});
+  const filtri = ref({});
+  const loading = computed(() => risorsaMovimenti.loading.value);
+  const loadingBilancio = computed(() => risorsaBilancio.loading.value);
+  const loadingRecenti = computed(() => risorsaRecenti.loading.value);
+
+  /** Gruppi accumulati dalle pagine successive alla prima. */
+  const paginaExtra = ref([]);
+  const loadingMore = ref(false);
+  const errorMore = ref(null);
+  const paginaCorrente = ref(1);
+
+  const movimentiPerData = computed(() => {
+    const prima = risorsaMovimenti.data.value?.gruppi || [];
+    return paginaExtra.value.length ? mergeGruppi(prima, paginaExtra.value) : prima;
+  });
+
+  const pagination = computed(() => ({
+    page: paginaCorrente.value,
+    total: risorsaMovimenti.data.value?.pagination?.total || 0,
+    pages: risorsaMovimenti.data.value?.pagination?.pages || 0,
+  }));
+
+  const fetchMovimenti = async (params = {}) => {
+    filtri.value = params;
+    // Una nuova ricerca annulla le pagine accumulate: appartenevano ai
+    // filtri precedenti.
+    paginaExtra.value = [];
+    paginaCorrente.value = 1;
+    errorMore.value = null;
+    return risorsaMovimenti.carica(params);
+  };
+
+  /**
+   * Una pagina successiva che fallisce non rende vecchi i dati già a
+   * schermo: sono validi e freschi, manca solo il seguito. L'errore resta
+   * quindi locale al pulsante e non passa da DataState.
+   */
+  const loadMoreMovimenti = async () => {
+    if (loadingMore.value) return;
+    loadingMore.value = true;
+    errorMore.value = null;
+    try {
+      const { data } = await api.get('/movimenti', {
+        params: { ...filtri.value, page: paginaCorrente.value + 1, limit: PAGE_SIZE },
+      });
+      paginaExtra.value = mergeGruppi(paginaExtra.value, data.gruppi || []);
+      paginaCorrente.value += 1;
+    } catch (e) {
+      errorMore.value = e;
     } finally {
-      loadingRecenti.value = false;
+      loadingMore.value = false;
     }
   };
+
+  const fetchBilancioMese = (mese, anno) => risorsaBilancio.carica(mese, anno);
+
+  /** Ultime transazioni per la home: la cache resta in `risorsaRecenti.data`. */
+  const fetchRecentiHome = (opzioni = {}) => risorsaRecenti.carica(opzioni);
 
   const createMovimento = async (dati) => {
     try {
@@ -134,7 +166,20 @@ export const useMovimentiStore = defineStore('movimenti', () => {
     return data.movimenti;
   };
 
+  const reset = () => {
+    risorsaMovimenti.reset();
+    risorsaRecenti.reset();
+    risorsaBilancio.reset();
+    paginaExtra.value = [];
+    paginaCorrente.value = 1;
+    errorMore.value = null;
+    filtri.value = {};
+  };
+
   return {
+    risorsaMovimenti,
+    risorsaRecenti,
+    risorsaBilancio,
     movimentiPerData,
     recentiHome,
     bilancioMese,
@@ -144,6 +189,7 @@ export const useMovimentiStore = defineStore('movimenti', () => {
     loadingMore,
     loadingBilancio,
     loadingRecenti,
+    errorMore,
     fetchMovimenti,
     fetchRecentiHome,
     loadMoreMovimenti,
@@ -152,5 +198,6 @@ export const useMovimentiStore = defineStore('movimenti', () => {
     updateMovimento,
     deleteMovimento,
     fetchRicorrenti,
+    reset,
   };
 });

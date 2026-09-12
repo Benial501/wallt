@@ -35,12 +35,7 @@ export function resetPiniaStores() {
 
   try { useContiStore().reset(); } catch { /* ignore */ }
 
-  try {
-    const movimentiStore = useMovimentiStore();
-    movimentiStore.movimentiPerData = [];
-    movimentiStore.bilancioMese = {};
-    movimentiStore.pagination = { page: 1, total: 0, pages: 0 };
-  } catch { /* ignore */ }
+  try { useMovimentiStore().reset(); } catch { /* ignore */ }
 
   try { useBudgetStore().reset(); } catch { /* ignore */ }
 

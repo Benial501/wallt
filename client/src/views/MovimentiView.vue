@@ -14,6 +14,8 @@ import { CATEGORIE_ENTRATA, CATEGORIE_USCITA, getCategoriaEntrata, getCategoriaU
 import { ArrowLeftRight } from '@/utils/appIcons';
 import ImportEstrattoHint from '@/components/common/ImportEstrattoHint.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
+import DataState from '@/components/common/DataState.vue';
+import { etichetta } from '@/content/glossario';
 import api from '@/utils/axios';
 import { refreshAfterWrite } from '@/utils/afterWrite';
 import dayjs from 'dayjs';
@@ -218,7 +220,7 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
         </div>
         <p class="page-sub">
           {{ periodoLabel }} ·
-          Bilancio {{ oggi.format('MMMM') }}:
+          {{ etichetta('risultato_mese') }} ({{ oggi.format('MMMM') }}):
           <WSkeleton
             v-if="loadingBilancio"
             type="text"
@@ -302,90 +304,105 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
     </div>
 
     <!-- Lista -->
-    <div v-if="movimentiStore.loading" class="space-y-4">
-      <WSkeleton type="text" :lines="4" />
-    </div>
+    <DataState
+      :stato="movimentiStore.risorsaMovimenti.stato.value"
+      :last-updated="movimentiStore.risorsaMovimenti.lastUpdated.value"
+      messaggio-errore="Non è stato possibile caricare i movimenti."
+      skeleton-type="text"
+      :skeleton-lines="4"
+      @riprova="movimentiStore.risorsaMovimenti.riprova()"
+    >
+      <template #vuoto>
+        <WCard class="empty-state">
+          <ArrowLeftRight class="empty-icon" :size="48" :stroke-width="1.5" />
 
-    <div v-else-if="movimentiStore.movimentiPerData.length">
-      <p v-if="movimentiStore.pagination.total" class="results-meta">
-        {{ movimentiMostrati }} di {{ movimentiStore.pagination.total }} movimenti
-      </p>
-      <div v-for="gruppo in movimentiStore.movimentiPerData" :key="gruppo.data" class="gruppo animate-slide-up">
-        <div class="gruppo-header">
-          <span>{{ gruppo.label }} · {{ dayjs(gruppo.data).format('D MMMM') }}</span>
-          <span class="gruppo-totali">
-            <span v-if="gruppo.totale_entrate_giorno" class="positive">+{{ formatValuta(gruppo.totale_entrate_giorno) }}</span>
-            <span v-if="gruppo.totale_uscite_giorno" class="negative">-{{ formatValuta(gruppo.totale_uscite_giorno) }}</span>
-          </span>
+          <template v-if="senzaConti">
+            <p>Prima crea un conto</p>
+            <p class="empty-state__hint">
+              I movimenti vengono registrati su un conto: banca, carta o contanti.
+              Dopo averlo creato potrai inserirli a mano o importare un estratto.
+            </p>
+            <button class="quick-add" @click="$router.push('/conti')">Vai a I miei conti →</button>
+          </template>
+
+          <template v-else-if="haMovimentiTotali === false">
+            <p>Non hai ancora registrato movimenti</p>
+            <p class="empty-state__hint">
+              Inserisci la prima entrata o uscita, oppure importa l'estratto conto della tua banca.
+            </p>
+            <div class="empty-state__actions">
+              <button class="quick-add" @click="apriForm('entrata')">Aggiungi il primo movimento →</button>
+              <button class="quick-add quick-add--secondary" @click="$router.push('/importa')">
+                Importa un estratto
+              </button>
+            </div>
+          </template>
+
+          <template v-else-if="haMovimentiTotali === true">
+            <p>Nessun risultato per questi filtri</p>
+            <p class="empty-state__hint">
+              Hai movimenti registrati, ma nessuno rientra nel periodo o nei filtri selezionati.
+              Prova con il periodo «Tutti» o azzera gli altri filtri.
+            </p>
+            <button class="quick-add quick-add--secondary" @click="filtroPeriodo = 'tutti'">
+              Mostra tutti i periodi
+            </button>
+          </template>
+
+          <template v-else>
+            <p>Nessun movimento trovato</p>
+            <p class="empty-state__hint">
+              Non è stato possibile verificare se ci sono movimenti in altri periodi.
+              Controlla i filtri o riprova.
+            </p>
+            <button class="quick-add" @click="apriForm('entrata')">Aggiungi un movimento →</button>
+          </template>
+        </WCard>
+      </template>
+
+      <div>
+        <p v-if="movimentiStore.pagination.total" class="results-meta">
+          {{ movimentiMostrati }} di {{ movimentiStore.pagination.total }} movimenti
+        </p>
+        <div v-for="gruppo in movimentiStore.movimentiPerData" :key="gruppo.data" class="gruppo animate-slide-up">
+          <div class="gruppo-header">
+            <span>{{ gruppo.label }} · {{ dayjs(gruppo.data).format('D MMMM') }}</span>
+            <span class="gruppo-totali">
+              <span v-if="gruppo.totale_entrate_giorno" class="positive">+{{ formatValuta(gruppo.totale_entrate_giorno) }}</span>
+              <span v-if="gruppo.totale_uscite_giorno" class="negative">-{{ formatValuta(gruppo.totale_uscite_giorno) }}</span>
+            </span>
+          </div>
+
+          <MovimentoItem
+            v-for="mov in gruppo.movimenti"
+            :key="mov.id"
+            :movimento="mov"
+            :cat-info="getCatInfo(mov)"
+            :selected="formOpen && movimentoEdit?.id === mov.id"
+            @click="(m) => m.tipo !== 'trasferimento' && apriForm(m.tipo, m)"
+            @delete="elimina"
+          />
         </div>
 
-        <MovimentoItem
-          v-for="mov in gruppo.movimenti"
-          :key="mov.id"
-          :movimento="mov"
-          :cat-info="getCatInfo(mov)"
-          :selected="formOpen && movimentoEdit?.id === mov.id"
-          @click="(m) => m.tipo !== 'trasferimento' && apriForm(m.tipo, m)"
-          @delete="elimina"
-        />
-      </div>
-
-      <div v-if="hasMoreMovimenti" class="load-more">
-        <button
-          class="load-more__btn"
-          :disabled="movimentiStore.loadingMore"
-          @click="movimentiStore.loadMoreMovimenti()"
-        >
-          {{ movimentiStore.loadingMore ? 'Caricamento...' : 'Carica altri movimenti' }}
-        </button>
-      </div>
-    </div>
-
-    <WCard v-else class="empty-state">
-      <ArrowLeftRight class="empty-icon" :size="48" :stroke-width="1.5" />
-
-      <template v-if="senzaConti">
-        <p>Prima crea un conto</p>
-        <p class="empty-state__hint">
-          I movimenti vengono registrati su un conto: banca, carta o contanti.
-          Dopo averlo creato potrai inserirli a mano o importare un estratto.
-        </p>
-        <button class="quick-add" @click="$router.push('/conti')">Vai a I miei conti →</button>
-      </template>
-
-      <template v-else-if="haMovimentiTotali === false">
-        <p>Non hai ancora registrato movimenti</p>
-        <p class="empty-state__hint">
-          Inserisci la prima entrata o uscita, oppure importa l'estratto conto della tua banca.
-        </p>
-        <div class="empty-state__actions">
-          <button class="quick-add" @click="apriForm('entrata')">Aggiungi il primo movimento →</button>
-          <button class="quick-add quick-add--secondary" @click="$router.push('/importa')">
-            Importa un estratto
-          </button>
+        <div v-if="hasMoreMovimenti">
+          <div class="load-more">
+            <button
+              class="load-more__btn"
+              :disabled="movimentiStore.loadingMore"
+              @click="movimentiStore.loadMoreMovimenti()"
+            >
+              {{ movimentiStore.loadingMore ? 'Caricamento...' : 'Carica altri movimenti' }}
+            </button>
+          </div>
+          <p v-if="movimentiStore.errorMore" class="carica-altri-errore" role="alert">
+            Non è stato possibile caricare altri movimenti.
+            <button type="button" class="carica-altri-riprova" @click="movimentiStore.loadMoreMovimenti()">
+              Riprova
+            </button>
+          </p>
         </div>
-      </template>
-
-      <template v-else-if="haMovimentiTotali === true">
-        <p>Nessun risultato per questi filtri</p>
-        <p class="empty-state__hint">
-          Hai movimenti registrati, ma nessuno rientra nel periodo o nei filtri selezionati.
-          Prova con il periodo «Tutti» o azzera gli altri filtri.
-        </p>
-        <button class="quick-add quick-add--secondary" @click="filtroPeriodo = 'tutti'">
-          Mostra tutti i periodi
-        </button>
-      </template>
-
-      <template v-else>
-        <p>Nessun movimento trovato</p>
-        <p class="empty-state__hint">
-          Non è stato possibile verificare se ci sono movimenti in altri periodi.
-          Controlla i filtri o riprova.
-        </p>
-        <button class="quick-add" @click="apriForm('entrata')">Aggiungi un movimento →</button>
-      </template>
-    </WCard>
+      </div>
+    </DataState>
 
     <MovimentoForm
       :open="formOpen"
@@ -562,6 +579,27 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
   .load-more__btn:hover:not(:disabled) { background: var(--glass-interactive-bg-hover); border-color: var(--border-strong); }
 }
 .load-more__btn:disabled { opacity: 0.6; cursor: wait; }
+.carica-altri-errore {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+.carica-altri-riprova {
+  min-height: 44px;
+  padding: 0 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-link);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.carica-altri-riprova:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-xs);
+}
 .gruppo { margin-bottom: 1.5rem; }
 .gruppo-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 0.5rem; padding: 0 0.25rem; }
 .gruppo-totali { display: flex; gap: 0.5rem; font-size: 0.75rem; }
