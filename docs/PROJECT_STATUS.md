@@ -127,7 +127,7 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 
 **Non testato** (logica di business, non isolamento): CRUD conti/movimenti al di là dell'ownership, budget, obiettivi, scommesse, investimenti, analisi, merchant/AI, cron, sync scommesse-conti.
 
-**Frontend**: nessun test (né unit né E2E).
+**Frontend**: 85 test unitari (`client/tests/*.test.js`, `node --test`), fra cui `risorsa.test.js` sulla macchina a stati di `creaRisorsa` (guardia di sequenza, invarianti su errore/dati) e i test sul gesto di scorrimento delle righe movimento. Nessun test di componente (nessun framework configurato, per scelta — vedi `docs/ARCHITECTURE.md`), nessun E2E.
 
 **Lint**: nessun linter configurato (né backend né frontend).
 
@@ -291,6 +291,12 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 ---
 
 ## Roadmap
+
+**Sotto-progetto A** della proposta di evoluzione UX di WALLT — blocchi 1 e 2: stato delle letture negli store (`creaRisorsa` + `DataState`, vedi `docs/ARCHITECTURE.md`) e terminologia unica del patrimonio (`client/src/content/glossario.js`) — è **completo** (spec: `docs/superpowers/specs/2026-09-10-fondamenta-dati-e-patrimonio-design.md`). Restano da fare come sotto-progetti separati, con spec proprie:
+- blocco 3 — selettore di periodo, tooltip e valori del grafico principale;
+- blocco 4 — ricerca testuale e ordinamento dei movimenti (richiede lavoro sull'API);
+- blocco 5 — revisione di contrasto, dimensioni tipografiche e `prefers-reduced-motion`;
+- blocco 6 — centro movimenti ricorrenti, controllo qualità degli import, budget suggerito dallo storico, previsioni di cassa.
 
 ### P0 — Critical
 

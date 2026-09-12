@@ -95,6 +95,35 @@ client/src/
 | `ui.store` | Form movimento globale (entrata/uscita/trasferimento) |
 | `toast.store` | Notifiche toast |
 
+### Stato delle letture: `creaRisorsa` + `DataState`
+
+Nasce da un difetto concreto: più store azzeravano i dati nel gestore dell'errore (`catch { lista.value = [] }`), e la vista mostrava lo stato vuoto — "Nessun budget per settembre" in `BudgetView`, "Aggiungi il tuo primo conto" in `ContiView` — al posto di un errore di rete. L'utente leggeva una perdita di dati dove c'era solo una richiesta fallita.
+
+**`client/src/utils/risorsa.js`** — la factory `creaRisorsa(fetcher, { iniziale, vuotoSe })` restituisce `{ data, loading, error, lastUpdated, stato, carica, riprova, reset }`. `stato` è un `computed` a cinque valori, valutati in quest'ordine — l'ordine è vincolante, non un dettaglio stilistico:
+
+1. `caricamento` — `loading` è vero e non c'è mai stato un caricamento riuscito (`lastUpdated === null`).
+2. `errore` — un fallimento senza dati precedenti.
+3. `errore-con-dati` — un fallimento con dati precedenti ancora validi a schermo.
+4. `vuoto` — nessun errore, e il predicato `vuotoSe` (o quello di default: array vuoto oppure `null`/`undefined`) dice che non c'è nulla.
+5. `pronto` — tutti gli altri casi.
+
+`caricamento` precede `errore` così un "Riprova" dopo un fallimento senza dati mostra di nuovo lo scheletro invece di lasciare il pannello d'errore fino alla risposta successiva. Con dati precedenti, invece, `errore-con-dati` sopravvive al tentativo in corso: il dato a schermo resta quello vecchio finché non arriva quello nuovo, evitando un lampeggio fra "Riprova" e "dati aggiornati".
+
+**Due invarianti** rendono la macchina a stati affidabile:
+
+- Un fallimento non tocca mai `data` né `lastUpdated` (commento `INVARIANTE` nel `catch` di `carica()`): è la proprietà che rende impossibile, per costruzione, confondere di nuovo un errore di rete con una perdita di dati.
+- Solo un successo cancella un errore precedente: `error` non viene mai azzerato da un evento diverso da un nuovo caricamento riuscito, quindi `errore-con-dati` resta visibile per tutta la durata reale del problema, non per un istante.
+
+`carica()` inoltre non lancia mai: un fallimento è uno stato (`error`), non un'eccezione, quindi nessun chiamante deve incatenare `.catch()` per evitare una rejection non gestita — chi ha bisogno di sapere com'è andata legge `error`, oppure il valore di ritorno (`undefined` in caso di fallimento).
+
+**Guardia di sequenza.** Ogni chiamata a `carica()` incrementa un contatore `sequenza` e ne cattura il valore; la risposta viene applicata solo se quel valore coincide ancora con `sequenza` al momento dell'arrivo. Senza questa guardia una richiesta lenta partita prima potrebbe sovrascrivere una richiesta veloce partita dopo — concretamente, la dashboard lancia fino a otto caricamenti in parallelo e li rilancia tutti insieme dopo un salvataggio, quindi il rischio non è teorico. `reset()` incrementa a sua volta `sequenza`: invalida le richieste ancora in volo, così una risposta che arriva dopo un logout non può ripopolare la risorsa con i dati dell'utente precedente.
+
+**Perché la logica sta in `risorsa.js` e non in `DataState.vue`.** `risorsa.js` è JavaScript puro sopra `ref`/`computed`, senza dipendenze dal DOM: per questo è testabile con il test runner nativo del progetto (`node --test`, vedi `client/tests/risorsa.test.js`) senza montare nulla. Il progetto non ha — per scelta, non per lacuna — un framework di test per componenti Vue: nessun `@vue/test-utils`, `vitest` o `jsdom` fra le dipendenze di `client/package.json`, il cui script `test` esegue solo `node --test tests/*.test.js`. Per questo `DataState.vue` non decide nulla: riceve `stato` già calcolato via prop e si limita a scegliere quale blocco di markup mostrare. Qualunque logica finisse dentro il componente resterebbe non testata; lasciandola in `risorsa.js`, resta testata lì dove il progetto sa già testare.
+
+**`refreshAfterWrite` è diventato inerte.** Non fa parte di questo pattern, ma lo tocca da vicino: la sua funzione (`client/src/utils/afterWrite.js`) era segnalare, dopo una scrittura già riuscita, che un aggiornamento successivo della vista poteva essere fallito — restituiva `false` in quel caso, così chi chiamava poteva mostrare il toast `VISTA_NON_AGGIORNATA`. Da quando le funzioni di lettura che riceve sono quelle costruite su `creaRisorsa`, non lanciano più: `carica()` registra l'errore in `error` e restituisce `undefined` invece di rigettare. Il `Promise.allSettled` interno a `refreshAfterWrite` vede quindi sempre esiti `fulfilled`, e il suo valore di ritorno è ormai sempre `true`. Il caso più visibile è `client/src/views/ImportaView.vue:259-271`: `refreshAfterWrite` avvolge `fetchConti`/`fetchPatrimonio`/`fetchMovimenti`, tutte e tre wrapper diretti di `carica()`, e il controllo `if (!vistaAggiornata) toastStore.warning(...)` alla riga 271 non può più scattare. Lo stesso controllo si ripete in `MovimentoForm.vue:185`; gli altri punti che chiamano `refreshAfterWrite` (`conti.store.js`, `MovimentiView.vue`) non leggono nemmeno il valore di ritorno, quindi lì non c'è un ramo morto da segnalare — solo un booleano ormai ignorato.
+
+Non è un difetto nascosto da correggere: la vista di destinazione dichiara ormai il proprio stato con `DataState`, più preciso di quanto lo sia mai stato quel toast generico. Ma va scritto, perché il booleano compila e "funziona" silenziosamente sempre uguale: chi lo trovasse senza questa nota potrebbe costruirci sopra credendolo ancora vivo. `afterWrite.js` resta nel repository: i percorsi di scrittura non ancora migrati a `creaRisorsa` lo usano ancora, quindi non va rimosso.
+
 ### Theming
 - CSS custom properties in `variables.css` (dark/light)
 - `useTheme.js` applica classe `html.dark`/`html.light`, persiste in localStorage + API
