@@ -171,7 +171,11 @@ export const getCategoryIcon = (categoriaId, tipo = 'uscita') => {
 
 export const getCategoryIconFromMovimento = (movimento) => {
   if (!movimento) return ArrowUpCircle;
-  if (movimento.tipo === 'trasferimento') return Repeat2;
+  // Un trasferimento con una categoria propria (es. un deposito scommesse)
+  // tiene la sua icona: il badge accanto segnala già che è un trasferimento.
+  if (movimento.tipo === 'trasferimento') {
+    return CATEGORY_ICON_MAP[movimento.categoria] || Repeat2;
+  }
   if (movimento.tipo === 'entrata') {
     const cat = getCategoriaEntrata(movimento.categoria);
     return getCategoryIcon(cat?.id || movimento.categoria, 'entrata');

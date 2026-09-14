@@ -55,7 +55,7 @@ const TOPICS = [
     summary: 'Usalo per spostamenti fra due tuoi conti registrati in WALLT. Non viene conteggiato come spesa o entrata.',
     paragraphs: [
       'Il trasferimento sposta un importo da un tuo conto a un altro: il primo si riduce, il secondo aumenta, e il totale del patrimonio resta lo stesso.',
-      'Per questo un trasferimento non compare tra le spese né tra le entrate del mese, e non entra nel budget.',
+      'Per questo un trasferimento non compare tra le spese né tra le entrate del mese. L\'unica eccezione è il budget delle scommesse: i depositi su una piattaforma di gioco sono trasferimenti, ma restano conteggiati nel limite mensile che hai impostato.',
       'Servono due conti diversi. Se stai invece mandando soldi a un\'altra persona (bonifico, pagamento tra amici), quella è un\'uscita: registrala come movimento con la categoria "Trasferimento denaro".',
     ],
   },

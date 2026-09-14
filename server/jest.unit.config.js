@@ -17,6 +17,7 @@ module.exports = {
     '<rootDir>/tests/avatarImage.test.js',
     '<rootDir>/tests/welcomeEmail.test.js',
     '<rootDir>/tests/supportEmail.test.js',
+    '<rootDir>/tests/scommesseStats.test.js',
   ],
   testTimeout: 20000,
   verbose: true,

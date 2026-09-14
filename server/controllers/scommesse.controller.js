@@ -10,43 +10,18 @@ const {
   deactivateLinkedConto,
   backfillUserLinks,
 } = require('../services/scommesseContoSync.service');
-
-const toNumber = (val) => parseFloat(val) || 0;
+const {
+  calcolaStatsMovimenti,
+  sommaStats,
+  toNumber,
+} = require('../services/scommesseStats.service');
 
 const calcolaStatsPiattaforma = async (piattaformaId) => {
   const movimenti = await MovimentoScommesse.findAll({
     where: { piattaforma_id: piattaformaId },
   });
 
-  let totaleDepositato = 0;
-  let totalePrelevato = 0;
-  let totaleVincite = 0;
-  let totalePerdite = 0;
-
-  movimenti.forEach((m) => {
-    const imp = toNumber(m.importo);
-    if (m.tipo === 'deposito') totaleDepositato += imp;
-    if (m.tipo === 'prelievo') totalePrelevato += imp;
-    if (m.tipo === 'vincita') totaleVincite += imp;
-    if (m.tipo === 'perdita') totalePerdite += imp;
-  });
-
-  const bilancioDisplay = totalePrelevato - totaleDepositato;
-  const bilancioReale = (totalePrelevato + totaleVincite) - (totaleDepositato + totalePerdite);
-  const roiPercentuale = totaleDepositato > 0
-    ? Math.round((bilancioReale / totaleDepositato) * 10000) / 100
-    : 0;
-
-  return {
-    totale_depositato: Math.round(totaleDepositato * 100) / 100,
-    totale_prelevato: Math.round(totalePrelevato * 100) / 100,
-    totale_vincite: Math.round(totaleVincite * 100) / 100,
-    totale_perdite: Math.round(totalePerdite * 100) / 100,
-    bilancio: Math.round(bilancioDisplay * 100) / 100,
-    bilancio_display: Math.round(bilancioDisplay * 100) / 100,
-    bilancio_reale: Math.round(bilancioReale * 100) / 100,
-    roi_percentuale: roiPercentuale,
-  };
+  return calcolaStatsMovimenti(movimenti);
 };
 
 const getPiattaforme = async (req, res) => {
@@ -226,16 +201,23 @@ const addMovimentoScommesse = async (req, res) => {
         return res.status(400).json({ message: 'Saldo conto insufficiente' });
       }
 
-      const movTipo = tipo === 'deposito' ? 'uscita' : 'entrata';
       const categoria = tipo === 'deposito' ? 'deposito_scommesse' : 'prelievo_scommesse';
       const descrizione = tipo === 'deposito'
         ? `Deposito ${piattaforma.nome}`
         : `Prelievo ${piattaforma.nome}`;
 
+      // Caricare o ritirare denaro non è una spesa né un'entrata: è uno
+      // spostamento fra due conti dell'utente. Va registrato come
+      // trasferimento, così resta fuori dalle analisi di spese ed entrate.
+      const contoGioco = piattaforma.conto_id
+        ? { id: piattaforma.conto_id }
+        : await ensureContoForPiattaforma(piattaforma, t);
+
       await Movimento.create({
         user_id: req.userId,
-        conto_id: conto.id,
-        tipo: movTipo,
+        conto_id: tipo === 'deposito' ? conto.id : contoGioco.id,
+        conto_destinazione_id: tipo === 'deposito' ? contoGioco.id : conto.id,
+        tipo: 'trasferimento',
         importo: importoNum,
         categoria,
         descrizione,
@@ -301,15 +283,13 @@ const getPanoramica = async (req, res) => {
     const ultimoGiorno = new Date(anno, mese, 0).getDate();
     const dataFine = `${anno}-${String(mese).padStart(2, '0')}-${ultimoGiorno}`;
 
-    let totaleDepositato = 0;
-    let totalePrelevato = 0;
-    let totaleVincite = 0;
-    let totalePerdite = 0;
     let depositiMese = 0;
+    const statsPiattaforme = [];
 
     const perPiattaforma = await Promise.all(
       piattaforme.map(async (p) => {
         const stats = await calcolaStatsPiattaforma(p.id);
+        statsPiattaforme.push(stats);
 
         const depositiMesePiatt = await MovimentoScommesse.sum('importo', {
           where: {
@@ -320,10 +300,6 @@ const getPanoramica = async (req, res) => {
         }) || 0;
 
         depositiMese += toNumber(depositiMesePiatt);
-        totaleDepositato += stats.totale_depositato;
-        totalePrelevato += stats.totale_prelevato;
-        totaleVincite += stats.totale_vincite;
-        totalePerdite += stats.totale_perdite;
 
         const limite = toNumber(p.limite_mensile);
         const percentualeLimite = limite > 0
@@ -350,15 +326,10 @@ const getPanoramica = async (req, res) => {
       ? Math.round((depositiMese / limiteTotale) * 10000) / 100
       : 0;
 
-    const bilancioReale = (totalePrelevato + totaleVincite) - (totaleDepositato + totalePerdite);
+    const totali = sommaStats(statsPiattaforme);
 
     res.json({
-      totale_depositato: Math.round(totaleDepositato * 100) / 100,
-      totale_prelevato: Math.round(totalePrelevato * 100) / 100,
-      totale_vincite: Math.round(totaleVincite * 100) / 100,
-      totale_perdite: Math.round(totalePerdite * 100) / 100,
-      bilancio: Math.round((totalePrelevato - totaleDepositato) * 100) / 100,
-      bilancio_netto: Math.round(bilancioReale * 100) / 100,
+      ...totali,
       depositi_mese: Math.round(depositiMese * 100) / 100,
       piattaforme: perPiattaforma,
       limite: {
@@ -392,26 +363,9 @@ const getAnalisiScommesse = async (req, res) => {
       order: [['data', 'ASC']],
     });
 
-    let totaleDepositato = 0;
-    let totalePrelevato = 0;
-    let totaleVincite = 0;
-    let totalePerdite = 0;
-    const vincite = [];
-    const perdite = [];
-
-    movimenti.forEach((m) => {
-      const imp = toNumber(m.importo);
-      if (m.tipo === 'deposito') totaleDepositato += imp;
-      if (m.tipo === 'prelievo') totalePrelevato += imp;
-      if (m.tipo === 'vincita') {
-        totaleVincite += imp;
-        vincite.push(m);
-      }
-      if (m.tipo === 'perdita') {
-        totalePerdite += imp;
-        perdite.push(m);
-      }
-    });
+    const totali = calcolaStatsMovimenti(movimenti);
+    const vincite = movimenti.filter((m) => m.tipo === 'vincita');
+    const perdite = movimenti.filter((m) => m.tipo === 'perdita');
 
     const numeroVincite = vincite.length;
     const numeroPerdite = perdite.length;
@@ -421,10 +375,10 @@ const getAnalisiScommesse = async (req, res) => {
       : 0;
 
     const mediaVincita = numeroVincite > 0
-      ? Math.round((totaleVincite / numeroVincite) * 100) / 100
+      ? Math.round((totali.totale_vincite / numeroVincite) * 100) / 100
       : 0;
     const mediaPerdita = numeroPerdite > 0
-      ? Math.round((totalePerdite / numeroPerdite) * 100) / 100
+      ? Math.round((totali.totale_perdite / numeroPerdite) * 100) / 100
       : 0;
 
     const sessioneMigliore = vincite.length
@@ -442,33 +396,17 @@ const getAnalisiScommesse = async (req, res) => {
       piattaforme.map(async (p) => {
         const pWhere = { ...where, piattaforma_id: p.id };
         const movs = await MovimentoScommesse.findAll({ where: pWhere });
-        let dep = 0; let prel = 0; let vinc = 0; let perd = 0;
-        movs.forEach((m) => {
-          const imp = toNumber(m.importo);
-          if (m.tipo === 'deposito') dep += imp;
-          if (m.tipo === 'prelievo') prel += imp;
-          if (m.tipo === 'vincita') vinc += imp;
-          if (m.tipo === 'perdita') perd += imp;
-        });
         return {
           id: p.id,
           nome: p.nome,
-          totale_depositato: dep,
-          totale_prelevato: prel,
-          totale_vincite: vinc,
-          totale_perdite: perd,
-          bilancio_netto: (prel + vinc) - (dep + perd),
+          ...calcolaStatsMovimenti(movs),
         };
       })
     );
 
     res.json({
       periodo: { da: da || null, a: a || null },
-      totale_depositato: Math.round(totaleDepositato * 100) / 100,
-      totale_prelevato: Math.round(totalePrelevato * 100) / 100,
-      totale_vincite: Math.round(totaleVincite * 100) / 100,
-      totale_perdite: Math.round(totalePerdite * 100) / 100,
-      bilancio_netto: Math.round(((totalePrelevato + totaleVincite) - (totaleDepositato + totalePerdite)) * 100) / 100,
+      ...totali,
       numero_vincite: numeroVincite,
       numero_perdite: numeroPerdite,
       percentuale_vincite: percentualeVincite,

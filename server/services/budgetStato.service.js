@@ -35,6 +35,15 @@ const BUDGET_TO_MOVIMENTI = {
   mezzi_pubblici: ['mezzi_pubblici'],
 };
 
+/**
+ * Trasferimenti che il budget deve comunque conteggiare.
+ * Caricare denaro su una piattaforma di scommesse non è una spesa (i soldi
+ * restano tuoi, su un altro conto) e infatti resta fuori dalle analisi, ma il
+ * budget "scommesse" serve proprio a limitare quanto si mette in gioco ogni
+ * mese: qui va contato.
+ */
+const TRASFERIMENTI_NEL_BUDGET = ['deposito_scommesse'];
+
 const { CATEGORIE_DEFAULT } = require('../constants/categorie');
 const GROUPS_FOR_LEGACY = {
   cibo: ['Alimentazione'], cibo_spesa: ['Alimentazione'], svago: ['Intrattenimento', 'Viaggi', 'Sport e benessere'],
@@ -85,8 +94,11 @@ const calcolaStatoBudget = async ({ userId, mese, anno }) => {
   const movimenti = await Movimento.findAll({
     where: {
       user_id: userId,
-      tipo: 'uscita',
       data: { [Op.between]: [inizio, fine] },
+      [Op.or]: [
+        { tipo: 'uscita' },
+        { tipo: 'trasferimento', categoria: { [Op.in]: TRASFERIMENTI_NEL_BUDGET } },
+      ],
     },
   });
 
@@ -129,6 +141,7 @@ const calcolaStatoBudget = async ({ userId, mese, anno }) => {
 
 module.exports = {
   BUDGET_TO_MOVIMENTI,
+  TRASFERIMENTI_NEL_BUDGET,
   getMovimentiCategorie,
   getStato,
   intervalloMese,
