@@ -235,8 +235,8 @@ const getPiattaformaPan = (id) => pan.value.piattaforme?.find((p) => p.id === id
 <template>
   <div class="scommesse-view animate-fade-in">
     <DataState
-      :stato="scommesseStore.risorsaPiattaforme.stato.value"
-      :last-updated="scommesseStore.risorsaPiattaforme.lastUpdated.value"
+      :stato="scommesseStore.risorsaPiattaforme.stato"
+      :last-updated="scommesseStore.risorsaPiattaforme.lastUpdated"
       messaggio-errore="Non è stato possibile caricare le tue piattaforme."
       skeleton-type="card"
       @riprova="scommesseStore.risorsaPiattaforme.riprova()"

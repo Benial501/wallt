@@ -174,8 +174,8 @@ const confermaElimina = async () => {
     />
 
     <DataState
-      :stato="contiStore.risorsaConti.stato.value"
-      :last-updated="contiStore.risorsaConti.lastUpdated.value"
+      :stato="contiStore.risorsaConti.stato"
+      :last-updated="contiStore.risorsaConti.lastUpdated"
       messaggio-errore="Non è stato possibile caricare i tuoi conti."
       skeleton-type="card"
       @riprova="contiStore.risorsaConti.riprova()"

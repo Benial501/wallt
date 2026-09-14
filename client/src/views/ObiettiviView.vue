@@ -114,8 +114,8 @@ onMounted(() => obiettiviStore.fetchObiettivi());
     </header>
 
     <DataState
-      :stato="obiettiviStore.risorsaObiettivi.stato.value"
-      :last-updated="obiettiviStore.risorsaObiettivi.lastUpdated.value"
+      :stato="obiettiviStore.risorsaObiettivi.stato"
+      :last-updated="obiettiviStore.risorsaObiettivi.lastUpdated"
       messaggio-errore="Non è stato possibile caricare i tuoi obiettivi."
       skeleton-type="card"
       @riprova="obiettiviStore.risorsaObiettivi.riprova()"

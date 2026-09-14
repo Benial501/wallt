@@ -412,8 +412,8 @@ const esportaDati = async () => {
 
     <DataState
       v-else-if="isDistribuzione"
-      :stato="risorsaDistribuzione.stato.value"
-      :last-updated="risorsaDistribuzione.lastUpdated.value"
+      :stato="risorsaDistribuzione.stato"
+      :last-updated="risorsaDistribuzione.lastUpdated"
       messaggio-errore="Non è stato possibile caricare le analisi."
       skeleton-type="text"
       :skeleton-lines="5"

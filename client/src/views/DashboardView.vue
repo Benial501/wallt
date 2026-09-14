@@ -55,14 +55,14 @@ const usciteOggi = ref(0);
 const haMovimenti = ref(null);
 
 const contiState = computed(() => {
-  if (contiStore.risorsaConti.lastUpdated.value === null) return 'sconosciuto';
+  if (contiStore.risorsaConti.lastUpdated === null) return 'sconosciuto';
   return contiStore.contiAttivi.length > 0 ? 'fatto' : 'da-fare';
 });
 const movimentiState = computed(() => (
   haMovimenti.value === null ? 'sconosciuto' : (haMovimenti.value ? 'fatto' : 'da-fare')
 ));
 const budgetState = computed(() => {
-  if (budgetStore.risorsaBudget.lastUpdated.value === null) return 'sconosciuto';
+  if (budgetStore.risorsaBudget.lastUpdated === null) return 'sconosciuto';
   return budgetStore.hasBudget ? 'fatto' : 'da-fare';
 });
 
@@ -74,15 +74,15 @@ const budgetState = computed(() => {
  * perché un'altra lettura è caduta.
  */
 const statoCombinato = (...risorse) => computed(() => {
-  if (risorse.some((r) => r.stato.value === 'caricamento')) return 'caricamento';
-  if (!risorse.some((r) => r.error.value)) return 'pronto';
-  return risorse.some((r) => r.lastUpdated.value !== null) ? 'errore-con-dati' : 'errore';
+  if (risorse.some((r) => r.stato === 'caricamento')) return 'caricamento';
+  if (!risorse.some((r) => r.error)) return 'pronto';
+  return risorse.some((r) => r.lastUpdated !== null) ? 'errore-con-dati' : 'errore';
 });
 
 /** Il più vecchio dei successi: l'avviso non deve vantare una freschezza che
  *  una delle letture non ha. */
 const lastUpdatedCombinato = (...risorse) => computed(() => {
-  const valori = risorse.map((r) => r.lastUpdated.value).filter((v) => v !== null);
+  const valori = risorse.map((r) => r.lastUpdated).filter((v) => v !== null);
   return valori.length ? Math.min(...valori) : null;
 });
 
@@ -336,10 +336,10 @@ onMounted(async () => {
       :last-updated-budget="budgetStore.lastUpdatedPagina"
       :stato-scommesse="statoScommesse"
       :last-updated-scommesse="lastUpdatedScommesse"
-      :stato-investimenti="investimentiStore.risorsaInvestimenti.stato.value"
-      :last-updated-investimenti="investimentiStore.risorsaInvestimenti.lastUpdated.value"
-      :stato-obiettivi="obiettiviStore.risorsaObiettivi.stato.value"
-      :last-updated-obiettivi="obiettiviStore.risorsaObiettivi.lastUpdated.value"
+      :stato-investimenti="investimentiStore.risorsaInvestimenti.stato"
+      :last-updated-investimenti="investimentiStore.risorsaInvestimenti.lastUpdated"
+      :stato-obiettivi="obiettiviStore.risorsaObiettivi.stato"
+      :last-updated-obiettivi="obiettiviStore.risorsaObiettivi.lastUpdated"
       @riprova-saldo="riprovaSaldo()"
       @riprova-budget="budgetStore.riprovaPagina()"
       @riprova-scommesse="riprovaScommesse()"
@@ -353,8 +353,8 @@ onMounted(async () => {
 
     <RecentTransactions
       :movimenti="recentiHome"
-      :stato="movimentiStore.risorsaRecenti.stato.value"
-      :last-updated="movimentiStore.risorsaRecenti.lastUpdated.value"
+      :stato="movimentiStore.risorsaRecenti.stato"
+      :last-updated="movimentiStore.risorsaRecenti.lastUpdated"
       @riprova="movimentiStore.risorsaRecenti.riprova()"
       @select="onSelectMovimento"
     />

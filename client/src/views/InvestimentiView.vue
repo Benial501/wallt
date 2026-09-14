@@ -273,8 +273,8 @@ const messaggioTipo = computed(() => {
     </header>
 
     <DataState
-      :stato="investimentiStore.risorsaInvestimenti.stato.value"
-      :last-updated="investimentiStore.risorsaInvestimenti.lastUpdated.value"
+      :stato="investimentiStore.risorsaInvestimenti.stato"
+      :last-updated="investimentiStore.risorsaInvestimenti.lastUpdated"
       messaggio-errore="Non è stato possibile caricare i tuoi investimenti."
       skeleton-type="card"
       @riprova="investimentiStore.risorsaInvestimenti.riprova()"

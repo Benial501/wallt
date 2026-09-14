@@ -305,8 +305,8 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
 
     <!-- Lista -->
     <DataState
-      :stato="movimentiStore.risorsaMovimenti.stato.value"
-      :last-updated="movimentiStore.risorsaMovimenti.lastUpdated.value"
+      :stato="movimentiStore.risorsaMovimenti.stato"
+      :last-updated="movimentiStore.risorsaMovimenti.lastUpdated"
       messaggio-errore="Non è stato possibile caricare i movimenti."
       skeleton-type="text"
       :skeleton-lines="4"
