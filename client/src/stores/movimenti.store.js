@@ -79,9 +79,32 @@ export const useMovimentiStore = defineStore('movimenti', () => {
     { iniziale: {}, vuotoSe: () => false },
   );
 
+  /**
+   * Entrate e uscite di oggi per le due schede della dashboard. Stessa
+   * ragione di risorsaBilancio: uno zero è un dato vero ("nessuna spesa
+   * oggi"), non un'assenza da mostrare come stato vuoto.
+   */
+  const risorsaOggi = creaRisorsa(
+    async (da, a, oggiStr) => {
+      const { data } = await api.get('/movimenti', { params: { da, a, limit: 200 } });
+      let entrate = 0;
+      let uscite = 0;
+      (data?.gruppi || []).forEach((g) => {
+        if (g.data === oggiStr) {
+          entrate = g.totale_entrate_giorno;
+          uscite = g.totale_uscite_giorno;
+        }
+      });
+      return { entrate, uscite };
+    },
+    { iniziale: { entrate: 0, uscite: 0 }, vuotoSe: () => false },
+  );
+
   // --- Interfaccia pubblica invariata -------------------------------------
   const recentiHome = computed(() => risorsaRecenti.data.value || []);
   const bilancioMese = computed(() => risorsaBilancio.data.value || {});
+  const entrateOggi = computed(() => risorsaOggi.data.value?.entrate || 0);
+  const usciteOggi = computed(() => risorsaOggi.data.value?.uscite || 0);
   const filtri = ref({});
   const loading = computed(() => risorsaMovimenti.loading.value);
   const loadingBilancio = computed(() => risorsaBilancio.loading.value);
@@ -157,6 +180,8 @@ export const useMovimentiStore = defineStore('movimenti', () => {
   /** Ultime transazioni per la home: la cache resta in `risorsaRecenti.data`. */
   const fetchRecentiHome = (opzioni = {}) => risorsaRecenti.carica(opzioni);
 
+  const fetchOggi = (da, a, oggiStr) => risorsaOggi.carica(da, a, oggiStr);
+
   const createMovimento = async (dati) => {
     try {
       const { data } = await api.post('/movimenti', dati);
@@ -187,6 +212,7 @@ export const useMovimentiStore = defineStore('movimenti', () => {
     risorsaMovimenti.reset();
     risorsaRecenti.reset();
     risorsaBilancio.reset();
+    risorsaOggi.reset();
     paginaExtra.value = [];
     paginaCorrente.value = 1;
     errorMore.value = null;
@@ -197,9 +223,12 @@ export const useMovimentiStore = defineStore('movimenti', () => {
     risorsaMovimenti,
     risorsaRecenti,
     risorsaBilancio,
+    risorsaOggi,
     movimentiPerData,
     recentiHome,
     bilancioMese,
+    entrateOggi,
+    usciteOggi,
     filtri,
     pagination,
     loading,
@@ -211,6 +240,7 @@ export const useMovimentiStore = defineStore('movimenti', () => {
     fetchRecentiHome,
     loadMoreMovimenti,
     fetchBilancioMese,
+    fetchOggi,
     createMovimento,
     updateMovimento,
     deleteMovimento,

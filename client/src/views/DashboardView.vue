@@ -44,10 +44,6 @@ const oggiStr = oggi.format('YYYY-MM-DD');
 const formOpen = ref(false);
 const formTipo = ref('uscita');
 const movimentoEdit = ref(null);
-const loadingOggi = ref(false);
-
-const entrateOggi = ref(0);
-const usciteOggi = ref(0);
 
 // Traguardo di "Primi passi" non coperto da una risorsa: è una lettura non
 // filtrata a parte (vedi checkHaMovimenti), quindi resta un flag tenuto a
@@ -165,35 +161,10 @@ const checkHaMovimenti = async () => {
   }
 };
 
-const loadDashboardMovimenti = async () => {
-  loadingOggi.value = true;
-  try {
-    await Promise.all([
-      movimentiStore.fetchRecentiHome({ limit: 6 }),
-      (async () => {
-        try {
-          const { data: monthData } = await api.get('/movimenti', {
-            params: { da: meseStart, a: oggiStr, limit: 200 },
-          });
-          let entOggi = 0;
-          let uscOggi = 0;
-          (monthData?.gruppi || []).forEach((g) => {
-            if (g.data === oggiStr) {
-              entOggi = g.totale_entrate_giorno;
-              uscOggi = g.totale_uscite_giorno;
-            }
-          });
-          entrateOggi.value = entOggi;
-          usciteOggi.value = uscOggi;
-        } catch {
-          // Mantieni i totali già mostrati se la richiesta fallisce.
-        }
-      })(),
-    ]);
-  } finally {
-    loadingOggi.value = false;
-  }
-};
+const loadDashboardMovimenti = () => Promise.all([
+  movimentiStore.fetchRecentiHome({ limit: 6 }),
+  movimentiStore.fetchOggi(meseStart, oggiStr, oggiStr),
+]);
 
 const loadBudget = async () => {
   await budgetStore.fetchBudget(oggi.month() + 1, oggi.year());
@@ -309,8 +280,8 @@ onMounted(async () => {
       :composizione="contiStore.composizionePatrimonio"
       :entrate-mese="entrateMese"
       :uscite-mese="usciteMese"
-      :entrate-oggi="entrateOggi"
-      :uscite-oggi="usciteOggi"
+      :entrate-oggi="movimentiStore.entrateOggi"
+      :uscite-oggi="movimentiStore.usciteOggi"
       :variazione-percentuale="contiStore.variazionePercentuale"
       :trend-positive="contiStore.variazioneImporto >= 0"
       :andamento-punti="andamentoPunti"
@@ -326,13 +297,14 @@ onMounted(async () => {
       :patrimonio-investimenti="investimentiStore.patrimonioInvestitoTotale"
       :rendimento-investimenti="investimentiStore.rendimentoTotale"
       :rendimento-investimenti-pct="investimentiStore.rendimentoTotalePercentuale"
-      :loading-oggi="loadingOggi && !recentiHome.length"
       :obiettivi-attivi="obiettiviStore.obiettivi.attivi"
       :obiettivi-completati-count="obiettiviStore.obiettivi.completati.length"
       :stato-saldo="statoSaldo"
       :last-updated-saldo="lastUpdatedSaldo"
       :stato-conti="contiStore.risorsaConti.stato"
       :last-updated-conti="contiStore.risorsaConti.lastUpdated"
+      :stato-oggi="movimentiStore.risorsaOggi.stato"
+      :last-updated-oggi="movimentiStore.risorsaOggi.lastUpdated"
       :stato-budget-sezione="budgetStore.statoPagina"
       :last-updated-budget="budgetStore.lastUpdatedPagina"
       :stato-scommesse="statoScommesse"
@@ -343,6 +315,7 @@ onMounted(async () => {
       :last-updated-obiettivi="obiettiviStore.risorsaObiettivi.lastUpdated"
       @riprova-saldo="riprovaSaldo()"
       @riprova-conti="contiStore.risorsaConti.riprova()"
+      @riprova-oggi="movimentiStore.risorsaOggi.riprova()"
       @riprova-budget="budgetStore.riprovaPagina()"
       @riprova-scommesse="riprovaScommesse()"
       @riprova-investimenti="investimentiStore.risorsaInvestimenti.riprova()"

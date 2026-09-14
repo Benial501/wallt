@@ -6,7 +6,6 @@ import {
   Chart as ChartJS, ArcElement, Tooltip, CategoryScale, LinearScale,
   PointElement, LineElement, Filler,
 } from 'chart.js';
-import WSkeleton from '@/components/common/WSkeleton.vue';
 import DataState from '@/components/common/DataState.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import { etichetta } from '@/content/glossario';
@@ -44,13 +43,14 @@ const props = defineProps({
   patrimonioInvestimenti: { type: Number, default: 0 },
   rendimentoInvestimenti: { type: Number, default: 0 },
   rendimentoInvestimentiPct: { type: Number, default: 0 },
-  loadingOggi: { type: Boolean, default: false },
   obiettiviAttivi: { type: Array, default: () => [] },
   obiettiviCompletatiCount: { type: Number, default: 0 },
   statoSaldo: { type: String, default: 'pronto' },
   lastUpdatedSaldo: { type: Number, default: null },
   statoConti: { type: String, default: 'pronto' },
   lastUpdatedConti: { type: Number, default: null },
+  statoOggi: { type: String, default: 'pronto' },
+  lastUpdatedOggi: { type: Number, default: null },
   statoBudgetSezione: { type: String, default: 'pronto' },
   lastUpdatedBudget: { type: Number, default: null },
   statoScommesse: { type: String, default: 'pronto' },
@@ -61,7 +61,7 @@ const props = defineProps({
   lastUpdatedObiettivi: { type: Number, default: null },
 });
 
-const emit = defineEmits(['riprova-saldo', 'riprova-conti', 'riprova-budget', 'riprova-scommesse', 'riprova-investimenti', 'riprova-obiettivi']);
+const emit = defineEmits(['riprova-saldo', 'riprova-conti', 'riprova-oggi', 'riprova-budget', 'riprova-scommesse', 'riprova-investimenti', 'riprova-obiettivi']);
 
 const router = useRouter();
 const { formatValuta } = useValuta();
@@ -360,11 +360,14 @@ onUnmounted(() => {
 
         <!-- Uscite oggi -->
         <div v-if="slides.includes('uscite-oggi')" class="w-overview__slide w-full shrink-0 snap-center">
-          <template v-if="loadingOggi">
-            <WSkeleton type="text" :lines="2" />
-            <WSkeleton type="card" class="mt-3" />
-          </template>
-          <template v-else>
+          <DataState
+            :stato="statoOggi"
+            :last-updated="lastUpdatedOggi"
+            messaggio-errore="Non è stato possibile caricare le uscite di oggi."
+            skeleton-type="text"
+            :skeleton-lines="3"
+            @riprova="emit('riprova-oggi')"
+          >
             <p class="w-overview__eyebrow">Uscite di oggi</p>
             <div class="w-overview__hero-stat w-overview__hero-stat--out">
               <ArrowUp class="w-overview__hero-icon" :size="28" :stroke-width="1.75" />
@@ -376,16 +379,19 @@ onUnmounted(() => {
             <button type="button" class="w-overview__link-btn" @click="router.push('/movimenti')">
               Vedi movimenti →
             </button>
-          </template>
+          </DataState>
         </div>
 
         <!-- Entrate oggi -->
         <div v-if="slides.includes('entrate-oggi')" class="w-overview__slide w-full shrink-0 snap-center">
-          <template v-if="loadingOggi">
-            <WSkeleton type="text" :lines="2" />
-            <WSkeleton type="card" class="mt-3" />
-          </template>
-          <template v-else>
+          <DataState
+            :stato="statoOggi"
+            :last-updated="lastUpdatedOggi"
+            messaggio-errore="Non è stato possibile caricare le entrate di oggi."
+            skeleton-type="text"
+            :skeleton-lines="3"
+            @riprova="emit('riprova-oggi')"
+          >
             <p class="w-overview__eyebrow">Entrate di oggi</p>
             <div class="w-overview__hero-stat w-overview__hero-stat--in">
               <ArrowDown class="w-overview__hero-icon" :size="28" :stroke-width="1.75" />
@@ -397,7 +403,7 @@ onUnmounted(() => {
             <button type="button" class="w-overview__link-btn" @click="router.push({ path: '/movimenti', query: { action: 'entrata' } })">
               Aggiungi entrata →
             </button>
-          </template>
+          </DataState>
         </div>
 
         <!-- Obiettivi -->
