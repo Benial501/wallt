@@ -171,6 +171,24 @@ const syncPiattaformaFromContoMeta = async (conto, updateData, transaction) => {
   await piattaforma.update(piattaformaUpdate, { transaction });
 };
 
+/**
+ * Scrive il saldo di un conto e allinea la piattaforma collegata.
+ *
+ * Conto di gioco e piattaforma sono due viste dello stesso denaro: ogni punto
+ * che tocca l'uno senza l'altro le fa divergere in silenzio, e il patrimonio
+ * dell'utente mostra un numero sbagliato. Passare sempre da qui invece di
+ * chiamare `conto.update({ saldo })` a mano.
+ *
+ * Il saldo si riceve come parametro e non si rilegge da `conto.saldo`: dopo un
+ * `update()` l'istanza in memoria porta già il valore nuovo, e ricalcolare il
+ * delta su quel valore lo applicherebbe due volte.
+ */
+const aggiornaSaldoConto = async (conto, nuovoSaldo, transaction) => {
+  if (!conto) return;
+  await conto.update({ saldo: nuovoSaldo }, { transaction });
+  await syncPiattaformaFromContoMeta(conto, { saldo: nuovoSaldo }, transaction);
+};
+
 const deactivateLinkedPiattaforma = async (conto, transaction) => {
   if (!conto || conto.tipo !== 'scommesse') return;
   const piattaforma = await findLinkedPiattaforma(conto.user_id, conto.id, transaction);
@@ -223,6 +241,7 @@ module.exports = {
   syncContoSaldoFromPiattaforma,
   syncContoFromPiattaformaMeta,
   syncPiattaformaFromContoMeta,
+  aggiornaSaldoConto,
   deactivateLinkedPiattaforma,
   deactivateLinkedConto,
   backfillUserLinks,

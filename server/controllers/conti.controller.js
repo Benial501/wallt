@@ -4,6 +4,7 @@ const { sequelize, Conto, Movimento, Investimento } = require('../models');
 const {
   ensurePiattaformaForConto,
   syncPiattaformaFromContoMeta,
+  aggiornaSaldoConto,
   deactivateLinkedPiattaforma,
   backfillUserLinks,
 } = require('../services/scommesseContoSync.service');
@@ -300,19 +301,13 @@ const trasferimento = async (req, res) => {
       });
     }
 
-    await contoOrigine.update({ saldo: toNumber(contoOrigine.saldo) - importoNum }, { transaction: t });
-    await contoDestinazione.update({ saldo: toNumber(contoDestinazione.saldo) + importoNum }, { transaction: t });
+    // I saldi finali si calcolano prima degli update: dopo `update()` l'istanza
+    // in memoria porta già il valore nuovo, e rileggerla scalerebbe due volte.
+    const saldoOrigine = toNumber(contoOrigine.saldo) - importoNum;
+    const saldoDestinazione = toNumber(contoDestinazione.saldo) + importoNum;
 
-    if (contoOrigine.tipo === 'scommesse') {
-      await syncPiattaformaFromContoMeta(contoOrigine, {
-        saldo: toNumber(contoOrigine.saldo) - importoNum,
-      }, t);
-    }
-    if (contoDestinazione.tipo === 'scommesse') {
-      await syncPiattaformaFromContoMeta(contoDestinazione, {
-        saldo: toNumber(contoDestinazione.saldo) + importoNum,
-      }, t);
-    }
+    await aggiornaSaldoConto(contoOrigine, saldoOrigine, t);
+    await aggiornaSaldoConto(contoDestinazione, saldoDestinazione, t);
 
     await Movimento.create({
       user_id: req.userId,

@@ -3,6 +3,7 @@ const { Op } = require('sequelize');
 const {
   sequelize, Investimento, MovimentoInvestimento, Movimento, Conto,
 } = require('../models');
+const { aggiornaSaldoConto } = require('../services/scommesseContoSync.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
 
@@ -278,7 +279,7 @@ const addMovimentoInvestimento = async (req, res) => {
       const saldoConto = tipoEffettivo === 'versamento'
         ? toNumber(conto.saldo) - importoEffettivo
         : toNumber(conto.saldo) + importoEffettivo;
-      await conto.update({ saldo: saldoConto }, { transaction: t });
+      await aggiornaSaldoConto(conto, saldoConto, t);
     }
 
     await t.commit();

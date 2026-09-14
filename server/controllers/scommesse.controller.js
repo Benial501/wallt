@@ -6,6 +6,7 @@ const {
 const {
   ensureContoForPiattaforma,
   syncContoSaldoFromPiattaforma,
+  aggiornaSaldoConto,
   syncContoFromPiattaformaMeta,
   deactivateLinkedConto,
   backfillUserLinks,
@@ -228,7 +229,7 @@ const addMovimentoScommesse = async (req, res) => {
       const nuovoSaldo = tipo === 'deposito'
         ? toNumber(conto.saldo) - importoNum
         : toNumber(conto.saldo) + importoNum;
-      await conto.update({ saldo: nuovoSaldo }, { transaction: t });
+      await aggiornaSaldoConto(conto, nuovoSaldo, t);
     }
 
     await t.commit();

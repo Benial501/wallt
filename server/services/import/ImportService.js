@@ -3,6 +3,7 @@ const { assertCategory, loadHiddenDefaults } = require('../categorie.service');
 const logger = require('../../utils/logger');
 const { Op } = require('sequelize');
 const { sequelize, Conto, Movimento } = require('../../models');
+const { aggiornaSaldoConto } = require('../scommesseContoSync.service');
 const CSVParserService = require('./CSVParserService');
 const ExcelParserService = require('./ExcelParserService');
 const TransactionNormalizer = require('./TransactionNormalizer');
@@ -289,12 +290,10 @@ class ImportService {
           const conto = contoMap.get(contoId);
           if (!conto) continue;
           const endingBalance = this._getStatementEndingBalance(importabili, contoId);
-          if (endingBalance !== null) {
-            conto.saldo = endingBalance;
-          } else {
-            conto.saldo = await this._recalculateContoSaldo(userId, contoId, t);
-          }
-          await conto.save({ transaction: t });
+          const nuovoSaldo = endingBalance !== null
+            ? endingBalance
+            : await this._recalculateContoSaldo(userId, contoId, t);
+          await aggiornaSaldoConto(conto, nuovoSaldo, t);
         }
       }
 

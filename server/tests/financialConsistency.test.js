@@ -4,6 +4,7 @@
 const {
   request, createApp, registerUser, authHeader, Conto, Movimento,
 } = require('./setup');
+const { PiattaformaScommesse } = require('../models');
 
 describe('Coerenza finanziaria', () => {
   let app;
@@ -214,6 +215,99 @@ describe('Coerenza finanziaria', () => {
       const dopo = await request(app).get('/api/conti/patrimonio').set(authHeader(token));
 
       expect(dopo.body.patrimonio_totale).toBe(prima.body.patrimonio_totale);
+    });
+  });
+
+  describe('Trasferimenti da e verso un conto scommesse', () => {
+    // Il conto "scommesse" e la piattaforma collegata sono due viste dello
+    // stesso denaro: dopo un trasferimento devono riportare lo stesso saldo.
+    const creaContoScommesse = async (saldo) => {
+      const conto = await creaConto(saldo, { nome: 'Piattaforma X', tipo: 'scommesse' });
+      const piattaforma = await PiattaformaScommesse.create({
+        user_id: userId, nome: conto.nome, saldo, conto_id: conto.id, attiva: true,
+      });
+      return { conto, piattaforma };
+    };
+
+    it('un deposito sulla piattaforma la aggiorna dello stesso importo del conto', async () => {
+      const contoBanca = await creaConto(1000, { nome: 'Conto banca' });
+      const { conto, piattaforma } = await creaContoScommesse(100);
+
+      const res = await request(app).post('/api/conti/trasferimento').set(authHeader(token)).send({
+        conto_origine_id: contoBanca.id, conto_destinazione_id: conto.id, importo: 40, data: oggi(),
+      });
+
+      expect(res.status).toBe(200);
+      await conto.reload();
+      await piattaforma.reload();
+      expect(Number(conto.saldo)).toBe(140);
+      expect(Number(piattaforma.saldo)).toBe(140);
+    });
+
+    it('eliminare un trasferimento verso la piattaforma riallinea anche la piattaforma', async () => {
+      const contoBanca = await creaConto(1000, { nome: 'Conto banca' });
+      const { conto, piattaforma } = await creaContoScommesse(100);
+
+      await request(app).post('/api/conti/trasferimento').set(authHeader(token)).send({
+        conto_origine_id: contoBanca.id, conto_destinazione_id: conto.id, importo: 40, data: oggi(),
+      });
+
+      const mov = await Movimento.findOne({ where: { user_id: userId, tipo: 'trasferimento' } });
+      const delRes = await request(app).delete(`/api/movimenti/${mov.id}`).set(authHeader(token));
+      expect(delRes.status).toBe(200);
+
+      await conto.reload();
+      await piattaforma.reload();
+      expect(Number(conto.saldo)).toBe(100);
+      expect(Number(piattaforma.saldo)).toBe(100);
+    });
+
+    it('un\'uscita registrata sul conto di gioco aggiorna la piattaforma', async () => {
+      const { conto, piattaforma } = await creaContoScommesse(100);
+
+      const res = await request(app).post('/api/movimenti').set(authHeader(token)).send({
+        conto_id: conto.id, tipo: 'uscita', importo: 20, categoria: 'cibo_spesa', data: oggi(),
+      });
+      expect(res.status).toBe(201);
+
+      await conto.reload();
+      await piattaforma.reload();
+      expect(Number(conto.saldo)).toBe(80);
+      expect(Number(piattaforma.saldo)).toBe(80);
+    });
+
+    it('modificare l\'importo di un movimento sul conto di gioco aggiorna la piattaforma', async () => {
+      const { conto, piattaforma } = await creaContoScommesse(100);
+
+      const createRes = await request(app).post('/api/movimenti').set(authHeader(token)).send({
+        conto_id: conto.id, tipo: 'uscita', importo: 20, categoria: 'cibo_spesa', data: oggi(),
+      });
+      const movimentoId = createRes.body.movimento.id;
+
+      const updRes = await request(app).put(`/api/movimenti/${movimentoId}`).set(authHeader(token)).send({
+        importo: 50,
+      });
+      expect(updRes.status).toBe(200);
+
+      await conto.reload();
+      await piattaforma.reload();
+      expect(Number(conto.saldo)).toBe(50);
+      expect(Number(piattaforma.saldo)).toBe(50);
+    });
+
+    it('un prelievo dalla piattaforma la scala una volta sola', async () => {
+      const contoBanca = await creaConto(1000, { nome: 'Conto banca' });
+      const { conto, piattaforma } = await creaContoScommesse(100);
+
+      const res = await request(app).post('/api/conti/trasferimento').set(authHeader(token)).send({
+        conto_origine_id: conto.id, conto_destinazione_id: contoBanca.id, importo: 30, data: oggi(),
+      });
+
+      expect(res.status).toBe(200);
+      await conto.reload();
+      await piattaforma.reload();
+      expect(Number(conto.saldo)).toBe(70);
+      expect(Number(piattaforma.saldo)).toBe(70);
     });
   });
 

@@ -3,6 +3,9 @@ const logger = require('../utils/logger');
 const { Op } = require('sequelize');
 const { sequelize, Movimento, Conto } = require('../models');
 const CategoryLearningService = require('../services/import/CategoryLearningService');
+// Ogni scrittura di saldo passa da qui: se il conto è di gioco, allinea anche
+// la piattaforma collegata (vedi services/scommesseContoSync.service.js).
+const { aggiornaSaldoConto } = require('../services/scommesseContoSync.service');
 // Valutazione delle soglie di budget dopo una scrittura. Gira FUORI dalla
 // transazione, non lancia mai e non può alterare saldi o esito
 // dell'operazione (vedi services/notifiche/NotificheGenerator.js).
@@ -188,7 +191,7 @@ const createMovimento = async (req, res, next) => {
       ? toNumber(conto.saldo) + importoNum
       : toNumber(conto.saldo) - importoNum;
 
-    await conto.update({ saldo: nuovoSaldo }, { transaction: t });
+    await aggiornaSaldoConto(conto, nuovoSaldo, t);
     await t.commit();
 
     // Solo le uscite consumano budget.
@@ -300,9 +303,9 @@ const updateMovimento = async (req, res, next) => {
     }
 
     if (movimento.tipo === 'entrata') {
-      await contoVecchio.update({ saldo: toNumber(contoVecchio.saldo) - importoVecchio }, { transaction: t });
+      await aggiornaSaldoConto(contoVecchio, toNumber(contoVecchio.saldo) - importoVecchio, t);
     } else {
-      await contoVecchio.update({ saldo: toNumber(contoVecchio.saldo) + importoVecchio }, { transaction: t });
+      await aggiornaSaldoConto(contoVecchio, toNumber(contoVecchio.saldo) + importoVecchio, t);
     }
 
     await movimento.update({
@@ -331,9 +334,9 @@ const updateMovimento = async (req, res, next) => {
     }
 
     if (nuovoTipo === 'entrata') {
-      await contoNuovo.update({ saldo: toNumber(contoNuovo.saldo) + nuovoImporto }, { transaction: t });
+      await aggiornaSaldoConto(contoNuovo, toNumber(contoNuovo.saldo) + nuovoImporto, t);
     } else {
-      await contoNuovo.update({ saldo: toNumber(contoNuovo.saldo) - nuovoImporto }, { transaction: t });
+      await aggiornaSaldoConto(contoNuovo, toNumber(contoNuovo.saldo) - nuovoImporto, t);
     }
 
     await t.commit();
@@ -378,8 +381,8 @@ const deleteMovimento = async (req, res) => {
 
       if (contoOrigine && contoDest) {
         const importoNum = toNumber(movimento.importo);
-        await contoOrigine.update({ saldo: toNumber(contoOrigine.saldo) + importoNum }, { transaction: t });
-        await contoDest.update({ saldo: toNumber(contoDest.saldo) - importoNum }, { transaction: t });
+        await aggiornaSaldoConto(contoOrigine, toNumber(contoOrigine.saldo) + importoNum, t);
+        await aggiornaSaldoConto(contoDest, toNumber(contoDest.saldo) - importoNum, t);
       }
     } else {
       const conto = await Conto.findOne({
@@ -391,9 +394,9 @@ const deleteMovimento = async (req, res) => {
       if (conto) {
         const importoNum = toNumber(movimento.importo);
         if (movimento.tipo === 'entrata') {
-          await conto.update({ saldo: toNumber(conto.saldo) - importoNum }, { transaction: t });
+          await aggiornaSaldoConto(conto, toNumber(conto.saldo) - importoNum, t);
         } else {
-          await conto.update({ saldo: toNumber(conto.saldo) + importoNum }, { transaction: t });
+          await aggiornaSaldoConto(conto, toNumber(conto.saldo) + importoNum, t);
         }
       }
     }
