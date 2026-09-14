@@ -12,7 +12,7 @@ const differita = () => {
 
 test('parte in stato di caricamento e arriva a pronto', async () => {
   const r = creaRisorsa(async () => [1, 2, 3], { iniziale: [] });
-  assert.equal(r.stato.value, 'vuoto');
+  assert.equal(r.stato.value, 'caricamento');
   const attesa = r.carica();
   assert.equal(r.stato.value, 'caricamento');
   await attesa;
@@ -20,6 +20,21 @@ test('parte in stato di caricamento e arriva a pronto', async () => {
   assert.deepEqual(r.data.value, [1, 2, 3]);
   assert.equal(r.error.value, null);
   assert.ok(r.lastUpdated.value > 0);
+});
+
+test('una risorsa mai richiesta segnala caricamento, non vuoto', () => {
+  // Nessuna chiamata a carica(): lastUpdated è ancora null e loading è
+  // ancora false. Prima di questo comportamento lo stato sarebbe stato
+  // "vuoto" fin da subito, e una vista che aspetta un'altra richiesta
+  // prima di lanciare la propria avrebbe mostrato "non hai nulla" per
+  // tutto il tempo dell'attesa, anche con vuotoSe personalizzato.
+  const semprePiena = creaRisorsa(async () => ({ esiste: true }), {
+    iniziale: null,
+    vuotoSe: (v) => !v || v.esiste === false,
+  });
+  assert.equal(semprePiena.loading.value, false);
+  assert.equal(semprePiena.lastUpdated.value, null);
+  assert.equal(semprePiena.stato.value, 'caricamento');
 });
 
 test('senza dati precedenti un fallimento porta in errore', async () => {
@@ -186,7 +201,9 @@ test('reset riporta ogni campo al valore iniziale', async () => {
   assert.equal(r.error.value, null);
   assert.equal(r.lastUpdated.value, null);
   assert.equal(r.loading.value, false);
-  assert.equal(r.stato.value, 'vuoto');
+  // Dopo un reset la risorsa torna "mai richiesta": lastUpdated è di nuovo
+  // null, quindi lo stato è caricamento, non vuoto (vedi il test dedicato).
+  assert.equal(r.stato.value, 'caricamento');
 });
 
 test('reset invalida le richieste in volo', async () => {

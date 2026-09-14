@@ -37,7 +37,8 @@ test('una risorsa esposta al livello più alto dello store è già scompattata',
   const s = useTestStore();
 
   assert.equal(typeof s.risorsaX.stato, 'string', 'stato deve essere il valore, non un ref');
-  assert.equal(s.risorsaX.stato, 'vuoto');
+  // Mai caricata: 'caricamento', non 'vuoto' (vedi risorsa.js e risorsa.test.js).
+  assert.equal(s.risorsaX.stato, 'caricamento');
   assert.equal(s.risorsaX.stato.value, undefined, '.value su un valore già scompattato è sbagliato');
 });
 
@@ -60,5 +61,5 @@ test('un computed dello store che restituisce la risorsa grezza resta da scompat
   // l'oggetto che contiene è quello grezzo di `creaRisorsa`: lì dentro
   // `stato` è ancora un ref, non il valore.
   assert.equal(typeof s.risorsaAttiva.stato, 'object');
-  assert.equal(s.risorsaAttiva.stato.value, 'vuoto');
+  assert.equal(s.risorsaAttiva.stato.value, 'caricamento');
 });

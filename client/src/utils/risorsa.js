@@ -51,6 +51,10 @@ export const creaRisorsa = (fetcher, { iniziale = null, vuotoSe } = {}) => {
     if (loading.value && lastUpdated.value === null) return 'caricamento';
     if (error.value && lastUpdated.value === null) return 'errore';
     if (error.value) return 'errore-con-dati';
+    // Mai richiesta e mai riuscita: non è vuota, semplicemente non lo
+    // sappiamo ancora. Dire "non hai nulla" prima di aver chiesto è la
+    // stessa bugia che questo file esiste per impedire.
+    if (lastUpdated.value === null) return 'caricamento';
     if (isVuoto(data.value)) return 'vuoto';
     return 'pronto';
   });
