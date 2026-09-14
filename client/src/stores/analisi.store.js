@@ -1,43 +1,28 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import api from '@/utils/axios';
+import { creaRisorsa } from '@/utils/risorsa';
+
+const PERIODO_LEGACY = { 3: '3m', 6: '6m', 12: '1a' };
 
 export const useAnalisiStore = defineStore('analisi', () => {
-  const distribuzioneSpese = ref([]);
-  const totaleSpese = ref(0);
-  const distribuzioneEntrate = ref([]);
-  const totaleEntrate = ref(0);
-  const confrontoPeriodi = ref([]);
-  // Unita' dell'ultimo confronto caricato: la vista la usa per le etichette.
-  const confrontoUnita = ref('mese');
-  const andamentoPatrimonio = ref({});
-  const suggerimenti = ref([]);
-  const loading = ref(false);
   const periodoSelezionato = ref('mese');
 
-  const fetchDistribuzioneSpese = async (da, a) => {
-    loading.value = true;
-    try {
+  const risorsaSpese = creaRisorsa(
+    async (da, a) => {
       const { data } = await api.get('/analisi/distribuzione-spese', { params: { da, a } });
-      distribuzioneSpese.value = data.distribuzione;
-      totaleSpese.value = data.totale;
       return data;
-    } finally {
-      loading.value = false;
-    }
-  };
+    },
+    { iniziale: null, vuotoSe: (d) => !d || (d.distribuzione || []).length === 0 },
+  );
 
-  const fetchDistribuzioneEntrate = async (da, a) => {
-    loading.value = true;
-    try {
+  const risorsaEntrate = creaRisorsa(
+    async (da, a) => {
       const { data } = await api.get('/analisi/distribuzione-entrate', { params: { da, a } });
-      distribuzioneEntrate.value = data.distribuzione;
-      totaleEntrate.value = data.totale;
       return data;
-    } finally {
-      loading.value = false;
-    }
-  };
+    },
+    { iniziale: null, vuotoSe: (d) => !d || (d.distribuzione || []).length === 0 },
+  );
 
   /**
    * Confronto fra periodi. L'unita' segue il periodo scelto nella pagina:
@@ -48,19 +33,15 @@ export const useAnalisiStore = defineStore('analisi', () => {
    * rilascio l'API puo' essere ancora la versione precedente, che conosce
    * solo quel parametro. Vedi il commento in analisi.controller.js.
    */
-  const fetchConfrontoPeriodi = async ({ unita = 'mese', quantita = 6, da, a } = {}) => {
-    loading.value = true;
-    try {
+  const risorsaConfronto = creaRisorsa(
+    async ({ unita = 'mese', quantita = 6, da, a } = {}) => {
       const params = da && a ? { da, a } : { unita, quantita };
       if (!da && unita === 'mese') params.mesi = quantita;
       const { data } = await api.get('/analisi/confronto-mesi', { params });
-      confrontoPeriodi.value = data.mesi;
-      confrontoUnita.value = data.unita || (da && a ? 'mese' : unita);
-      return data;
-    } finally {
-      loading.value = false;
-    }
-  };
+      return { ...data, unitaRichiesta: data.unita || (da && a ? 'mese' : unita) };
+    },
+    { iniziale: null, vuotoSe: (d) => !d || (d.mesi || []).length === 0 },
+  );
 
   /**
    * Andamento del patrimonio: un punto per periodo, con la stessa unita' del
@@ -68,39 +49,59 @@ export const useAnalisiStore = defineStore('analisi', () => {
    * dell'intervallo e ignora unita/quantita.
    *
    * `periodo` viene inviato accanto ai parametri nuovi per la stessa ragione
-   * di fetchConfrontoPeriodi: durante un rilascio l'API puo' essere ancora
+   * di risorsaConfronto: durante un rilascio l'API puo' essere ancora
    * quella precedente, che conosce solo quel parametro.
    */
-  const PERIODO_LEGACY = { 3: '3m', 6: '6m', 12: '1a' };
-
-  const fetchAndamentoPatrimonio = async ({ unita = 'mese', quantita = 6, da, a } = {}) => {
-    loading.value = true;
-    try {
+  const risorsaAndamento = creaRisorsa(
+    async ({ unita = 'mese', quantita = 6, da, a } = {}) => {
       const params = da && a ? { da, a } : { unita, quantita };
       if (!da && unita === 'mese') params.periodo = PERIODO_LEGACY[quantita] || '6m';
       const { data } = await api.get('/analisi/andamento-patrimonio', { params });
-      andamentoPatrimonio.value = data;
       return data;
-    } finally {
-      loading.value = false;
-    }
-  };
+    },
+    { iniziale: {}, vuotoSe: (d) => !d || (d.punti || []).length === 0 },
+  );
 
-  const fetchSuggerimenti = async () => {
-    loading.value = true;
-    try {
+  const risorsaSuggerimenti = creaRisorsa(
+    async () => {
       const { data } = await api.get('/analisi/suggerimenti');
-      suggerimenti.value = data.suggerimenti;
       return data;
-    } finally {
-      loading.value = false;
-    }
+    },
+    { iniziale: null, vuotoSe: (d) => !d || (d.suggerimenti || []).length === 0 },
+  );
+
+  // --- Interfaccia pubblica invariata -------------------------------------
+  const distribuzioneSpese = computed(() => risorsaSpese.data.value?.distribuzione || []);
+  const totaleSpese = computed(() => risorsaSpese.data.value?.totale || 0);
+  const distribuzioneEntrate = computed(() => risorsaEntrate.data.value?.distribuzione || []);
+  const totaleEntrate = computed(() => risorsaEntrate.data.value?.totale || 0);
+  const confrontoPeriodi = computed(() => risorsaConfronto.data.value?.mesi || []);
+  const confrontoUnita = computed(() => risorsaConfronto.data.value?.unitaRichiesta || 'mese');
+  const andamentoPatrimonio = computed(() => risorsaAndamento.data.value || {});
+  const suggerimenti = computed(() => risorsaSuggerimenti.data.value?.suggerimenti || []);
+
+  const fetchDistribuzioneSpese = (da, a) => risorsaSpese.carica(da, a);
+  const fetchDistribuzioneEntrate = (da, a) => risorsaEntrate.carica(da, a);
+  const fetchConfrontoPeriodi = (opzioni = {}) => risorsaConfronto.carica(opzioni);
+  const fetchAndamentoPatrimonio = (opzioni = {}) => risorsaAndamento.carica(opzioni);
+  const fetchSuggerimenti = () => risorsaSuggerimenti.carica();
+
+  const reset = () => {
+    risorsaSpese.reset();
+    risorsaEntrate.reset();
+    risorsaConfronto.reset();
+    risorsaAndamento.reset();
+    risorsaSuggerimenti.reset();
+    periodoSelezionato.value = 'mese';
   };
 
   return {
+    risorsaSpese, risorsaEntrate, risorsaConfronto, risorsaAndamento, risorsaSuggerimenti,
     distribuzioneSpese, totaleSpese, distribuzioneEntrate, totaleEntrate,
-    confrontoPeriodi, confrontoUnita, andamentoPatrimonio, suggerimenti, loading, periodoSelezionato,
+    confrontoPeriodi, confrontoUnita, andamentoPatrimonio, suggerimenti,
+    periodoSelezionato,
     fetchDistribuzioneSpese, fetchDistribuzioneEntrate, fetchConfrontoPeriodi,
     fetchAndamentoPatrimonio, fetchSuggerimenti,
+    reset,
   };
 });

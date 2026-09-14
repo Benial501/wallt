@@ -8,7 +8,7 @@ import {
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import WModal from '@/components/common/WModal.vue';
-import WSkeleton from '@/components/common/WSkeleton.vue';
+import DataState from '@/components/common/DataState.vue';
 import { useInvestimentiStore } from '@/stores/investimenti.store';
 import { useContiStore } from '@/stores/conti.store';
 import { useToastStore } from '@/stores/toast.store';
@@ -272,25 +272,42 @@ const messaggioTipo = computed(() => {
       <h1 class="page-title">I miei investimenti</h1>
     </header>
 
-    <WCard v-if="investimentiStore.loading" class="hero-card"><WSkeleton type="text" :lines="2" /></WCard>
-    <WCard v-else class="hero-card">
-      <p class="hero-label">PATRIMONIO INVESTITO</p>
-      <p class="hero-amount">{{ formatValuta(investimentiStore.patrimonioInvestitoTotale) }}</p>
-      <p class="hero-rend" :class="(investimentiStore.rendimentoTotale || 0) >= 0 ? 'positive' : 'negative'">
-        Rendimento netto:
-        {{ (investimentiStore.rendimentoTotale || 0) >= 0 ? '+' : '' }}{{ formatValuta(investimentiStore.rendimentoTotale) }}
-        ({{ investimentiStore.rendimentoTotalePercentuale || 0 }}%)
-      </p>
-    </WCard>
+    <DataState
+      :stato="investimentiStore.risorsaInvestimenti.stato"
+      :last-updated="investimentiStore.risorsaInvestimenti.lastUpdated"
+      messaggio-errore="Non è stato possibile caricare i tuoi investimenti."
+      skeleton-type="card"
+      @riprova="investimentiStore.risorsaInvestimenti.riprova()"
+    >
+      <template #vuoto>
+        <WCard class="hero-card">
+          <p class="hero-label">PATRIMONIO INVESTITO</p>
+          <p class="hero-amount">{{ formatValuta(investimentiStore.patrimonioInvestitoTotale) }}</p>
+          <p class="hero-rend" :class="(investimentiStore.rendimentoTotale || 0) >= 0 ? 'positive' : 'negative'">
+            Rendimento netto:
+            {{ (investimentiStore.rendimentoTotale || 0) >= 0 ? '+' : '' }}{{ formatValuta(investimentiStore.rendimentoTotale) }}
+            ({{ investimentiStore.rendimentoTotalePercentuale || 0 }}%)
+          </p>
+        </WCard>
 
-    <div v-if="!investimentiStore.investimenti.length && !investimentiStore.loading" class="empty">
-      <LineChart class="empty-icon" :size="48" :stroke-width="1.5" />
-      <h2>Monitora i tuoi investimenti</h2>
-      <p>Aggiungi le tue piattaforme e tieni traccia di versamenti, rendimenti e prelievi</p>
-      <WButton variant="primary" size="md" @click="showNuovo = true">+ Nuovo investimento</WButton>
-    </div>
+        <div class="empty">
+          <LineChart class="empty-icon" :size="48" :stroke-width="1.5" />
+          <h2>Monitora i tuoi investimenti</h2>
+          <p>Aggiungi le tue piattaforme e tieni traccia di versamenti, rendimenti e prelievi</p>
+          <WButton variant="primary" size="md" @click="showNuovo = true">+ Nuovo investimento</WButton>
+        </div>
+      </template>
 
-    <template v-else>
+      <WCard class="hero-card">
+        <p class="hero-label">PATRIMONIO INVESTITO</p>
+        <p class="hero-amount">{{ formatValuta(investimentiStore.patrimonioInvestitoTotale) }}</p>
+        <p class="hero-rend" :class="(investimentiStore.rendimentoTotale || 0) >= 0 ? 'positive' : 'negative'">
+          Rendimento netto:
+          {{ (investimentiStore.rendimentoTotale || 0) >= 0 ? '+' : '' }}{{ formatValuta(investimentiStore.rendimentoTotale) }}
+          ({{ investimentiStore.rendimentoTotalePercentuale || 0 }}%)
+        </p>
+      </WCard>
+
       <div class="tab-nav">
         <button v-for="tab in tabs" :key="tab.id" :class="{ active: activeTab === tab.id }" @click="activeTab = tab.id">
           <component :is="tab.icon" class="tab-icon" :size="16" :stroke-width="1.75" />
@@ -377,17 +394,27 @@ const messaggioTipo = computed(() => {
             <option v-for="inv in investimentiStore.investimenti" :key="inv.id" :value="inv.id">{{ inv.nome_piattaforma }}</option>
           </select>
         </div>
-        <WCard v-if="investimentiStore.movimenti.length">
-          <div v-for="m in investimentiStore.movimenti" :key="m.id" class="mov-row stagger-item">
-            <component :is="tipoIcon(m.tipo)" :size="16" :stroke-width="1.75" />
-            <span>{{ m.tipo }} {{ m.investimento?.nome_piattaforma || m.investimento_nome }}</span>
-            <span :class="importoClass(m.tipo)">{{ importoPrefix(m.tipo) }}{{ formatValuta(m.importo) }}</span>
-            <span class="mov-data">{{ formatData(m.data, 'corto') }}</span>
-          </div>
-        </WCard>
-        <WCard v-else class="empty-small">Nessun movimento</WCard>
+        <DataState
+          :stato="investimentiStore.risorsaMovimentiAttiva.stato.value"
+          :last-updated="investimentiStore.risorsaMovimentiAttiva.lastUpdated.value"
+          messaggio-errore="Non è stato possibile caricare lo storico."
+          @riprova="investimentiStore.risorsaMovimentiAttiva.riprova()"
+        >
+          <template #vuoto>
+            <WCard class="empty-small">Nessun movimento</WCard>
+          </template>
+
+          <WCard>
+            <div v-for="m in investimentiStore.movimenti" :key="m.id" class="mov-row stagger-item">
+              <component :is="tipoIcon(m.tipo)" :size="16" :stroke-width="1.75" />
+              <span>{{ m.tipo }} {{ m.investimento?.nome_piattaforma || m.investimento_nome }}</span>
+              <span :class="importoClass(m.tipo)">{{ importoPrefix(m.tipo) }}{{ formatValuta(m.importo) }}</span>
+              <span class="mov-data">{{ formatData(m.data, 'corto') }}</span>
+            </div>
+          </WCard>
+        </DataState>
       </div>
-    </template>
+    </DataState>
 
     <WModal :open="showNuovo" title="Nuovo investimento" @close="showNuovo = false">
       <div class="form-space">

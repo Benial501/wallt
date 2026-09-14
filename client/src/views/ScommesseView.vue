@@ -7,6 +7,7 @@ import {
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import WModal from '@/components/common/WModal.vue';
+import DataState from '@/components/common/DataState.vue';
 import { useScommesseStore } from '@/stores/scommesse.store';
 import { useContiStore } from '@/stores/conti.store';
 import { useToastStore } from '@/stores/toast.store';
@@ -233,14 +234,22 @@ const getPiattaformaPan = (id) => pan.value.piattaforme?.find((p) => p.id === id
 
 <template>
   <div class="scommesse-view animate-fade-in">
-    <div v-if="!scommesseStore.loading && !scommesseStore.piattaforme.length" class="empty">
-      <Dices class="empty-icon" :size="48" :stroke-width="1.5" />
-      <h2>Tieni traccia delle tue scommesse</h2>
-      <p>Monitora depositi, prelievi, vincite e perdite per ogni piattaforma</p>
-      <WButton variant="primary" size="md" @click="showNuovaPiattaforma = true">Aggiungi piattaforma</WButton>
-    </div>
+    <DataState
+      :stato="scommesseStore.risorsaPiattaforme.stato"
+      :last-updated="scommesseStore.risorsaPiattaforme.lastUpdated"
+      messaggio-errore="Non è stato possibile caricare le tue piattaforme."
+      skeleton-type="card"
+      @riprova="scommesseStore.risorsaPiattaforme.riprova()"
+    >
+      <template #vuoto>
+        <div class="empty">
+          <Dices class="empty-icon" :size="48" :stroke-width="1.5" />
+          <h2>Tieni traccia delle tue scommesse</h2>
+          <p>Monitora depositi, prelievi, vincite e perdite per ogni piattaforma</p>
+          <WButton variant="primary" size="md" @click="showNuovaPiattaforma = true">Aggiungi piattaforma</WButton>
+        </div>
+      </template>
 
-    <template v-else>
       <div class="tab-nav">
         <button v-for="tab in tabs" :key="tab.id" :class="{ active: activeTab === tab.id }" @click="activeTab = tab.id">
           <component :is="tab.icon" class="tab-icon" :size="16" :stroke-width="1.75" />
@@ -371,7 +380,7 @@ const getPiattaformaPan = (id) => pan.value.piattaforme?.find((p) => p.id === id
         </WCard>
         <WCard v-else class="empty-small">Nessun movimento nel periodo selezionato</WCard>
       </div>
-    </template>
+    </DataState>
 
     <WModal :open="showNuovaPiattaforma" title="Nuova piattaforma" @close="showNuovaPiattaforma = false">
       <div class="form-space">

@@ -14,6 +14,8 @@ import { DEFAULT_EMOJI_BY_TIPO } from '@/utils/contoEmoji';
 import ImportEstrattoHint from '@/components/common/ImportEstrattoHint.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import HelpNote from '@/components/help/HelpNote.vue';
+import DataState from '@/components/common/DataState.vue';
+import { etichetta } from '@/content/glossario';
 
 const contiStore = useContiStore();
 const toastStore = useToastStore();
@@ -161,7 +163,7 @@ const confermaElimina = async () => {
           <h1 class="page-title">I miei conti</h1>
           <HelpTrigger topic="conti-cosa-sono" />
         </div>
-        <p class="page-sub">Patrimonio totale: {{ formatValuta(contiStore.patrimonioTotale) }}</p>
+        <p class="page-sub">{{ etichetta('patrimonio_totale') }}: {{ formatValuta(contiStore.patrimonioTotale) }}</p>
       </div>
       <WButton variant="primary" size="sm" @click="showNuovoConto = true">+ Nuovo conto</WButton>
     </header>
@@ -171,39 +173,45 @@ const confermaElimina = async () => {
       message="Allinea i saldi importando movimenti dal tuo home banking"
     />
 
-    <div v-if="contiStore.loading" class="grid-conti">
-      <WCard v-for="n in 2" :key="n"><div style="height:120px" /></WCard>
-    </div>
+    <DataState
+      :stato="contiStore.risorsaConti.stato"
+      :last-updated="contiStore.risorsaConti.lastUpdated"
+      messaggio-errore="Non è stato possibile caricare i tuoi conti."
+      skeleton-type="card"
+      @riprova="contiStore.risorsaConti.riprova()"
+    >
+      <template #vuoto>
+        <WCard class="empty-state">
+          <CreditCard class="empty-icon" :size="48" :stroke-width="1.5" />
+          <p>Aggiungi il tuo primo conto</p>
+          <p class="empty-state__hint">
+            Un conto è dove registri i tuoi soldi: banca, carta, contanti.
+            WALLT non si collega automaticamente alla tua banca.
+          </p>
+          <WButton variant="primary" size="md" @click="showNuovoConto = true">+ Nuovo conto</WButton>
+        </WCard>
+      </template>
 
-    <div v-else-if="contiVisibili.length" class="grid-conti">
-      <WCard v-for="conto in contiVisibili" :key="conto.id" hoverable class="conto-card" :style="{ '--account-accent': conto.colore || 'var(--accent-green)' }">
-        <div class="conto-card__header">
-          <span class="conto-card__icon"><component :is="CONTO_TIPO_ICON_MAP[conto.tipo] || CreditCard" :size="23" :stroke-width="1.65" /></span>
-          <span class="badge">{{ tipoLabel(conto.tipo) }}</span>
-        </div>
-        <div class="conto-card__body">
-          <div class="conto-card__top">
-            <h3>{{ conto.nome }}</h3>
+      <div v-if="contiVisibili.length" class="grid-conti">
+        <WCard v-for="conto in contiVisibili" :key="conto.id" hoverable class="conto-card" :style="{ '--account-accent': conto.colore || 'var(--accent-green)' }">
+          <div class="conto-card__header">
+            <span class="conto-card__icon"><component :is="CONTO_TIPO_ICON_MAP[conto.tipo] || CreditCard" :size="23" :stroke-width="1.65" /></span>
+            <span class="badge">{{ tipoLabel(conto.tipo) }}</span>
           </div>
-          <p class="conto-card__balance-label">Saldo disponibile</p>
-          <p class="conto-card__saldo">{{ formatValuta(conto.saldo) }}</p>
-          <div class="conto-card__actions">
-            <button @click="apriModifica(conto)">Modifica</button>
-            <button class="danger" @click="eliminaConto(conto)">Elimina</button>
+          <div class="conto-card__body">
+            <div class="conto-card__top">
+              <h3>{{ conto.nome }}</h3>
+            </div>
+            <p class="conto-card__balance-label">Saldo disponibile</p>
+            <p class="conto-card__saldo">{{ formatValuta(conto.saldo) }}</p>
+            <div class="conto-card__actions">
+              <button @click="apriModifica(conto)">Modifica</button>
+              <button class="danger" @click="eliminaConto(conto)">Elimina</button>
+            </div>
           </div>
-        </div>
-      </WCard>
-    </div>
-
-    <WCard v-else class="empty-state">
-      <CreditCard class="empty-icon" :size="48" :stroke-width="1.5" />
-      <p>Aggiungi il tuo primo conto</p>
-      <p class="empty-state__hint">
-        Un conto è dove registri i tuoi soldi: banca, carta, contanti.
-        WALLT non si collega automaticamente alla tua banca.
-      </p>
-      <WButton variant="primary" size="md" @click="showNuovoConto = true">+ Nuovo conto</WButton>
-    </WCard>
+        </WCard>
+      </div>
+    </DataState>
 
     <div class="mt-4 trasferimento-block">
       <div class="trasferimento-block__actions">

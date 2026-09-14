@@ -1,46 +1,75 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { computed } from 'vue';
 import { useAuthStore } from '@/stores/auth.store';
 import api from '@/utils/axios';
 import { refreshAfterWrite } from '@/utils/afterWrite';
+import { creaRisorsa } from '@/utils/risorsa';
 
 export const useContiStore = defineStore('conti', () => {
   const authStore = useAuthStore();
-  const conti = ref([]);
-  const patrimonioTotale = ref(0);
-  const variazioneImporto = ref(0);
-  const variazionePercentuale = ref(0);
-  const loading = ref(false);
+
+  const risorsaConti = creaRisorsa(
+    async () => {
+      const { data } = await api.get('/conti');
+      return data;
+    },
+    { iniziale: null, vuotoSe: (d) => !d || (d.conti || []).length === 0 },
+  );
+
+  const risorsaPatrimonio = creaRisorsa(
+    async () => {
+      const { data } = await api.get('/conti/patrimonio');
+      return data;
+    },
+    { iniziale: null },
+  );
+
+  // --- Interfaccia pubblica invariata -------------------------------------
+  // Le viste non ancora migrate continuano a leggere questi nomi.
+  const conti = computed(() => risorsaConti.data.value?.conti || []);
+  const loading = computed(() => risorsaConti.loading.value);
+
+  /**
+   * Il patrimonio arriva da due endpoint che usano la stessa identica
+   * formula (conti attivi + investimenti attivi). Vince quello dedicato
+   * quando c'è, perché porta anche la scomposizione.
+   */
+  const patrimonioTotale = computed(() => (
+    risorsaPatrimonio.data.value?.totale
+    ?? risorsaConti.data.value?.patrimonio_totale
+    ?? 0
+  ));
+  const variazioneImporto = computed(() => risorsaPatrimonio.data.value?.variazione_importo || 0);
+  const variazionePercentuale = computed(() => risorsaPatrimonio.data.value?.variazione_percentuale || 0);
 
   const contiAttivi = computed(() => conti.value.filter((c) => c.attivo));
+
   const patrimonioFormattato = computed(() => {
     const valuta = authStore.user?.valuta || 'EUR';
     return new Intl.NumberFormat('it-IT', { style: 'currency', currency: valuta }).format(patrimonioTotale.value || 0);
   });
 
-  const fetchConti = async () => {
-    loading.value = true;
-    try {
-      const { data } = await api.get('/conti');
-      conti.value = data.conti;
-      patrimonioTotale.value = data.patrimonio_totale;
-      return data;
-    } finally {
-      loading.value = false;
-    }
-  };
+  /**
+   * Le tre voci mostrate sotto il totale. Il server le manda già entrambe
+   * (`totale_conti`, `totale_investimenti`): prima venivano scartate, ed è
+   * il motivo per cui la scheda poteva solo dire un numero senza spiegarlo.
+   */
+  const composizionePatrimonio = computed(() => {
+    const p = risorsaPatrimonio.data.value;
+    // `null` finché la risposta dedicata non c'è. Il totale ha un fallback
+    // su /conti, la scomposizione no: restituire zeri la farebbe contraddire
+    // il numero scritto sopra, ed è proprio l'invariante che la scheda deve
+    // rendere evidente. Meglio nessuna composizione che una falsa.
+    if (!p) return null;
+    return {
+      totale: patrimonioTotale.value,
+      conti: p.totale_conti ?? 0,
+      investimenti: p.totale_investimenti ?? 0,
+    };
+  });
 
-  const fetchPatrimonio = async () => {
-    try {
-      const { data } = await api.get('/conti/patrimonio');
-      patrimonioTotale.value = data.totale;
-      variazioneImporto.value = data.variazione_importo;
-      variazionePercentuale.value = data.variazione_percentuale;
-      return data;
-    } catch {
-      return null;
-    }
-  };
+  const fetchConti = () => risorsaConti.carica();
+  const fetchPatrimonio = () => risorsaPatrimonio.carica();
 
   /** Ricariche post-scrittura: non devono far fallire un'operazione già riuscita. */
   const refreshDopoScrittura = (tipo) => refreshAfterWrite(
@@ -88,7 +117,14 @@ export const useContiStore = defineStore('conti', () => {
     }
   };
 
+  const reset = () => {
+    risorsaConti.reset();
+    risorsaPatrimonio.reset();
+  };
+
   return {
+    risorsaConti,
+    risorsaPatrimonio,
     conti,
     patrimonioTotale,
     variazioneImporto,
@@ -96,11 +132,13 @@ export const useContiStore = defineStore('conti', () => {
     loading,
     contiAttivi,
     patrimonioFormattato,
+    composizionePatrimonio,
     fetchConti,
     fetchPatrimonio,
     createConto,
     updateConto,
     deleteConto,
     trasferimento,
+    reset,
   };
 });

@@ -4,6 +4,7 @@ import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import WModal from '@/components/common/WModal.vue';
 import WConfetti from '@/components/common/WConfetti.vue';
+import DataState from '@/components/common/DataState.vue';
 import { useObiettiviStore } from '@/stores/obiettivi.store';
 import { useToastStore } from '@/stores/toast.store';
 import { useValuta } from '@/composables/useValuta';
@@ -112,55 +113,65 @@ onMounted(() => obiettiviStore.fetchObiettivi());
       <WButton variant="primary" size="sm" @click="showCrea = true">+ Nuovo</WButton>
     </header>
 
-    <!-- In corso -->
-    <section v-if="obiettiviStore.obiettivi.attivi.length" class="mb-6">
-      <h2 class="section-title">In corso</h2>
-      <div class="ob-grid">
-        <WCard
-          v-for="obj in obiettiviStore.obiettivi.attivi"
-          :key="obj.id"
-          hoverable
-          class="obj-card stagger-item"
-          @click="apriDettaglio(obj)"
-        >
-          <span class="obj-emoji">{{ obj.icona }}</span>
-          <h3 class="obj-nome">{{ obj.nome }}</h3>
-          <p class="obj-importi">{{ formatValuta(obj.importo_attuale) }} / {{ formatValuta(obj.importo_target) }}</p>
-          <div class="obj-bar"><div class="obj-bar-fill" :style="{ width: percentuale(obj) + '%' }" /></div>
-          <p class="obj-mancante">Mancano {{ formatValuta(parseFloat(obj.importo_target) - parseFloat(obj.importo_attuale)) }}</p>
-          <p v-if="obj.deadline" class="obj-deadline">
-            <Calendar :size="14" :stroke-width="1.75" />
-            {{ formatData(obj.deadline) }}
-          </p>
-          <button class="obj-btn" @click.stop="obiettivoSelezionato = obj; showContributo = true">+ Aggiungi soldi</button>
+    <DataState
+      :stato="obiettiviStore.risorsaObiettivi.stato"
+      :last-updated="obiettiviStore.risorsaObiettivi.lastUpdated"
+      messaggio-errore="Non è stato possibile caricare i tuoi obiettivi."
+      skeleton-type="card"
+      @riprova="obiettiviStore.risorsaObiettivi.riprova()"
+    >
+      <template #vuoto>
+        <WCard class="empty">
+          <Target class="empty-icon" :size="48" :stroke-width="1.5" />
+          <p>Crea il tuo primo obiettivo</p>
+          <WButton variant="primary" size="md" @click="showCrea = true">+ Nuovo obiettivo</WButton>
         </WCard>
-      </div>
-    </section>
+      </template>
 
-    <!-- Completati -->
-    <section v-if="obiettiviStore.obiettivi.completati.length" class="mb-6">
-      <h2 class="section-title"><Trophy :size="18" :stroke-width="1.75" /> Completati</h2>
-      <div class="ob-grid">
-        <WCard
-          v-for="obj in obiettiviStore.obiettivi.completati"
-          :key="obj.id"
-          class="obj-card obj-card--done"
-          @click="apriDettaglio(obj)"
-        >
-          <span class="obj-badge"><Trophy :size="14" /> Completato</span>
-          <span class="obj-emoji">{{ obj.icona }}</span>
-          <h3 class="obj-nome">{{ obj.nome }}</h3>
-          <p class="obj-importi">{{ formatValuta(obj.importo_attuale) }} / {{ formatValuta(obj.importo_target) }}</p>
-          <div class="obj-bar"><div class="obj-bar-fill obj-bar-fill--done" style="width:100%" /></div>
-        </WCard>
-      </div>
-    </section>
+      <!-- In corso -->
+      <section v-if="obiettiviStore.obiettivi.attivi.length" class="mb-6">
+        <h2 class="section-title">In corso</h2>
+        <div class="ob-grid">
+          <WCard
+            v-for="obj in obiettiviStore.obiettivi.attivi"
+            :key="obj.id"
+            hoverable
+            class="obj-card stagger-item"
+            @click="apriDettaglio(obj)"
+          >
+            <span class="obj-emoji">{{ obj.icona }}</span>
+            <h3 class="obj-nome">{{ obj.nome }}</h3>
+            <p class="obj-importi">{{ formatValuta(obj.importo_attuale) }} / {{ formatValuta(obj.importo_target) }}</p>
+            <div class="obj-bar"><div class="obj-bar-fill" :style="{ width: percentuale(obj) + '%' }" /></div>
+            <p class="obj-mancante">Mancano {{ formatValuta(parseFloat(obj.importo_target) - parseFloat(obj.importo_attuale)) }}</p>
+            <p v-if="obj.deadline" class="obj-deadline">
+              <Calendar :size="14" :stroke-width="1.75" />
+              {{ formatData(obj.deadline) }}
+            </p>
+            <button class="obj-btn" @click.stop="obiettivoSelezionato = obj; showContributo = true">+ Aggiungi soldi</button>
+          </WCard>
+        </div>
+      </section>
 
-    <WCard v-if="!obiettiviStore.loading && !obiettiviStore.obiettivi.attivi.length && !obiettiviStore.obiettivi.completati.length" class="empty">
-      <Target class="empty-icon" :size="48" :stroke-width="1.5" />
-      <p>Crea il tuo primo obiettivo</p>
-      <WButton variant="primary" size="md" @click="showCrea = true">+ Nuovo obiettivo</WButton>
-    </WCard>
+      <!-- Completati -->
+      <section v-if="obiettiviStore.obiettivi.completati.length" class="mb-6">
+        <h2 class="section-title"><Trophy :size="18" :stroke-width="1.75" /> Completati</h2>
+        <div class="ob-grid">
+          <WCard
+            v-for="obj in obiettiviStore.obiettivi.completati"
+            :key="obj.id"
+            class="obj-card obj-card--done"
+            @click="apriDettaglio(obj)"
+          >
+            <span class="obj-badge"><Trophy :size="14" /> Completato</span>
+            <span class="obj-emoji">{{ obj.icona }}</span>
+            <h3 class="obj-nome">{{ obj.nome }}</h3>
+            <p class="obj-importi">{{ formatValuta(obj.importo_attuale) }} / {{ formatValuta(obj.importo_target) }}</p>
+            <div class="obj-bar"><div class="obj-bar-fill obj-bar-fill--done" style="width:100%" /></div>
+          </WCard>
+        </div>
+      </section>
+    </DataState>
 
     <!-- Modal Crea -->
     <WModal :open="showCrea" title="Nuovo obiettivo" @close="showCrea = false">

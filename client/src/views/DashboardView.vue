@@ -34,7 +34,7 @@ const obiettiviStore = useObiettiviStore();
 const helpStore = useHelpStore();
 const router = useRouter();
 const { canAccessScommesseFeature, canAccessInvestimentiFeature } = storeToRefs(authStore);
-const { recentiHome, loadingRecenti } = storeToRefs(movimentiStore);
+const { recentiHome } = storeToRefs(movimentiStore);
 const { gettingStartedVisible } = storeToRefs(helpStore);
 
 const oggi = dayjs();
@@ -44,29 +44,86 @@ const oggiStr = oggi.format('YYYY-MM-DD');
 const formOpen = ref(false);
 const formTipo = ref('uscita');
 const movimentoEdit = ref(null);
-const loadingOggi = ref(false);
-const loadingScommesse = ref(false);
-const loadingInvestimenti = ref(false);
 
-const entrateOggi = ref(0);
-const usciteOggi = ref(0);
-
-// Traguardi di "Primi passi": marcati solo su dati caricati con successo.
-// null = non ancora noto (o richiesta fallita) → stato "sconosciuto".
-const contiCaricati = ref(null);
-const budgetCaricato = ref(null);
+// Traguardo di "Primi passi" non coperto da una risorsa: è una lettura non
+// filtrata a parte (vedi checkHaMovimenti), quindi resta un flag tenuto a
+// mano. null = non ancora noto (o richiesta fallita) → stato "sconosciuto".
 const haMovimenti = ref(null);
 
-const statoTraguardo = (caricato, raggiunto) => {
-  if (caricato !== true) return 'sconosciuto';
-  return raggiunto ? 'fatto' : 'da-fare';
-};
-
-const contiState = computed(() => statoTraguardo(contiCaricati.value, contiStore.contiAttivi.length > 0));
+const contiState = computed(() => {
+  if (contiStore.risorsaConti.lastUpdated === null) return 'sconosciuto';
+  return contiStore.contiAttivi.length > 0 ? 'fatto' : 'da-fare';
+});
 const movimentiState = computed(() => (
   haMovimenti.value === null ? 'sconosciuto' : (haMovimenti.value ? 'fatto' : 'da-fare')
 ));
-const budgetState = computed(() => statoTraguardo(budgetCaricato.value, budgetStore.hasBudget));
+const budgetState = computed(() => {
+  if (budgetStore.risorsaBudget.lastUpdated === null) return 'sconosciuto';
+  return budgetStore.hasBudget ? 'fatto' : 'da-fare';
+});
+
+/**
+ * Stato di una scheda alimentata da più letture.
+ *
+ * Il pannello d'errore pieno solo quando NESSUNA ha mai risposto: se anche una
+ * sola ha dati, mostrarli con l'avviso è meglio che nascondere numeri corretti
+ * perché un'altra lettura è caduta.
+ */
+const statoCombinato = (...risorse) => computed(() => {
+  if (risorse.some((r) => r.stato === 'caricamento')) return 'caricamento';
+  if (!risorse.some((r) => r.error)) return 'pronto';
+  return risorse.some((r) => r.lastUpdated !== null) ? 'errore-con-dati' : 'errore';
+});
+
+/** Il più vecchio dei successi: l'avviso non deve vantare una freschezza che
+ *  una delle letture non ha. */
+const lastUpdatedCombinato = (...risorse) => computed(() => {
+  const valori = risorse.map((r) => r.lastUpdated).filter((v) => v !== null);
+  return valori.length ? Math.min(...valori) : null;
+});
+
+/**
+ * Il patrimonio ha tre dipendenze: il totale ricade su risorsaConti quando
+ * risorsaPatrimonio non ha ancora risposto, la composizione arriva solo con
+ * risorsaPatrimonio, e la scheda mostra anche entrate/uscite del mese lette
+ * da risorsaBilancio. Le tre devono dichiararsi insieme, altrimenti una
+ * fallita in silenzio lascia "Entrate mese"/"Uscite mese" a 0,00 € per
+ * sempre con la scheda che si dice comunque pronta.
+ */
+const statoSaldo = statoCombinato(
+  contiStore.risorsaConti,
+  contiStore.risorsaPatrimonio,
+  movimentiStore.risorsaBilancio,
+);
+const lastUpdatedSaldo = lastUpdatedCombinato(
+  contiStore.risorsaConti,
+  contiStore.risorsaPatrimonio,
+  movimentiStore.risorsaBilancio,
+);
+const riprovaSaldo = () => {
+  contiStore.risorsaConti.riprova();
+  contiStore.risorsaPatrimonio.riprova();
+  movimentiStore.risorsaBilancio.riprova();
+};
+
+/**
+ * Le cifre della scheda scommesse (vincite, perdite, bilancio netto) vengono
+ * tutte da risorsaAnalisi, non da risorsaPiattaforme: quest'ultima serve solo
+ * a decidere se la scheda esiste. Dichiarare lo stato sulla sola piattaforme
+ * lascerebbe la scheda "pronta" con numeri a zero se risorsaAnalisi fallisse.
+ */
+const statoScommesse = statoCombinato(
+  scommesseStore.risorsaPiattaforme,
+  scommesseStore.risorsaAnalisi,
+);
+const lastUpdatedScommesse = lastUpdatedCombinato(
+  scommesseStore.risorsaPiattaforme,
+  scommesseStore.risorsaAnalisi,
+);
+const riprovaScommesse = () => {
+  scommesseStore.risorsaPiattaforme.riprova();
+  scommesseStore.risorsaAnalisi.riprova();
+};
 
 const entrateMese = computed(() => movimentiStore.bilancioMese.entrate || 0);
 const usciteMese = computed(() => movimentiStore.bilancioMese.uscite || 0);
@@ -79,14 +136,7 @@ const budgetTotale = computed(() =>
   parseFloat(budgetStore.budgetCorrente?.importo_totale) || 0,
 );
 
-const loadConti = async () => {
-  try {
-    await contiStore.fetchConti();
-    contiCaricati.value = true;
-  } catch {
-    contiCaricati.value = false;
-  }
-};
+const loadConti = () => contiStore.fetchConti();
 
 /**
  * Verifica non filtrata dell'esistenza di movimenti (limit 1), usata solo dal
@@ -111,90 +161,47 @@ const checkHaMovimenti = async () => {
   }
 };
 
-const loadDashboardMovimenti = async () => {
-  loadingOggi.value = true;
-  try {
-    await Promise.all([
-      movimentiStore.fetchRecentiHome({ limit: 6 }),
-      (async () => {
-        try {
-          const { data: monthData } = await api.get('/movimenti', {
-            params: { da: meseStart, a: oggiStr, limit: 200 },
-          });
-          let entOggi = 0;
-          let uscOggi = 0;
-          (monthData?.gruppi || []).forEach((g) => {
-            if (g.data === oggiStr) {
-              entOggi = g.totale_entrate_giorno;
-              uscOggi = g.totale_uscite_giorno;
-            }
-          });
-          entrateOggi.value = entOggi;
-          usciteOggi.value = uscOggi;
-        } catch {
-          // Mantieni i totali già mostrati se la richiesta fallisce.
-        }
-      })(),
-    ]);
-  } finally {
-    loadingOggi.value = false;
-  }
-};
+const loadDashboardMovimenti = () => Promise.all([
+  movimentiStore.fetchRecentiHome({ limit: 6 }),
+  movimentiStore.fetchOggi(meseStart, oggiStr, oggiStr),
+]);
 
 const loadBudget = async () => {
-  try {
-    await budgetStore.fetchBudget(oggi.month() + 1, oggi.year());
-    budgetCaricato.value = true;
-  } catch {
-    budgetCaricato.value = false;
-  }
-  if (budgetStore.esiste) {
-    await budgetStore.fetchStatoBudget(oggi.month() + 1, oggi.year()).catch(() => null);
+  await budgetStore.fetchBudget(oggi.month() + 1, oggi.year());
+  // `hasBudget`, non `esiste`: dopo una scrittura riuscita ma una rilettura
+  // di /budget fallita, il budget arriva comunque da /stato, e `esiste`
+  // resterebbe false anche se c'è un budget da mostrare.
+  if (budgetStore.hasBudget) {
+    await budgetStore.fetchStatoBudget(oggi.month() + 1, oggi.year());
   }
 };
 
-const loadAnalisi = async () => {
-  // Sparkline del riepilogo: 12 settimane danno la stessa densita' di punti
+const loadAnalisi = () => (
+  // Sparkline del riepilogo: 12 settimane danno la stessa densità di punti
   // di prima, dove l'andamento era sempre settimanale a prescindere.
-  await analisiStore.fetchAndamentoPatrimonio({ unita: 'settimana', quantita: 12 }).catch(() => null);
-};
+  analisiStore.fetchAndamentoPatrimonio({ unita: 'settimana', quantita: 12 })
+);
 
 const loadScommesse = async () => {
   if (!canAccessScommesseFeature.value) return;
-  loadingScommesse.value = true;
-  try {
-    await scommesseStore.fetchPiattaforme();
-    if (scommesseStore.piattaforme.length) {
-      await scommesseStore.fetchAnalisi({ da: meseStart, a: oggiStr });
-    }
-  } catch {
-    // Ignora: la card scommesse resta nello stato precedente.
-  } finally {
-    loadingScommesse.value = false;
+  await scommesseStore.fetchPiattaforme();
+  if (scommesseStore.piattaforme.length) {
+    await scommesseStore.fetchAnalisi({ da: meseStart, a: oggiStr });
   }
 };
 
 const loadInvestimenti = async () => {
   if (!canAccessInvestimentiFeature.value) return;
-  loadingInvestimenti.value = true;
-  try {
-    await investimentiStore.fetchInvestimenti();
-    if (investimentiStore.investimenti.length) {
-      await investimentiStore.fetchAnalisi({
-        da: oggi.subtract(6, 'month').format('YYYY-MM-DD'),
-        a: oggiStr,
-      });
-    }
-  } catch {
-    // Ignora: la card investimenti resta nello stato precedente.
-  } finally {
-    loadingInvestimenti.value = false;
+  await investimentiStore.fetchInvestimenti();
+  if (investimentiStore.investimenti.length) {
+    await investimentiStore.fetchAnalisi({
+      da: oggi.subtract(6, 'month').format('YYYY-MM-DD'),
+      a: oggiStr,
+    });
   }
 };
 
-const loadObiettivi = async () => {
-  await obiettiviStore.fetchObiettivi().catch(() => null);
-};
+const loadObiettivi = () => obiettiviStore.fetchObiettivi();
 
 const openForm = (tipo = 'uscita', mov = null) => {
   formTipo.value = tipo;
@@ -236,7 +243,7 @@ const onSaved = async () => {
 onMounted(async () => {
   await Promise.all([
     loadConti(),
-    contiStore.fetchPatrimonio().catch(() => null),
+    contiStore.fetchPatrimonio(),
     checkHaMovimenti(),
     movimentiStore.fetchBilancioMese(oggi.month() + 1, oggi.year()),
     loadBudget(),
@@ -269,12 +276,12 @@ onMounted(async () => {
 
     <WOverviewCarousel
       :conti="contiStore.contiAttivi"
-      :loading-conti="contiStore.loading"
       :patrimonio="contiStore.patrimonioTotale"
+      :composizione="contiStore.composizionePatrimonio"
       :entrate-mese="entrateMese"
       :uscite-mese="usciteMese"
-      :entrate-oggi="entrateOggi"
-      :uscite-oggi="usciteOggi"
+      :entrate-oggi="movimentiStore.entrateOggi"
+      :uscite-oggi="movimentiStore.usciteOggi"
       :variazione-percentuale="contiStore.variazionePercentuale"
       :trend-positive="contiStore.variazioneImporto >= 0"
       :andamento-punti="andamentoPunti"
@@ -290,14 +297,29 @@ onMounted(async () => {
       :patrimonio-investimenti="investimentiStore.patrimonioInvestitoTotale"
       :rendimento-investimenti="investimentiStore.rendimentoTotale"
       :rendimento-investimenti-pct="investimentiStore.rendimentoTotalePercentuale"
-      :loading-saldo="contiStore.loading || movimentiStore.loadingBilancio"
-      :loading-budget="budgetStore.loading"
-      :loading-oggi="loadingOggi && !recentiHome.length"
-      :loading-scommesse="loadingScommesse"
-      :loading-investimenti="loadingInvestimenti"
       :obiettivi-attivi="obiettiviStore.obiettivi.attivi"
       :obiettivi-completati-count="obiettiviStore.obiettivi.completati.length"
-      :loading-obiettivi="obiettiviStore.loading"
+      :stato-saldo="statoSaldo"
+      :last-updated-saldo="lastUpdatedSaldo"
+      :stato-conti="contiStore.risorsaConti.stato"
+      :last-updated-conti="contiStore.risorsaConti.lastUpdated"
+      :stato-oggi="movimentiStore.risorsaOggi.stato"
+      :last-updated-oggi="movimentiStore.risorsaOggi.lastUpdated"
+      :stato-budget-sezione="budgetStore.statoPagina"
+      :last-updated-budget="budgetStore.lastUpdatedPagina"
+      :stato-scommesse="statoScommesse"
+      :last-updated-scommesse="lastUpdatedScommesse"
+      :stato-investimenti="investimentiStore.risorsaInvestimenti.stato"
+      :last-updated-investimenti="investimentiStore.risorsaInvestimenti.lastUpdated"
+      :stato-obiettivi="obiettiviStore.risorsaObiettivi.stato"
+      :last-updated-obiettivi="obiettiviStore.risorsaObiettivi.lastUpdated"
+      @riprova-saldo="riprovaSaldo()"
+      @riprova-conti="contiStore.risorsaConti.riprova()"
+      @riprova-oggi="movimentiStore.risorsaOggi.riprova()"
+      @riprova-budget="budgetStore.riprovaPagina()"
+      @riprova-scommesse="riprovaScommesse()"
+      @riprova-investimenti="investimentiStore.risorsaInvestimenti.riprova()"
+      @riprova-obiettivi="obiettiviStore.risorsaObiettivi.riprova()"
     />
 
     <button type="button" class="dashboard-view__cta" @click="openForm('uscita')">
@@ -306,7 +328,9 @@ onMounted(async () => {
 
     <RecentTransactions
       :movimenti="recentiHome"
-      :loading="loadingRecenti && !recentiHome.length"
+      :stato="movimentiStore.risorsaRecenti.stato"
+      :last-updated="movimentiStore.risorsaRecenti.lastUpdated"
+      @riprova="movimentiStore.risorsaRecenti.riprova()"
       @select="onSelectMovimento"
     />
 
@@ -335,7 +359,7 @@ onMounted(async () => {
 
 /* L'azione principale della dashboard: pastiglia ad alto contrasto, chiara
    sul tema scuro e scura sul chiaro. La gerarchia arriva dal contrasto, non
-   da un colore acceso in piu'. */
+   da un colore acceso in più. */
 .dashboard-view__cta {
   display: block;
   width: 100%;

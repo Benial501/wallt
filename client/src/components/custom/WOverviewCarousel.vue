@@ -6,7 +6,9 @@ import {
   Chart as ChartJS, ArcElement, Tooltip, CategoryScale, LinearScale,
   PointElement, LineElement, Filler,
 } from 'chart.js';
-import WSkeleton from '@/components/common/WSkeleton.vue';
+import DataState from '@/components/common/DataState.vue';
+import HelpTrigger from '@/components/help/HelpTrigger.vue';
+import { etichetta } from '@/content/glossario';
 import { useNumberCounter } from '@/composables/useNumberCounter';
 import { useValuta } from '@/composables/useValuta';
 import { useChartTheme } from '@/composables/useChartTheme';
@@ -20,8 +22,8 @@ const CHART_COLORS = ['#00D4AA', '#FF4757', '#6C5CE7', '#74B9FF', '#FECA57', '#F
 
 const props = defineProps({
   conti: { type: Array, default: () => [] },
-  loadingConti: { type: Boolean, default: false },
   patrimonio: { type: Number, default: 0 },
+  composizione: { type: Object, default: null },
   entrateMese: { type: Number, default: 0 },
   usciteMese: { type: Number, default: 0 },
   entrateOggi: { type: Number, default: 0 },
@@ -41,15 +43,25 @@ const props = defineProps({
   patrimonioInvestimenti: { type: Number, default: 0 },
   rendimentoInvestimenti: { type: Number, default: 0 },
   rendimentoInvestimentiPct: { type: Number, default: 0 },
-  loadingSaldo: { type: Boolean, default: false },
-  loadingBudget: { type: Boolean, default: false },
-  loadingOggi: { type: Boolean, default: false },
-  loadingScommesse: { type: Boolean, default: false },
-  loadingInvestimenti: { type: Boolean, default: false },
   obiettiviAttivi: { type: Array, default: () => [] },
   obiettiviCompletatiCount: { type: Number, default: 0 },
-  loadingObiettivi: { type: Boolean, default: false },
+  statoSaldo: { type: String, default: 'pronto' },
+  lastUpdatedSaldo: { type: Number, default: null },
+  statoConti: { type: String, default: 'pronto' },
+  lastUpdatedConti: { type: Number, default: null },
+  statoOggi: { type: String, default: 'pronto' },
+  lastUpdatedOggi: { type: Number, default: null },
+  statoBudgetSezione: { type: String, default: 'pronto' },
+  lastUpdatedBudget: { type: Number, default: null },
+  statoScommesse: { type: String, default: 'pronto' },
+  lastUpdatedScommesse: { type: Number, default: null },
+  statoInvestimenti: { type: String, default: 'pronto' },
+  lastUpdatedInvestimenti: { type: Number, default: null },
+  statoObiettivi: { type: String, default: 'pronto' },
+  lastUpdatedObiettivi: { type: Number, default: null },
 });
+
+const emit = defineEmits(['riprova-saldo', 'riprova-conti', 'riprova-oggi', 'riprova-budget', 'riprova-scommesse', 'riprova-investimenti', 'riprova-obiettivi']);
 
 const router = useRouter();
 const { formatValuta } = useValuta();
@@ -214,15 +226,26 @@ onUnmounted(() => {
         class="w-overview__track flex overflow-x-auto snap-x snap-mandatory"
         @scroll="onScroll"
       >
-        <!-- Saldo del conto -->
+        <!-- Patrimonio totale -->
         <div v-if="slides.includes('saldo')" class="w-overview__slide w-full shrink-0 snap-center">
-          <template v-if="loadingSaldo">
-            <WSkeleton type="text" :lines="3" />
-            <WSkeleton type="card" class="mt-3" />
-          </template>
-          <template v-else>
-            <p class="w-overview__eyebrow">Saldo del conto</p>
+          <DataState
+            :stato="statoSaldo"
+            :last-updated="lastUpdatedSaldo"
+            messaggio-errore="Non è stato possibile caricare il patrimonio."
+            skeleton-type="text"
+            :skeleton-lines="3"
+            @riprova="emit('riprova-saldo')"
+          >
+            <p class="w-overview__eyebrow">
+              {{ etichetta('patrimonio_totale') }}
+              <HelpTrigger topic="patrimonio-come-si-calcola" variant="quiet" />
+            </p>
             <p class="w-overview__amount tabular-nums">{{ formatValuta(animatedPatrimonio) }}</p>
+            <p v-if="composizione" class="w-overview__composizione">
+              {{ etichetta('componente_conti') }} <span class="tabular-nums">{{ formatValuta(composizione.conti) }}</span>
+              ·
+              {{ etichetta('componente_investimenti') }} <span class="tabular-nums">{{ formatValuta(composizione.investimenti) }}</span>
+            </p>
             <p class="w-overview__variation" :class="trendPositive ? 'is-positive' : 'is-negative'">
               {{ formatVariazione(variazionePercentuale) }} questo mese
             </p>
@@ -246,16 +269,28 @@ onUnmounted(() => {
                 <span class="w-overview__split-val is-negative tabular-nums">{{ formatValuta(usciteMese) }}</span>
               </div>
             </div>
-          </template>
+          </DataState>
         </div>
 
         <!-- Saldi dei singoli conti: seconda scheda della panoramica -->
         <div class="w-overview__slide w-full shrink-0 snap-center">
           <p class="w-overview__eyebrow">I miei conti</p>
-          <template v-if="loadingConti">
-            <WSkeleton type="text" :lines="4" />
-          </template>
-          <template v-else-if="conti.length">
+          <DataState
+            :stato="statoConti"
+            :last-updated="lastUpdatedConti"
+            messaggio-errore="Non è stato possibile caricare i tuoi conti."
+            skeleton-type="text"
+            :skeleton-lines="4"
+            @riprova="emit('riprova-conti')"
+          >
+            <template #vuoto>
+              <div class="w-overview__cta-empty">
+                <p class="w-overview__cta-title">I tuoi conti, a colpo d’occhio</p>
+                <p class="w-overview__cta-desc">Aggiungi un conto per visualizzare qui il suo saldo.</p>
+                <button type="button" class="w-overview__cta-btn" @click="router.push('/conti')">Aggiungi un conto</button>
+              </div>
+            </template>
+
             <p class="w-overview__subtitle">Quanto hai su ogni conto</p>
             <div class="w-overview__accounts-scroll" tabindex="0" role="region" aria-label="Saldi dei conti">
               <ul class="w-overview__accounts">
@@ -267,58 +302,72 @@ onUnmounted(() => {
               </ul>
             </div>
             <button type="button" class="w-overview__link-btn" @click="router.push('/conti')">Gestisci conti →</button>
-          </template>
-          <div v-else class="w-overview__cta-empty">
-            <p class="w-overview__cta-title">I tuoi conti, a colpo d’occhio</p>
-            <p class="w-overview__cta-desc">Aggiungi un conto per visualizzare qui il suo saldo.</p>
-            <button type="button" class="w-overview__cta-btn" @click="router.push('/conti')">Aggiungi un conto</button>
-          </div>
+          </DataState>
         </div>
 
         <!-- Budget -->
         <div v-if="slides.includes('budget')" class="w-overview__slide w-full shrink-0 snap-center">
-          <template v-if="loadingBudget">
-            <WSkeleton type="text" :lines="2" />
-            <div class="w-overview__chart-skeleton"><WSkeleton type="circle" /></div>
-          </template>
-          <template v-else-if="hasBudget && budgetChartItems.length">
-            <p class="w-overview__eyebrow">Budget del mese</p>
-            <p class="w-overview__subtitle">Totale · {{ formatValuta(budgetTotale) }}</p>
-            <div class="w-overview__doughnut-wrap">
-              <Doughnut :data="budgetDoughnutData" :options="doughnutOptions" />
+          <DataState
+            :stato="statoBudgetSezione"
+            :last-updated="lastUpdatedBudget"
+            messaggio-errore="Non è stato possibile caricare il budget."
+            skeleton-type="text"
+            :skeleton-lines="2"
+            @riprova="emit('riprova-budget')"
+          >
+            <template #vuoto>
+              <div class="w-overview__cta-empty">
+                <PieChart class="w-overview__cta-icon" :size="32" :stroke-width="1.5" />
+                <p class="w-overview__cta-title">Pianifica il tuo budget</p>
+                <p class="w-overview__cta-desc">Suddividi le spese per categoria e tieni tutto sotto controllo.</p>
+                <button type="button" class="w-overview__cta-btn" @click="router.push('/budget')">
+                  Crea budget
+                </button>
+              </div>
+            </template>
+
+            <template v-if="hasBudget && budgetChartItems.length">
+              <p class="w-overview__eyebrow">Budget del mese</p>
+              <p class="w-overview__subtitle">Totale · {{ formatValuta(budgetTotale) }}</p>
+              <div class="w-overview__doughnut-wrap">
+                <Doughnut :data="budgetDoughnutData" :options="doughnutOptions" />
+              </div>
+              <ul class="w-overview__legend">
+                <li v-for="(item, i) in budgetChartItems" :key="item.categoria">
+                  <span class="w-overview__legend-dot" :style="{ background: CHART_COLORS[i % CHART_COLORS.length] }" />
+                  <span class="w-overview__legend-name">
+                    {{ getCategoriaUscita(item.categoria)?.nome || item.categoria }}
+                  </span>
+                  <span class="w-overview__legend-pct tabular-nums">
+                    {{ Math.round(item.percentuale_usata || 0) }}%
+                  </span>
+                </li>
+              </ul>
+              <button type="button" class="w-overview__link-btn" @click="router.push('/budget')">
+                Vedi budget →
+              </button>
+            </template>
+            <div v-else class="w-overview__cta-empty">
+              <PieChart class="w-overview__cta-icon" :size="32" :stroke-width="1.5" />
+              <p class="w-overview__cta-title">Pianifica il tuo budget</p>
+              <p class="w-overview__cta-desc">Suddividi le spese per categoria e tieni tutto sotto controllo.</p>
+              <button type="button" class="w-overview__cta-btn" @click="router.push('/budget')">
+                Crea budget
+              </button>
             </div>
-            <ul class="w-overview__legend">
-              <li v-for="(item, i) in budgetChartItems" :key="item.categoria">
-                <span class="w-overview__legend-dot" :style="{ background: CHART_COLORS[i % CHART_COLORS.length] }" />
-                <span class="w-overview__legend-name">
-                  {{ getCategoriaUscita(item.categoria)?.nome || item.categoria }}
-                </span>
-                <span class="w-overview__legend-pct tabular-nums">
-                  {{ Math.round(item.percentuale_usata || 0) }}%
-                </span>
-              </li>
-            </ul>
-            <button type="button" class="w-overview__link-btn" @click="router.push('/budget')">
-              Vedi budget →
-            </button>
-          </template>
-          <div v-else class="w-overview__cta-empty">
-            <PieChart class="w-overview__cta-icon" :size="32" :stroke-width="1.5" />
-            <p class="w-overview__cta-title">Pianifica il tuo budget</p>
-            <p class="w-overview__cta-desc">Suddividi le spese per categoria e tieni tutto sotto controllo.</p>
-            <button type="button" class="w-overview__cta-btn" @click="router.push('/budget')">
-              Crea budget
-            </button>
-          </div>
+          </DataState>
         </div>
 
         <!-- Uscite oggi -->
         <div v-if="slides.includes('uscite-oggi')" class="w-overview__slide w-full shrink-0 snap-center">
-          <template v-if="loadingOggi">
-            <WSkeleton type="text" :lines="2" />
-            <WSkeleton type="card" class="mt-3" />
-          </template>
-          <template v-else>
+          <DataState
+            :stato="statoOggi"
+            :last-updated="lastUpdatedOggi"
+            messaggio-errore="Non è stato possibile caricare le uscite di oggi."
+            skeleton-type="text"
+            :skeleton-lines="3"
+            @riprova="emit('riprova-oggi')"
+          >
             <p class="w-overview__eyebrow">Uscite di oggi</p>
             <div class="w-overview__hero-stat w-overview__hero-stat--out">
               <ArrowUp class="w-overview__hero-icon" :size="28" :stroke-width="1.75" />
@@ -330,16 +379,19 @@ onUnmounted(() => {
             <button type="button" class="w-overview__link-btn" @click="router.push('/movimenti')">
               Vedi movimenti →
             </button>
-          </template>
+          </DataState>
         </div>
 
         <!-- Entrate oggi -->
         <div v-if="slides.includes('entrate-oggi')" class="w-overview__slide w-full shrink-0 snap-center">
-          <template v-if="loadingOggi">
-            <WSkeleton type="text" :lines="2" />
-            <WSkeleton type="card" class="mt-3" />
-          </template>
-          <template v-else>
+          <DataState
+            :stato="statoOggi"
+            :last-updated="lastUpdatedOggi"
+            messaggio-errore="Non è stato possibile caricare le entrate di oggi."
+            skeleton-type="text"
+            :skeleton-lines="3"
+            @riprova="emit('riprova-oggi')"
+          >
             <p class="w-overview__eyebrow">Entrate di oggi</p>
             <div class="w-overview__hero-stat w-overview__hero-stat--in">
               <ArrowDown class="w-overview__hero-icon" :size="28" :stroke-width="1.75" />
@@ -351,84 +403,105 @@ onUnmounted(() => {
             <button type="button" class="w-overview__link-btn" @click="router.push({ path: '/movimenti', query: { action: 'entrata' } })">
               Aggiungi entrata →
             </button>
-          </template>
+          </DataState>
         </div>
 
         <!-- Obiettivi -->
         <div v-if="slides.includes('obiettivi')" class="w-overview__slide w-full shrink-0 snap-center">
-          <template v-if="loadingObiettivi">
-            <WSkeleton type="text" :lines="2" />
-            <WSkeleton type="card" class="mt-3" />
-          </template>
-          <template v-else-if="obiettiviAttivi.length">
-            <p class="w-overview__eyebrow">
-              <Target :size="14" :stroke-width="1.75" class="w-overview__eyebrow-icon" />
-              Obiettivi
-              <span v-if="obiettiviCompletatiCount" class="w-overview__eyebrow-badge">
-                {{ obiettiviCompletatiCount }} completati
-              </span>
-            </p>
-            <div v-if="obiettivoPrincipale" class="w-overview__goal-main">
-              <span class="w-overview__goal-emoji">{{ obiettivoPrincipale.icona || '🎯' }}</span>
-              <p class="w-overview__goal-name">{{ obiettivoPrincipale.nome }}</p>
-              <div class="w-overview__goal-bar">
-                <div
-                  class="w-overview__goal-bar-fill"
-                  :style="{ width: percentualeObiettivo(obiettivoPrincipale) + '%' }"
-                />
+          <DataState
+            :stato="statoObiettivi"
+            :last-updated="lastUpdatedObiettivi"
+            messaggio-errore="Non è stato possibile caricare gli obiettivi."
+            skeleton-type="text"
+            :skeleton-lines="2"
+            @riprova="emit('riprova-obiettivi')"
+          >
+            <template #vuoto>
+              <div class="w-overview__cta-empty">
+                <Target class="w-overview__cta-icon" :size="32" :stroke-width="1.5" />
+                <p class="w-overview__cta-title">Fissa un obiettivo di risparmio</p>
+                <p class="w-overview__cta-desc">
+                  Traccia i progressi verso ciò che conta per te: vacanze, auto, fondo emergenza…
+                </p>
+                <button type="button" class="w-overview__cta-btn" @click="router.push('/obiettivi')">
+                  Crea obiettivo
+                </button>
               </div>
-              <div class="w-overview__goal-meta">
-                <span class="tabular-nums">
-                  {{ formatValuta(obiettivoPrincipale.importo_attuale) }}
-                  / {{ formatValuta(obiettivoPrincipale.importo_target) }}
+            </template>
+
+            <template v-if="obiettiviAttivi.length">
+              <p class="w-overview__eyebrow">
+                <Target :size="14" :stroke-width="1.75" class="w-overview__eyebrow-icon" />
+                Obiettivi
+                <span v-if="obiettiviCompletatiCount" class="w-overview__eyebrow-badge">
+                  {{ obiettiviCompletatiCount }} completati
                 </span>
-                <span class="w-overview__goal-pct tabular-nums">
-                  {{ percentualeObiettivo(obiettivoPrincipale) }}%
-                </span>
-              </div>
-              <p v-if="obiettivoPrincipale.deadline" class="w-overview__goal-deadline">
-                <Calendar :size="13" :stroke-width="1.75" />
-                {{ formatData(obiettivoPrincipale.deadline) }}
               </p>
-            </div>
-            <ul v-if="obiettiviSecondari.length" class="w-overview__goal-list">
-              <li v-for="obj in obiettiviSecondari" :key="obj.id">
-                <span class="w-overview__goal-list-emoji">{{ obj.icona || '🎯' }}</span>
-                <div class="w-overview__goal-list-body">
-                  <span class="w-overview__goal-list-name">{{ obj.nome }}</span>
-                  <div class="w-overview__goal-bar w-overview__goal-bar--sm">
-                    <div
-                      class="w-overview__goal-bar-fill"
-                      :style="{ width: percentualeObiettivo(obj) + '%' }"
-                    />
-                  </div>
+              <div v-if="obiettivoPrincipale" class="w-overview__goal-main">
+                <span class="w-overview__goal-emoji">{{ obiettivoPrincipale.icona || '🎯' }}</span>
+                <p class="w-overview__goal-name">{{ obiettivoPrincipale.nome }}</p>
+                <div class="w-overview__goal-bar">
+                  <div
+                    class="w-overview__goal-bar-fill"
+                    :style="{ width: percentualeObiettivo(obiettivoPrincipale) + '%' }"
+                  />
                 </div>
-                <span class="w-overview__goal-list-pct tabular-nums">{{ percentualeObiettivo(obj) }}%</span>
-              </li>
-            </ul>
-            <button type="button" class="w-overview__link-btn" @click="router.push('/obiettivi')">
-              Vedi tutti gli obiettivi →
-            </button>
-          </template>
-          <div v-else class="w-overview__cta-empty">
-            <Target class="w-overview__cta-icon" :size="32" :stroke-width="1.5" />
-            <p class="w-overview__cta-title">Fissa un obiettivo di risparmio</p>
-            <p class="w-overview__cta-desc">
-              Traccia i progressi verso ciò che conta per te: vacanze, auto, fondo emergenza…
-            </p>
-            <button type="button" class="w-overview__cta-btn" @click="router.push('/obiettivi')">
-              Crea obiettivo
-            </button>
-          </div>
+                <div class="w-overview__goal-meta">
+                  <span class="tabular-nums">
+                    {{ formatValuta(obiettivoPrincipale.importo_attuale) }}
+                    / {{ formatValuta(obiettivoPrincipale.importo_target) }}
+                  </span>
+                  <span class="w-overview__goal-pct tabular-nums">
+                    {{ percentualeObiettivo(obiettivoPrincipale) }}%
+                  </span>
+                </div>
+                <p v-if="obiettivoPrincipale.deadline" class="w-overview__goal-deadline">
+                  <Calendar :size="13" :stroke-width="1.75" />
+                  {{ formatData(obiettivoPrincipale.deadline) }}
+                </p>
+              </div>
+              <ul v-if="obiettiviSecondari.length" class="w-overview__goal-list">
+                <li v-for="obj in obiettiviSecondari" :key="obj.id">
+                  <span class="w-overview__goal-list-emoji">{{ obj.icona || '🎯' }}</span>
+                  <div class="w-overview__goal-list-body">
+                    <span class="w-overview__goal-list-name">{{ obj.nome }}</span>
+                    <div class="w-overview__goal-bar w-overview__goal-bar--sm">
+                      <div
+                        class="w-overview__goal-bar-fill"
+                        :style="{ width: percentualeObiettivo(obj) + '%' }"
+                      />
+                    </div>
+                  </div>
+                  <span class="w-overview__goal-list-pct tabular-nums">{{ percentualeObiettivo(obj) }}%</span>
+                </li>
+              </ul>
+              <button type="button" class="w-overview__link-btn" @click="router.push('/obiettivi')">
+                Vedi tutti gli obiettivi →
+              </button>
+            </template>
+            <div v-else class="w-overview__cta-empty">
+              <Target class="w-overview__cta-icon" :size="32" :stroke-width="1.5" />
+              <p class="w-overview__cta-title">Fissa un obiettivo di risparmio</p>
+              <p class="w-overview__cta-desc">
+                Traccia i progressi verso ciò che conta per te: vacanze, auto, fondo emergenza…
+              </p>
+              <button type="button" class="w-overview__cta-btn" @click="router.push('/obiettivi')">
+                Crea obiettivo
+              </button>
+            </div>
+          </DataState>
         </div>
 
         <!-- Scommesse -->
         <div v-if="slides.includes('scommesse')" class="w-overview__slide w-full shrink-0 snap-center">
-          <template v-if="loadingScommesse">
-            <WSkeleton type="text" :lines="2" />
-            <WSkeleton type="card" class="mt-3" />
-          </template>
-          <template v-else>
+          <DataState
+            :stato="statoScommesse"
+            :last-updated="lastUpdatedScommesse"
+            messaggio-errore="Non è stato possibile caricare le scommesse."
+            skeleton-type="text"
+            :skeleton-lines="2"
+            @riprova="emit('riprova-scommesse')"
+          >
             <p class="w-overview__eyebrow">
               <Dices :size="14" :stroke-width="1.75" class="w-overview__eyebrow-icon" />
               Scommesse · questo mese
@@ -452,16 +525,19 @@ onUnmounted(() => {
             <button type="button" class="w-overview__link-btn" @click="router.push('/scommesse')">
               Apri scommesse →
             </button>
-          </template>
+          </DataState>
         </div>
 
         <!-- Investimenti -->
         <div v-if="slides.includes('investimenti')" class="w-overview__slide w-full shrink-0 snap-center">
-          <template v-if="loadingInvestimenti">
-            <WSkeleton type="text" :lines="2" />
-            <WSkeleton type="card" class="mt-3" />
-          </template>
-          <template v-else>
+          <DataState
+            :stato="statoInvestimenti"
+            :last-updated="lastUpdatedInvestimenti"
+            messaggio-errore="Non è stato possibile caricare gli investimenti."
+            skeleton-type="text"
+            :skeleton-lines="2"
+            @riprova="emit('riprova-investimenti')"
+          >
             <p class="w-overview__eyebrow">
               <LineChart :size="14" :stroke-width="1.75" class="w-overview__eyebrow-icon" />
               Investimenti
@@ -484,7 +560,7 @@ onUnmounted(() => {
             <button type="button" class="w-overview__link-btn" @click="router.push('/investimenti')">
               Vedi portafoglio →
             </button>
-          </template>
+          </DataState>
         </div>
       </div>
     </div>
@@ -533,14 +609,25 @@ onUnmounted(() => {
   flex-direction: column;
 }
 
+/* DataState diventa l'unico figlio diretto della slide al posto del
+   `<template>` di prima: deve restare un contenitore flex-column che
+   riempie l'altezza disponibile, altrimenti `margin-top: auto` (split,
+   link-btn) e `flex: 1` (cta-empty) smettono di ancorare i loro elementi
+   in fondo alla scheda. */
+.w-overview__slide > .data-state {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .w-overview__eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--text-muted);
   margin-bottom: 0.375rem;
 }
@@ -946,12 +1033,6 @@ onUnmounted(() => {
   font-family: inherit;
 }
 
-.w-overview__chart-skeleton {
-  display: flex;
-  justify-content: center;
-  margin-top: 1rem;
-}
-
 .w-overview__dots {
   display: flex;
   justify-content: center;
@@ -989,5 +1070,14 @@ onUnmounted(() => {
   }
   .w-overview__doughnut-wrap { width: 150px; height: 150px; }
   .w-overview__line-wrap { height: 140px; }
+}
+
+/* La composizione spiega il totale invece di lasciarlo da interpretare:
+   quanta parte è sui conti e quanta è investita. */
+.w-overview__composizione {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  line-height: var(--leading-snug);
+  color: var(--text-secondary);
 }
 </style>

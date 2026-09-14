@@ -1,19 +1,19 @@
 <script setup>
-import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import WSkeleton from '@/components/common/WSkeleton.vue';
+import DataState from '@/components/common/DataState.vue';
 import ImportEstrattoHint from '@/components/common/ImportEstrattoHint.vue';
 import { useValuta } from '@/composables/useValuta';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
 import { getCategoriaEntrata, getCategoriaUscita } from '@/utils/categorie';
 import dayjs from 'dayjs';
 
-const props = defineProps({
+defineProps({
   movimenti: { type: Array, default: () => [] },
-  loading: { type: Boolean, default: false },
+  stato: { type: String, default: 'pronto' },
+  lastUpdated: { type: Number, default: null },
 });
 
-const emit = defineEmits(['select']);
+const emit = defineEmits(['select', 'riprova']);
 const router = useRouter();
 const { formatValuta } = useValuta();
 
@@ -44,8 +44,6 @@ const importoClass = (tipo) => {
   if (tipo === 'uscita') return 'expense';
   return 'neutral';
 };
-
-const hasMovimenti = computed(() => props.movimenti.length > 0);
 </script>
 
 <template>
@@ -57,48 +55,55 @@ const hasMovimenti = computed(() => props.movimenti.length > 0);
       </button>
     </div>
 
-    <div v-if="loading" class="recent-tx__list">
-      <WSkeleton v-for="i in 3" :key="i" type="card" class="recent-tx__skeleton" />
-    </div>
-
-    <div v-else-if="hasMovimenti" class="recent-tx__list">
-      <button
-        v-for="(mov, i) in movimenti"
-        :key="mov.id"
-        type="button"
-        class="recent-tx__item stagger-item"
-        :style="{ animationDelay: `${i * 50}ms` }"
-        @click="emit('select', mov)"
-      >
-        <div class="recent-tx__avatar" :class="`recent-tx__avatar--${mov.tipo}`">
-          <CategoryIcon :movimento="mov" :size="18" />
-        </div>
-        <div class="recent-tx__info">
-          <p class="recent-tx__name">{{ mov.descrizione || getCatInfo(mov).nome }}</p>
-          <p class="recent-tx__cat">{{ getCatInfo(mov).nome }}</p>
-        </div>
-        <div class="recent-tx__amount-wrap">
-          <p class="recent-tx__amount tabular-nums" :class="importoClass(mov.tipo)">
-            {{ importoDisplay(mov) }}
+    <DataState
+      :stato="stato"
+      :last-updated="lastUpdated"
+      messaggio-errore="Non è stato possibile caricare le transazioni recenti."
+      skeleton-type="text"
+      :skeleton-lines="4"
+      @riprova="emit('riprova')"
+    >
+      <template #vuoto>
+        <div class="recent-tx__empty">
+          <p class="recent-tx__empty-title">Nessuna transazione</p>
+          <p class="recent-tx__empty-hint">
+            Importa l'estratto conto o aggiungi un movimento manualmente: qui compariranno le ultime transazioni registrate in WALLT.
           </p>
-          <p class="recent-tx__date">{{ formatData(mov) }}</p>
+          <ImportEstrattoHint
+            class="recent-tx__import-hint"
+            message="CSV o Excel — Intesa, Revolut, Poste e altri formati"
+          />
+          <button type="button" class="recent-tx__manual-link" @click="router.push({ path: '/movimenti', query: { action: 'uscita' } })">
+            Oppure aggiungi una transazione manualmente →
+          </button>
         </div>
-      </button>
-    </div>
+      </template>
 
-    <div v-else class="recent-tx__empty">
-      <p class="recent-tx__empty-title">Nessuna transazione</p>
-      <p class="recent-tx__empty-hint">
-        Importa l'estratto conto o aggiungi un movimento manualmente: qui compariranno le ultime transazioni registrate in WALLT.
-      </p>
-      <ImportEstrattoHint
-        class="recent-tx__import-hint"
-        message="CSV o Excel — Intesa, Revolut, Poste e altri formati"
-      />
-      <button type="button" class="recent-tx__manual-link" @click="router.push({ path: '/movimenti', query: { action: 'uscita' } })">
-        Oppure aggiungi una transazione manualmente →
-      </button>
-    </div>
+      <div class="recent-tx__list">
+        <button
+          v-for="(mov, i) in movimenti"
+          :key="mov.id"
+          type="button"
+          class="recent-tx__item stagger-item"
+          :style="{ animationDelay: `${i * 50}ms` }"
+          @click="emit('select', mov)"
+        >
+          <div class="recent-tx__avatar" :class="`recent-tx__avatar--${mov.tipo}`">
+            <CategoryIcon :movimento="mov" :size="18" />
+          </div>
+          <div class="recent-tx__info">
+            <p class="recent-tx__name">{{ mov.descrizione || getCatInfo(mov).nome }}</p>
+            <p class="recent-tx__cat">{{ getCatInfo(mov).nome }}</p>
+          </div>
+          <div class="recent-tx__amount-wrap">
+            <p class="recent-tx__amount tabular-nums" :class="importoClass(mov.tipo)">
+              {{ importoDisplay(mov) }}
+            </p>
+            <p class="recent-tx__date">{{ formatData(mov) }}</p>
+          </div>
+        </button>
+      </div>
+    </DataState>
   </section>
 </template>
 
@@ -274,11 +279,6 @@ const hasMovimenti = computed(() => props.movimenti.length > 0);
 
 .recent-tx__manual-link:hover {
   color: var(--text-link);
-}
-
-.recent-tx__skeleton {
-  height: 72px;
-  border-radius: var(--radius-lg);
 }
 
 .tabular-nums {

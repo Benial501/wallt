@@ -1,24 +1,52 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { computed } from 'vue';
 import api from '@/utils/axios';
+import { creaRisorsa } from '@/utils/risorsa';
 
 export const useScommesseStore = defineStore('scommesse', () => {
-  const piattaforme = ref([]);
-  const movimenti = ref([]);
-  const panoramica = ref({});
-  const analisi = ref({});
-  const loading = ref(false);
-
-  const fetchPiattaforme = async () => {
-    loading.value = true;
-    try {
+  const risorsaPiattaforme = creaRisorsa(
+    async () => {
       const { data } = await api.get('/scommesse/piattaforme');
-      piattaforme.value = data.piattaforme;
       return data.piattaforme;
-    } finally {
-      loading.value = false;
-    }
-  };
+    },
+    { iniziale: [] },
+  );
+
+  const risorsaPanoramica = creaRisorsa(
+    async () => {
+      const { data } = await api.get('/scommesse/panoramica');
+      return data;
+    },
+    { iniziale: {} },
+  );
+
+  const risorsaMovimenti = creaRisorsa(
+    async (filtri = {}) => {
+      const { data } = await api.get('/scommesse/movimenti', { params: filtri });
+      return data.movimenti;
+    },
+    { iniziale: [] },
+  );
+
+  const risorsaAnalisi = creaRisorsa(
+    async (filtri = {}) => {
+      const { data } = await api.get('/scommesse/analisi', { params: filtri });
+      return data;
+    },
+    { iniziale: {} },
+  );
+
+  // --- Interfaccia pubblica invariata -------------------------------------
+  const piattaforme = computed(() => risorsaPiattaforme.data.value || []);
+  const movimenti = computed(() => risorsaMovimenti.data.value || []);
+  const panoramica = computed(() => risorsaPanoramica.data.value || {});
+  const analisi = computed(() => risorsaAnalisi.data.value || {});
+  const loading = computed(() => risorsaPiattaforme.loading.value);
+
+  const fetchPiattaforme = () => risorsaPiattaforme.carica();
+  const fetchPanoramica = () => risorsaPanoramica.carica();
+  const fetchMovimenti = (filtri = {}) => risorsaMovimenti.carica(filtri);
+  const fetchAnalisi = (filtri = {}) => risorsaAnalisi.carica(filtri);
 
   const createPiattaforma = async (dati) => {
     const { data } = await api.post('/scommesse/piattaforme', dati);
@@ -55,35 +83,31 @@ export const useScommesseStore = defineStore('scommesse', () => {
     return data;
   };
 
-  const fetchPanoramica = async () => {
-    try {
-      const { data } = await api.get('/scommesse/panoramica');
-      panoramica.value = data;
-      return data;
-    } catch {
-      return null;
-    }
-  };
-
-  const fetchMovimenti = async (filtri = {}) => {
-    const { data } = await api.get('/scommesse/movimenti', { params: filtri });
-    movimenti.value = data.movimenti;
-    return data.movimenti;
-  };
-
-  const fetchAnalisi = async (filtri = {}) => {
-    try {
-      const { data } = await api.get('/scommesse/analisi', { params: filtri });
-      analisi.value = data;
-      return data;
-    } catch {
-      return null;
-    }
+  const reset = () => {
+    risorsaPiattaforme.reset();
+    risorsaPanoramica.reset();
+    risorsaMovimenti.reset();
+    risorsaAnalisi.reset();
   };
 
   return {
-    piattaforme, movimenti, panoramica, analisi, loading,
-    fetchPiattaforme, createPiattaforma, updatePiattaforma, deletePiattaforma,
-    addMovimento, fetchPanoramica, fetchMovimenti, fetchAnalisi,
+    risorsaPiattaforme,
+    risorsaPanoramica,
+    risorsaMovimenti,
+    risorsaAnalisi,
+    piattaforme,
+    movimenti,
+    panoramica,
+    analisi,
+    loading,
+    fetchPiattaforme,
+    createPiattaforma,
+    updatePiattaforma,
+    deletePiattaforma,
+    addMovimento,
+    fetchPanoramica,
+    fetchMovimenti,
+    fetchAnalisi,
+    reset,
   };
 });

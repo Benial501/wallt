@@ -343,9 +343,7 @@ const performResetAccount = async (stepUpToken, payload) => {
       authStore.updateUser(data.user);
     }
 
-    movimentiStore.movimentiPerData = [];
-    movimentiStore.bilancioMese = {};
-    movimentiStore.pagination = { page: 1, total: 0, pages: 0 };
+    movimentiStore.reset();
     await contiStore.fetchConti();
     await contiStore.fetchPatrimonio();
     await movimentiStore.fetchMovimenti();

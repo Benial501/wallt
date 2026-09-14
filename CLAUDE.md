@@ -195,6 +195,8 @@ Configurazione DB: `server/config/database.js` accetta `DATABASE_URL` **oppure**
 14. Preservare retrocompatibilità quando possibile.
 15. Le categorie di movimento sono definite in `server/constants/categorie.js` (backend) e `client/src/utils/categorie.js` (frontend) — aggiornare entrambi.
 16. Non confondere `tipo: 'trasferimento'` (movimento) con categoria `trasferimento_denaro` (uscita).
+17. Le letture dall'API negli store passano da `creaRisorsa` (`client/src/utils/risorsa.js`). Un gestore d'errore non deve **mai** azzerare i dati già ottenuti: è la regola che ha reso indistinguibili "dati assenti" ed "errore di rete" (`catch { lista.value = [] }`). Le viste mostrano lo stato con `DataState` (`client/src/components/common/DataState.vue`), e lo stato vuoto va nello slot `vuoto`, mai in un `v-if="!dati && !loading"`.
+18. Le etichette dei concetti finanziari si leggono da `client/src/content/glossario.js`, non si scrivono in linea. Lo stesso numero (conti attivi più investimenti attivi) aveva tre etichette diverse in punti diversi dell'app: "Saldo del conto", "Patrimonio totale" e "Patrimonio Totale" in un componente poi rimosso. "Patrimonio totale" = conti attivi + investimenti attivi; la componente "Conti" comprende anche scommesse e risparmio, per questo non si chiama "Disponibilità".
 
 ## Sensitive Areas
 
@@ -212,18 +214,19 @@ Configurazione DB: `server/config/database.js` accetta `DATABASE_URL` **oppure**
 | **Feature access minori** | Logica duplicata frontend/backend | `featureAccess.js` (client + server), `ageRestriction.js` |
 | **Notifiche** | Regole anti-spam, deduplica e fuso orario: una modifica sbagliata trasforma il sistema in spam. Il calcolo del budget è condiviso con l'API budget | `services/notifiche/`, `services/budgetStato.service.js` |
 | **Hook budget post-movimento** | `valutaBudgetDopoMovimento` è chiamata (awaited) dopo il commit in `createMovimento`/`updateMovimento` e dopo l'import: deve restare fuori dalla transazione e non lanciare mai | `movimenti.controller.js`, `importazioni.controller.js`, `NotificheGenerator.js` |
+| **Stato delle letture** | `creaRisorsa` garantisce che un errore non azzeri i dati e che una risposta sorpassata non sovrascriva una più recente. Cambiarne la semantica rimette in circolo il difetto per cui un errore di rete sembrava una perdita di dati | `utils/risorsa.js`, `components/common/DataState.vue` |
 
 ## Known Issues
 
 1. **Dual import architecture**: `services/import/` e `services/importazioni/` con re-export — rischio di modificare il file sbagliato.
 2. ~~**Cron ricorrenti processa solo `mensile`**~~ — **Risolto**: API/validazione ora accettano solo `ricorrente_frequenza: 'mensile'` (l'unica realmente processata dal cron), coerente con la UI. La colonna DB resta un ENUM a 4 valori per retrocompatibilità con eventuali righe storiche, ma non è più possibile crearne di nuove con `giornaliera`/`settimanale`/`annuale`. Corretto anche un bug per cui il controllo anti-duplicazione del cron confrontava la descrizione sbagliata e non preveniva mai un doppio addebito in caso di doppia esecuzione nello stesso giorno (vedi `docs/SECURITY.md`).
 3. **Merchant lookup providers**: tutti stub (Google Places, Foursquare, OSM).
-4. **Codice morto**: `minorRestriction.middleware.js`, componenti dashboard non usati, `PlaceholderView.vue`.
+4. ~~**Codice morto**: componenti dashboard non usati, `PlaceholderView.vue`~~ — **Risolto** (`9655ac4`): nessuno dei cinque file era importato; rimossi anche perché `GlassBalanceCard.vue` conteneva "Patrimonio Totale", un'etichetta concorrente per lo stesso numero ora centralizzato nel glossario (Coding Rule 18). Resta `minorRestriction.middleware.js`, fuori dal perimetro di questo sotto-progetto (server, non toccato): vedi Coding Rule 12.
 5. ~~**`.env.test` non in `.gitignore`**~~ — **Risolto**: aggiunto a `.gitignore` e rimosso dal tracking git. Era stato committato in 2 commit con una password DB reale (locale/dev): quella password va considerata compromessa e ruotata prima del lancio (MANUAL ACTION, vedi `docs/SECURITY.md`).
 6. **Operazioni distruttive senza riverifica di identità per gli account Google** (rischio accettato esplicitamente, iterazione 4): `reset-account`, `delete-account` ed `esporta` richiedono lo step-up solo agli utenti con password locale. Per gli account Google bastano JWT + stringa pubblica. Da richiudere prima della produzione: registrare l'origin JavaScript in Google Cloud e rimettere `requireStepUp` sulle tre rotte in `impostazioni.routes.js`. Vedi Authentication, `docs/SECURITY.md` e `docs/DECISIONS.md`.
 7. **Test coverage**: 33 suite — 407 test (fra cui `categorieDefault` per l'eliminazione per-utente delle predefinite, `confrontoPeriodi` per gli intervalli dei periodi nelle Analisi e `analisiConfronto` per i due endpoint che li usano). Isolamento cross-user, coerenza saldi/movimenti/trasferimenti (incluse race condition), step-up Google, cron ricorrenti e config produzione coperti. Non coperti: budget/obiettivi/investimenti/scommesse a livello di logica di business (solo isolamento).
 8. **Migrazioni duplicate**: `add-social-auth` e `add_auth_provider` fanno cose simili.
-9. **Session reset incompleto**: logout non pulisce `recentiHome` nello store `movimenti`, né i campi `panoramica`/`analisi` interni allo store `scommesse`. Lo store `analisi` principale viene invece resettato correttamente.
+9. ~~**Session reset incompleto**~~ — **Risolto**: logout non puliva `recentiHome` nello store `movimenti` né i campi `panoramica`/`analisi` interni allo store `scommesse` (lo store `analisi` principale era già a posto). Da quando i sette store che alimentano la dashboard leggono da `creaRisorsa`, `resetPiniaStores()` (`utils/session.js`) richiama il `reset()` di ciascuno invece di elencarne i campi a mano, e quel `reset()` azzera anche le risorse interne: il sintomo sparisce insieme alla causa (`f565764`).
 10. ~~**Nessuna CI/CD**~~ — **Risolto**: `.github/workflows/ci.yml` esegue test backend con un service container PostgreSQL + test/build frontend su ogni push/PR su `main`.
 
 ## Current Roadmap

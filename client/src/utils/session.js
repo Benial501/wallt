@@ -33,54 +33,20 @@ export function resetPiniaStores() {
     profiloStore.error = null;
   } catch { /* ignore */ }
 
-  try {
-    const contiStore = useContiStore();
-    contiStore.conti = [];
-    contiStore.patrimonioTotale = 0;
-    contiStore.variazioneImporto = 0;
-    contiStore.variazionePercentuale = 0;
-  } catch { /* ignore */ }
-
-  try {
-    const movimentiStore = useMovimentiStore();
-    movimentiStore.movimentiPerData = [];
-    movimentiStore.bilancioMese = {};
-    movimentiStore.pagination = { page: 1, total: 0, pages: 0 };
-  } catch { /* ignore */ }
-
-  try {
-    const budgetStore = useBudgetStore();
-    budgetStore.budgetCorrente = null;
-    budgetStore.statoBudget = [];
-    budgetStore.budgetSuggerito = null;
-    budgetStore.esiste = false;
-  } catch { /* ignore */ }
-
-  try {
-    const obiettiviStore = useObiettiviStore();
-    obiettiviStore.obiettivi = { attivi: [], completati: [] };
-  } catch { /* ignore */ }
-
-  try {
-    const scommesseStore = useScommesseStore();
-    scommesseStore.piattaforme = [];
-    scommesseStore.movimenti = [];
-  } catch { /* ignore */ }
-
-  try {
-    const investimentiStore = useInvestimentiStore();
-    investimentiStore.investimenti = [];
-    investimentiStore.movimenti = [];
-  } catch { /* ignore */ }
-
-  try {
-    const analisiStore = useAnalisiStore();
-    analisiStore.distribuzioneSpese = [];
-    analisiStore.totaleSpese = 0;
-    analisiStore.confrontoPeriodi = [];
-    analisiStore.andamentoPatrimonio = {};
-    analisiStore.suggerimenti = [];
-  } catch { /* ignore */ }
+  // Ogni store migrato azzera le proprie risorse: elencare i campi a mano
+  // era il motivo per cui `recentiHome` e i campi di scommesse restavano
+  // popolati dopo il logout (difetto noto numero 9).
+  [
+    useContiStore,
+    useMovimentiStore,
+    useBudgetStore,
+    useAnalisiStore,
+    useObiettiviStore,
+    useInvestimentiStore,
+    useScommesseStore,
+  ].forEach((useStore) => {
+    try { useStore().reset(); } catch { /* ignore */ }
+  });
 
   try {
     useUiStore().chiudiForm();

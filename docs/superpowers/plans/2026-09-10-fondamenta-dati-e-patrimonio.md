@@ -299,18 +299,18 @@ import { ref, computed } from 'vue';
 /**
  * Stato di una lettura dall'API.
  *
- * Nasce da un difetto concreto: piu' store azzeravano i dati nel gestore
+ * Nasce da un difetto concreto: più store azzeravano i dati nel gestore
  * dell'errore (`catch { lista.value = [] }`), e la vista mostrava lo stato
  * vuoto — "Nessun budget per settembre" — al posto di un errore di rete.
  * L'utente leggeva una perdita di dati dove c'era solo una richiesta fallita.
  *
- * Qui la regola non e' una convenzione da ricordare: e' l'unico modo in cui
- * `carica` e' scritta. In caso di fallimento viene scritto SOLO `error`.
+ * Qui la regola non è una convenzione da ricordare: è l'unico modo in cui
+ * `carica` è scritta. In caso di fallimento viene scritto SOLO `error`.
  *
  * I dati vivono in memoria e basta: niente localStorage, mai. Un saldo non
- * deve finire su disco (stessa scelta gia' fatta per il payload delle push).
+ * deve finire su disco (stessa scelta già fatta per il payload delle push).
  *
- * @param {Function} fetcher  funzione asincrona che restituisce i dati gia'
+ * @param {Function} fetcher  funzione asincrona che restituisce i dati già
  *                            estratti dalla risposta.
  * @param {Object}   opzioni
  * @param {*}        opzioni.iniziale  valore di partenza di `data`.
@@ -336,12 +336,12 @@ export const creaRisorsa = (fetcher, { iniziale = null, vuotoSe } = {}) => {
   const isVuoto = typeof vuotoSe === 'function' ? vuotoSe : vuotoPredefinito;
 
   /**
-   * L'ordine e' vincolante. `caricamento` precede `errore` cosi' un "Riprova"
+   * L'ordine è vincolante. `caricamento` precede `errore` così un "Riprova"
    * dopo un fallimento senza dati mostra di nuovo lo scheletro, invece di
    * lasciare il pannello d'errore fino alla risposta. Con dati precedenti,
    * invece, `errore-con-dati` sopravvive al tentativo in corso: il dato a
-   * schermo e' ancora vecchio finche' non arriva quello nuovo, e dirlo a
-   * meta' strada e poi ridirlo sarebbe un lampeggio.
+   * schermo è ancora vecchio finche' non arriva quello nuovo, e dirlo a
+   * metà strada e poi ridirlo sarebbe un lampeggio.
    */
   const stato = computed(() => {
     if (loading.value && lastUpdated.value === null) return 'caricamento';
@@ -352,7 +352,7 @@ export const creaRisorsa = (fetcher, { iniziale = null, vuotoSe } = {}) => {
   });
 
   /**
-   * Non lancia mai: l'errore e' uno stato, non un'eccezione. Chi chiama non
+   * Non lancia mai: l'errore è uno stato, non un'eccezione. Chi chiama non
    * deve incatenare `.catch()` per evitare una rejection non gestita, e chi
    * ha bisogno di sapere com'e' andata guarda `error` oppure il valore di
    * ritorno (i dati, oppure `undefined`).
@@ -382,8 +382,8 @@ export const creaRisorsa = (fetcher, { iniziale = null, vuotoSe } = {}) => {
   const riprova = () => carica(...ultimiArgs);
 
   /**
-   * L'incremento di `sequenza` non e' un dettaglio: invalida le richieste in
-   * volo, cosi' una risposta che arriva dopo il logout non puo' ripopolare la
+   * L'incremento di `sequenza` non è un dettaglio: invalida le richieste in
+   * volo, così una risposta che arriva dopo il logout non può ripopolare la
    * risorsa con i dati dell'utente precedente.
    */
   const reset = () => {
@@ -421,10 +421,10 @@ Atteso: 79 test verdi (65 di baseline + 14 nuovi), 0 falliti.
 git add client/src/utils/risorsa.js client/tests/risorsa.test.js
 git commit -m "Aggiunge creaRisorsa, lo stato di una lettura dall'API
 
-Un fallimento non puo' piu' azzerare i dati gia' ottenuti: e' una
+Un fallimento non può più azzerare i dati già ottenuti: è una
 proprieta' della funzione, non una convenzione. Include la guardia di
-sequenza contro le risposte sorpassate, gia' possibile oggi sulla
-dashboard, e l'invalidazione delle richieste in volo al reset, perche'
+sequenza contro le risposte sorpassate, già possibile oggi sulla
+dashboard, e l'invalidazione delle richieste in volo al reset, perché
 una risposta in ritardo non ripopoli la risorsa dopo il logout."
 ```
 
@@ -462,8 +462,8 @@ dayjs.locale('it');
 /**
  * Traduce lo stato di una risorsa (utils/risorsa.js) in cio' che si vede.
  *
- * Il caso che questo componente esiste per risolvere e' `errore-con-dati`:
- * la richiesta e' fallita ma i dati precedenti sono ancora a schermo. Prima
+ * Il caso che questo componente esiste per risolvere è `errore-con-dati`:
+ * la richiesta è fallita ma i dati precedenti sono ancora a schermo. Prima
  * quel caso non esisteva — un errore svuotava la pagina e l'utente credeva
  * di aver perso i propri dati.
  */
@@ -530,7 +530,10 @@ const orarioAggiornamento = computed(() => {
           <p class="data-state__avviso-titolo">Dati non aggiornati</p>
           <p class="data-state__avviso-dettaglio">
             Non è stato possibile aggiornare i dati. Stai visualizzando l'ultimo
-            aggiornamento disponibile<template v-if="orarioAggiornamento">, {{ orarioAggiornamento }}</template>.
+            aggiornamento disponibile.
+          </p>
+          <p v-if="orarioAggiornamento" class="data-state__avviso-orario">
+            Aggiornati {{ orarioAggiornamento }}
           </p>
         </div>
         <button
@@ -615,6 +618,14 @@ const orarioAggiornamento = computed(() => {
   color: var(--text-secondary);
 }
 
+/* L'orario è un elemento a sé, non un inciso dentro la frase: la frase
+   dell'avviso è vincolata alla lettera e deve restare intatta. */
+.data-state__avviso-orario {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
 /* --- Riprova ------------------------------------------------------------- */
 .data-state__riprova {
   display: inline-flex;
@@ -669,9 +680,9 @@ git add client/src/components/common/DataState.vue
 git commit -m "Aggiunge DataState, la presentazione dello stato di una lettura
 
 Traduce lo stato di una risorsa in cio' che si vede. Il caso per cui
-esiste e' 'errore-con-dati': la richiesta e' fallita ma i dati
+esiste è 'errore-con-dati': la richiesta è fallita ma i dati
 precedenti restano a schermo, con un avviso sopra invece del vuoto.
-L'avviso e' role=status, il pannello d'errore role=alert, e ogni
+L'avviso è role=status, il pannello d'errore role=alert, e ogni
 segnale porta icona e testo, mai il solo colore."
 ```
 
@@ -762,7 +773,7 @@ Crea `client/src/content/glossario.js`:
  * Nasce da un difetto concreto: lo stesso numero aveva tre nomi diversi.
  * "Saldo del conto" nella dashboard, "Patrimonio totale" nella pagina Conti
  * e "Patrimonio Totale" in un componente non usato — tutti e tre erano conti
- * piu' investimenti. Chi confrontava due pagine trovava definizioni in
+ * più investimenti. Chi confrontava due pagine trovava definizioni in
  * conflitto e non poteva sapere quale credere.
  *
  * Da qui in avanti l'etichetta si legge, non si scrive in linea. Aggiungere
@@ -777,7 +788,7 @@ const CONCETTI = [
     id: 'patrimonio_totale',
     etichetta: 'Patrimonio totale',
     descrizione:
-      'Tutto quello che hai registrato in WALLT: i saldi dei conti attivi piu\' il valore attuale degli investimenti.',
+      'Tutto quello che hai registrato in WALLT: i saldi dei conti attivi più il valore attuale degli investimenti.',
     formula: 'conti attivi + investimenti attivi',
     origine: 'GET /conti/patrimonio → totale',
     topic: 'patrimonio-come-si-calcola',
@@ -801,7 +812,7 @@ const CONCETTI = [
     id: 'risultato_mese',
     etichetta: 'Risultato del mese',
     descrizione:
-      'Quanto e\' entrato meno quanto e\' uscito nel mese. Gli spostamenti fra due tuoi conti non contano ne\' come entrata ne\' come uscita.',
+      'Quanto è entrato meno quanto è uscito nel mese. Gli spostamenti fra due tuoi conti non contano né come entrata né come uscita.',
     formula: 'entrate − uscite, trasferimenti esclusi',
     origine: 'GET /movimenti/bilancio → saldo',
   },
@@ -833,13 +844,13 @@ In `client/src/content/helpTopics.js`, inserisci questo argomento nell'array `TO
     title: 'Come si calcola il patrimonio',
     summary: 'Patrimonio totale = saldi dei conti attivi + valore attuale degli investimenti.',
     paragraphs: [
-      'Il "Patrimonio totale" della home somma due cose: i saldi di tutti i tuoi conti attivi e il valore attuale dei tuoi investimenti. Sotto la cifra trovi la composizione, cosi\' vedi sempre quanta parte e\' su conti e quanta e\' investita.',
-      'Dentro "Conti" c\'e\' ogni conto che hai registrato come attivo: conto corrente, contanti, wallet, risparmio e anche le piattaforme di scommesse. Non e\' quindi la cifra che puoi spendere domani, ma tutto il denaro che tieni tracciato in WALLT.',
-      'I trasferimenti fra due tuoi conti non cambiano il patrimonio: spostano denaro da una tasca all\'altra, quindi non sono ne\' entrate ne\' uscite e non compaiono nel risultato del mese.',
+      'Il "Patrimonio totale" della home somma due cose: i saldi di tutti i tuoi conti attivi e il valore attuale dei tuoi investimenti. Sotto la cifra trovi la composizione, così vedi sempre quanta parte è su conti e quanta è investita.',
+      'Dentro "Conti" c\'è ogni conto che hai registrato come attivo: conto corrente, contanti, wallet, risparmio e anche le piattaforme di scommesse. Non è quindi la cifra che puoi spendere domani, ma tutto il denaro che tieni tracciato in WALLT.',
+      'I trasferimenti fra due tuoi conti non cambiano il patrimonio: spostano denaro da una tasca all\'altra, quindi non sono né entrate né uscite e non compaiono nel risultato del mese.',
     ],
     bullets: [
-      'Un conto eliminato non entra piu\' nel totale: i suoi movimenti restano pero\' nello storico.',
-      'Il "Risultato del mese" e\' entrate meno uscite, senza i trasferimenti.',
+      'Un conto eliminato non entra più nel totale: i suoi movimenti restano però nello storico.',
+      'Il "Risultato del mese" è entrate meno uscite, senza i trasferimenti.',
     ],
     related: ['trasferimenti', 'dashboard-riepilogo'],
   },
@@ -867,9 +878,9 @@ git commit -m "Aggiunge il glossario delle etichette finanziarie
 
 Lo stesso numero aveva tre nomi diversi in tre pagine: 'Saldo del
 conto', 'Patrimonio totale' e 'Patrimonio Totale' erano tutti conti
-piu' investimenti. Da qui in avanti l'etichetta si legge da un posto
+più investimenti. Da qui in avanti l'etichetta si legge da un posto
 solo. Aggiunge anche l'argomento di aiuto che spiega la formula e
-chiarisce che i trasferimenti fra conti non sono entrate ne' uscite.
+chiarisce che i trasferimenti fra conti non sono entrate né uscite.
 
 La prima voce si chiama 'Conti' e non 'Disponibilita' totale': il
 calcolo comprende scommesse e risparmio, quindi 'immediatamente
@@ -934,7 +945,7 @@ export const useContiStore = defineStore('conti', () => {
   /**
    * Il patrimonio arriva da due endpoint che usano la stessa identica
    * formula (conti attivi + investimenti attivi). Vince quello dedicato
-   * quando c'e', perche' porta anche la scomposizione.
+   * quando c'è, perché porta anche la scomposizione.
    */
   const patrimonioTotale = computed(() => (
     risorsaPatrimonio.data.value?.totale
@@ -952,15 +963,23 @@ export const useContiStore = defineStore('conti', () => {
   });
 
   /**
-   * Le tre voci mostrate sotto il totale. Il server le manda gia' entrambe
-   * (`totale_conti`, `totale_investimenti`): prima venivano scartate, ed e'
+   * Le tre voci mostrate sotto il totale. Il server le manda già entrambe
+   * (`totale_conti`, `totale_investimenti`): prima venivano scartate, ed è
    * il motivo per cui la scheda poteva solo dire un numero senza spiegarlo.
    */
-  const composizionePatrimonio = computed(() => ({
-    totale: patrimonioTotale.value,
-    conti: risorsaPatrimonio.data.value?.totale_conti ?? 0,
-    investimenti: risorsaPatrimonio.data.value?.totale_investimenti ?? 0,
-  }));
+  const composizionePatrimonio = computed(() => {
+    const p = risorsaPatrimonio.data.value;
+    // `null` finche' la risposta dedicata non c'e'. Il totale ha un fallback
+    // su /conti, la scomposizione no: restituire zeri la farebbe contraddire
+    // il numero scritto sopra, ed e' proprio l'invariante che la scheda deve
+    // rendere evidente. Meglio nessuna composizione che una falsa.
+    if (!p) return null;
+    return {
+      totale: patrimonioTotale.value,
+      conti: p.totale_conti ?? 0,
+      investimenti: p.totale_investimenti ?? 0,
+    };
+  });
 
   const fetchConti = () => risorsaConti.carica();
   const fetchPatrimonio = () => risorsaPatrimonio.carica();
@@ -1067,7 +1086,7 @@ import { etichetta } from '@/content/glossario';
 Aggiungi la proprietà per la composizione accanto alle altre `defineProps`:
 
 ```js
-  composizione: { type: Object, default: () => ({ conti: 0, investimenti: 0 }) },
+  composizione: { type: Object, default: null },
 ```
 
 Poi sostituisci il blocco della prima scheda (righe 217-249, quello che comincia con `<!-- Saldo del conto -->`) con:
@@ -1085,7 +1104,7 @@ Poi sostituisci il blocco della prima scheda (righe 217-249, quello che comincia
               <HelpTrigger topic="patrimonio-come-si-calcola" variant="quiet" />
             </p>
             <p class="w-overview__amount tabular-nums">{{ formatValuta(animatedPatrimonio) }}</p>
-            <p class="w-overview__composizione">
+            <p v-if="composizione" class="w-overview__composizione">
               {{ etichetta('componente_conti') }} <span class="tabular-nums">{{ formatValuta(composizione.conti) }}</span>
               ·
               {{ etichetta('componente_investimenti') }} <span class="tabular-nums">{{ formatValuta(composizione.investimenti) }}</span>
@@ -1124,7 +1143,7 @@ che vince sul primo e ne cambia il `gap`.
 
 ```css
 /* La composizione spiega il totale invece di lasciarlo da interpretare:
-   quanta parte e' sui conti e quanta e' investita. */
+   quanta parte è sui conti e quanta è investita. */
 .w-overview__composizione {
   margin-top: 0.25rem;
   font-size: 0.875rem;
@@ -1155,6 +1174,19 @@ In `client/src/views/DashboardView.vue`, aggiungi al `<WOverviewCarousel>` la pr
 ```vue
       :composizione="contiStore.composizionePatrimonio"
 ```
+
+Infine, nello stesso `<WOverviewCarousel>`, estendi il gate di caricamento della
+scheda anche alla risorsa del patrimonio, altrimenti la composizione compare un
+istante dopo il totale e fa saltare il layout:
+
+```vue
+      :loading-saldo="contiStore.loading || contiStore.risorsaPatrimonio.loading.value || movimentiStore.loadingBilancio"
+```
+
+`/conti/patrimonio` fa piu' lavoro sul server di `/conti` (interroga anche
+movimenti e investimenti), quindi in condizioni normali - non solo in casi
+avversi - risponde dopo. Senza questo gate la scheda resta scoperta proprio
+nella finestra in cui i due numeri non tornano.
 
 - [ ] **Step 5: Allineare l'etichetta della pagina Conti**
 
@@ -1224,15 +1256,15 @@ Il punto 2 è il controllo che conta: se i due addendi non fanno il totale, la s
 
 ```bash
 git add client/src/stores/conti.store.js client/src/components/custom/WOverviewCarousel.vue client/src/views/DashboardView.vue client/src/views/ContiView.vue client/src/utils/session.js
-git commit -m "Mostra il patrimonio con la sua composizione, e non piu' come 'saldo'
+git commit -m "Mostra il patrimonio con la sua composizione, e non più come 'saldo'
 
-La scheda principale diceva 'Saldo del conto' per un numero che e'
-conti piu' investimenti: sembrava riferito a un conto solo. Ora dice
-'Patrimonio totale' e sotto mostra da cosa e' composto.
+La scheda principale diceva 'Saldo del conto' per un numero che è
+conti più investimenti: sembrava riferito a un conto solo. Ora dice
+'Patrimonio totale' e sotto mostra da cosa è composto.
 
-Il server mandava gia' totale_conti e totale_investimenti, e il client
+Il server mandava già totale_conti e totale_investimenti, e il client
 li scartava: nessun calcolo nuovo, nessuna modifica all'API. conti.store
-passa a creaRisorsa mantenendo invariata l'interfaccia pubblica, cosi'
+passa a creaRisorsa mantenendo invariata l'interfaccia pubblica, così
 le viste non ancora migrate continuano a funzionare."
 ```
 
@@ -1266,9 +1298,9 @@ export const useBudgetStore = defineStore('budget', () => {
       const { data } = await api.get(`/budget/${anno}/${mese}`);
       return data;
     },
-    // "Vuoto" qui significa: il server ha risposto e il budget non c'e'.
-    // Non significa "la richiesta e' fallita" — quella e' un'altra cosa,
-    // ed e' precisamente la confusione che questo task elimina.
+    // "Vuoto" qui significa: il server ha risposto e il budget non c'è.
+    // Non significa "la richiesta è fallita" — quella è un'altra cosa,
+    // ed è precisamente la confusione che questo task elimina.
     { iniziale: null, vuotoSe: (d) => !d || d.esiste === false },
   );
 
@@ -1288,19 +1320,76 @@ export const useBudgetStore = defineStore('budget', () => {
   const budgetSuggerito = computed(() => (
     risorsaBudget.data.value?.esiste ? null : (risorsaBudget.data.value?.suggerito || null)
   ));
-  // INVARIANTE: su errore resta l'ultimo stato valido, non un array vuoto.
+  // Su errore resta l'ultimo stato valido: `carica` non tocca mai `data`
+  // quando fallisce. Il `|| []` copre solo il caso in cui non ci sia MAI
+  // stata una lettura riuscita, non il caso "richiesta fallita".
   const statoBudget = computed(() => risorsaStato.data.value?.stato || []);
   const esiste = computed(() => risorsaBudget.data.value?.esiste === true);
   const loading = computed(() => risorsaBudget.loading.value);
 
-  const hasBudget = computed(() => esiste.value && !!budgetCorrente.value);
+  /**
+   * "C'e' un budget da mostrare", non "il server ha detto esiste:true".
+   * La differenza conta dopo una scrittura: se il POST riesce ma la
+   * rilettura di /budget fallisce, `esiste` resta false mentre il budget
+   * arriva comunque da /stato. Legandosi a `esiste` la pagina mostrerebbe
+   * un avviso sopra il vuoto subito dopo aver detto "Budget creato".
+   */
+  const hasBudget = computed(() => !!budgetCorrente.value);
+
+  /**
+   * Stato della pagina: combina le due letture. Se il budget c'e' ma lo
+   * stato di spesa non si e' aggiornato, la pagina deve comunque dichiarare
+   * che i numeri sono vecchi.
+   */
+  const statoPagina = computed(() => {
+    const principale = risorsaBudget.stato.value;
+    if (principale === 'pronto' && risorsaStato.error.value) return 'errore-con-dati';
+    return principale;
+  });
+
+  /** Il piu' vecchio dei due aggiornamenti riusciti: l'avviso non deve
+   *  vantare una freschezza che una delle due letture non ha. */
+  const lastUpdatedPagina = computed(() => {
+    const a = risorsaBudget.lastUpdated.value;
+    const b = risorsaStato.lastUpdated.value;
+    if (a === null) return b;
+    if (b === null) return a;
+    return Math.min(a, b);
+  });
+
+  /**
+   * Ritenta il budget e, se dopo il ritentativo c'e' un budget da mostrare,
+   * (ri)carica il suo stato di spesa.
+   *
+   * Perche' `carica` e non `riprova`: al primo caricamento fallito lo stato
+   * di spesa non e' mai stato chiesto, quindi non ha argomenti da ripetere.
+   * Un `riprova()` li' costruirebbe un URL invalido, e saltarlo lascerebbe
+   * il budget a schermo con tutte le categorie a zero speso.
+   */
+  const riprovaPagina = async () => {
+    await risorsaBudget.riprova();
+    if (hasBudget.value && ultimoPeriodo) {
+      return risorsaStato.carica(ultimoPeriodo.mese, ultimoPeriodo.anno);
+    }
+    return undefined;
+  };
   const categorieInAlert = computed(() => statoBudget.value.filter((c) => c.stato === 'superato'));
   const totaleSpeso = computed(() =>
     statoBudget.value.reduce((s, c) => s + (parseFloat(c.speso) || 0), 0)
   );
 
-  const fetchBudget = (mese, anno) => risorsaBudget.carica(mese, anno);
-  const fetchStatoBudget = (mese, anno) => risorsaStato.carica(mese, anno);
+  /** Periodo dell'ultima richiesta: serve a `riprovaPagina` per caricare lo
+   *  stato di spesa quando non e' mai stato chiesto prima. */
+  let ultimoPeriodo = null;
+
+  const fetchBudget = (mese, anno) => {
+    ultimoPeriodo = { mese, anno };
+    return risorsaBudget.carica(mese, anno);
+  };
+  const fetchStatoBudget = (mese, anno) => {
+    ultimoPeriodo = { mese, anno };
+    return risorsaStato.carica(mese, anno);
+  };
 
   const reset = () => {
     risorsaBudget.reset();
@@ -1324,7 +1413,27 @@ Le funzioni di scrittura (`createBudget`, `updateBudget`, ed eventuali altre pre
   };
 ```
 
-Ricordati di aggiungere `risorsaBudget`, `risorsaStato` e `reset` all'oggetto restituito dallo store.
+Ricordati di aggiungere `risorsaBudget`, `risorsaStato`, `statoPagina`, `lastUpdatedPagina`, `riprovaPagina` e `reset` all'oggetto restituito dallo store.
+
+- [ ] **Step 1b: Neutralizzare il reset di sessione**
+
+**Neutralizza il blocco di questo store in `session.js`.** `resetPiniaStores`
+(`client/src/utils/session.js`, righe 36-82) assegna direttamente i campi di
+tutti e sette gli store. Le proprietà che questo task trasforma in `computed`
+non sono più scrivibili: l'assegnazione fallisce e l'errore viene inghiottito
+dal `catch { /* ignore */ }` che avvolge ogni blocco. Nessun crash, ma **il
+logout smette di ripulire questo store** e i dati dell'utente precedente
+restano in memoria.
+
+Sostituisci il blocco `try { ... } catch` di questo store con:
+
+```js
+  try { useBudgetStore().reset(); } catch { /* ignore */ }
+```
+
+Il Task 10 unificherà i sette one-liner in un ciclo. Farlo qui serve a tenere
+ogni commit pubblicabile per conto suo: un logout che non pulisce è un difetto
+di privacy, non un dettaglio di refactoring.
 
 - [ ] **Step 2: Correggere la vista**
 
@@ -1340,33 +1449,48 @@ Sostituisci la condizione della riga 150, che oggi è:
     <div v-if="!budgetStore.hasBudget && modalita === 'view' && !budgetStore.loading" class="empty-budget">
 ```
 
-con una struttura che distingue vuoto ed errore. Il blocco "STATO A" diventa:
+con una struttura che distingue vuoto ed errore.
+
+**Un solo `DataState` copre entrambi gli stati di lettura**, come gia' fa
+`ContiView`. Avvolgerlo solo attorno al ramo "nessun budget" sarebbe un errore:
+quando il budget c'e' e un aggiornamento successivo fallisce, l'utente vedrebbe
+numeri vecchi senza alcun avviso e senza un "Riprova" da premere — cioe' meta'
+del blocco 1 non varrebbe per questa pagina.
+
+I rami setup/edit restano **fuori**: sono form, non letture, e uno scheletro
+sopra un form in compilazione sarebbe sbagliato. Vanno quindi per primi, e il
+`DataState` diventa il `v-else`:
 
 ```vue
-    <!-- STATO A: nessun budget, oppure impossibile saperlo -->
+    <!-- Setup e modifica: form, non letture. Restano fuori da DataState. -->
+    <div v-if="modalita === 'setup' || modalita === 'edit'">
+      <!-- contenuto attuale dei rami setup/edit, invariato -->
+    </div>
+
+    <!-- Vista: un solo DataState per "nessun budget" e "budget attivo" -->
     <DataState
-      v-if="modalita === 'view' && !budgetStore.hasBudget"
-      :stato="budgetStore.risorsaBudget.stato.value"
-      :last-updated="budgetStore.risorsaBudget.lastUpdated.value"
+      v-else
+      :stato="budgetStore.statoPagina"
+      :last-updated="budgetStore.lastUpdatedPagina"
       messaggio-errore="Non è stato possibile caricare il budget."
       skeleton-type="text"
       :skeleton-lines="4"
-      @riprova="budgetStore.risorsaBudget.riprova()"
+      @riprova="budgetStore.riprovaPagina()"
     >
       <template #vuoto>
         <div class="empty-budget">
-          <PieChart class="empty-icon" :size="48" :stroke-width="1.5" />
-          <h2>Nessun budget per {{ meseLabel }}</h2>
-          <p class="empty-desc">
-            <!-- lasciare invariato il testo già presente nel file -->
-          </p>
-          <div class="empty-help"><HelpTrigger topic="budget-come-funziona" /></div>
+          <!-- il contenuto attuale di div.empty-budget, copiato invariato -->
         </div>
       </template>
+
+      <div v-if="budgetStore.hasBudget">
+        <!-- il contenuto attuale dello STATO C, invariato -->
+      </div>
     </DataState>
 ```
 
-**Importante:** copia il contenuto dell'attuale `div.empty-budget` dentro lo slot `#vuoto` **senza riscriverlo**. Lo stato vuoto esistente va bene: sta solo cambiando il posto in cui viene mostrato, non il suo testo.
+**Importante:** sposta i blocchi esistenti **senza riscriverne il testo**. Lo
+stato vuoto e lo STATO C vanno bene come sono: cambia solo dove vivono.
 
 - [ ] **Step 3: Verificare che il difetto sia chiuso**
 
@@ -1395,8 +1519,8 @@ azzerava lo stato nel catch e BudgetView mostrava 'Nessun budget per
 <mese>' ogni volta che la richiesta falliva. All'utente veniva
 comunicata l'assenza di un dato che invece esisteva.
 
-Lo stato vuoto non e' stato riscritto: e' stato spostato nello slot
-dove non puo' piu' essere confuso con un errore."
+Lo stato vuoto non è stato riscritto: è stato spostato nello slot
+dove non può più essere confuso con un errore."
 ```
 
 ---
@@ -1445,12 +1569,12 @@ export const useAnalisiStore = defineStore('analisi', () => {
   );
 
   /**
-   * Confronto fra periodi. L'unita' segue il periodo scelto nella pagina:
+   * Confronto fra periodi. L'unità segue il periodo scelto nella pagina:
    * settimane, mesi o anni. Con `da`/`a` (periodo "Custom") l'API risponde
    * invece con i mesi toccati dall'intervallo e ignora unita/quantita.
    *
    * `mesi` viene inviato accanto a `quantita` per i soli mesi: durante un
-   * rilascio l'API puo' essere ancora la versione precedente, che conosce
+   * rilascio l'API può essere ancora la versione precedente, che conosce
    * solo quel parametro. Vedi il commento in analisi.controller.js.
    */
   const risorsaConfronto = creaRisorsa(
@@ -1464,12 +1588,12 @@ export const useAnalisiStore = defineStore('analisi', () => {
   );
 
   /**
-   * Andamento del patrimonio: un punto per periodo, con la stessa unita' del
+   * Andamento del patrimonio: un punto per periodo, con la stessa unità del
    * confronto. Con `da`/`a` (periodo "Custom") l'API usa i mesi
    * dell'intervallo e ignora unita/quantita.
    *
    * `periodo` viene inviato accanto ai parametri nuovi per la stessa ragione
-   * di risorsaConfronto: durante un rilascio l'API puo' essere ancora
+   * di risorsaConfronto: durante un rilascio l'API può essere ancora
    * quella precedente, che conosce solo quel parametro.
    */
   const risorsaAndamento = creaRisorsa(
@@ -1540,6 +1664,26 @@ export const useAnalisiStore = defineStore('analisi', () => {
 });
 ```
 
+- [ ] **Step 1b: Neutralizzare il reset di sessione**
+
+**Neutralizza il blocco di questo store in `session.js`.** `resetPiniaStores`
+(`client/src/utils/session.js`, righe 36-82) assegna direttamente i campi di
+tutti e sette gli store. Le proprietà che questo task trasforma in `computed`
+non sono più scrivibili: l'assegnazione fallisce e l'errore viene inghiottito
+dal `catch { /* ignore */ }` che avvolge ogni blocco. Nessun crash, ma **il
+logout smette di ripulire questo store** e i dati dell'utente precedente
+restano in memoria.
+
+Sostituisci il blocco `try { ... } catch` di questo store con:
+
+```js
+  try { useAnalisiStore().reset(); } catch { /* ignore */ }
+```
+
+Il Task 10 unificherà i sette one-liner in un ciclo. Farlo qui serve a tenere
+ogni commit pubblicabile per conto suo: un logout che non pulisce è un difetto
+di privacy, non un dettaglio di refactoring.
+
 - [ ] **Step 2: Correggere lo stato vuoto della vista**
 
 In `client/src/views/AnalisiView.vue`, aggiungi l'import di `DataState` e sostituisci la riga 414, oggi:
@@ -1563,7 +1707,7 @@ Avvolgi la sezione della distribuzione in `<DataState>` usando la risorsa corris
       <template #vuoto>
         <!-- il div.empty-state esistente, copiato senza modifiche al testo -->
       </template>
-      <!-- il contenuto che oggi viene mostrato quando hasData e' vero -->
+      <!-- il contenuto che oggi viene mostrato quando hasData è vero -->
     </DataState>
 ```
 
@@ -1606,7 +1750,7 @@ Un solo 'loading' era condiviso da cinque fetch: caricare la
 distribuzione delle spese accendeva lo scheletro anche del confronto e
 dei suggerimenti, e spegnerlo per una lo spegneva per tutte.
 
-AnalisiView non mostra piu' lo stato vuoto quando la richiesta e'
+AnalisiView non mostra più lo stato vuoto quando la richiesta è
 fallita. I commenti sui parametri legacy 'mesi' e 'periodo' sono
 riportati identici: documentano la compatibilita' fra rilasci separati
 di client e API."
@@ -1640,9 +1784,9 @@ In `client/src/stores/movimenti.store.js`, mantieni `mergeGruppi`, `saldoInsuffi
   );
 
   /**
-   * Ultime transazioni della home. L'API puo' rispondere con `movimenti`
-   * gia' piatti oppure con `gruppi` da appiattire: la normalizzazione stava
-   * gia' nel codice precedente e va conservata, altrimenti la home resta
+   * Ultime transazioni della home. L'API può rispondere con `movimenti`
+   * già piatti oppure con `gruppi` da appiattire: la normalizzazione stava
+   * già nel codice precedente e va conservata, altrimenti la home resta
    * vuota su una delle due forme di risposta.
    */
   const risorsaRecenti = creaRisorsa(
@@ -1701,7 +1845,15 @@ Le pagine successive vengono accumulate fuori dalla risorsa, perché `creaRisors
     pages: risorsaMovimenti.data.value?.pagination?.pages || 0,
   }));
 
+  /**
+   * Token di generazione condiviso fra la lettura principale, le pagine
+   * successive e il reset. `creaRisorsa` ha la propria guardia di sequenza,
+   * ma le pagine accumulate vivono FUORI dalla risorsa e ne servono una loro.
+   */
+  let generazione = 0;
+
   const fetchMovimenti = async (params = {}) => {
+    generazione += 1;
     filtri.value = params;
     // Una nuova ricerca annulla le pagine accumulate: appartenevano ai
     // filtri precedenti.
@@ -1712,29 +1864,89 @@ Le pagine successive vengono accumulate fuori dalla risorsa, perché `creaRisors
   };
 
   /**
-   * Una pagina successiva che fallisce non rende vecchi i dati gia' a
+   * Una pagina successiva che fallisce non rende vecchi i dati già a
    * schermo: sono validi e freschi, manca solo il seguito. L'errore resta
    * quindi locale al pulsante e non passa da DataState.
    */
   const loadMoreMovimenti = async () => {
     if (loadingMore.value) return;
+    const mia = generazione;
     loadingMore.value = true;
     errorMore.value = null;
     try {
       const { data } = await api.get('/movimenti', {
         params: { ...filtri.value, page: paginaCorrente.value + 1, limit: PAGE_SIZE },
       });
+      // Se nel frattempo i filtri sono cambiati, queste righe appartengono a
+      // una ricerca che non e' piu' a schermo. Mescolarle sarebbe peggio di
+      // un errore visibile: sembrerebbero dati veri.
+      if (mia !== generazione) return;
       paginaExtra.value = mergeGruppi(paginaExtra.value, data.gruppi || []);
       paginaCorrente.value += 1;
     } catch (e) {
+      if (mia !== generazione) return;
       errorMore.value = e;
     } finally {
+      // Una sola pagina successiva puo' essere in volo (guardia in testa),
+      // quindi chi finisce e' sempre il proprietario del flag.
       loadingMore.value = false;
     }
   };
 ```
 
-Esponi `risorsaMovimenti`, `risorsaRecenti`, `risorsaBilancio`, `errorMore` e una `reset()` che azzera le tre risorse più `paginaExtra`, `paginaCorrente`, `errorMore` e `filtri`.
+Esponi `risorsaMovimenti`, `risorsaRecenti`, `risorsaBilancio`, `errorMore` e una `reset()` che incrementa `generazione` e azzera le tre risorse più `paginaExtra`, `paginaCorrente`, `errorMore` e `filtri`. L'incremento serve a scartare una pagina successiva che tornasse dopo il logout.
+
+- [ ] **Step 1b: Neutralizzare il reset di sessione**
+
+**Neutralizza il blocco di questo store in `session.js`.** `resetPiniaStores`
+(`client/src/utils/session.js`, righe 36-82) assegna direttamente i campi di
+tutti e sette gli store. Le proprietà che questo task trasforma in `computed`
+non sono più scrivibili: l'assegnazione fallisce e l'errore viene inghiottito
+dal `catch { /* ignore */ }` che avvolge ogni blocco. Nessun crash, ma **il
+logout smette di ripulire questo store** e i dati dell'utente precedente
+restano in memoria.
+
+Sostituisci il blocco `try { ... } catch` di questo store con:
+
+```js
+  try { useMovimentiStore().reset(); } catch { /* ignore */ }
+```
+
+Il Task 10 unificherà i sette one-liner in un ciclo. Farlo qui serve a tenere
+ogni commit pubblicabile per conto suo: un logout che non pulisce è un difetto
+di privacy, non un dettaglio di refactoring.
+
+- [ ] **Step 1c: Correggere anche il reset account**
+
+`client/src/views/ImpostazioniView.vue:346-348` azzera a mano tre campi dello store
+prima di ricaricare:
+
+```js
+    movimentiStore.movimentiPerData = [];
+    movimentiStore.bilancioMese = {};
+    movimentiStore.pagination = { page: 1, total: 0, pages: 0 };
+```
+
+Diventati `computed`, quelle tre righe non fanno più nulla e l'errore viene
+inghiottito. Di solito non si nota, perché subito dopo c'è una ricarica — ma se la
+ricarica fallisce, l'utente resta a guardare le proprie transazioni sotto il
+messaggio "Transazioni eliminate". In un'operazione distruttiva è la cosa peggiore
+che possa vedere.
+
+Sostituiscile con:
+
+```js
+    movimentiStore.reset();
+```
+
+**Nota di metodo:** `session.js` non è l'unico posto che scrive nei campi degli
+store. Prima di considerare finita una migrazione, cerca gli altri:
+
+```bash
+grep -rnE "(contiStore|movimentiStore|budgetStore|analisiStore|obiettiviStore|investimentiStore|scommesseStore)\.[a-zA-Z_]+ *= *[^=]" client/src | grep -v "\.value"
+```
+
+Le righe che riguardano store non ancora migrati sono legittime e vanno lasciate.
 
 - [ ] **Step 2: Correggere la vista**
 
@@ -1810,7 +2022,7 @@ git commit -m "Separa 'nessun movimento' da 'movimenti non caricabili'
 La lista vuota per un filtro senza risultati e la lista vuota per una
 richiesta fallita erano indistinguibili. Aggiunge anche la distinzione
 opposta: una pagina successiva che non arriva non rende vecchi i dati
-gia' a schermo, quindi l'errore resta accanto al pulsante e non
+già a schermo, quindi l'errore resta accanto al pulsante e non
 diventa un avviso 'dati non aggiornati' in cima alla pagina."
 ```
 
@@ -1862,7 +2074,7 @@ export const useObiettiviStore = defineStore('obiettivi', () => {
 
   // Le funzioni di scrittura restano identiche a quelle attuali: createObiettivo,
   // updateObiettivo, deleteObiettivo e le eventuali altre presenti nel file,
-  // ciascuna seguita da `await fetchObiettivi()` come gia' fa oggi.
+  // ciascuna seguita da `await fetchObiettivi()` come già fa oggi.
 
   return { risorsaObiettivi, obiettivi, loading, fetchObiettivi, reset /* + scritture */ };
 });
@@ -1891,9 +2103,70 @@ Punti a cui fare attenzione:
 - `scommesse.store` ha i campi `panoramica` e `analisi` che il difetto noto numero 9 del `CLAUDE.md` segnala come non ripuliti al logout. Diventando risorse, la loro `reset()` li copre: è la parte di quel difetto che si chiude qui.
 - Entrambe le viste sono dietro un controllo di accesso per fascia d'età. **Non toccare** `canAccessScommesseFeature` / `canAccessInvestimentiFeature` né le guardie del router: sono estranei a questo lavoro.
 
+- [ ] **Step 2b: Neutralizzare i tre blocchi nel reset di sessione**
+
+`resetPiniaStores` (`client/src/utils/session.js`, righe 36-82) assegna
+direttamente i campi di questi tre store. Diventati `computed`, quelle
+assegnazioni falliscono in silenzio dentro il `catch { /* ignore */ }`: il
+logout smette di ripulirli e i dati dell'utente precedente restano in memoria.
+
+Sostituisci i tre blocchi corrispondenti con:
+
+```js
+  try { useObiettiviStore().reset(); } catch { /* ignore */ }
+  try { useScommesseStore().reset(); } catch { /* ignore */ }
+  try { useInvestimentiStore().reset(); } catch { /* ignore */ }
+```
+
 - [ ] **Step 3: Avvolgere le tre viste in `DataState`**
 
 Per ciascuna di `ObiettiviView`, `InvestimentiView` e `ScommesseView`: importa `DataState`, avvolgi la sezione principale usando la risorsa corrispondente, sposta lo stato vuoto esistente nello slot `#vuoto` **senza riscriverne il testo**, e collega `@riprova` alla `riprova()` della risorsa.
+
+- [ ] **Step 3b: Avvolgere anche lo Storico degli investimenti**
+
+`InvestimentiView` ha una seconda sezione di lettura oltre a quella principale: lo
+Storico movimenti, alimentato da due risorse diverse a seconda che sia filtrato su
+un singolo investimento (`risorsaMovimenti`) o su tutti (`risorsaTuttiMovimenti`).
+
+Va avvolta in `DataState` come le altre. Lasciarla scoperta reintroduce lì il
+difetto che l'intero sotto-progetto elimina: una fetch fallita si legge come
+"Nessun movimento", con sicurezza e senza modo di accorgersene.
+
+Esponi dallo store la risorsa attiva:
+
+```js
+  /** Quale delle due risorse alimenta `movimenti` in questo momento: serve
+   *  alla vista per sapere di quale stato parlare. */
+  const risorsaMovimentiAttiva = computed(() => (
+    fonteMovimenti.value === 'tutti' ? risorsaTuttiMovimenti : risorsaMovimenti
+  ));
+```
+
+e usala nella vista:
+
+```vue
+      <DataState
+        :stato="investimentiStore.risorsaMovimentiAttiva.stato.value"
+        :last-updated="investimentiStore.risorsaMovimentiAttiva.lastUpdated.value"
+        messaggio-errore="Non è stato possibile caricare lo storico."
+        @riprova="investimentiStore.risorsaMovimentiAttiva.riprova()"
+      >
+        <template #vuoto>
+          <!-- lo stato vuoto attuale dello Storico, invariato -->
+        </template>
+        <!-- la lista attuale, invariata -->
+      </DataState>
+```
+
+Con lo stato dichiarato, il momento in cui `fonteMovimenti` commuta smette di
+contare: l'errore si vede comunque. Non spostare quindi la commutazione dopo il
+successo — mostrerebbe i movimenti dell'investimento precedente sotto l'etichetta
+di quello nuovo, che è peggio di una lista vuota.
+
+**La scheda di riepilogo (patrimonio investito e rendimento) va resa anche nello
+slot `#vuoto`.** Con zero investimenti mostrava `0,00 €`, ed è un valore legittimo,
+non un dato finto: nasconderla lì è una regressione. Nello stato di errore resta
+invece nascosta, perché lì `0,00 €` sarebbe una bugia.
 
 - [ ] **Step 4: Verificare build e test**
 
@@ -1909,12 +2182,12 @@ Atteso: build completata, 79 test verdi.
 git add client/src/stores/obiettivi.store.js client/src/stores/investimenti.store.js client/src/stores/scommesse.store.js client/src/views/ObiettiviView.vue client/src/views/InvestimentiView.vue client/src/views/ScommesseView.vue
 git commit -m "Porta obiettivi, investimenti e scommesse allo stesso stato di lettura
 
-I tre conservavano gia' i dati in caso di errore, ma per due meccanismi
+I tre conservavano già i dati in caso di errore, ma per due meccanismi
 diversi e senza dirlo all'utente: un catch nella vista per due, un
 try/finally nello store per il terzo. Ora sono la stessa cosa e la
 scheda dichiara quando sta mostrando un dato vecchio.
 
-I campi panoramica e analisi di scommesse rientrano nel reset: e' la
+I campi panoramica e analisi di scommesse rientrano nel reset: è la
 parte del difetto noto numero 9 che si chiude qui."
 ```
 
@@ -2004,8 +2277,8 @@ Nel template di `DashboardView.vue`:
 ```vue
       :stato-saldo="contiStore.risorsaPatrimonio.stato.value"
       :last-updated-saldo="contiStore.risorsaPatrimonio.lastUpdated.value"
-      :stato-budget-sezione="budgetStore.risorsaBudget.stato.value"
-      :last-updated-budget="budgetStore.risorsaBudget.lastUpdated.value"
+      :stato-budget-sezione="budgetStore.statoPagina"
+      :last-updated-budget="budgetStore.lastUpdatedPagina"
       :stato-scommesse="scommesseStore.risorsaPiattaforme.stato.value"
       :last-updated-scommesse="scommesseStore.risorsaPiattaforme.lastUpdated.value"
       :stato-investimenti="investimentiStore.risorsaInvestimenti.stato.value"
@@ -2013,15 +2286,117 @@ Nel template di `DashboardView.vue`:
       :stato-obiettivi="obiettiviStore.risorsaObiettivi.stato.value"
       :last-updated-obiettivi="obiettiviStore.risorsaObiettivi.lastUpdated.value"
       @riprova-saldo="contiStore.risorsaPatrimonio.riprova()"
-      @riprova-budget="budgetStore.risorsaBudget.riprova()"
+      @riprova-budget="budgetStore.riprovaPagina()"
       @riprova-scommesse="scommesseStore.risorsaPiattaforme.riprova()"
       @riprova-investimenti="investimentiStore.risorsaInvestimenti.riprova()"
       @riprova-obiettivi="obiettiviStore.risorsaObiettivi.riprova()"
 ```
 
+**La scheda budget usa lo stato combinato, non `risorsaBudget` da solo.** Il suo
+contenuto viene da `statoBudget`, cioe' da `risorsaStato`: legandola alla sola
+`risorsaBudget` puo' dire "Pianifica il tuo budget" mentre un budget esiste. Il
+Task 5 ha creato `statoPagina`, `lastUpdatedPagina` e `riprovaPagina` esattamente
+per questo — questo binding e' stato scritto prima che esistessero.
+
 **Nota:** questi nomi sono quelli fissati dalla tabella del Task 8. Se non
 combaciano con ciò che trovi negli store, è il Task 8 a essere stato eseguito
 male: correggi lì, non qui.
+
+- [ ] **Step 3c: Legare ogni scheda a TUTTE le letture che la alimentano**
+
+Il difetto che questo step chiude: una scheda dichiara lo stato di una risorsa
+mentre ne rende un'altra. Se la seconda fallisce, mostra numeri inventati come se
+fossero veri. Vale per due schede su sette.
+
+**Aggiungi a `DashboardView.vue` un helper per lo stato combinato:**
+
+```js
+/**
+ * Stato di una scheda alimentata da più letture.
+ *
+ * Il pannello d'errore pieno solo quando NESSUNA ha mai risposto: se anche una
+ * sola ha dati, mostrarli con l'avviso è meglio che nascondere numeri corretti
+ * perché un'altra lettura è caduta.
+ */
+const statoCombinato = (...risorse) => computed(() => {
+  if (risorse.some((r) => r.stato.value === 'caricamento')) return 'caricamento';
+  if (!risorse.some((r) => r.error.value)) return 'pronto';
+  return risorse.some((r) => r.lastUpdated.value !== null) ? 'errore-con-dati' : 'errore';
+});
+
+/** Il più vecchio dei successi: l'avviso non deve vantare una freschezza che
+ *  una delle letture non ha. */
+const lastUpdatedCombinato = (...risorse) => computed(() => {
+  const valori = risorse.map((r) => r.lastUpdated.value).filter((v) => v !== null);
+  return valori.length ? Math.min(...valori) : null;
+});
+```
+
+**Scheda patrimonio.** Rende il totale e la composizione da `risorsaPatrimonio`, ma
+anche entrate e uscite del mese da `risorsaBilancio`. Se quest'ultima fallisce al
+primo caricamento, `entrateMese` e `usciteMese` restano a `0,00 €` per sempre, la
+scheda dice `pronto` e il Riprova non la ritenta nemmeno: un mese senza entrate né
+uscite, indistinguibile da uno vero.
+
+```js
+const statoSaldo = statoCombinato(
+  contiStore.risorsaConti, contiStore.risorsaPatrimonio, movimentiStore.risorsaBilancio,
+);
+const lastUpdatedSaldo = lastUpdatedCombinato(
+  contiStore.risorsaConti, contiStore.risorsaPatrimonio, movimentiStore.risorsaBilancio,
+);
+```
+
+e `@riprova-saldo` deve ritentarle tutte e tre, non solo il patrimonio.
+
+**Scheda scommesse.** Ogni cifra che mostra — vincite, perdite, bilancio netto —
+viene da `risorsaAnalisi`, ma lo stato dichiarato era quello di
+`risorsaPiattaforme`. Un `fetchAnalisi` fallito lascia `0,00 €` su tutte e tre con
+la scheda che dice `pronto`. In una scheda che traccia scommesse, cifre inventate
+sono il peggio possibile.
+
+```js
+const statoScommesse = statoCombinato(
+  scommesseStore.risorsaPiattaforme, scommesseStore.risorsaAnalisi,
+);
+```
+
+più `lastUpdatedCombinato` sulle stesse due, e un `@riprova-scommesse` che ritenta
+entrambe.
+
+Gli investimenti **non** hanno questo problema: le loro cifre principali vengono
+da `risorsaInvestimenti`, la stessa che `statoInvestimenti` già segue. Lasciali
+come sono.
+
+- [ ] **Step 3d: Togliere il lampeggio "Pianifica il tuo budget"**
+
+`loadBudget()` attende che `fetchBudget` finisca del tutto prima di chiamare
+`fetchStatoBudget`: due round trip in sequenza. Per l'intera durata del secondo,
+`statoPagina` dice già `pronto` mentre i dati del grafico non ci sono ancora, e la
+scheda mostra "Pianifica il tuo budget" a chi un budget ce l'ha.
+
+Non è una race di microtask: è la durata ordinaria di una richiesta di rete, e si
+riproduce a ogni caricamento a freddo della dashboard per chiunque abbia un budget.
+
+Il posto giusto per correggerlo è `budget.store.js`, in `statoPagina`:
+
+```js
+  const statoPagina = computed(() => {
+    const principale = risorsaBudget.stato.value;
+    if (principale === 'caricamento') return 'caricamento';
+    // Con un budget presente la pagina non è pronta finché anche lo stato di
+    // spesa non ha risposto almeno una volta: senza, i grafici sono vuoti e la
+    // vista mostrerebbe "Pianifica il tuo budget" a chi un budget ce l'ha.
+    if (esiste.value && risorsaStato.lastUpdated.value === null && !risorsaStato.error.value) {
+      return 'caricamento';
+    }
+    if (principale === 'pronto' && risorsaStato.error.value) return 'errore-con-dati';
+    return principale;
+  });
+```
+
+È fuori dai tre file di questo task, ma è dove vive la causa: correggerlo nella
+vista significherebbe scriverlo due volte, qui e in `BudgetView`.
 
 - [ ] **Step 4: Le transazioni recenti**
 
@@ -2069,14 +2444,14 @@ Atteso: build completata, 79 test verdi.
 git add client/src/views/DashboardView.vue client/src/components/custom/WOverviewCarousel.vue client/src/components/dashboard/RecentTransactions.vue
 git commit -m "Ogni scheda della dashboard dichiara se sta mostrando un dato vecchio
 
-L'avviso e' per scheda e non per pagina: quando fallisce solo il
-budget, dire 'non e' stato possibile aggiornare i dati' farebbe
+L'avviso è per scheda e non per pagina: quando fallisce solo il
+budget, dire 'non è stato possibile aggiornare i dati' farebbe
 dubitare anche dei saldi, che invece sono corretti.
 
-I try/catch intorno ai caricamenti spariscono perche' carica() non
+I try/catch intorno ai caricamenti spariscono perché carica() non
 lancia, e i flag di 'Primi passi' leggono lastUpdated invece di essere
-tenuti a mano: 'mai ricevuta una risposta valida' e' esattamente la
-definizione di 'sconosciuto' che il riquadro usava gia'."
+tenuti a mano: 'mai ricevuta una risposta valida' è esattamente la
+definizione di 'sconosciuto' che il riquadro usava già."
 ```
 
 ---
@@ -2094,7 +2469,9 @@ definizione di 'sconosciuto' che il riquadro usava gia'."
 
 - [ ] **Step 1: Sostituire le assegnazioni a mano**
 
-In `client/src/utils/session.js`, sostituisci i blocchi che assegnano campi dei sette store migrati con chiamate a `reset()`:
+In `client/src/utils/session.js` i sette blocchi sono già stati convertiti in
+altrettante chiamate `reset()` una alla volta dai Task 4-8, per non lasciare il
+logout rotto fra un task e l'altro. Questo task li unifica in un ciclo solo:
 
 ```js
   // Ogni store migrato azzera le proprie risorse: elencare i campi a mano
@@ -2114,6 +2491,13 @@ In `client/src/utils/session.js`, sostituisci i blocchi che assegnano campi dei 
 ```
 
 **Non toccare** il resto della funzione: `resetCategorie()`, il salvataggio di `savedProfilo`, `useImportazioniStore().clear()` e il blocco di `profiloStore` restano esattamente come sono. Aggiungi gli `import` mancanti per gli store non ancora importati nel file.
+
+**Chiudi anche una closure sfuggita al Task 5:** `budget.store.js`'s `reset()` azzera
+le due risorse ma non la variabile `ultimoPeriodo`. Oggi non produce difetti
+osservabili — contiene solo mese e anno, e viene sovrascritta al remount prima che
+`riprovaPagina` possa leggerla — ma un `reset()` che dice di azzerare e lascia
+qualcosa dietro e' esattamente la forma di difetto che il numero 9 documenta.
+Aggiungi `ultimoPeriodo = null;` dentro quel `reset()`.
 
 - [ ] **Step 2: Verificare che il logout pulisca davvero**
 
@@ -2137,11 +2521,11 @@ Atteso: build completata, 79 test verdi.
 git add client/src/utils/session.js
 git commit -m "Azzera gli store al logout chiamando reset invece di elencare campi
 
-Elencare i campi a mano e' la forma di difetto che ha lasciato
+Elencare i campi a mano è la forma di difetto che ha lasciato
 recentiHome e i campi di scommesse popolati dopo il logout (difetto
 noto numero 9). Ora ogni store migrato sa azzerare se stesso, e
 reset() invalida anche le richieste in volo: una risposta in ritardo
-non puo' ripopolare la vista con i dati dell'utente precedente."
+non può ripopolare la vista con i dati dell'utente precedente."
 ```
 
 ---
@@ -2198,7 +2582,7 @@ Atteso: build completata (fallirebbe su un import mancante, ed è la prova che n
 ```bash
 git commit -m "Elimina cinque componenti non utilizzati
 
-Nessuno era importato. Il motivo non e' la pulizia: GlassBalanceCard
+Nessuno era importato. Il motivo non è la pulizia: GlassBalanceCard
 conteneva 'Patrimonio Totale', un'etichetta concorrente per lo stesso
 numero appena centralizzato nel glossario, e il prossimo che avesse
 aperto quel file l'avrebbe usata in buona fede.
@@ -2234,7 +2618,19 @@ Nella tabella **Sensitive Areas**, aggiungi:
 
 - [ ] **Step 2: Documentare il pattern in `ARCHITECTURE.md`**
 
-Aggiungi una sezione che descriva: i cinque stati, le due invarianti, la guardia di sequenza, la divisione di responsabilità fra `risorsa.js` (logica, testata) e `DataState.vue` (presentazione, non testata perché non decide), e la distinzione fra `afterWrite` (scritture) e `DataState` (letture), che restano due meccanismi separati.
+Aggiungi una sezione che descriva: i cinque stati, le due invarianti, la guardia di sequenza, e la divisione di responsabilità fra `risorsa.js` (logica, testata) e `DataState.vue` (presentazione, non testata perché non decide).
+
+**Documenta anche che `refreshAfterWrite` è diventato inerte.** Il suo valore di
+ritorno booleano segnalava "la scrittura è riuscita ma la vista potrebbe essere
+rimasta indietro". Ora le funzioni che riceve non lanciano più — `carica()`
+registra l'errore e restituisce `undefined` — quindi quel booleano è sempre `true`
+e il toast `VISTA_NON_AGGIORNATA` non può più scattare. Il caso più visibile è
+`ImportaView.vue:259-271`, dove il controllo è codice morto.
+
+Non è un difetto nascosto: la vista di destinazione mostra comunque il proprio
+stato, in modo più preciso di quel toast. Ma va scritto, altrimenti qualcuno
+costruirà di nuovo su quel booleano credendolo vivo. Indica anche che `afterWrite`
+resta in uso dai percorsi di scrittura non migrati, quindi non va rimosso.
 
 - [ ] **Step 3: Aggiornare `PROJECT_STATUS.md`**
 

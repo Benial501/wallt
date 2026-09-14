@@ -127,6 +127,21 @@ const TOPICS = [
     ],
   },
   {
+    id: 'patrimonio-come-si-calcola',
+    title: 'Come si calcola il patrimonio',
+    summary: 'Patrimonio totale = saldi dei conti attivi + valore attuale degli investimenti.',
+    paragraphs: [
+      'Il "Patrimonio totale" della home somma due cose: i saldi di tutti i tuoi conti attivi e il valore attuale dei tuoi investimenti. Sotto la cifra trovi la composizione, così vedi sempre quanta parte è su conti e quanta è investita.',
+      'Dentro "Conti" c\'è ogni conto che hai registrato come attivo: conto corrente, contanti, wallet, risparmio e anche le piattaforme di scommesse. Non è quindi la cifra che puoi spendere domani, ma tutto il denaro che tieni tracciato in WALLT.',
+      'I trasferimenti fra due tuoi conti non cambiano il patrimonio: spostano denaro da una tasca all\'altra, quindi non sono né entrate né uscite e non compaiono nel risultato del mese.',
+    ],
+    bullets: [
+      'Un conto eliminato non entra più nel totale: i suoi movimenti restano però nello storico.',
+      'Il "Risultato del mese" è entrate meno uscite, senza i trasferimenti.',
+    ],
+    related: ['trasferimenti', 'dashboard-riepilogo'],
+  },
+  {
     id: 'budget-come-funziona',
     title: 'Come funziona il budget',
     summary: 'Un tetto di spesa mensile per categoria, facoltativo.',
@@ -235,6 +250,6 @@ export const HELP_SECTIONS = [
     id: 'strumenti',
     title: 'Home, budget, obiettivi e analisi',
     description: 'Come leggere i riepiloghi e cosa fanno davvero i pulsanti.',
-    topics: ['dashboard-riepilogo', 'budget-come-funziona', 'obiettivi-contributi', 'analisi-come-funziona'],
+    topics: ['patrimonio-come-si-calcola', 'dashboard-riepilogo', 'budget-come-funziona', 'obiettivi-contributi', 'analisi-come-funziona'],
   },
 ];

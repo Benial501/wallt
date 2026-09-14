@@ -212,6 +212,7 @@ export {
   User,
   Sparkles,
   AlertTriangle,
+  AlertCircle,
   CheckCircle2,
   Calendar,
   Paperclip,
