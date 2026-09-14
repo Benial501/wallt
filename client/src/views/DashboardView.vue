@@ -305,7 +305,6 @@ onMounted(async () => {
 
     <WOverviewCarousel
       :conti="contiStore.contiAttivi"
-      :loading-conti="contiStore.loading"
       :patrimonio="contiStore.patrimonioTotale"
       :composizione="contiStore.composizionePatrimonio"
       :entrate-mese="entrateMese"
@@ -332,6 +331,8 @@ onMounted(async () => {
       :obiettivi-completati-count="obiettiviStore.obiettivi.completati.length"
       :stato-saldo="statoSaldo"
       :last-updated-saldo="lastUpdatedSaldo"
+      :stato-conti="contiStore.risorsaConti.stato"
+      :last-updated-conti="contiStore.risorsaConti.lastUpdated"
       :stato-budget-sezione="budgetStore.statoPagina"
       :last-updated-budget="budgetStore.lastUpdatedPagina"
       :stato-scommesse="statoScommesse"
@@ -341,6 +342,7 @@ onMounted(async () => {
       :stato-obiettivi="obiettiviStore.risorsaObiettivi.stato"
       :last-updated-obiettivi="obiettiviStore.risorsaObiettivi.lastUpdated"
       @riprova-saldo="riprovaSaldo()"
+      @riprova-conti="contiStore.risorsaConti.riprova()"
       @riprova-budget="budgetStore.riprovaPagina()"
       @riprova-scommesse="riprovaScommesse()"
       @riprova-investimenti="investimentiStore.risorsaInvestimenti.riprova()"

@@ -23,7 +23,6 @@ const CHART_COLORS = ['#00D4AA', '#FF4757', '#6C5CE7', '#74B9FF', '#FECA57', '#F
 
 const props = defineProps({
   conti: { type: Array, default: () => [] },
-  loadingConti: { type: Boolean, default: false },
   patrimonio: { type: Number, default: 0 },
   composizione: { type: Object, default: null },
   entrateMese: { type: Number, default: 0 },
@@ -50,6 +49,8 @@ const props = defineProps({
   obiettiviCompletatiCount: { type: Number, default: 0 },
   statoSaldo: { type: String, default: 'pronto' },
   lastUpdatedSaldo: { type: Number, default: null },
+  statoConti: { type: String, default: 'pronto' },
+  lastUpdatedConti: { type: Number, default: null },
   statoBudgetSezione: { type: String, default: 'pronto' },
   lastUpdatedBudget: { type: Number, default: null },
   statoScommesse: { type: String, default: 'pronto' },
@@ -60,7 +61,7 @@ const props = defineProps({
   lastUpdatedObiettivi: { type: Number, default: null },
 });
 
-const emit = defineEmits(['riprova-saldo', 'riprova-budget', 'riprova-scommesse', 'riprova-investimenti', 'riprova-obiettivi']);
+const emit = defineEmits(['riprova-saldo', 'riprova-conti', 'riprova-budget', 'riprova-scommesse', 'riprova-investimenti', 'riprova-obiettivi']);
 
 const router = useRouter();
 const { formatValuta } = useValuta();
@@ -274,10 +275,22 @@ onUnmounted(() => {
         <!-- Saldi dei singoli conti: seconda scheda della panoramica -->
         <div class="w-overview__slide w-full shrink-0 snap-center">
           <p class="w-overview__eyebrow">I miei conti</p>
-          <template v-if="loadingConti">
-            <WSkeleton type="text" :lines="4" />
-          </template>
-          <template v-else-if="conti.length">
+          <DataState
+            :stato="statoConti"
+            :last-updated="lastUpdatedConti"
+            messaggio-errore="Non è stato possibile caricare i tuoi conti."
+            skeleton-type="text"
+            :skeleton-lines="4"
+            @riprova="emit('riprova-conti')"
+          >
+            <template #vuoto>
+              <div class="w-overview__cta-empty">
+                <p class="w-overview__cta-title">I tuoi conti, a colpo d’occhio</p>
+                <p class="w-overview__cta-desc">Aggiungi un conto per visualizzare qui il suo saldo.</p>
+                <button type="button" class="w-overview__cta-btn" @click="router.push('/conti')">Aggiungi un conto</button>
+              </div>
+            </template>
+
             <p class="w-overview__subtitle">Quanto hai su ogni conto</p>
             <div class="w-overview__accounts-scroll" tabindex="0" role="region" aria-label="Saldi dei conti">
               <ul class="w-overview__accounts">
@@ -289,12 +302,7 @@ onUnmounted(() => {
               </ul>
             </div>
             <button type="button" class="w-overview__link-btn" @click="router.push('/conti')">Gestisci conti →</button>
-          </template>
-          <div v-else class="w-overview__cta-empty">
-            <p class="w-overview__cta-title">I tuoi conti, a colpo d’occhio</p>
-            <p class="w-overview__cta-desc">Aggiungi un conto per visualizzare qui il suo saldo.</p>
-            <button type="button" class="w-overview__cta-btn" @click="router.push('/conti')">Aggiungi un conto</button>
-          </div>
+          </DataState>
         </div>
 
         <!-- Budget -->
