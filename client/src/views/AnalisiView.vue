@@ -408,10 +408,8 @@ const esportaDati = async () => {
       <p v-else class="quantita-fissa">{{ descrizionePeriodoFisso }}</p>
     </template>
 
-    <WSkeleton v-if="analisiStore.loading && !isDistribuzione" type="card" />
-
     <DataState
-      v-else-if="isDistribuzione"
+      v-if="isDistribuzione"
       :stato="risorsaDistribuzione.stato"
       :last-updated="risorsaDistribuzione.lastUpdated"
       messaggio-errore="Non è stato possibile caricare le analisi."
@@ -504,7 +502,22 @@ const esportaDati = async () => {
 
     <Transition v-else name="fade">
       <!-- TAB CONFRONTO -->
-      <div v-if="activeTab === 'confronto'" key="confronto">
+      <DataState
+        v-if="activeTab === 'confronto'"
+        key="confronto"
+        :stato="analisiStore.risorsaConfronto.stato"
+        :last-updated="analisiStore.risorsaConfronto.lastUpdated"
+        messaggio-errore="Non è stato possibile caricare il confronto tra periodi."
+        skeleton-type="card"
+        @riprova="analisiStore.risorsaConfronto.riprova()"
+      >
+        <template #vuoto>
+          <div class="empty-state">
+            <TrendingUp class="empty-icon" :size="48" :stroke-width="1.5" />
+            <p>Nessun dato da confrontare per questo periodo</p>
+          </div>
+        </template>
+
         <WCard><Bar :data="barData" :options="barOptions" /></WCard>
         <WCard class="mt-4">
           <table class="data-table">
@@ -519,10 +532,25 @@ const esportaDati = async () => {
             </tbody>
           </table>
         </WCard>
-      </div>
+      </DataState>
 
       <!-- TAB PATRIMONIO -->
-      <div v-else-if="activeTab === 'patrimonio'" key="patrimonio">
+      <DataState
+        v-else-if="activeTab === 'patrimonio'"
+        key="patrimonio"
+        :stato="analisiStore.risorsaAndamento.stato"
+        :last-updated="analisiStore.risorsaAndamento.lastUpdated"
+        messaggio-errore="Non è stato possibile caricare l'andamento del patrimonio."
+        skeleton-type="card"
+        @riprova="analisiStore.risorsaAndamento.riprova()"
+      >
+        <template #vuoto>
+          <div class="empty-state">
+            <Coins class="empty-icon" :size="48" :stroke-width="1.5" />
+            <p>Nessun dato sull'andamento del patrimonio per questo periodo</p>
+          </div>
+        </template>
+
         <WCard><Line :data="lineData" :options="lineOptions" /></WCard>
         <div class="stats-grid">
           <WCard><span class="stat-label">Inizio</span><span class="stat-val">{{ formatValuta(analisiStore.andamentoPatrimonio.inizio) }}</span></WCard>
@@ -534,22 +562,33 @@ const esportaDati = async () => {
           {{ (analisiStore.andamentoPatrimonio.variazione_importo || 0) >= 0 ? '+' : '' }}{{ formatValuta(analisiStore.andamentoPatrimonio.variazione_importo) }}
           ({{ analisiStore.andamentoPatrimonio.variazione_percentuale }}%)
         </p>
-      </div>
+      </DataState>
 
       <!-- TAB SUGGERIMENTI -->
-      <div v-else key="suggerimenti">
-        <div v-if="analisiStore.suggerimenti.length" class="sug-list">
+      <DataState
+        v-else
+        key="suggerimenti"
+        :stato="analisiStore.risorsaSuggerimenti.stato"
+        :last-updated="analisiStore.risorsaSuggerimenti.lastUpdated"
+        messaggio-errore="Non è stato possibile caricare i suggerimenti."
+        skeleton-type="card"
+        @riprova="analisiStore.risorsaSuggerimenti.riprova()"
+      >
+        <template #vuoto>
+          <WCard class="empty-ok">
+            <CheckCircle2 class="empty-icon empty-icon--inline" :size="20" :stroke-width="1.75" />
+            Tutto sotto controllo! Continua così.
+          </WCard>
+        </template>
+
+        <div class="sug-list">
           <SuggerimentoCard
             v-for="(s, i) in analisiStore.suggerimenti"
             :key="i"
             v-bind="s"
           />
         </div>
-        <WCard v-else class="empty-ok">
-          <CheckCircle2 class="empty-icon empty-icon--inline" :size="20" :stroke-width="1.75" />
-          Tutto sotto controllo! Continua così.
-        </WCard>
-      </div>
+      </DataState>
     </Transition>
 
     <div class="export-section">

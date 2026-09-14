@@ -80,19 +80,6 @@ export const useAnalisiStore = defineStore('analisi', () => {
   const andamentoPatrimonio = computed(() => risorsaAndamento.data.value || {});
   const suggerimenti = computed(() => risorsaSuggerimenti.data.value?.suggerimenti || []);
 
-  /**
-   * Compatibilità: `loading` era condiviso da tutte e cinque le letture.
-   * Le viste non ancora migrate lo leggono ancora, quindi resta come somma
-   * logica. Le viste migrate devono usare lo stato della singola risorsa.
-   */
-  const loading = computed(() => (
-    risorsaSpese.loading.value
-    || risorsaEntrate.loading.value
-    || risorsaConfronto.loading.value
-    || risorsaAndamento.loading.value
-    || risorsaSuggerimenti.loading.value
-  ));
-
   const fetchDistribuzioneSpese = (da, a) => risorsaSpese.carica(da, a);
   const fetchDistribuzioneEntrate = (da, a) => risorsaEntrate.carica(da, a);
   const fetchConfrontoPeriodi = (opzioni = {}) => risorsaConfronto.carica(opzioni);
@@ -112,7 +99,7 @@ export const useAnalisiStore = defineStore('analisi', () => {
     risorsaSpese, risorsaEntrate, risorsaConfronto, risorsaAndamento, risorsaSuggerimenti,
     distribuzioneSpese, totaleSpese, distribuzioneEntrate, totaleEntrate,
     confrontoPeriodi, confrontoUnita, andamentoPatrimonio, suggerimenti,
-    loading, periodoSelezionato,
+    periodoSelezionato,
     fetchDistribuzioneSpese, fetchDistribuzioneEntrate, fetchConfrontoPeriodi,
     fetchAndamentoPatrimonio, fetchSuggerimenti,
     reset,
