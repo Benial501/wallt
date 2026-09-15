@@ -453,17 +453,21 @@ const getPiattaformaPan = (id) => pan.value.piattaforme?.find((p) => p.id === id
 .piatt-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
 .piatt-header h3 { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
 .del-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.del-btn:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 .del-btn svg { stroke: currentColor; }
 .tab-nav button.active { background: var(--accent-green); color: var(--accent-on); border-color: var(--accent-green); font-weight: 600; }
+.tab-nav button:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 .piatt-saldo { font-size: 0.9375rem; color: var(--text-primary); margin-bottom: 0.25rem; }
 .piatt-stats, .piatt-bilancio { font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 0.25rem; }
 .limite-bar-wrap { height: 6px; background: var(--bg-input); border-radius: 3px; margin: 0.75rem 0; }
 .limite-bar { height: 100%; background: var(--warning); border-radius: 3px; }
 .piatt-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.75rem; }
 .piatt-actions button { padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-input); color: var(--text-primary); cursor: pointer; font-size: var(--text-xs); min-height: 44px; }
+.piatt-actions button:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 .periodo-tabs { display: flex; gap: 0.375rem; margin-bottom: 1rem; flex-wrap: wrap; }
 .periodo-tabs button { padding: 0.5rem 0.875rem; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); cursor: pointer; min-height: 44px; }
 .periodo-tabs button.active { background: var(--accent-green); color: var(--accent-on); border-color: var(--accent-green); }
+.periodo-tabs button:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
 /* deroga: didascalia sopra il valore in .stat-val, già leggibile a 1.125rem */
 .stat-label { display: block; font-size: var(--text-micro); color: var(--text-muted); margin-bottom: 0.25rem; }
@@ -484,6 +488,7 @@ const getPiattaformaPan = (id) => pan.value.piattaforme?.find((p) => p.id === id
 .tipo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 .tipo-grid button { padding: 0.75rem 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); cursor: pointer; font-size: var(--text-xs); min-height: 44px; }
 .tipo-grid button.active { border-color: var(--accent-green); color: var(--accent-green); background: var(--accent-light); }
+.tipo-grid button:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 .hint { font-size: var(--text-xs); color: var(--text-muted); }
 .mt-4 { margin-top: 1rem; }
 </style>

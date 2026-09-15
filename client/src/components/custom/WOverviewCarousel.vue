@@ -953,8 +953,11 @@ onUnmounted(() => {
      .w-overview__feature-val, l'importo vero, già leggibile a 0.9375rem
      in grassetto. */
   font-size: var(--text-micro);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  /* Non piu' maiuscolo: senza il maiuscoletto forzato l'etichetta perdeva
+     ogni gerarchia, quindi il peso prende il posto della forma delle
+     lettere. Spaziatura ridotta di conseguenza. */
+  font-weight: 600;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-muted);
 }
 
@@ -1000,6 +1003,7 @@ onUnmounted(() => {
 }
 
 .w-overview__link-btn:hover { text-decoration: underline; }
+.w-overview__link-btn:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 
 .w-overview__cta-empty {
   display: flex;
@@ -1044,6 +1048,8 @@ onUnmounted(() => {
   font-family: inherit;
 }
 
+.w-overview__cta-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
 .w-overview__dots {
   display: flex;
   justify-content: center;
@@ -1068,6 +1074,13 @@ onUnmounted(() => {
 .w-overview__dot--active {
   width: 20px;
   background: var(--accent-green);
+}
+
+/* outline invece di box-shadow: i pallini sono minuscoli (6px) e vicini
+   tra loro (6px di gap), un box-shadow finirebbe addosso al vicino. */
+.w-overview__dot:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 3px;
 }
 
 .is-positive { color: var(--accent-green); }

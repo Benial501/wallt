@@ -136,6 +136,11 @@ const importoClass = (tipo) => {
   padding: 0;
 }
 
+.recent-tx__link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-tight);
+}
+
 .recent-tx__list {
   display: flex;
   flex-direction: column;
@@ -172,6 +177,11 @@ const importoClass = (tipo) => {
 .recent-tx__item:active {
   transform: scale(0.99);
   transition-duration: var(--dur-instant);
+}
+
+.recent-tx__item:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring), var(--glass-highlight);
 }
 
 .recent-tx__avatar {
@@ -279,6 +289,11 @@ const importoClass = (tipo) => {
 
 .recent-tx__manual-link:hover {
   color: var(--text-link);
+}
+
+.recent-tx__manual-link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-tight);
 }
 
 .tabular-nums {

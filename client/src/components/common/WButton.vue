@@ -57,6 +57,11 @@ defineEmits(['click']);
   cursor: not-allowed;
 }
 
+.w-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .w-btn--sm { padding: 0.5rem 0.875rem; font-size: var(--text-xs); min-height: 36px; }
 .w-btn--md { padding: 0.75rem 1.25rem; font-size: 0.875rem; }
 .w-btn--lg { padding: 0.875rem 1.5rem; font-size: 0.9375rem; width: 100%; min-height: 48px; }

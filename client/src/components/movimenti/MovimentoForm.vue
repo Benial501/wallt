@@ -389,7 +389,6 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
   font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
   color: var(--text-muted);
   margin-bottom: 0.4375rem;
 }
@@ -428,6 +427,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
   .tipo-btn:hover { background: var(--glass-interactive-bg-hover); }
 }
 .tipo-btn:active { transform: scale(0.98); }
+.tipo-btn:focus-visible { outline: none; box-shadow: var(--focus-ring), var(--glass-highlight); }
 .tipo-btn svg { color: var(--accent-green); stroke: currentColor; }
 .tipo-btn.active { border-color: color-mix(in srgb, var(--accent-green) 55%, transparent); background: var(--accent-light); }
 
@@ -469,6 +469,10 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
   .cat-btn:hover { background: var(--glass-interactive-bg); }
 }
 .cat-btn:active { transform: scale(0.95); }
+/* outline invece di box-shadow: .cat-grid ha overflow-x: hidden apposta
+   per bloccare il trascinamento laterale, e taglierebbe l'alone. outline
+   non viene ritagliato dall'overflow. */
+.cat-btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
 .cat-btn.active {
   border-color: color-mix(in srgb, var(--cat-color, var(--accent-green)) 45%, transparent);
   background: color-mix(in srgb, var(--cat-color, var(--accent-green)) 12%, transparent);

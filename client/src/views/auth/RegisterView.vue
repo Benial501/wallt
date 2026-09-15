@@ -364,6 +364,7 @@ const startGoogleLogin = () => {
 }
 
 .btn-social:active:not(:disabled) { transform: scale(0.985); }
+.btn-social:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .btn-social:disabled {
   opacity: 0.5;

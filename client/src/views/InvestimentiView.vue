@@ -492,6 +492,7 @@ const messaggioTipo = computed(() => {
 .tab-nav { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
 .tab-nav button { padding: 0.5rem 1rem; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); cursor: pointer; min-height: 44px; }
 .tab-nav button.active { background: var(--accent-green); color: var(--accent-on); border-color: var(--accent-green); font-weight: 600; }
+.tab-nav button:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 .inv-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
 @media (min-width: 768px) { .inv-grid { grid-template-columns: repeat(2, 1fr); } }
 .inv-card { padding: 0 !important; overflow: hidden; }
@@ -504,9 +505,12 @@ const messaggioTipo = computed(() => {
 .inv-stats, .inv-rend { padding: 0 1rem; font-size: var(--text-xs); color: var(--text-secondary); }
 .inv-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; padding: 1rem; }
 .inv-actions button { padding: 0.625rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-input); cursor: pointer; min-height: 44px; color: var(--text-primary); }
+/* outline invece di box-shadow: .inv-card ha overflow: hidden. */
+.inv-actions button:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; }
 .periodo-tabs, .filtro-tabs { display: flex; gap: 0.375rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .periodo-tabs button, .filtro-tabs button { padding: 0.5rem 0.875rem; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); cursor: pointer; min-height: 44px; }
 .periodo-tabs button.active, .filtro-tabs button.active { background: var(--accent-green); color: var(--accent-on); border-color: var(--accent-green); }
+.periodo-tabs button:focus-visible, .filtro-tabs button:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
 /* deroga: didascalia sopra il valore in .stat-val, già leggibile a 1.125rem */
 .stat-label { display: block; font-size: var(--text-micro); color: var(--text-muted); }
@@ -528,9 +532,11 @@ const messaggioTipo = computed(() => {
 .tipo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 .tipo-grid button { padding: 0.75rem 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); cursor: pointer; font-size: var(--text-xs); min-height: 44px; }
 .tipo-grid button.active { border-color: var(--accent-purple); color: var(--accent-purple); background: rgba(108, 92, 231, 0.1); }
+.tipo-grid button:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 .colori { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .color-btn { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
 .color-btn.active { border-color: var(--text-primary); }
+.color-btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
 .toggle-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text-secondary); }
 .hint { font-size: var(--text-xs); color: var(--text-muted); }
 .mt-4 { margin-top: 1rem; }

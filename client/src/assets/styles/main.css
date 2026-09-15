@@ -268,4 +268,32 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+
+  .wallt-btn-primary:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+}
+
+/* =============================================================================
+   Movimento ridotto.
+
+   Chi ha impostato "riduci movimento" nel sistema riceve un'app ferma, senza
+   che ogni componente debba ricordarsene: era in 10 file su 55, e i 45
+   mancanti non erano una scelta.
+
+   0.01ms e non 0: Vue <Transition> attende `transitionend` per togliere un
+   elemento dal DOM, e una durata esattamente nulla non fa scattare l'evento
+   in tutti i browser. Un modale che non si chiude sarebbe peggio di
+   un'animazione di troppo.
+   ============================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -706,6 +706,7 @@ watch(() => form.value.paga_bollette, (val) => {
 }
 
 .pill-btn:active { transform: scale(0.97); }
+.pill-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .pill-btn.selected {
   background: var(--accent-green);
@@ -769,6 +770,7 @@ watch(() => form.value.paga_bollette, (val) => {
 }
 
 .option-btn:active { transform: scale(0.99); }
+.option-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .option-btn.selected {
   background: var(--accent-light);
@@ -806,6 +808,7 @@ watch(() => form.value.paga_bollette, (val) => {
 }
 
 .nav-btn-next:active:not(:disabled) { transform: scale(0.985); }
+.nav-btn-next:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .nav-btn-next:disabled {
   opacity: 0.4;

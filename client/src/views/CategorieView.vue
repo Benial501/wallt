@@ -159,6 +159,7 @@ async function ripristina(c) {
   transition: color var(--dur-fast) var(--ease-out);
 }
 .back:hover { color: var(--accent-green); }
+.back:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 
 header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin: 1.5rem 0; }
 h1 { font-size: clamp(1.625rem, 4vw, 2rem); font-weight: 700; letter-spacing: var(--tracking-display); }
@@ -167,8 +168,10 @@ header p { margin-top: 0.25rem; font-size: 0.9375rem; }
 h2 {
   font-size: var(--text-xs);
   font-weight: 700;
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
+  /* Non piu' maiuscolo: --tracking-caps compensava le maiuscole forzate,
+     tolte perche' rallentano la lettura. Peso e colore restano a fare
+     la gerarchia del titolo di gruppo. */
+  letter-spacing: var(--tracking-wide);
   color: var(--text-muted);
   margin: 1.75rem 0 0.75rem;
 }
@@ -201,6 +204,7 @@ h2 {
 @media (hover: hover) {
   .tabs button:hover:not(.selected) { color: var(--text-primary); }
 }
+.tabs button:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 .selected {
   background: var(--glass-interactive-bg-active);
   color: var(--text-primary);
@@ -244,6 +248,7 @@ small { font-size: var(--text-xs); margin-top: 0.125rem; color: var(--text-muted
 }
 .actions button:hover { text-decoration: underline; }
 .actions button:disabled { opacity: 0.5; }
+.actions button:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 
 /* Barra delle azioni di gruppo: vetro leggero, sta sotto ai filtri e sopra
    alla griglia senza rubare la scena. */
@@ -264,6 +269,7 @@ small { font-size: var(--text-xs); margin-top: 0.125rem; color: var(--text-muted
 .bulk__actions { display: flex; align-items: center; gap: 0.9rem; font-size: 0.875rem; flex-wrap: wrap; }
 .bulk__clear { color: var(--text-muted); }
 .bulk__clear:hover { color: var(--text-primary); text-decoration: underline; }
+.bulk__clear:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 
 .archived { margin-top: 2.5rem; }
 .archived .category-row { opacity: 0.7; }

@@ -181,8 +181,7 @@ const riattivaPrimiPassi = () => {
 .indice__title {
   font-size: var(--text-xs);
   font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-muted);
   margin-bottom: 0.625rem;
 }

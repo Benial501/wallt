@@ -107,6 +107,15 @@ defineEmits(['close']);
   }
 }
 
+/* outline invece di box-shadow: .w-modal ha overflow-y: auto (che
+   computa anche l'asse x a non-visibile), e il bottone e' vicino
+   all'angolo arrotondato del pannello: un box-shadow rischierebbe di
+   essere tagliato. outline non viene mai ritagliato dall'overflow. */
+.w-modal__close:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
 .w-modal__body {
   padding: 1.25rem;
 }

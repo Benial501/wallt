@@ -250,8 +250,10 @@ onBeforeUnmount(unlockScroll);
      (.help-panel__title), già leggibile a 1.0625rem. */
   font-size: var(--text-micro);
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  /* Non piu' maiuscolo: 0.06em compensava le maiuscole forzate, tolte
+     perche' rallentano la lettura. Il peso e il colore d'accento restano
+     a fare la gerarchia. */
+  letter-spacing: var(--tracking-wide);
   color: var(--accent-green);
   margin-bottom: 0.25rem;
 }

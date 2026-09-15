@@ -447,12 +447,15 @@ const backLabel = computed(() => (
 }
 
 .privacy-table th {
+  /* Non e' una citazione di testo legale: sono le intestazioni della
+     tabella ("Categoria", "Dati", ...), disegnate da noi. Niente maiuscolo
+     forzato: peso, colore e sfondo distinguono gia' l'intestazione dal
+     corpo della tabella. */
   background: var(--surface-inset);
   color: var(--text-primary);
   font-weight: 600;
   font-size: var(--text-xs);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
   white-space: nowrap;
 }
 

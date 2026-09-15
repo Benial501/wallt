@@ -50,6 +50,11 @@ const goToImport = () => router.push('/importa');
   color: var(--text-primary);
 }
 
+.import-hint:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .import-hint__icon {
   display: flex;
   align-items: center;

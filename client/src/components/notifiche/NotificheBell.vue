@@ -113,4 +113,9 @@ const etichetta = () => (nonLette.value > 0
 }
 
 .campanella__label { flex: 1; }
+
+.campanella:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-tight);
+}
 </style>

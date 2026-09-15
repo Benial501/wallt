@@ -354,6 +354,11 @@ const disattiva = async () => {
   cursor: not-allowed;
 }
 
+.notifiche-settings__btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .notifiche-settings__btn--secondario {
   background: transparent;
   border-color: var(--border);

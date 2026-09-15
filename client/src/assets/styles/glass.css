@@ -170,15 +170,15 @@ h4, h5, h6 {
   font-feature-settings: 'tnum' 1;
 }
 
-/* Occhiello in maiuscoletto spaziato, per le etichette di sezione. */
+/* Occhiello per le etichette di sezione: non piu' in maiuscoletto forzato
+   (rallenta la lettura), la gerarchia sta nel peso e nel colore. */
 .t-eyebrow {
   /* deroga: occhiello di sezione — per definizione precede sempre un
      titolo o un valore più grande e leggibile, come le eyebrow del
      carosello e del pannello di aiuto. */
   font-size: var(--text-micro);
   font-weight: 700;
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-muted);
 }
 

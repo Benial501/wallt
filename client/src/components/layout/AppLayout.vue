@@ -330,6 +330,7 @@ const handleLogout = async () => {
 }
 .sidebar__logo { padding: 24px 24px 20px; }
 .sidebar__logo-link { display: inline-flex; text-decoration: none; border-radius: var(--radius-sm); }
+.sidebar__logo-link:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 .sidebar__user {
   display: flex; align-items: center; gap: 0.75rem;
   margin: 0 12px 16px; padding: 10px 12px;
@@ -355,6 +356,7 @@ const handleLogout = async () => {
   .sidebar__link:hover { color: var(--text-primary); background: var(--sidebar-hover-bg); }
 }
 .sidebar__link:active { transform: scale(0.99); }
+.sidebar__link:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 /* La voce attiva non sposta piu' il testo: il segno e' una barretta
    posizionata in assoluto, non un bordo che ruba 3px al padding. */
 .sidebar__link.active { background: var(--sidebar-active-bg); color: var(--accent-green); font-weight: 600; }
@@ -386,6 +388,8 @@ const handleLogout = async () => {
   .mobile-header { background: var(--glass-chrome-solid); }
 }
 .mobile-header__logo-link { display: inline-flex; border-radius: var(--radius-sm); }
+.mobile-header__logo-link:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
+.avatar-btn:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 .mobile-header__azioni { display: flex; align-items: center; gap: 0.25rem; }
 .main-content { min-height: 100vh; padding: 76px 1rem calc(96px + env(safe-area-inset-bottom, 0px)); overflow-x: hidden; background: transparent; }
 .main-content--dashboard { padding-top: 1rem; }
@@ -473,6 +477,8 @@ const handleLogout = async () => {
     transform var(--dur-fast) var(--ease-out);
 }
 .bottom-nav__item:active .bottom-nav__icon-wrap { transform: scale(0.92); }
+.bottom-nav__item:focus-visible { outline: none; }
+.bottom-nav__item:focus-visible .bottom-nav__icon-wrap { box-shadow: var(--focus-ring-tight); }
 .bottom-nav__icon-svg {
   width: 22px;
   height: 22px;
@@ -503,6 +509,7 @@ const handleLogout = async () => {
   .action-btn:hover { background: var(--glass-interactive-bg-hover); border-color: color-mix(in srgb, var(--accent-green) 35%, transparent); }
 }
 .action-btn:active { transform: scale(0.97); }
+.action-btn:focus-visible { outline: none; box-shadow: var(--focus-ring), var(--glass-highlight); }
 .action-btn svg { color: var(--accent-green); stroke: currentColor; }
 .funz-grid {
   display: grid;
@@ -534,6 +541,7 @@ const handleLogout = async () => {
   }
 }
 .funz-grid__item:active { transform: scale(0.98); }
+.funz-grid__item:focus-visible { outline: none; box-shadow: var(--focus-ring), var(--glass-highlight); }
 .funz-grid__item--active {
   border-color: color-mix(in srgb, var(--accent-green) 38%, transparent);
   background: var(--sidebar-active-bg);

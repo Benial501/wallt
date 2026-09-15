@@ -263,6 +263,13 @@ onBeforeUnmount(() => {
 
 .notifiche-panel__icon-btn:active { transform: scale(0.92); }
 
+/* outline invece di box-shadow: .notifiche-panel ha overflow: hidden e
+   angoli arrotondati, e questi bottoni stanno nell'header vicino al bordo. */
+.notifiche-panel__icon-btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+}
+
 .notifiche-panel__lista {
   flex: 1;
   overflow-y: auto;
@@ -338,6 +345,13 @@ onBeforeUnmount(() => {
     background: var(--glass-interactive-bg-hover);
     border-color: color-mix(in srgb, var(--accent-green) 35%, transparent);
   }
+}
+
+/* outline invece di box-shadow: vive nel footer di .notifiche-panel, che
+   ha overflow: hidden. */
+.notifiche-panel__azione:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
 }
 
 .notifiche-fade-enter-active,

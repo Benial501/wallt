@@ -682,6 +682,10 @@ onMounted(async () => {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+.import-prereq__inline-link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-tight);
+}
 
 .file-input-hidden {
   position: absolute;
@@ -707,6 +711,7 @@ onMounted(async () => {
 .dropzone--disabled { cursor: not-allowed; opacity: 0.75; }
 .dropzone--loading { pointer-events: none; opacity: 0.85; }
 .dropzone--disabled.dropzone--active { border-color: var(--border); box-shadow: none; }
+.dropzone:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .dropzone__content { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
 .dropzone__icon { display: block; margin: 0 auto 0.75rem; color: var(--text-muted); stroke: currentColor; }

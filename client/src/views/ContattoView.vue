@@ -166,12 +166,13 @@ const submit = async () => {
 </template>
 
 <style scoped>
-/* deroga: eyebrow decorativo sopra il titolo, che ripete lo stesso argomento in grande */
+/* deroga: eyebrow decorativo sopra il titolo, che ripete lo stesso argomento in grande.
+   Non e' una citazione di testo legale (e' la pagina di contatto, non le
+   pagine legali): niente maiuscolo forzato, peso e colore bastano. */
 .contatto__eyebrow {
   font-size: var(--text-micro);
   font-weight: 700;
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
   color: var(--accent-green);
   margin-bottom: 0.5rem;
 }

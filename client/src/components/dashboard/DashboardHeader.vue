@@ -87,6 +87,11 @@ const primoNome = computed(() => authStore.user?.nome?.split(' ')[0] || 'Utente'
   flex-shrink: 0;
 }
 
+.dashboard-header__avatar-wrap:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-tight);
+}
+
 .dashboard-header__online {
   position: absolute;
   bottom: 0;

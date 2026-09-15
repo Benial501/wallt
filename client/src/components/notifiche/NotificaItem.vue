@@ -75,6 +75,15 @@ const quando = computed(() => {
   background: var(--surface-hover, var(--bg-card-hover));
 }
 
+/* outline invece di box-shadow: la riga vive dentro
+   .notifiche-panel__lista (overflow-y: auto) a sua volta dentro
+   .notifiche-panel (overflow: hidden, angoli arrotondati) — un box-shadow
+   vicino al bordo verrebbe tagliato. */
+.notifica:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -3px;
+}
+
 .notifica--non-letta {
   background: var(--surface-subtle);
 }

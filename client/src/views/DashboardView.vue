@@ -395,6 +395,11 @@ onMounted(async () => {
   box-shadow: var(--shadow-xs);
 }
 
+.dashboard-view__cta:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 @media (min-width: 768px) {
   .dashboard-view {
     max-width: 720px;

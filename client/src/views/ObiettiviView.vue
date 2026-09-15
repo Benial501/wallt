@@ -250,6 +250,7 @@ onMounted(() => obiettiviStore.fetchObiettivi());
 .obj-mancante { font-size: var(--text-xs); color: var(--text-muted); }
 .obj-deadline { font-size: var(--text-xs); color: var(--text-secondary); margin-top: 0.25rem; }
 .obj-btn { margin-top: 0.75rem; padding: 0.5rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--accent-green); background: transparent; color: var(--accent-green); cursor: pointer; font-size: var(--text-xs); width: 100%; }
+.obj-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .empty { text-align: center; padding: 3rem; }
 .empty-icon { display: block; margin: 0 auto 1rem; color: var(--text-muted); stroke: currentColor; }
 .section-title { display: inline-flex; align-items: center; gap: 0.5rem; }
@@ -262,6 +263,7 @@ onMounted(() => obiettiviStore.fetchObiettivi());
 .emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.375rem; }
 .emoji-btn { padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-input); font-size: 1.25rem; cursor: pointer; }
 .emoji-btn.active { border-color: var(--accent-green); }
+.emoji-btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
 .toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text-secondary); cursor: pointer; }
 .dettaglio-header { text-align: center; }
 .dettaglio-emoji { font-size: 3rem; display: block; margin-bottom: 0.75rem; }
@@ -277,5 +279,6 @@ onMounted(() => obiettiviStore.fetchObiettivi());
 .dettaglio-actions { text-align: center; margin-top: 0.5rem; }
 .link-btn { background: none; border: none; cursor: pointer; font-size: var(--text-xs); color: var(--text-muted); }
 .link-btn.danger { color: var(--negative); }
+.link-btn:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 .mb-6 { margin-bottom: 1.5rem; }
 </style>

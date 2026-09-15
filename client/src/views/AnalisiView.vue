@@ -621,6 +621,9 @@ const esportaDati = async () => {
 .periodo-tabs button.active, .sub-tabs button.active, .tab-nav button.active {
   background: var(--accent-green); color: var(--accent-on); border-color: var(--accent-green); font-weight: 600;
 }
+.periodo-tabs button:focus-visible, .sub-tabs button:focus-visible, .tab-nav button:focus-visible {
+  outline: none; box-shadow: var(--focus-ring-tight);
+}
 .custom-dates { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
 /* .form-input: aspetto condiviso in assets/styles/main.css */
 .form-input { min-height: 44px; }
@@ -676,8 +679,10 @@ const esportaDati = async () => {
 .chart-skeleton { min-height: 220px; border-radius: var(--radius-lg); }
 .donut-wrap { position: relative; max-width: 280px; margin: 0 auto; }
 .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
-/* deroga: didascalia sopra il valore del donut, già leggibile a --text-base in .donut-value accanto */
-.donut-label { font-size: var(--text-micro); color: var(--text-muted); text-transform: uppercase; }
+/* deroga: didascalia sopra il valore del donut, già leggibile a --text-base in .donut-value accanto.
+   Senza maiuscolo l'etichetta perdeva l'unica cosa che la distingueva dal
+   testo normale: il peso prende il posto della forma delle lettere. */
+.donut-label { font-size: var(--text-micro); font-weight: 600; color: var(--text-muted); }
 .donut-value { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
 .cat-list { display: flex; flex-direction: column; gap: 0.5rem; }
 .cat-block { display: flex; flex-direction: column; gap: 0.375rem; }
@@ -700,6 +705,7 @@ const esportaDati = async () => {
 .cat-row__name { min-width: 0; }
 .cat-row.highlighted { border-color: var(--accent-green); }
 .cat-row.expanded { background: rgba(0, 212, 170, 0.06); }
+.cat-row:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .cat-row-skeleton { height: 56px; border-radius: var(--radius-md); }
 .cat-transactions {
   margin: 0;
@@ -737,6 +743,7 @@ const esportaDati = async () => {
   align-items: center;
   justify-content: center;
 }
+.cat-transactions__close:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 .cat-transactions__hint {
   font-size: var(--text-xs);
   color: var(--text-muted);
@@ -758,8 +765,7 @@ const esportaDati = async () => {
   padding: 0 0.125rem;
   font-size: var(--text-xs);
   font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-muted);
 }
 .cat-transactions__group :deep(.analisi-mov-row) {

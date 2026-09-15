@@ -76,6 +76,11 @@ const segno = computed(() => (isEntrata.value ? '+' : '-'));
   border-color: color-mix(in srgb, var(--accent-green) 35%, var(--border));
 }
 
+.analisi-mov-row:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .analisi-mov-row__body {
   flex: 1;
   min-width: 0;
@@ -93,7 +98,6 @@ const segno = computed(() => (isEntrata.value ? '+' : '-'));
   font-size: var(--text-xs);
   font-weight: 600;
   color: var(--text-muted);
-  text-transform: uppercase;
   letter-spacing: 0.02em;
   flex-shrink: 0;
 }

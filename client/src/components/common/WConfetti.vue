@@ -127,4 +127,9 @@ const spawnConfetti = () => {
   cursor: pointer;
   font-size: 1rem;
 }
+
+.confetti-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
 </style>

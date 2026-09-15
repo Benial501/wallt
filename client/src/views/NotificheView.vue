@@ -133,6 +133,11 @@ const segnaTutte = async () => {
   border-color: rgba(0, 168, 132, 0.35);
 }
 
+.notifiche-view__btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-tight);
+}
+
 .notifiche-view__lista { display: flex; flex-direction: column; gap: 0.25rem; }
 
 .notifiche-view__stato {
