@@ -625,9 +625,10 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  /* deroga: etichetta che introduce lo slide (es. "Patrimonio totale",
-     "Investimenti"), sempre seguita a ruota dal valore vero — l'importo
-     grande e animato subito sotto, non questa riga. */
+  /* deroga: occhiello che introduce lo slide ("Patrimonio totale",
+     "I miei conti", "Budget del mese"…). Non porta informazione propria:
+     il contenuto vero dello slide — importo, lista, grafico o griglia —
+     sta subito sotto e resta al pavimento. */
   font-size: var(--text-micro);
   font-weight: 600;
   letter-spacing: 0.06em;
