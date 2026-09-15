@@ -251,6 +251,22 @@ html.light {
   --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter',
     system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 
+  /* --- Scala tipografica ---------------------------------------------------
+     `--text-xs` è il pavimento dell'informativo: tutto ciò che l'utente legge
+     per decidere (importi, date, categorie, etichette di campo, messaggi di
+     stato) sta lì o sopra.
+
+     `--text-micro` è l'unica deroga, e va motivata sulla riga che la usa con
+     un commento `deroga:`. Vale per le etichette degli assi dei grafici, per
+     i badge accanto a un testo che dice già la stessa cosa e per le
+     micro-didascalie sotto un valore già leggibile. Sotto --text-micro non si
+     scende mai. La guardia è client/tests/tipografia.test.js. */
+  --text-micro: 0.75rem;
+  --text-xs: 0.875rem;
+  --text-sm: 0.9375rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+
   --tracking-display: -0.028em;
   --tracking-title: -0.021em;
   --tracking-tight: -0.012em;
