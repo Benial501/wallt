@@ -165,7 +165,7 @@ h1 { font-size: clamp(1.625rem, 4vw, 2rem); font-weight: 700; letter-spacing: va
 p, small { color: var(--text-secondary); }
 header p { margin-top: 0.25rem; font-size: 0.9375rem; }
 h2 {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
@@ -235,8 +235,8 @@ h2 {
 .category-name { flex: 1; min-width: 0; }
 strong, small { display: block; }
 strong { font-size: 0.9375rem; font-weight: 600; letter-spacing: var(--tracking-tight); }
-small { font-size: 0.6875rem; margin-top: 0.125rem; color: var(--text-muted); }
-.actions { display: flex; gap: 0.7rem; font-size: 0.8125rem; }
+small { font-size: var(--text-xs); margin-top: 0.125rem; color: var(--text-muted); }
+.actions { display: flex; gap: 0.7rem; font-size: var(--text-xs); }
 .actions button {
   color: var(--accent-green);
   font-weight: 550;

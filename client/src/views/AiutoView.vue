@@ -179,7 +179,7 @@ const riattivaPrimiPassi = () => {
 
 .indice { margin-bottom: 1.5rem; }
 .indice__title {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -195,7 +195,7 @@ const riattivaPrimiPassi = () => {
   background: var(--surface-subtle);
   color: var(--text-secondary);
   font-family: inherit;
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   cursor: pointer;
 }
@@ -208,7 +208,7 @@ const riattivaPrimiPassi = () => {
 .sezione__title { font-size: 1.0625rem; font-weight: 700; color: var(--text-primary); }
 .sezione__desc {
   margin: 0.25rem 0 0.75rem;
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   line-height: 1.5;
   color: var(--text-muted);
 }
@@ -235,11 +235,11 @@ const riattivaPrimiPassi = () => {
 
 .argomento__heading { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1875rem; }
 .argomento__title { font-size: 0.875rem; font-weight: 600; line-height: 1.35; }
-.argomento__summary { font-size: 0.75rem; line-height: 1.45; color: var(--text-muted); }
+.argomento__summary { font-size: var(--text-xs); line-height: 1.45; color: var(--text-muted); }
 
 .argomento__body { padding: 0 0.75rem 1rem; }
 .argomento__text {
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   line-height: 1.6;
   color: var(--text-secondary);
 }
@@ -252,7 +252,7 @@ const riattivaPrimiPassi = () => {
   flex-direction: column;
   gap: 0.3125rem;
 }
-.argomento__list li { list-style: disc; font-size: 0.8125rem; line-height: 1.5; color: var(--text-secondary); }
+.argomento__list li { list-style: disc; font-size: var(--text-xs); line-height: 1.5; color: var(--text-secondary); }
 
 .argomento__link {
   margin-top: 0.75rem;
@@ -261,7 +261,7 @@ const riattivaPrimiPassi = () => {
   border: none;
   color: var(--accent-green);
   font-family: inherit;
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   cursor: pointer;
   min-height: 32px;
@@ -270,5 +270,5 @@ const riattivaPrimiPassi = () => {
 
 .riquadro-primi-passi { display: flex; flex-direction: column; gap: 0.625rem; align-items: flex-start; }
 .riquadro-primi-passi__title { font-size: 0.9375rem; font-weight: 700; color: var(--text-primary); }
-.riquadro-primi-passi__text { font-size: 0.8125rem; line-height: 1.55; color: var(--text-secondary); }
+.riquadro-primi-passi__text { font-size: var(--text-xs); line-height: 1.55; color: var(--text-secondary); }
 </style>

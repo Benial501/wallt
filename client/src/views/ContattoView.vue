@@ -166,8 +166,9 @@ const submit = async () => {
 </template>
 
 <style scoped>
+/* deroga: eyebrow decorativo sopra il titolo, che ripete lo stesso argomento in grande */
 .contatto__eyebrow {
-  font-size: 0.6875rem;
+  font-size: var(--text-micro);
   font-weight: 700;
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
@@ -233,7 +234,7 @@ textarea.wallt-input { resize: vertical; min-height: 170px; padding-top: 0.875re
 .contatto__hint {
   margin-top: 0.5rem;
   color: var(--text-muted);
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   line-height: var(--leading-normal);
 }
 

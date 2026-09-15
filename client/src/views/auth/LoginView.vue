@@ -196,7 +196,7 @@ const startGoogleLogin = () => {
   gap: 1rem;
   margin: 1.375rem 0;
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   letter-spacing: var(--tracking-wide);
 }
 

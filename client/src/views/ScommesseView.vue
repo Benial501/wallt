@@ -456,24 +456,25 @@ const getPiattaformaPan = (id) => pan.value.piattaforme?.find((p) => p.id === id
 .del-btn svg { stroke: currentColor; }
 .tab-nav button.active { background: var(--accent-green); color: var(--accent-on); border-color: var(--accent-green); font-weight: 600; }
 .piatt-saldo { font-size: 0.9375rem; color: var(--text-primary); margin-bottom: 0.25rem; }
-.piatt-stats, .piatt-bilancio { font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 0.25rem; }
+.piatt-stats, .piatt-bilancio { font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 0.25rem; }
 .limite-bar-wrap { height: 6px; background: var(--bg-input); border-radius: 3px; margin: 0.75rem 0; }
 .limite-bar { height: 100%; background: var(--warning); border-radius: 3px; }
 .piatt-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.75rem; }
-.piatt-actions button { padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-input); color: var(--text-primary); cursor: pointer; font-size: 0.75rem; min-height: 44px; }
+.piatt-actions button { padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-input); color: var(--text-primary); cursor: pointer; font-size: var(--text-xs); min-height: 44px; }
 .periodo-tabs { display: flex; gap: 0.375rem; margin-bottom: 1rem; flex-wrap: wrap; }
 .periodo-tabs button { padding: 0.5rem 0.875rem; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); cursor: pointer; min-height: 44px; }
 .periodo-tabs button.active { background: var(--accent-green); color: var(--accent-on); border-color: var(--accent-green); }
 .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
-.stat-label { display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+/* deroga: didascalia sopra il valore in .stat-val, già leggibile a 1.125rem */
+.stat-label { display: block; font-size: var(--text-micro); color: var(--text-muted); margin-bottom: 0.25rem; }
 .stat-val { font-size: 1.125rem; font-weight: 700; color: var(--text-primary); }
 .chart-card { margin-bottom: 1rem; padding: 1rem; }
 .chart-title { font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: var(--text-primary); }
 .sessione-card { margin-bottom: 0.75rem; padding: 1rem; font-size: 0.875rem; font-weight: 500; }
 .filtri { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; }
 .mov-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 0; border-bottom: 1px solid var(--border); font-size: 0.875rem; flex-wrap: wrap; }
-.mov-nota { color: var(--text-muted); font-size: 0.75rem; flex: 1; }
-.mov-data { margin-left: auto; color: var(--text-muted); font-size: 0.75rem; }
+.mov-nota { color: var(--text-muted); font-size: var(--text-xs); flex: 1; }
+.mov-data { margin-left: auto; color: var(--text-muted); font-size: var(--text-xs); }
 .positive { color: var(--positive); }
 .negative { color: var(--negative); }
 .form-space { display: flex; flex-direction: column; gap: 0.75rem; }
@@ -481,8 +482,8 @@ const getPiattaformaPan = (id) => pan.value.piattaforme?.find((p) => p.id === id
 .form-input { min-height: 44px; }
 .form-input--lg { font-size: 1.5rem; font-weight: 700; text-align: center; }
 .tipo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-.tipo-grid button { padding: 0.75rem 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); cursor: pointer; font-size: 0.8125rem; min-height: 44px; }
+.tipo-grid button { padding: 0.75rem 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); cursor: pointer; font-size: var(--text-xs); min-height: 44px; }
 .tipo-grid button.active { border-color: var(--accent-green); color: var(--accent-green); background: var(--accent-light); }
-.hint { font-size: 0.8125rem; color: var(--text-muted); }
+.hint { font-size: var(--text-xs); color: var(--text-muted); }
 .mt-4 { margin-top: 1rem; }
 </style>

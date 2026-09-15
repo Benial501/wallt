@@ -324,7 +324,7 @@ const startGoogleLogin = () => {
   gap: 1rem;
   margin: 1.375rem 0;
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   letter-spacing: var(--tracking-wide);
 }
 
@@ -406,7 +406,7 @@ const startGoogleLogin = () => {
 }
 
 .consent-text {
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   line-height: 1.5;
   color: var(--text-secondary);
 }

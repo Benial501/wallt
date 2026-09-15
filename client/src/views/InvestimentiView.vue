@@ -476,7 +476,8 @@ const messaggioTipo = computed(() => {
 .page-header { margin-bottom: 1rem; }
 .page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
 .hero-card { text-align: center; padding: 1.5rem; margin-bottom: 1.25rem; }
-.hero-label { font-size: 0.6875rem; letter-spacing: 0.1em; color: var(--text-muted); }
+/* deroga: didascalia sopra il valore in .hero-amount, già leggibile a 2.5rem */
+.hero-label { font-size: var(--text-micro); letter-spacing: 0.1em; color: var(--text-muted); }
 .hero-amount { font-size: 2.5rem; font-weight: 800; color: var(--text-primary); margin: 0.5rem 0; }
 .hero-rend { font-size: 0.875rem; }
 .empty { text-align: center; padding: 3rem 1rem; }
@@ -496,26 +497,28 @@ const messaggioTipo = computed(() => {
 .inv-card { padding: 0 !important; overflow: hidden; }
 .inv-header { padding: 1rem 1rem 0.5rem; }
 .inv-header h3 { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
-.inv-tipo { font-size: 0.75rem; color: var(--text-muted); }
-.inv-saldo-label { padding: 0 1rem; font-size: 0.75rem; color: var(--text-muted); }
+.inv-tipo { font-size: var(--text-xs); color: var(--text-muted); }
+/* deroga: didascalia sopra il valore in .inv-saldo, già leggibile a 1.5rem */
+.inv-saldo-label { padding: 0 1rem; font-size: var(--text-micro); color: var(--text-muted); }
 .inv-saldo { padding: 0 1rem; font-size: 1.5rem; font-weight: 800; color: var(--text-primary); }
-.inv-stats, .inv-rend { padding: 0 1rem; font-size: 0.8125rem; color: var(--text-secondary); }
+.inv-stats, .inv-rend { padding: 0 1rem; font-size: var(--text-xs); color: var(--text-secondary); }
 .inv-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; padding: 1rem; }
 .inv-actions button { padding: 0.625rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-input); cursor: pointer; min-height: 44px; color: var(--text-primary); }
 .periodo-tabs, .filtro-tabs { display: flex; gap: 0.375rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .periodo-tabs button, .filtro-tabs button { padding: 0.5rem 0.875rem; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); cursor: pointer; min-height: 44px; }
 .periodo-tabs button.active, .filtro-tabs button.active { background: var(--accent-green); color: var(--accent-on); border-color: var(--accent-green); }
 .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
-.stat-label { display: block; font-size: 0.75rem; color: var(--text-muted); }
+/* deroga: didascalia sopra il valore in .stat-val, già leggibile a 1.125rem */
+.stat-label { display: block; font-size: var(--text-micro); color: var(--text-muted); }
 .stat-val { font-size: 1.125rem; font-weight: 700; }
 .chart-card { margin-bottom: 1rem; padding: 1rem; }
 .chart-title { font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; }
 .roi-table { padding: 1rem; }
-.roi-header { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem; }
-.roi-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.8125rem; }
+.roi-header { font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 0.75rem; }
+.roi-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: var(--text-xs); }
 .filtri { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; }
 .mov-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 0; border-bottom: 1px solid var(--border); font-size: 0.875rem; flex-wrap: wrap; }
-.mov-data { margin-left: auto; color: var(--text-muted); font-size: 0.75rem; }
+.mov-data { margin-left: auto; color: var(--text-muted); font-size: var(--text-xs); }
 .positive { color: var(--positive); }
 .negative { color: var(--negative); }
 .form-space { display: flex; flex-direction: column; gap: 0.75rem; }
@@ -523,12 +526,12 @@ const messaggioTipo = computed(() => {
 .form-input { min-height: 44px; }
 .form-input--lg { font-size: 1.5rem; font-weight: 700; text-align: center; }
 .tipo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-.tipo-grid button { padding: 0.75rem 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); cursor: pointer; font-size: 0.8125rem; min-height: 44px; }
+.tipo-grid button { padding: 0.75rem 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); cursor: pointer; font-size: var(--text-xs); min-height: 44px; }
 .tipo-grid button.active { border-color: var(--accent-purple); color: var(--accent-purple); background: rgba(108, 92, 231, 0.1); }
 .colori { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .color-btn { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
 .color-btn.active { border-color: var(--text-primary); }
 .toggle-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text-secondary); }
-.hint { font-size: 0.8125rem; color: var(--text-muted); }
+.hint { font-size: var(--text-xs); color: var(--text-muted); }
 .mt-4 { margin-top: 1rem; }
 </style>

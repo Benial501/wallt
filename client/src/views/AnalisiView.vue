@@ -612,11 +612,11 @@ const esportaDati = async () => {
 .page-header { margin-bottom: 1rem; }
 .page-title-row { display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
 .page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
-.empty-hint { margin: 0.5rem auto 0.75rem; max-width: 32rem; font-size: 0.8125rem; line-height: 1.55; color: var(--text-muted); }
+.empty-hint { margin: 0.5rem auto 0.75rem; max-width: 32rem; font-size: var(--text-xs); line-height: 1.55; color: var(--text-muted); }
 .periodo-tabs, .sub-tabs, .tab-nav { display: flex; gap: 0.375rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .periodo-tabs button, .sub-tabs button, .tab-nav button {
   padding: 0.5rem 0.875rem; border-radius: 999px; border: 1px solid var(--border);
-  background: var(--bg-input); color: var(--text-secondary); font-size: 0.8125rem; cursor: pointer; min-height: 44px;
+  background: var(--bg-input); color: var(--text-secondary); font-size: var(--text-xs); cursor: pointer; min-height: 44px;
 }
 .periodo-tabs button.active, .sub-tabs button.active, .tab-nav button.active {
   background: var(--accent-green); color: var(--accent-on); border-color: var(--accent-green); font-weight: 600;
@@ -636,13 +636,13 @@ const esportaDati = async () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 .quantita-picker__libero .filtro-select { width: auto; min-width: 4.5rem; }
 .quantita-fissa {
   margin-bottom: 1rem;
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 /* Stesso chevron dei campi condivisi (assets/styles/main.css): qui la select
@@ -676,7 +676,8 @@ const esportaDati = async () => {
 .chart-skeleton { min-height: 220px; border-radius: var(--radius-lg); }
 .donut-wrap { position: relative; max-width: 280px; margin: 0 auto; }
 .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
-.donut-label { font-size: 0.6875rem; color: var(--text-muted); text-transform: uppercase; }
+/* deroga: didascalia sopra il valore del donut, già leggibile a --text-base in .donut-value accanto */
+.donut-label { font-size: var(--text-micro); color: var(--text-muted); text-transform: uppercase; }
 .donut-value { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
 .cat-list { display: flex; flex-direction: column; gap: 0.5rem; }
 .cat-block { display: flex; flex-direction: column; gap: 0.375rem; }
@@ -737,7 +738,7 @@ const esportaDati = async () => {
   justify-content: center;
 }
 .cat-transactions__hint {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   margin: 0;
   line-height: 1.4;
@@ -755,7 +756,7 @@ const esportaDati = async () => {
 .cat-transactions__group-label {
   margin: 0 0 0.375rem;
   padding: 0 0.125rem;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -776,7 +777,7 @@ const esportaDati = async () => {
 .cat-transactions__skeleton { height: 72px; border-radius: 12px; }
 .cat-bullet { width: 10px; height: 10px; border-radius: 50%; }
 .cat-importo { font-weight: 600; }
-.cat-pct { color: var(--text-muted); font-size: 0.8125rem; }
+.cat-pct { color: var(--text-muted); font-size: var(--text-xs); }
 .cat-bar { grid-column: 1 / -1; height: 4px; background: var(--bg-input); border-radius: 2px; overflow: hidden; }
 .cat-bar div { height: 100%; border-radius: 2px; }
 .cat-row-icon { color: var(--text-muted); }
@@ -784,7 +785,8 @@ const esportaDati = async () => {
 .data-table th, .data-table td { padding: 0.625rem; text-align: left; border-bottom: 1px solid var(--border); color: var(--text-primary); }
 .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin: 1rem 0; }
 @media (min-width: 768px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
-.stat-label { display: block; font-size: 0.6875rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+/* deroga: didascalia sopra il valore in .stat-val, già leggibile a --text-base */
+.stat-label { display: block; font-size: var(--text-micro); color: var(--text-muted); margin-bottom: 0.25rem; }
 .stat-val { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
 .variazione { text-align: center; font-size: 1.125rem; font-weight: 600; margin-top: 0.5rem; }
 .positive { color: var(--positive); }

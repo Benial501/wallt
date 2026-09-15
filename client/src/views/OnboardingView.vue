@@ -687,7 +687,7 @@ watch(() => form.value.paga_bollette, (val) => {
   background: var(--glass-interactive-bg);
   box-shadow: var(--glass-highlight);
   color: var(--text-secondary);
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   font-weight: 550;
   cursor: pointer;
   transition:

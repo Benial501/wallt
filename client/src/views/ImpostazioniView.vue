@@ -830,7 +830,7 @@ const eliminaAccountOAuth = async () => {
 .avatar-picker:disabled { cursor: progress; opacity: 0.6; }
 .avatar-picker:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 3px; }
 .avatar-picker__badge { position: absolute; right: -2px; bottom: -2px; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--accent-green); color: #fff; border: 2px solid var(--bg-primary); }
-.avatar-remove { display: block; margin: 0 auto 0.5rem; background: none; border: none; padding: 0; font-size: 0.75rem; color: var(--text-subtle); text-decoration: underline; cursor: pointer; }
+.avatar-remove { display: block; margin: 0 auto 0.5rem; background: none; border: none; padding: 0; font-size: var(--text-xs); color: var(--text-subtle); text-decoration: underline; cursor: pointer; }
 .avatar-remove:disabled { opacity: 0.6; cursor: progress; }
 .profile-header h2 { font-size: 1.25rem; color: var(--text-primary); }
 .profile-header p { color: var(--text-secondary); font-size: 0.875rem; }
@@ -855,12 +855,12 @@ const eliminaAccountOAuth = async () => {
 .theme-switch.animating .theme-icon { animation: spin 0.4s ease; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .toggle-row { display: flex; align-items: center; gap: 0.75rem; font-size: 0.875rem; color: var(--text-secondary); cursor: pointer; min-height: 44px; }
-.hint { font-size: 0.8125rem; color: var(--text-muted); margin-left: 1.75rem; }
+.hint { font-size: var(--text-xs); color: var(--text-muted); margin-left: 1.75rem; }
 .hint--inline { margin-left: 0; margin-bottom: 0.25rem; }
 .funzione-block { display: flex; flex-direction: column; gap: 0.25rem; }
 .section-danger .section-toggle { color: var(--negative); }
 .danger-text { color: var(--negative); font-size: 0.875rem; }
-.reset-list { margin: 0.25rem 0 0.5rem 1.25rem; color: var(--text-secondary); font-size: 0.8125rem; }
+.reset-list { margin: 0.25rem 0 0.5rem 1.25rem; color: var(--text-secondary); font-size: var(--text-xs); }
 .reset-list li { margin-bottom: 0.25rem; }
 .form-space { display: flex; flex-direction: column; gap: 0.75rem; }
 </style>

@@ -22,7 +22,6 @@ const PAVIMENTO_REM = 0.875;
 
 /** Svuotata dai task 4a, 4b e 4c, in quest'ordine. */
 const AREE_NON_ANCORA_MIGRATE = [
-  'views',
   'components',
   'assets',
 ];

@@ -240,16 +240,17 @@ onMounted(() => obiettiviStore.fetchObiettivi());
 @media (min-width: 1024px) { .ob-grid { grid-template-columns: repeat(3, 1fr); } }
 .obj-card { text-align: center; cursor: pointer; position: relative; }
 .obj-card--done { background: rgba(0, 212, 170, 0.08); border-color: var(--positive); }
-.obj-badge { position: absolute; top: 0.75rem; right: 0.75rem; font-size: 0.6875rem; background: var(--positive); color: var(--positive-on); padding: 0.125rem 0.5rem; border-radius: 999px; font-weight: 600; }
+/* deroga: badge sulla card, ma la sezione "Completati" che la contiene dice già lo stato */
+.obj-badge { position: absolute; top: 0.75rem; right: 0.75rem; font-size: var(--text-micro); background: var(--positive); color: var(--positive-on); padding: 0.125rem 0.5rem; border-radius: 999px; font-weight: 600; }
 .obj-emoji { font-size: 2.5rem; display: block; margin-bottom: 0.5rem; }
 .obj-nome { font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; }
 .obj-importi { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
 .obj-bar { height: 8px; background: var(--bg-input); border-radius: 4px; overflow: hidden; margin-bottom: 0.5rem; }
 .obj-bar-fill { height: 100%; background: var(--accent-green); border-radius: 4px; transition: width 0.6s ease; }
 .obj-bar-fill--done { background: var(--positive); }
-.obj-mancante { font-size: 0.8125rem; color: var(--text-muted); }
-.obj-deadline { font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem; }
-.obj-btn { margin-top: 0.75rem; padding: 0.5rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--accent-green); background: transparent; color: var(--accent-green); cursor: pointer; font-size: 0.8125rem; width: 100%; }
+.obj-mancante { font-size: var(--text-xs); color: var(--text-muted); }
+.obj-deadline { font-size: var(--text-xs); color: var(--text-secondary); margin-top: 0.25rem; }
+.obj-btn { margin-top: 0.75rem; padding: 0.5rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--accent-green); background: transparent; color: var(--accent-green); cursor: pointer; font-size: var(--text-xs); width: 100%; }
 .empty { text-align: center; padding: 3rem; }
 .empty-icon { display: block; margin: 0 auto 1rem; color: var(--text-muted); stroke: currentColor; }
 .section-title { display: inline-flex; align-items: center; gap: 0.5rem; }
@@ -270,12 +271,12 @@ onMounted(() => obiettiviStore.fetchObiettivi());
 .proiezione-ok { color: var(--positive); font-size: 0.875rem; margin-top: 0.5rem; }
 .proiezione-ko { color: var(--negative); font-size: 0.875rem; margin-top: 0.5rem; }
 .contributi-list { max-height: 200px; overflow-y: auto; }
-.contributi-list h4 { font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 0.5rem; }
-.contributo-row { display: flex; gap: 0.75rem; padding: 0.375rem 0; border-bottom: 1px solid var(--border); font-size: 0.8125rem; }
+.contributi-list h4 { font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 0.5rem; }
+.contributo-row { display: flex; gap: 0.75rem; padding: 0.375rem 0; border-bottom: 1px solid var(--border); font-size: var(--text-xs); }
 .contributo-nota { color: var(--text-muted); flex: 1; }
 .positive { color: var(--positive); }
 .dettaglio-actions { text-align: center; margin-top: 0.5rem; }
-.link-btn { background: none; border: none; cursor: pointer; font-size: 0.8125rem; color: var(--text-muted); }
+.link-btn { background: none; border: none; cursor: pointer; font-size: var(--text-xs); color: var(--text-muted); }
 .link-btn.danger { color: var(--negative); }
 .mb-6 { margin-bottom: 1.5rem; }
 </style>

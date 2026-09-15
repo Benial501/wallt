@@ -446,14 +446,14 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
   flex-wrap: wrap;
 }
 .periodo-section__title { font-weight: 800; color: var(--text-primary); font-size: 0.9375rem; }
-.periodo-section__hint { font-size: 0.8125rem; color: var(--text-secondary); }
+.periodo-section__hint { font-size: var(--text-xs); color: var(--text-secondary); }
 .anno-filtro {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   margin-top: 0.75rem;
 }
-.anno-filtro__label { font-size: 0.8125rem; color: var(--text-secondary); font-weight: 600; }
+.anno-filtro__label { font-size: var(--text-xs); color: var(--text-secondary); font-weight: 600; }
 .anno-filtro__select { min-width: 120px; }
 .add-btn {
   width: 44px; height: 44px; border-radius: 50%;
@@ -473,7 +473,7 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
   padding: 0.5rem 1rem; border-radius: var(--radius-pill);
   border: 1px solid var(--glass-interactive-border);
   background: var(--glass-interactive-bg); box-shadow: var(--glass-highlight);
-  color: var(--text-secondary); font-size: 0.8125rem; font-weight: 550; cursor: pointer;
+  color: var(--text-secondary); font-size: var(--text-xs); font-weight: 550; cursor: pointer;
   min-height: 44px;
   transition:
     background var(--dur-fast) var(--ease-out),
@@ -502,7 +502,7 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
   border-top: 1px solid var(--border);
 }
 .range-filtro__field { display: flex; flex-direction: column; gap: 0.25rem; }
-.range-filtro__label { font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; }
+.range-filtro__label { font-size: var(--text-xs); color: var(--text-secondary); font-weight: 600; }
 .range-filtro__input {
   background: var(--glass-interactive-bg);
   border: 1px solid var(--glass-interactive-border);
@@ -561,7 +561,7 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
   border-color: var(--accent-green);
   box-shadow: var(--focus-ring), var(--glass-highlight);
 }
-.results-meta { margin: 0 0 1rem; font-size: 0.8125rem; color: var(--text-secondary); }
+.results-meta { margin: 0 0 1rem; font-size: var(--text-xs); color: var(--text-secondary); }
 .load-more { display: flex; justify-content: center; margin: 1.5rem 0; }
 .load-more__btn {
   padding: 0.75rem 1.5rem;
@@ -601,14 +601,14 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
   border-radius: var(--radius-xs);
 }
 .gruppo { margin-bottom: 1.5rem; }
-.gruppo-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 0.5rem; padding: 0 0.25rem; }
-.gruppo-totali { display: flex; gap: 0.5rem; font-size: 0.75rem; }
+.gruppo-header { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 0.5rem; padding: 0 0.25rem; }
+.gruppo-totali { display: flex; gap: 0.5rem; font-size: var(--text-xs); }
 .positive { color: var(--positive); }
 .negative { color: var(--negative); }
 .empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); }
 .empty-icon { display: block; margin: 0 auto 1rem; color: var(--text-muted); stroke: currentColor; }
 .quick-add { margin-top: 1rem; padding: 0.75rem 1.5rem; border-radius: var(--radius-md); background: var(--accent-green); color: var(--accent-on); border: none; font-weight: 600; cursor: pointer; min-height: 44px; }
 .quick-add--secondary { background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); }
-.empty-state__hint { margin: 0.5rem auto 0; max-width: 32rem; font-size: 0.8125rem; line-height: 1.55; color: var(--text-muted); }
+.empty-state__hint { margin: 0.5rem auto 0; max-width: 32rem; font-size: var(--text-xs); line-height: 1.55; color: var(--text-muted); }
 .empty-state__actions { display: flex; flex-wrap: wrap; gap: 0.625rem; justify-content: center; }
 </style>

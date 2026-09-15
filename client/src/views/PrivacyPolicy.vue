@@ -450,7 +450,7 @@ const backLabel = computed(() => (
   background: var(--surface-inset);
   color: var(--text-primary);
   font-weight: 600;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
   white-space: nowrap;

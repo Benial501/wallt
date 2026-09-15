@@ -344,27 +344,28 @@ const confermaElimina = async () => {
 .conto-card__header { padding: 1.25rem 1.25rem 0; display: flex; align-items: center; justify-content: space-between; }
 .conto-card__icon { width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; color: var(--text-primary); background: color-mix(in srgb, var(--account-accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--account-accent) 18%, var(--border)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%); }
 .conto-card__body { padding: 1rem 1.25rem 1.25rem; }
-.conto-card__balance-label { margin-top: 1rem; margin-bottom: .15rem; color: var(--text-muted); font-size: .75rem; }
+/* deroga: didascalia sopra il saldo in .conto-card__saldo, già leggibile a clamp(1.5rem, 4vw, 2rem) */
+.conto-card__balance-label { margin-top: 1rem; margin-bottom: .15rem; color: var(--text-muted); font-size: var(--text-micro); }
 .conto-card__top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
 .conto-card__top h3 { font-size: 1.0625rem; font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
-.badge { font-size: 0.6875rem; padding: 0.25rem 0.5rem; border-radius: 999px; background: var(--bg-input); color: var(--text-muted); }
+.badge { font-size: var(--text-xs); padding: 0.25rem 0.5rem; border-radius: 999px; background: var(--bg-input); color: var(--text-muted); }
 .conto-card__saldo { font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 650; letter-spacing: -.045em; font-variant-numeric: tabular-nums; color: var(--text-primary); margin-bottom: 1.25rem; overflow-wrap: anywhere; }
 .conto-card__actions { display: flex; gap: 0.5rem; }
-.conto-card__actions button { flex: 1; min-height: 44px; padding: 0.5rem; border-radius: 12px; border: 1px solid var(--border); background: color-mix(in srgb, var(--bg-input) 60%, transparent); color: var(--text-secondary); cursor: pointer; font-size: 0.8125rem; transition: background-color 150ms ease; }
+.conto-card__actions button { flex: 1; min-height: 44px; padding: 0.5rem; border-radius: 12px; border: 1px solid var(--border); background: color-mix(in srgb, var(--bg-input) 60%, transparent); color: var(--text-secondary); cursor: pointer; font-size: var(--text-xs); transition: background-color 150ms ease; }
 .conto-card__actions button:hover { background: var(--bg-card-hover); }
 .conto-card__actions button:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 2px; }
 .conto-card__actions button.danger { color: var(--negative); border-color: rgba(255,71,87,0.3); }
 .empty-state { text-align: center; padding: 3rem 1.5rem; }
-.empty-state__hint { margin: 0.5rem auto 1rem; max-width: 30rem; font-size: 0.8125rem; line-height: 1.55; color: var(--text-muted); }
+.empty-state__hint { margin: 0.5rem auto 1rem; max-width: 30rem; font-size: var(--text-xs); line-height: 1.55; color: var(--text-muted); }
 .trasferimento-block__actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
-.trasferimento-block__hint { margin-top: 0.5rem; font-size: 0.75rem; line-height: 1.5; color: var(--text-muted); }
+.trasferimento-block__hint { margin-top: 0.5rem; font-size: var(--text-xs); line-height: 1.5; color: var(--text-muted); }
 .empty-icon { display: block; margin: 0 auto 1rem; color: var(--text-muted); stroke: currentColor; }
 .tipo-chip { display: inline-flex; align-items: center; gap: 0.375rem; }
 .form-space { display: flex; flex-direction: column; gap: 1rem; }
-.field label { display: block; font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 0.375rem; }
+.field label { display: block; font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 0.375rem; }
 /* .form-input: aspetto condiviso in assets/styles/main.css */
 .tipo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-.tipo-chip { padding: 0.625rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); font-size: 0.75rem; cursor: pointer; text-align: left; }
+.tipo-chip { padding: 0.625rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); font-size: var(--text-xs); cursor: pointer; text-align: left; }
 .tipo-chip.active { border-color: var(--accent-green); color: var(--accent-green); }
 .color-grid { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .color-dot { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
@@ -388,7 +389,7 @@ const confermaElimina = async () => {
 .delete-modal__alert strong { color: var(--text-primary); }
 .delete-modal__meta { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
 .delete-modal__saldo { font-size: 1.125rem; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
-.delete-modal__hint { font-size: 0.8125rem; color: var(--text-muted); line-height: 1.5; margin: 0; }
+.delete-modal__hint { font-size: var(--text-xs); color: var(--text-muted); line-height: 1.5; margin: 0; }
 .delete-modal__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; margin-top: 0.25rem; }
 @media (max-width: 420px) {
   .delete-modal__actions { grid-template-columns: 1fr; }

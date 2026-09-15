@@ -276,7 +276,7 @@ const totaleRimanente = computed(() => totaleBudget.value - budgetStore.totaleSp
 .empty-icon { display: block; margin: 0 auto 1rem; color: var(--text-muted); stroke: currentColor; }
 .cat-icon { flex-shrink: 0; color: var(--text-muted); }
 .empty-desc { color: var(--text-secondary); margin: 0.5rem 0 1.5rem; }
-.field-label { display: block; font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 0.5rem; }
+.field-label { display: block; font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 0.5rem; }
 /* .form-input: aspetto condiviso in assets/styles/main.css */
 .form-input--lg { font-size: 1.5rem; font-weight: 700; text-align: center; }
 /* 16px: sotto questa soglia iOS ingrandisce la pagina appena il campo
@@ -284,13 +284,13 @@ const totaleRimanente = computed(() => totaleBudget.value - budgetStore.totaleSp
 .form-input--sm { width: 70px; padding: 0.375rem 0.5rem; font-size: 16px; }
 .cat-row { display: grid; grid-template-columns: 32px 1fr 70px 16px 80px; align-items: center; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
 .cat-nome { font-size: 0.875rem; color: var(--text-primary); }
-.pct-sign { color: var(--text-muted); font-size: 0.75rem; }
+.pct-sign { color: var(--text-muted); font-size: var(--text-xs); }
 .alloc-bar-wrap { height: 8px; background: var(--bg-input); border-radius: 4px; margin: 1rem 0 0.5rem; overflow: hidden; }
 .alloc-bar { height: 100%; border-radius: 4px; transition: width 0.3s; }
 .alloc-bar.ok { background: var(--positive); }
 .alloc-bar.warning { background: var(--warning); }
 .alloc-bar.error { background: var(--negative); }
-.alloc-msg { font-size: 0.8125rem; margin-bottom: 1rem; }
+.alloc-msg { font-size: var(--text-xs); margin-bottom: 1rem; }
 .alloc-msg.ok { color: var(--positive); }
 .alloc-msg.warning { color: var(--warning); }
 .alloc-msg.error { color: var(--negative); }
@@ -298,14 +298,15 @@ const totaleRimanente = computed(() => totaleBudget.value - budgetStore.totaleSp
 .mb-3 { margin-bottom: 0.75rem; }
 .mb-4 { margin-bottom: 1rem; }
 .cat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; font-size: 0.875rem; color: var(--text-primary); flex-wrap: wrap; gap: 0.25rem; }
-.cat-stats { color: var(--text-secondary); font-size: 0.8125rem; }
+.cat-stats { color: var(--text-secondary); font-size: var(--text-xs); }
 .progress-bar { height: 8px; background: var(--bg-input); border-radius: 4px; overflow: hidden; }
 .progress-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
 .progress-fill.pulse { animation: pulse 1s ease-in-out infinite; }
-.cat-rimanente { font-size: 0.8125rem; color: var(--text-secondary); margin-top: 0.5rem; }
+.cat-rimanente { font-size: var(--text-xs); color: var(--text-secondary); margin-top: 0.5rem; }
 .cat-rimanente.negative { color: var(--negative); }
 .riepilogo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; text-align: center; }
-.riep-label { display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+/* deroga: didascalia sopra il valore in .riep-val, già leggibile a 1.125rem */
+.riep-label { display: block; font-size: var(--text-micro); color: var(--text-muted); margin-bottom: 0.25rem; }
 .riep-val { font-size: 1.125rem; font-weight: 700; color: var(--text-primary); }
 .positive { color: var(--positive); }
 .negative { color: var(--negative); }

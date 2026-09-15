@@ -123,7 +123,7 @@ const segnaTutte = async () => {
   border-radius: var(--radius-md);
   background: var(--surface-subtle);
   color: var(--text-secondary);
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   cursor: pointer;
   min-height: 40px;
 }
