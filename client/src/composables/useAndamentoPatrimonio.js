@@ -1,17 +1,6 @@
 import { ref, computed } from 'vue';
 import { creaRisorsa } from '../utils/risorsa.js';
 
-// `api` (client/src/utils/axios.js) non è importato qui in cima, a differenza
-// degli altri composable: axios.js importa `config/api.js`, che legge
-// `import.meta.env` (un global di Vite, assente sotto Node), e `utils/session.js`,
-// che importa a sua volta tutti e 12 gli store Pinia. Sotto `node --test`
-// (niente bundler) un import statico farebbe fallire la risoluzione del modulo
-// ancora prima che un singolo assert giri — anche per i due test che toccano
-// solo `PERIODI_ANDAMENTO`/`statistichePunti` e non chiamano mai `carica()`.
-// `client/src/utils/categorie.js` risolve lo stesso problema (lì per spezzare
-// un ciclo reale) con un `import()` dinamico dentro la funzione che lo usa:
-// stesso rimedio, stessa ragione di fondo.
-
 /**
  * Andamento del patrimonio nel tempo, per il grafico condiviso fra Dashboard
  * e Analisi.
@@ -66,17 +55,47 @@ export const statistichePunti = (dati) => {
   };
 };
 
-export const useAndamentoPatrimonio = ({ periodoIniziale = 'mesi_3' } = {}) => {
+/**
+ * Lettura reale dall'API, usata quando chi chiama `useAndamentoPatrimonio`
+ * non inietta un `fetcher` proprio. `api` è importato qui dentro con un
+ * `import()` dinamico, non in cima al file: `axios.js` importa
+ * `config/api.js` (che legge `import.meta.env`, un global di Vite assente
+ * sotto Node) e `utils/session.js` (che importa a sua volta tutti e 12 gli
+ * store Pinia). Sotto `node --test` (niente bundler) un import statico
+ * farebbe fallire la risoluzione dell'intero modulo ancora prima che un
+ * singolo assert giri — verificato rimettendolo temporaneamente: tutti e
+ * sei i test del primo giro fallivano, compresi quelli che non chiamano
+ * mai `carica()`.
+ *
+ * `client/src/utils/categorie.js` usa lo stesso `import()` dinamico, ma per
+ * un motivo diverso: lì spezza un ciclo reale (`axios` → `session` →
+ * `categorie` → `axios`) che romperebbe anche in produzione, non solo sotto
+ * i test. Qui non c'è nessun ciclo: il solo vincolo è la compatibilità con
+ * `node --test` sotto ESM.
+ */
+const fetcherPredefinito = async (unita, quantita) => {
+  const { default: api } = await import('../utils/axios');
+  const { data } = await api.get('/analisi/andamento-patrimonio', {
+    params: { unita, quantita },
+  });
+  return data;
+};
+
+/**
+ * @param {Object} [opzioni]
+ * @param {string} [opzioni.periodoIniziale]  id in PERIODI_ANDAMENTO.
+ * @param {Function} [opzioni.fetcher]  lettura dall'API, iniettabile nei
+ *   test. Senza un valore proprio, provare `carica`/`cambiaPeriodo` o
+ *   `vuotoSe` richiederebbe un doppione del file: con `fetcher` come
+ *   parametro con valore predefinito (come `oggi` in `buildPeriodi` e `now`
+ *   in `getDateRange`) bastano un mock e nessuna rete. Vedi
+ *   `fetcherPredefinito` sopra per l'implementazione vera.
+ */
+export const useAndamentoPatrimonio = ({ periodoIniziale = 'mesi_3', fetcher } = {}) => {
   const periodo = ref(periodoIniziale);
 
   const risorsa = creaRisorsa(
-    async (unita, quantita) => {
-      const { default: api } = await import('../utils/axios');
-      const { data } = await api.get('/analisi/andamento-patrimonio', {
-        params: { unita, quantita },
-      });
-      return data;
-    },
+    fetcher || fetcherPredefinito,
     {
       // Vuoto significa "non c'è ancora niente da disegnare": nessun punto,
       // oppure una serie tutta a zero e senza movimenti. Un utente con
