@@ -137,14 +137,10 @@ onMounted(() => obiettiviStore.fetchObiettivi());
             :key="obj.id"
             hoverable
             class="obj-card stagger-item"
-            role="button"
-            tabindex="0"
             @click="apriDettaglio(obj)"
-            @keydown.enter.prevent="apriDettaglio(obj)"
-            @keydown.space.prevent="apriDettaglio(obj)"
           >
             <span class="obj-emoji">{{ obj.icona }}</span>
-            <h3 class="obj-nome">{{ obj.nome }}</h3>
+            <h3 class="obj-nome"><button type="button" class="obj-nome-btn" @click.stop="apriDettaglio(obj)">{{ obj.nome }}</button></h3>
             <p class="obj-importi">{{ formatValuta(obj.importo_attuale) }} / {{ formatValuta(obj.importo_target) }}</p>
             <div class="obj-bar"><div class="obj-bar-fill" :style="{ width: percentuale(obj) + '%' }" /></div>
             <p class="obj-mancante">Mancano {{ formatValuta(parseFloat(obj.importo_target) - parseFloat(obj.importo_attuale)) }}</p>
@@ -152,12 +148,7 @@ onMounted(() => obiettiviStore.fetchObiettivi());
               <Calendar :size="14" :stroke-width="1.75" />
               {{ formatData(obj.deadline) }}
             </p>
-            <!-- @keydown.stop: senza questo, Invio/Spazio premuti sul bottone
-                 farebbero risalire il keydown fino alla WCard (che ora ha i
-                 suoi @keydown.enter/@keydown.space) e riaprirebbero anche il
-                 dettaglio. @click.stop da solo non basta: ferma il click ma
-                 non il keydown, che è un evento distinto e si propaga comunque. -->
-            <button class="obj-btn" @click.stop="obiettivoSelezionato = obj; showContributo = true" @keydown.stop>+ Aggiungi soldi</button>
+            <button class="obj-btn" @click.stop="obiettivoSelezionato = obj; showContributo = true">+ Aggiungi soldi</button>
           </WCard>
         </div>
       </section>
@@ -170,15 +161,11 @@ onMounted(() => obiettiviStore.fetchObiettivi());
             v-for="obj in obiettiviStore.obiettivi.completati"
             :key="obj.id"
             class="obj-card obj-card--done"
-            role="button"
-            tabindex="0"
             @click="apriDettaglio(obj)"
-            @keydown.enter.prevent="apriDettaglio(obj)"
-            @keydown.space.prevent="apriDettaglio(obj)"
           >
             <span class="obj-badge"><Trophy :size="14" /> Completato</span>
             <span class="obj-emoji">{{ obj.icona }}</span>
-            <h3 class="obj-nome">{{ obj.nome }}</h3>
+            <h3 class="obj-nome"><button type="button" class="obj-nome-btn" @click.stop="apriDettaglio(obj)">{{ obj.nome }}</button></h3>
             <p class="obj-importi">{{ formatValuta(obj.importo_attuale) }} / {{ formatValuta(obj.importo_target) }}</p>
             <div class="obj-bar"><div class="obj-bar-fill obj-bar-fill--done" style="width:100%" /></div>
           </WCard>
@@ -252,11 +239,29 @@ onMounted(() => obiettiviStore.fetchObiettivi());
 @media (min-width: 640px) { .ob-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 1024px) { .ob-grid { grid-template-columns: repeat(3, 1fr); } }
 .obj-card { text-align: center; cursor: pointer; position: relative; }
-.obj-card:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .obj-card--done { background: rgba(0, 212, 170, 0.08); border-color: var(--positive); }
 .obj-badge { position: absolute; top: 0.75rem; right: 0.75rem; font-size: var(--text-xs); background: var(--positive); color: var(--positive-on); padding: 0.125rem 0.5rem; border-radius: 999px; font-weight: 600; }
 .obj-emoji { font-size: 2.5rem; display: block; margin-bottom: 0.5rem; }
 .obj-nome { font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; }
+/* Il titolo è il bersaglio da tastiera della card: un bottone nativo che
+   eredita la tipografia dall'h3 che lo contiene. La card resta cliccabile
+   col mouse, ma non è più un role="button" — lo era, e rendeva il bottone
+   "+ Aggiungi soldi" una fermata irraggiungibile con lo swipe di VoiceOver. */
+.obj-nome-btn {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.obj-nome-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-tight);
+  border-radius: var(--radius-xs);
+}
 .obj-importi { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
 .obj-bar { height: 8px; background: var(--bg-input); border-radius: 4px; overflow: hidden; margin-bottom: 0.5rem; }
 .obj-bar-fill { height: 100%; background: var(--accent-green); border-radius: 4px; transition: width 0.6s ease; }
