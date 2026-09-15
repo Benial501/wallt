@@ -1,5 +1,7 @@
 <script setup>
-import { computed, onMounted } from 'vue';
+import {
+  computed, onMounted, onBeforeUnmount, ref,
+} from 'vue';
 import { Line } from 'vue-chartjs';
 import {
   Chart as ChartJS, Tooltip, CategoryScale, LinearScale,
@@ -29,7 +31,34 @@ const {
   carica, cambiaPeriodo, riprova,
 } = useAndamentoPatrimonio({ periodoIniziale: props.periodoIniziale });
 
-onMounted(carica);
+/**
+ * Il tema vive come classe su <html>, e i colori del canvas vanno riletti
+ * quando cambia: `getComputedStyle` non è una lettura reattiva, quindi un
+ * `computed` che la chiama non si ricalcolerebbe mai da solo — la griglia
+ * resterebbe del colore del primo montaggio e la linea cambierebbe solo
+ * per effetto collaterale dei dati, non del tema.
+ *
+ * Non si può leggere `isDark` da `useTheme()`: quella funzione crea uno
+ * stato nuovo a ogni chiamata (non è un singleton di modulo), quindi non
+ * saprebbe nulla del selettore premuto nella sidebar di `AppLayout.vue`,
+ * che è persistente e non smonta questa vista. La classe su <html> è
+ * l'unica sorgente condivisa.
+ */
+const temaCorrente = ref(typeof document === 'undefined' ? '' : document.documentElement.className);
+let osservatoreTema;
+
+onMounted(() => {
+  carica();
+  osservatoreTema = new MutationObserver(() => {
+    temaCorrente.value = document.documentElement.className;
+  });
+  osservatoreTema.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class'],
+  });
+});
+
+onBeforeUnmount(() => osservatoreTema?.disconnect());
 
 const direzione = computed(() => {
   const v = statistiche.value.variazioneImporto;
@@ -66,18 +95,28 @@ const segno = computed(() => ({ su: '+', giu: '−', fermo: '' }[direzione.value
  * in pasto a un grafico, e per cui il grafico esistente in AnalisiView usa
  * un hex fisso invece di un token. Qui il colore dipende dalla direzione
  * della variazione, quindi va risolto qui invece che riusare quel composable.
+ *
+ * `tema` non è un parametro decorativo: letto per davvero (non un
+ * riferimento finto solo per tracciare la dipendenza) sceglie il fallback
+ * del tema giusto quando la custom property non è ancora risolvibile,
+ * invece del singolo fallback scuro che c'era prima. Chi chiama questa
+ * funzione da dentro un `computed` gli passa `temaCorrente.value`, ed è
+ * quella lettura a far ricalcolare il colore quando la classe su <html>
+ * cambia.
  */
-const leggiVariabileCss = (nome, fallback) => {
+const leggiVariabileCss = (nome, tema, fallbackScuro, fallbackChiaro) => {
+  const fallback = tema.includes('light') ? fallbackChiaro : fallbackScuro;
   if (typeof document === 'undefined') return fallback;
   const valore = getComputedStyle(document.documentElement).getPropertyValue(nome).trim();
   return valore || fallback;
 };
 
-const coloreLinea = computed(() => (
-  direzione.value === 'giu'
-    ? leggiVariabileCss('--negative', '#FF4757')
-    : leggiVariabileCss('--positive', '#00D4AA')
-));
+const coloreLinea = computed(() => {
+  const tema = temaCorrente.value;
+  return direzione.value === 'giu'
+    ? leggiVariabileCss('--negative', tema, '#FF4757', '#C81E1E')
+    : leggiVariabileCss('--positive', tema, '#00D4AA', '#047857');
+});
 
 const datiGrafico = computed(() => ({
   labels: punti.value.map((p) => p.label),
@@ -96,33 +135,40 @@ const datiGrafico = computed(() => ({
   }],
 }));
 
-const opzioniGrafico = computed(() => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  // Il tooltip deve rispondere al tocco, non solo al puntatore. Senza
-  // touchstart/touchmove su mobile il grafico è muto.
-  events: ['mousemove', 'mouseout', 'click', 'touchstart', 'touchmove'],
-  interaction: { mode: 'index', intersect: false },
-  plugins: {
-    legend: { display: false },
-    tooltip: {
-      displayColors: false,
-      callbacks: {
-        title: (voci) => punti.value[voci[0].dataIndex]?.labelEsteso || '',
-        label: (voce) => formatValuta(voce.parsed.y),
+const opzioniGrafico = computed(() => {
+  const tema = temaCorrente.value;
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    // Elenco esplicito degli eventi, touch compresi: il tooltip al tocco è
+    // un requisito, e non deve dipendere dal default di Chart.js — anche se
+    // in questa versione (4.5.1) coincide con esso — perché un default può
+    // cambiare fra versioni senza che nessuno se ne accorga qui.
+    events: ['mousemove', 'mouseout', 'click', 'touchstart', 'touchmove'],
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        displayColors: false,
+        callbacks: {
+          title: (voci) => punti.value[voci[0].dataIndex]?.labelEsteso || '',
+          label: (voce) => formatValuta(voce.parsed.y),
+        },
       },
     },
-  },
-  scales: props.compatta
-    ? { x: { display: false }, y: { display: false } }
-    : {
-      x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } },
-      y: {
-        grid: { color: leggiVariabileCss('--divider', 'rgba(255, 255, 255, 0.08)') },
-        ticks: { callback: (v) => formatValuta(v) },
+    scales: props.compatta
+      ? { x: { display: false }, y: { display: false } }
+      : {
+        x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } },
+        y: {
+          grid: {
+            color: leggiVariabileCss('--divider', tema, 'rgba(255, 255, 255, 0.08)', 'rgba(15, 23, 42, 0.08)'),
+          },
+          ticks: { callback: (v) => formatValuta(v) },
+        },
       },
-    },
-}));
+  };
+});
 </script>
 
 <template>
@@ -191,10 +237,19 @@ const opzioniGrafico = computed(() => ({
 
         <p class="andamento__variazione" :class="`andamento__variazione--${direzione}`">
           <component :is="iconaDirezione" :size="16" :stroke-width="1.75" aria-hidden="true" />
-          <span class="tabular-nums">
+          <!-- L'importo e la percentuale restano visibili a schermo: `aria-hidden`
+               li toglie solo dall'albero di accessibilità. La frase sr-only
+               accanto dice già la stessa cosa per esteso (direzione, importo,
+               percentuale): senza questo attributo uno screen reader leggerebbe
+               le stesse cifre due volte nello stesso paragrafo. -->
+          <span class="tabular-nums" aria-hidden="true">
             {{ segno }}{{ formatValuta(Math.abs(statistiche.variazioneImporto)) }}
           </span>
-          <span v-if="statistiche.mostraPercentuale" class="andamento__percentuale tabular-nums">
+          <span
+            v-if="statistiche.mostraPercentuale"
+            class="andamento__percentuale tabular-nums"
+            aria-hidden="true"
+          >
             {{ segno }}{{ Math.abs(statistiche.variazionePercentuale) }}%
           </span>
           <span class="sr-only">{{ fraseVariazione }}</span>
