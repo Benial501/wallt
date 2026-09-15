@@ -38,6 +38,7 @@ const SCURO = leggiBlocco('html.dark {');
 const CHIARO = leggiBlocco('html.light {');
 
 const aColore = (valore) => {
+  if (typeof valore !== 'string') return null;
   const esa = valore.match(/^#([0-9a-fA-F]{6})$/);
   if (esa) return { rgb: [0, 2, 4].map((i) => parseInt(esa[1].slice(i, i + 2), 16)), alpha: 1 };
   const rgba = valore.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$/);
@@ -76,6 +77,7 @@ const SUPERFICI = {
   elevata: ['--glass-elevated-bg', '--bg-primary'],
   accento: ['--accent-green'],
   cta: ['--cta-bg'],
+  positivo: ['--positive'],
 };
 
 const risolviSuperficie = (nome, tema) => SUPERFICI[nome].reduceRight((sotto, token) => {
@@ -113,10 +115,16 @@ const COPPIE = [
   { testo: '--accent-on', su: 'accento', min: 4.5 },
   { testo: '--cta-text', su: 'cta', min: 4.5 },
 
+  // Testo dentro un badge riempito di --positive. La coppia esiste perché
+  // scurire --positive e --accent-on separatamente li aveva portati a 3.00:1
+  // insieme: due token corretti singolarmente possono essere sbagliati
+  // accostati, e solo una coppia dichiarata se ne accorge.
+  { testo: '--positive-on', su: 'positivo', min: 4.5 },
+
   // Il bordo di checkbox e radio. Con `appearance: none` quel bordo è
   // l'unica cosa che identifica il controllo, quindi ricade sotto WCAG
-  // 1.4.11 e servono 3:1. La card è il caso peggiore: nel tema scuro è più
-  // chiara della pagina, quindi un bordo chiaro lì contrasta di meno.
+  // 1.4.11 e servono 3:1. Il caso peggiore si inverte fra i temi: card
+  // nello scuro (3.28), pagina nel chiaro (3.26). Servono entrambe.
   //
   // `--border-strong` NON è in questa lista di proposito: serve a stati
   // hover e alla maniglia del foglio dal basso, che non identificano nulla
@@ -124,6 +132,7 @@ const COPPIE = [
   // nello scuro e oltre 0.5 nel chiaro, trasformando ogni filo del sistema
   // del vetro in una linea dura.
   { testo: '--control-border', su: 'card', min: 3 },
+  { testo: '--control-border', su: 'pagina', min: 3 },
 ];
 
 for (const [nomeTema, tema] of [['scuro', SCURO], ['chiaro', CHIARO]]) {

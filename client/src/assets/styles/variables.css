@@ -53,6 +53,12 @@ html.dark {
   --accent-on: #041410;
 
   --positive: #00D4AA;
+  /* Testo sopra un riempimento --positive. Va nella direzione OPPOSTA al
+     tema, perché è il riempimento a invertirsi: nel chiaro --positive è un
+     verde scuro e vuole testo bianco, nello scuro è brillante e vuole testo
+     quasi nero. --accent-on non serve qui: quello vale sull'accento, che è
+     brillante in entrambi i temi. */
+  --positive-on: #041410;
   --negative: #FF4757;
   --warning: #FECA57;
   --neutral: #74B9FF;
@@ -166,6 +172,7 @@ html.light {
   --accent-on: #04241C;
 
   --positive: #047857;
+  --positive-on: #FFFFFF;
   --negative: #C81E1E;
   --warning: #A34A07;
   --neutral: #2563EB;

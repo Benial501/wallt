@@ -240,7 +240,7 @@ onMounted(() => obiettiviStore.fetchObiettivi());
 @media (min-width: 1024px) { .ob-grid { grid-template-columns: repeat(3, 1fr); } }
 .obj-card { text-align: center; cursor: pointer; position: relative; }
 .obj-card--done { background: rgba(0, 212, 170, 0.08); border-color: var(--positive); }
-.obj-badge { position: absolute; top: 0.75rem; right: 0.75rem; font-size: 0.6875rem; background: var(--positive); color: var(--accent-on); padding: 0.125rem 0.5rem; border-radius: 999px; font-weight: 600; }
+.obj-badge { position: absolute; top: 0.75rem; right: 0.75rem; font-size: 0.6875rem; background: var(--positive); color: var(--positive-on); padding: 0.125rem 0.5rem; border-radius: 999px; font-weight: 600; }
 .obj-emoji { font-size: 2.5rem; display: block; margin-bottom: 0.5rem; }
 .obj-nome { font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; }
 .obj-importi { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
