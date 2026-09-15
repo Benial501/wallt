@@ -86,6 +86,11 @@ const SUPERFICI = {
   // contrasta MENO che su una card singola — ed è il caso peggiore reale,
   // non quello teorico.
   cardAnnidata: ['--glass-secondary-bg', '--glass-primary-bg', '--bg-primary'],
+  // Tre strati: un inserto (badge, pastiglia) dentro una card dentro la
+  // pagina. È la pila più profonda che l'interfaccia usa davvero, ed è il
+  // caso peggiore reale per il testo grigio del tema scuro: ogni strato
+  // traslucido schiarisce lo sfondo e gli toglie contrasto.
+  cardConInserto: ['--surface-inset', '--glass-primary-bg', '--bg-primary'],
   chrome: ['--glass-chrome-bg', '--bg-primary'],
   elevata: ['--glass-elevated-bg', '--bg-primary'],
   accento: ['--accent-green'],
@@ -126,6 +131,9 @@ const COPPIE = [
   { testo: '--text-muted', su: 'cardAnnidata', min: 4.5 },
   { testo: '--text-secondary', su: 'cardAnnidata', min: 4.5 },
   { testo: '--text-subtle', su: 'cardAnnidata', min: 4.5 },
+
+  { testo: '--text-muted', su: 'cardConInserto', min: 4.5 },
+  { testo: '--text-secondary', su: 'cardConInserto', min: 4.5 },
 
   { testo: '--text-primary', su: 'elevata', min: 4.5 },
   { testo: '--text-secondary', su: 'elevata', min: 4.5 },
