@@ -1,16 +1,20 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import {
+  ref, computed, onMounted, onBeforeUnmount,
+} from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute } from 'vue-router';
 import WCard from '@/components/common/WCard.vue';
 import WSkeleton from '@/components/common/WSkeleton.vue';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
 import MovimentoItem from '@/components/movimenti/MovimentoItem.vue';
+import MovimentiFilters from '@/components/movimenti/MovimentiFilters.vue';
 import { useContiStore } from '@/stores/conti.store';
 import { useMovimentiStore } from '@/stores/movimenti.store';
 import { useToastStore } from '@/stores/toast.store';
 import { useValuta } from '@/composables/useValuta';
-import { CATEGORIE_ENTRATA, CATEGORIE_USCITA, getCategoriaEntrata, getCategoriaUscita } from '@/utils/categorie';
+import { getCategoriaEntrata, getCategoriaUscita } from '@/utils/categorie';
+import { FILTRI_INIZIALI, aParametriQuery } from '@/utils/filtriMovimenti';
 import { ArrowLeftRight } from '@/utils/appIcons';
 import ImportEstrattoHint from '@/components/common/ImportEstrattoHint.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
@@ -26,53 +30,15 @@ dayjs.locale('it');
 const route = useRoute();
 const contiStore = useContiStore();
 const movimentiStore = useMovimentiStore();
-const { loadingBilancio } = storeToRefs(movimentiStore);
+const { filtriUI, loadingBilancio } = storeToRefs(movimentiStore);
 const toastStore = useToastStore();
 const { formatValuta } = useValuta();
 
 const oggi = dayjs();
 
-const filtroTipo = ref('');
-const filtroPeriodo = ref('mese');
-const filtroAnno = ref(oggi.year());
-const filtroCategoria = ref('');
-const filtroConto = ref('');
-const filtroDa = ref('');
-const filtroA = ref('');
-const filtriAperti = ref(false);
 const formOpen = ref(false);
 const formTipo = ref('entrata');
 const movimentoEdit = ref(null);
-
-const getFiltriDate = () => {
-  const params = {};
-  if (filtroTipo.value) params.tipo = filtroTipo.value;
-  if (filtroCategoria.value) params.categoria = filtroCategoria.value;
-  if (filtroConto.value) params.conto_id = filtroConto.value;
-
-  if (filtroPeriodo.value === 'personalizzato' && filtroDa.value && filtroA.value) {
-    params.da = filtroDa.value;
-    params.a = filtroA.value;
-  } else if (filtroPeriodo.value === 'oggi') {
-    params.da = oggi.format('YYYY-MM-DD');
-    params.a = oggi.format('YYYY-MM-DD');
-  } else if (filtroPeriodo.value === 'settimana') {
-    params.da = oggi.startOf('week').format('YYYY-MM-DD');
-    params.a = oggi.endOf('week').format('YYYY-MM-DD');
-  } else if (filtroPeriodo.value === 'mese') {
-    params.da = oggi.startOf('month').format('YYYY-MM-DD');
-    params.a = oggi.endOf('month').format('YYYY-MM-DD');
-  } else if (filtroPeriodo.value === 'anno') {
-    params.da = dayjs().year(filtroAnno.value).startOf('year').format('YYYY-MM-DD');
-    params.a = dayjs().year(filtroAnno.value).endOf('year').format('YYYY-MM-DD');
-  }
-  return params;
-};
-
-const anniDisponibili = computed(() => {
-  const current = oggi.year();
-  return Array.from({ length: 8 }, (_, i) => current - i);
-});
 
 /**
  * Esistenza di movimenti a prescindere dai filtri: serve solo a distinguere
@@ -93,7 +59,7 @@ const verificaMovimentiTotali = async () => {
 };
 
 const caricaMovimenti = async () => {
-  const data = await movimentiStore.fetchMovimenti(getFiltriDate());
+  const data = await movimentiStore.fetchMovimenti(aParametriQuery(filtriUI.value));
   // La verifica serve solo quando la lista filtrata è vuota.
   if (!movimentiStore.movimentiPerData.length) {
     await verificaMovimentiTotali();
@@ -114,38 +80,37 @@ const hasMoreMovimenti = computed(() => (
 ));
 
 const periodoLabel = computed(() => {
-  if (filtroPeriodo.value === 'personalizzato' && filtroDa.value && filtroA.value) {
-    return `${dayjs(filtroDa.value).format('D MMM YYYY')} – ${dayjs(filtroA.value).format('D MMM YYYY')}`;
+  if (filtriUI.value.periodo === 'personalizzato' && filtriUI.value.da && filtriUI.value.a) {
+    return `${dayjs(filtriUI.value.da).format('D MMM YYYY')} – ${dayjs(filtriUI.value.a).format('D MMM YYYY')}`;
   }
   const labels = {
-    tutti: 'Tutti i periodi',
     oggi: 'Oggi',
     settimana: 'Questa settimana',
     mese: `Mese di ${oggi.format('MMMM')}`,
-    anno: `Anno ${filtroAnno.value}`,
+    anno: `Anno ${filtriUI.value.anno}`,
     personalizzato: 'Periodo personalizzato',
   };
-  return labels[filtroPeriodo.value] || 'Movimenti';
+  return labels[filtriUI.value.periodo] || 'Movimenti';
 });
 
-const selezionaPeriodo = (periodo) => {
-  filtroPeriodo.value = periodo;
-  if (periodo === 'personalizzato' && (!filtroDa.value || !filtroA.value)) {
-    filtroDa.value = oggi.startOf('month').format('YYYY-MM-DD');
-    filtroA.value = oggi.format('YYYY-MM-DD');
-  }
+/**
+ * La ricerca parte a ogni tasto premuto, ma non a ogni tasto premuto: il
+ * debounce evita una richiesta per lettera. La guardia di generazione dello
+ * store scarta comunque le risposte sorpassate, quindi qui si risparmia
+ * traffico, non correttezza.
+ */
+let attesa;
+const aggiornaFiltri = (nuovi) => {
+  const ricercaCambiata = nuovi.cerca !== filtriUI.value.cerca;
+  movimentiStore.impostaFiltriUI(nuovi);
+  clearTimeout(attesa);
+  if (ricercaCambiata) attesa = setTimeout(caricaMovimenti, 300);
+  else caricaMovimenti();
 };
 
-const applicaPeriodoPersonalizzato = () => {
-  if (!filtroDa.value || !filtroA.value) {
-    toastStore.error('Seleziona data inizio e fine');
-    return;
-  }
-  if (dayjs(filtroDa.value).isAfter(dayjs(filtroA.value))) {
-    toastStore.error('La data di inizio deve essere prima della data di fine');
-    return;
-  }
-  filtroPeriodo.value = 'personalizzato';
+const azzeraFiltri = () => {
+  clearTimeout(attesa);
+  movimentiStore.impostaFiltriUI({ ...FILTRI_INIZIALI });
   caricaMovimenti();
 };
 
@@ -184,30 +149,30 @@ const onSaved = async () => {
   );
 };
 
-watch([filtroTipo, filtroCategoria, filtroConto, filtroAnno], caricaMovimenti);
-
-watch(filtroPeriodo, (periodo) => {
-  if (periodo !== 'personalizzato') caricaMovimenti();
-});
-
 onMounted(async () => {
   await contiStore.fetchConti();
 
   if (route.query.da && route.query.a) {
-    filtroPeriodo.value = 'personalizzato';
-    filtroDa.value = String(route.query.da);
-    filtroA.value = String(route.query.a);
+    movimentiStore.impostaFiltriUI({
+      ...filtriUI.value,
+      periodo: 'personalizzato',
+      da: String(route.query.da),
+      a: String(route.query.a),
+    });
   }
 
-  await caricaMovimenti();
-  await movimentiStore.fetchBilancioMese(oggi.month() + 1, oggi.year());
+  await Promise.all([
+    caricaMovimenti(),
+    movimentiStore.fetchBilancioMese(oggi.month() + 1, oggi.year()),
+    movimentiStore.fetchRecentiHome(),
+  ]);
 
   if (route.query.action) {
     apriForm(route.query.action);
   }
 });
 
-const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA]);
+onBeforeUnmount(() => clearTimeout(attesa));
 </script>
 
 <template>
@@ -243,65 +208,18 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
       message="Hai un file dell'estratto conto? Importalo in pochi tap"
     />
 
-    <!-- Filtri periodo — sempre visibili -->
-    <div class="periodo-section">
-      <div class="periodo-section__header">
-        <span class="periodo-section__title">Periodo</span>
-        <span class="periodo-section__hint">{{ periodoLabel }}</span>
-      </div>
+    <MovimentiFilters
+      :model-value="filtriUI"
+      :conti="contiStore.conti"
+      :categorie-recenti="movimentiStore.categorieRecenti"
+      :risultati="movimentiStore.pagination.total"
+      @update:model-value="aggiornaFiltri"
+      @azzera="azzeraFiltri"
+    />
 
-      <div class="filtro-tabs filtro-tabs--periodo">
-        <button :class="{ active: filtroPeriodo === 'tutti' }" @click="filtroPeriodo = 'tutti'">Tutti</button>
-        <button :class="{ active: filtroPeriodo === 'oggi' }" @click="filtroPeriodo = 'oggi'">Oggi</button>
-        <button :class="{ active: filtroPeriodo === 'settimana' }" @click="filtroPeriodo = 'settimana'">Settimana</button>
-        <button :class="{ active: filtroPeriodo === 'mese' }" @click="filtroPeriodo = 'mese'">Mese</button>
-        <button :class="{ active: filtroPeriodo === 'anno' }" @click="filtroPeriodo = 'anno'">Anno</button>
-        <button :class="{ active: filtroPeriodo === 'personalizzato' }" @click="selezionaPeriodo('personalizzato')">Da – A</button>
-      </div>
-
-      <div v-if="filtroPeriodo === 'anno'" class="anno-filtro">
-        <label class="anno-filtro__label" for="filtro-anno">Anno</label>
-        <select id="filtro-anno" v-model.number="filtroAnno" class="filtro-select anno-filtro__select">
-          <option v-for="y in anniDisponibili" :key="y" :value="y">{{ y }}</option>
-        </select>
-      </div>
-
-      <div v-if="filtroPeriodo === 'personalizzato'" class="range-filtro">
-        <label class="range-filtro__field">
-          <span class="range-filtro__label">Data inizio</span>
-          <input v-model="filtroDa" type="date" class="range-filtro__input">
-        </label>
-        <label class="range-filtro__field">
-          <span class="range-filtro__label">Data fine</span>
-          <input v-model="filtroA" type="date" class="range-filtro__input">
-        </label>
-        <button type="button" class="range-filtro__btn" @click="applicaPeriodoPersonalizzato">
-          Applica periodo
-        </button>
-      </div>
-    </div>
-
-    <!-- Altri filtri -->
-    <div class="filtri-section">
-      <button class="filtri-toggle md:hidden" @click="filtriAperti = !filtriAperti">
-        {{ filtriAperti ? '▼' : '▶' }} Altri filtri
-      </button>
-      <div class="filtri" :class="{ open: filtriAperti }">
-        <div class="filtro-tabs">
-          <button :class="{ active: !filtroTipo }" @click="filtroTipo = ''">Tutti</button>
-          <button :class="{ active: filtroTipo === 'entrata' }" @click="filtroTipo = 'entrata'">Entrate</button>
-          <button :class="{ active: filtroTipo === 'uscita' }" @click="filtroTipo = 'uscita'">Uscite</button>
-        </div>
-        <select v-model="filtroCategoria" class="filtro-select">
-          <option value="">Tutte le categorie</option>
-          <option v-for="c in tutteCategorie" :key="c.id" :value="c.id">{{ c.nome }}</option>
-        </select>
-        <select v-model="filtroConto" class="filtro-select">
-          <option value="">Tutti i conti</option>
-          <option v-for="c in contiStore.contiAttivi" :key="c.id" :value="c.id">{{ c.nome }}</option>
-        </select>
-      </div>
-    </div>
+    <p v-if="movimentiStore.loading" class="movimenti__ricerca-in-corso" role="status">
+      Aggiornamento dei risultati…
+    </p>
 
     <!-- Lista -->
     <DataState
@@ -342,10 +260,10 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
             <p>Nessun risultato per questi filtri</p>
             <p class="empty-state__hint">
               Hai movimenti registrati, ma nessuno rientra nel periodo o nei filtri selezionati.
-              Prova con il periodo «Tutti» o azzera gli altri filtri.
+              Prova con un altro periodo o modifica i filtri.
             </p>
-            <button class="quick-add quick-add--secondary" @click="filtroPeriodo = 'tutti'">
-              Mostra tutti i periodi
+            <button class="quick-add quick-add--secondary" @click="azzeraFiltri">
+              Ripristina i filtri
             </button>
           </template>
 
@@ -430,31 +348,11 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
   margin-bottom: 0;
 }
 .movimenti-import-hint { margin-bottom: 0.875rem; }
-.periodo-section {
-  margin-bottom: 1rem;
-  padding: 1rem;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+.movimenti__ricerca-in-corso {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
 }
-.periodo-section__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-  flex-wrap: wrap;
-}
-.periodo-section__title { font-weight: 800; color: var(--text-primary); font-size: 0.9375rem; }
-.periodo-section__hint { font-size: var(--text-xs); color: var(--text-secondary); }
-.anno-filtro {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 0.75rem;
-}
-.anno-filtro__label { font-size: var(--text-xs); color: var(--text-secondary); font-weight: 600; }
-.anno-filtro__select { min-width: 120px; }
 .add-btn {
   width: 44px; height: 44px; border-radius: 50%;
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent-green) 92%, white), var(--accent-green));
@@ -464,103 +362,6 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
 }
 @media (hover: hover) { .add-btn:hover { filter: brightness(1.06); transform: translateY(-1px); } }
 .add-btn:active { transform: scale(0.94); }
-.filtri-section { margin-bottom: 1.25rem; }
-.filtri-toggle { background: none; border: none; color: var(--text-secondary); cursor: pointer; margin-bottom: 0.5rem; font-size: 0.875rem; }
-.filtri { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-@media (max-width: 767px) { .filtri:not(.open) { display: none; } }
-.filtro-tabs { display: flex; gap: 0.375rem; }
-.filtro-tabs button {
-  padding: 0.5rem 1rem; border-radius: var(--radius-pill);
-  border: 1px solid var(--glass-interactive-border);
-  background: var(--glass-interactive-bg); box-shadow: var(--glass-highlight);
-  color: var(--text-secondary); font-size: var(--text-xs); font-weight: 550; cursor: pointer;
-  min-height: 44px;
-  transition:
-    background var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out);
-}
-@media (hover: hover) {
-  .filtro-tabs button:hover:not(.active) { background: var(--glass-interactive-bg-hover); color: var(--text-primary); }
-}
-.filtro-tabs button:active { transform: scale(0.97); }
-.filtro-tabs button.active {
-  background: var(--accent-green); color: var(--accent-on);
-  border-color: transparent; font-weight: 600;
-  box-shadow: var(--shadow-xs), inset 0 1px 0 rgba(255, 255, 255, 0.22);
-}
-.filtro-tabs--periodo { flex-wrap: wrap; }
-.range-filtro {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.75rem;
-  width: 100%;
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
-}
-.range-filtro__field { display: flex; flex-direction: column; gap: 0.25rem; }
-.range-filtro__label { font-size: var(--text-xs); color: var(--text-secondary); font-weight: 600; }
-.range-filtro__input {
-  background: var(--glass-interactive-bg);
-  border: 1px solid var(--glass-interactive-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--glass-highlight);
-  padding: 0.5rem 0.75rem;
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  min-height: 44px;
-  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
-}
-.range-filtro__input:focus {
-  outline: none;
-  border-color: var(--accent-green);
-  box-shadow: var(--focus-ring), var(--glass-highlight);
-}
-.range-filtro__btn {
-  padding: 0.5rem 1.25rem;
-  border-radius: var(--radius-md);
-  border: none;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-green) 92%, white), var(--accent-green));
-  color: var(--accent-on);
-  font-weight: 600;
-  cursor: pointer;
-  min-height: 44px;
-  box-shadow: var(--shadow-xs), inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  transition: filter var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
-}
-@media (hover: hover) { .range-filtro__btn:hover { filter: brightness(1.05); } }
-.range-filtro__btn:active { transform: scale(0.97); }
-/* 16px: sotto questa soglia iOS ingrandisce la pagina appena il select
-   prende il fuoco. Vedi la nota in assets/styles/main.css. */
-.filtro-select {
-  background: var(--glass-interactive-bg);
-  border: 1px solid var(--glass-interactive-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--glass-highlight);
-  padding: 0.5rem 2.25rem 0.5rem 0.875rem;
-  color: var(--text-primary);
-  font-size: 16px;
-  min-height: 44px;
-  cursor: pointer;
-  -webkit-appearance: none;
-  appearance: none;
-  /* Stesso chevron in gradienti dei campi .form-select (assets/styles/main.css). */
-  background-image:
-    linear-gradient(45deg, transparent calc(50% - 0.7px), currentColor calc(50% - 0.7px), currentColor calc(50% + 0.7px), transparent calc(50% + 0.7px)),
-    linear-gradient(135deg, transparent calc(50% - 0.7px), currentColor calc(50% - 0.7px), currentColor calc(50% + 0.7px), transparent calc(50% + 0.7px));
-  background-position: right 1.08rem center, right 0.65rem center;
-  background-size: 7px 7px, 7px 7px;
-  background-repeat: no-repeat;
-  transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
-}
-.filtro-select:focus {
-  outline: none;
-  border-color: var(--accent-green);
-  box-shadow: var(--focus-ring), var(--glass-highlight);
-}
 .results-meta { margin: 0 0 1rem; font-size: var(--text-xs); color: var(--text-secondary); }
 .load-more { display: flex; justify-content: center; margin: 1.5rem 0; }
 .load-more__btn {

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import api from '@/utils/axios';
 import { creaRisorsa } from '@/utils/risorsa';
+import { FILTRI_INIZIALI } from '@/utils/filtriMovimenti';
 
 const PAGE_SIZE = 100;
 
@@ -14,7 +15,11 @@ const saldoInsufficienteMsg = (err) => {
   return data?.messaggio || data?.message || data?.error || 'Errore';
 };
 
-const mergeGruppi = (existing, incoming) => {
+const mergeGruppi = (existing, incoming, { preservaOrdine = false } = {}) => {
+  // Negli ordini per importo l'API restituisce gruppi unitari: riaccorparli
+  // per data qui annullerebbe l'ordine globale quando arriva pagina 2.
+  if (preservaOrdine) return [...existing, ...incoming];
+
   const map = new Map(
     existing.map((g) => [g.data, {
       ...g,
@@ -106,6 +111,32 @@ export const useMovimentiStore = defineStore('movimenti', () => {
   const entrateOggi = computed(() => risorsaOggi.data.value?.entrate || 0);
   const usciteOggi = computed(() => risorsaOggi.data.value?.uscite || 0);
   const filtri = ref({});
+  /**
+   * Stato dei filtri a livello di interfaccia: più ricco dei parametri della
+   * query, perché `periodo: 'mese'` non è `da`/`a` e va ricostruito quando si
+   * torna alla pagina.
+   *
+   * Vive in memoria e basta. I blocchi 1-2 hanno escluso il disco per i dati
+   * finanziari, e una ricerca salvata può essere altrettanto rivelatrice di un
+   * importo. `reset()` lo azzera, quindi `resetPiniaStores()` lo pulisce già
+   * al logout senza aggiungere nulla.
+   */
+  const filtriUI = ref({ ...FILTRI_INIZIALI });
+  const impostaFiltriUI = (valore) => { filtriUI.value = { ...valore }; };
+
+  /**
+   * Categorie viste nei movimenti recenti, dalla più frequente. Serve alla
+   * scorciatoia del pannello filtri: nessun endpoint nuovo per
+   * un'informazione che la dashboard carica già.
+   */
+  const categorieRecenti = computed(() => {
+    const conteggi = new Map();
+    (risorsaRecenti.data.value || []).forEach((movimento) => {
+      if (!movimento.categoria) return;
+      conteggi.set(movimento.categoria, (conteggi.get(movimento.categoria) || 0) + 1);
+    });
+    return [...conteggi.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id);
+  });
   const loading = computed(() => risorsaMovimenti.loading.value);
   const loadingBilancio = computed(() => risorsaBilancio.loading.value);
   const loadingRecenti = computed(() => risorsaRecenti.loading.value);
@@ -125,7 +156,10 @@ export const useMovimentiStore = defineStore('movimenti', () => {
 
   const movimentiPerData = computed(() => {
     const prima = risorsaMovimenti.data.value?.gruppi || [];
-    return paginaExtra.value.length ? mergeGruppi(prima, paginaExtra.value) : prima;
+    const perImporto = ['importo_desc', 'importo_asc'].includes(filtri.value.ordine);
+    return paginaExtra.value.length
+      ? mergeGruppi(prima, paginaExtra.value, { preservaOrdine: perImporto })
+      : prima;
   });
 
   const pagination = computed(() => ({
@@ -217,6 +251,7 @@ export const useMovimentiStore = defineStore('movimenti', () => {
     paginaCorrente.value = 1;
     errorMore.value = null;
     filtri.value = {};
+    filtriUI.value = { ...FILTRI_INIZIALI };
   };
 
   return {
@@ -230,6 +265,9 @@ export const useMovimentiStore = defineStore('movimenti', () => {
     entrateOggi,
     usciteOggi,
     filtri,
+    filtriUI,
+    impostaFiltriUI,
+    categorieRecenti,
     pagination,
     loading,
     loadingMore,
