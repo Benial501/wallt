@@ -46,6 +46,10 @@ import {
   History,
   Trophy,
   TrendingDown,
+  // Minus: direzione "nessuna variazione" nel grafico dell'andamento.
+  // SlidersHorizontal: apertura del pannello filtri dei movimenti.
+  Minus,
+  SlidersHorizontal,
   PiggyBank,
   CreditCard,
   Gem,
@@ -221,6 +225,8 @@ export {
   History,
   Trophy,
   TrendingDown,
+  Minus,
+  SlidersHorizontal,
   CreditCard,
   ClipboardList,
   LightbulbIcon,
