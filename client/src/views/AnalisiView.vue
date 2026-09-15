@@ -6,10 +6,10 @@ import WSkeleton from '@/components/common/WSkeleton.vue';
 import WButton from '@/components/common/WButton.vue';
 import DataState from '@/components/common/DataState.vue';
 import SuggerimentoCard from '@/components/analisi/SuggerimentoCard.vue';
-import { Doughnut, Bar, Line } from 'vue-chartjs';
+import { Doughnut, Bar } from 'vue-chartjs';
 import {
   Chart as ChartJS, ArcElement, Tooltip, Legend,
-  CategoryScale, LinearScale, BarElement, PointElement, LineElement, Filler,
+  CategoryScale, LinearScale, BarElement,
 } from 'chart.js';
 import { useAnalisiStore } from '@/stores/analisi.store';
 import { useContiStore } from '@/stores/conti.store';
@@ -21,10 +21,11 @@ import { useToastStore } from '@/stores/toast.store';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
 import AnalisiMovimentoRow from '@/components/analisi/AnalisiMovimentoRow.vue';
+import AndamentoPatrimonio from '@/components/analisi/AndamentoPatrimonio.vue';
 import { BarChart3, TrendingUp, Coins, LightbulbIcon, CheckCircle2, DownloadIcon, X, Banknote } from '@/utils/appIcons';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Filler);
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
 const analisiStore = useAnalisiStore();
 const contiStore = useContiStore();
@@ -35,7 +36,6 @@ const { baseOptions } = useChartTheme();
 const activeTab = ref('spese');
 const periodo = ref('mese');
 const quantitaConfronto = ref(6);
-const quantitaPatrimonio = ref(6);
 const customDa = ref(dayjs().startOf('month').format('YYYY-MM-DD'));
 const customA = ref(dayjs().format('YYYY-MM-DD'));
 const highlightCat = ref(null);
@@ -167,9 +167,7 @@ const getDateRange = () => periodoRange(periodo.value, {
 });
 
 /**
- * Confronto e Patrimonio seguono il periodo scelto in cima alla pagina: e' lo
- * stesso selettore, cambia solo cosa viene disegnato (barre affiancate contro
- * una linea nel tempo).
+ * Confronto segue il periodo scelto in cima alla pagina:
  *
  *   Settimana → ultime N settimane      selettore 2-12
  *   Mese      → ultimi N mesi           selettore 2-12
@@ -188,21 +186,18 @@ const REGOLA_PER_PERIODO = {
 const regolaPeriodo = computed(() => REGOLA_PER_PERIODO[periodo.value] || REGOLA_PER_PERIODO.mese);
 const quantitaSelezionabile = computed(() => regolaPeriodo.value.selezionabile);
 
-/** I due tab che dipendono dal periodo e mostrano il selettore di quantita'. */
-const TAB_CON_QUANTITA = ['confronto', 'patrimonio'];
+/**
+ * Il tab che dipende dal periodo e mostra il selettore di quantita'.
+ * Patrimonio non c'e' piu': l'andamento ha un periodo tutto suo, dentro
+ * `AndamentoPatrimonio`, indipendente dai tab in cima alla pagina.
+ */
+const TAB_CON_QUANTITA = ['confronto'];
 const mostraSelettoreQuantita = computed(() => TAB_CON_QUANTITA.includes(activeTab.value));
 
-/**
- * Quantita' del tab attivo. Confronto e Patrimonio ricordano la propria
- * scelta: sono due domande diverse ("quanti periodi metto a confronto" e
- * "quanto indietro traccio la linea") e condividerne il valore sorprenderebbe.
- */
+/** Quantita' di periodi da confrontare. */
 const quantitaAttiva = computed({
-  get: () => (activeTab.value === 'patrimonio' ? quantitaPatrimonio.value : quantitaConfronto.value),
-  set: (n) => {
-    if (activeTab.value === 'patrimonio') quantitaPatrimonio.value = n;
-    else quantitaConfronto.value = n;
-  },
+  get: () => quantitaConfronto.value,
+  set: (n) => { quantitaConfronto.value = n; },
 });
 
 /** Quanti periodi chiedere: il valore scelto, o quello imposto dal periodo. */
@@ -280,35 +275,6 @@ const barOptions = computed(() => ({
   },
 }));
 
-const lineData = computed(() => {
-  const punti = analisiStore.andamentoPatrimonio.punti || [];
-  return {
-    labels: punti.map((p) => p.label || dayjs(p.data).format('DD/MM')),
-    datasets: [{
-      label: 'Patrimonio',
-      data: punti.map((p) => p.patrimonio),
-      borderColor: '#00D4AA',
-      backgroundColor: 'rgba(0,212,170,0.15)',
-      fill: true,
-      tension: 0.4,
-      pointRadius: 3,
-      pointHoverRadius: 6,
-    }],
-  };
-});
-
-const lineOptions = computed(() => ({
-  ...baseOptions.value,
-  animation: { duration: 1200 },
-  scales: {
-    x: { ...baseOptions.value.scales.x, grid: { display: false } },
-    y: {
-      ...baseOptions.value.scales.y,
-      ticks: { ...baseOptions.value.scales.y.ticks, callback: (v) => `€${v}` },
-    },
-  },
-}));
-
 const loadTabData = async () => {
   const { da, a } = getDateRange();
   if (isDistribuzione.value) {
@@ -326,17 +292,12 @@ const loadTabData = async () => {
       daIntervallo ? { da, a } : { unita, quantita: quantitaRichiesta(quantitaConfronto.value) },
     );
   }
-  if (activeTab.value === 'patrimonio') {
-    await analisiStore.fetchAndamentoPatrimonio(
-      daIntervallo ? { da, a } : { unita, quantita: quantitaRichiesta(quantitaPatrimonio.value) },
-    );
-  }
   if (activeTab.value === 'suggerimenti') await analisiStore.fetchSuggerimenti();
 };
 
 watch(activeTab, () => closeCategoryPanel());
 
-watch([activeTab, periodo, quantitaConfronto, quantitaPatrimonio, customDa, customA], loadTabData);
+watch([activeTab, periodo, quantitaConfronto, customDa, customA], loadTabData);
 
 onMounted(async () => {
   await contiStore.fetchConti();
@@ -534,35 +495,9 @@ const esportaDati = async () => {
         </WCard>
       </DataState>
 
-      <!-- TAB PATRIMONIO -->
-      <DataState
-        v-else-if="activeTab === 'patrimonio'"
-        key="patrimonio"
-        :stato="analisiStore.risorsaAndamento.stato"
-        :last-updated="analisiStore.risorsaAndamento.lastUpdated"
-        messaggio-errore="Non è stato possibile caricare l'andamento del patrimonio."
-        skeleton-type="card"
-        @riprova="analisiStore.risorsaAndamento.riprova()"
-      >
-        <template #vuoto>
-          <div class="empty-state">
-            <Coins class="empty-icon" :size="48" :stroke-width="1.5" />
-            <p>Nessun dato sull'andamento del patrimonio per questo periodo</p>
-          </div>
-        </template>
-
-        <WCard><Line :data="lineData" :options="lineOptions" /></WCard>
-        <div class="stats-grid">
-          <WCard><span class="stat-label">Inizio</span><span class="stat-val">{{ formatValuta(analisiStore.andamentoPatrimonio.inizio) }}</span></WCard>
-          <WCard><span class="stat-label">Attuale</span><span class="stat-val">{{ formatValuta(analisiStore.andamentoPatrimonio.fine) }}</span></WCard>
-          <WCard><span class="stat-label">Minimo</span><span class="stat-val">{{ formatValuta(analisiStore.andamentoPatrimonio.min) }}</span></WCard>
-          <WCard><span class="stat-label">Massimo</span><span class="stat-val">{{ formatValuta(analisiStore.andamentoPatrimonio.max) }}</span></WCard>
-        </div>
-        <p class="variazione" :class="(analisiStore.andamentoPatrimonio.variazione_importo || 0) >= 0 ? 'positive' : 'negative'">
-          {{ (analisiStore.andamentoPatrimonio.variazione_importo || 0) >= 0 ? '+' : '' }}{{ formatValuta(analisiStore.andamentoPatrimonio.variazione_importo) }}
-          ({{ analisiStore.andamentoPatrimonio.variazione_percentuale }}%)
-        </p>
-      </DataState>
+      <!-- TAB PATRIMONIO: periodo, grafico e statistiche vivono tutti dentro
+           il componente condiviso con la Dashboard. -->
+      <AndamentoPatrimonio v-else-if="activeTab === 'patrimonio'" key="patrimonio" />
 
       <!-- TAB SUGGERIMENTI -->
       <DataState

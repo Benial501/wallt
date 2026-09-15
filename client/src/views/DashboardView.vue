@@ -12,7 +12,6 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useContiStore } from '@/stores/conti.store';
 import { useMovimentiStore } from '@/stores/movimenti.store';
 import { useBudgetStore } from '@/stores/budget.store';
-import { useAnalisiStore } from '@/stores/analisi.store';
 import { useScommesseStore } from '@/stores/scommesse.store';
 import { useInvestimentiStore } from '@/stores/investimenti.store';
 import { useObiettiviStore } from '@/stores/obiettivi.store';
@@ -27,7 +26,6 @@ const authStore = useAuthStore();
 const contiStore = useContiStore();
 const movimentiStore = useMovimentiStore();
 const budgetStore = useBudgetStore();
-const analisiStore = useAnalisiStore();
 const scommesseStore = useScommesseStore();
 const investimentiStore = useInvestimentiStore();
 const obiettiviStore = useObiettiviStore();
@@ -127,7 +125,6 @@ const riprovaScommesse = () => {
 
 const entrateMese = computed(() => movimentiStore.bilancioMese.entrate || 0);
 const usciteMese = computed(() => movimentiStore.bilancioMese.uscite || 0);
-const andamentoPunti = computed(() => analisiStore.andamentoPatrimonio.punti || []);
 
 const scommesseAttivo = computed(() => scommesseStore.piattaforme.length > 0);
 const investimentiAttivo = computed(() => investimentiStore.investimenti.length > 0);
@@ -175,12 +172,6 @@ const loadBudget = async () => {
     await budgetStore.fetchStatoBudget(oggi.month() + 1, oggi.year());
   }
 };
-
-const loadAnalisi = () => (
-  // Sparkline del riepilogo: 12 settimane danno la stessa densità di punti
-  // di prima, dove l'andamento era sempre settimanale a prescindere.
-  analisiStore.fetchAndamentoPatrimonio({ unita: 'settimana', quantita: 12 })
-);
 
 const loadScommesse = async () => {
   if (!canAccessScommesseFeature.value) return;
@@ -233,7 +224,6 @@ const onSaved = async () => {
     movimentiStore.fetchBilancioMese(oggi.month() + 1, oggi.year()),
     loadBudget(),
     loadDashboardMovimenti(),
-    loadAnalisi(),
     loadScommesse(),
     loadInvestimenti(),
     loadObiettivi(),
@@ -248,7 +238,6 @@ onMounted(async () => {
     movimentiStore.fetchBilancioMese(oggi.month() + 1, oggi.year()),
     loadBudget(),
     loadDashboardMovimenti(),
-    loadAnalisi(),
     loadScommesse(),
     loadInvestimenti(),
     loadObiettivi(),
@@ -284,7 +273,6 @@ onMounted(async () => {
       :uscite-oggi="movimentiStore.usciteOggi"
       :variazione-percentuale="contiStore.variazionePercentuale"
       :trend-positive="contiStore.variazioneImporto >= 0"
-      :andamento-punti="andamentoPunti"
       :has-budget="budgetStore.hasBudget"
       :budget-stato="budgetStore.statoBudget"
       :budget-totale="budgetTotale"

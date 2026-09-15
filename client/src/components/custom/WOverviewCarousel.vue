@@ -7,6 +7,7 @@ import {
   PointElement, LineElement, Filler,
 } from 'chart.js';
 import DataState from '@/components/common/DataState.vue';
+import AndamentoPatrimonio from '@/components/analisi/AndamentoPatrimonio.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import { etichetta } from '@/content/glossario';
 import { useNumberCounter } from '@/composables/useNumberCounter';
@@ -30,7 +31,6 @@ const props = defineProps({
   usciteOggi: { type: Number, default: 0 },
   variazionePercentuale: { type: Number, default: 0 },
   trendPositive: { type: Boolean, default: true },
-  andamentoPunti: { type: Array, default: () => [] },
   hasBudget: { type: Boolean, default: false },
   budgetStato: { type: Array, default: () => [] },
   budgetTotale: { type: Number, default: 0 },
@@ -100,24 +100,6 @@ const slideCount = computed(() => slides.value.length);
 
 const patrimonioTarget = computed(() => props.patrimonio || 0);
 const { displayValue: animatedPatrimonio } = useNumberCounter(patrimonioTarget, { duration: 900 });
-
-const sparklinePath = computed(() => {
-  const pts = props.andamentoPunti;
-  if (!pts.length) {
-    return props.trendPositive
-      ? 'M2 22 L20 18 L40 20 L60 12 L80 14 L98 6'
-      : 'M2 8 L20 12 L40 10 L60 18 L80 16 L98 22';
-  }
-  const values = pts.map((p) => parseFloat(p.patrimonio) || 0);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-  return values.map((v, i) => {
-    const x = 2 + (i / Math.max(values.length - 1, 1)) * 96;
-    const y = 28 - ((v - min) / range) * 22;
-    return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
-  }).join(' ');
-});
 
 const budgetChartItems = computed(() =>
   props.budgetStato
@@ -249,15 +231,7 @@ onUnmounted(() => {
             <p class="w-overview__variation" :class="trendPositive ? 'is-positive' : 'is-negative'">
               {{ formatVariazione(variazionePercentuale) }} questo mese
             </p>
-            <svg class="w-overview__sparkline" viewBox="0 0 100 32" fill="none" aria-hidden="true">
-              <path
-                :d="sparklinePath"
-                stroke="var(--accent-green)"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
+            <AndamentoPatrimonio compatta />
             <div class="w-overview__split">
               <div class="w-overview__split-item">
                 <span class="w-overview__split-label">Entrate mese</span>
@@ -807,12 +781,6 @@ onUnmounted(() => {
 .w-overview__account-name { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--text-secondary); font-size: 0.875rem; }
 .w-overview__account-balance { flex-shrink: 0; font-weight: 700; font-size: clamp(0.875rem, 3.5vw, 1.0625rem); color: var(--text-primary); }
 .w-overview__account-balance.is-negative { color: var(--negative); }
-
-.w-overview__sparkline {
-  width: 100%;
-  height: 36px;
-  margin-bottom: 1rem;
-}
 
 .w-overview__split {
   display: grid;
