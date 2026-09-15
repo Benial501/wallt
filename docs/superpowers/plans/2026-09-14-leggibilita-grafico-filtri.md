@@ -178,6 +178,7 @@ Il test e la correzione stanno nello stesso task: il test è la prova che la cor
 **Files:**
 - Create: `client/tests/contrasto.test.js`
 - Modify: `client/src/assets/styles/variables.css`
+- Modify: `client/src/assets/styles/glass.css` (il bordo di checkbox e radio)
 
 **Interfaces:**
 - Consumes: niente.
@@ -303,8 +304,17 @@ const COPPIE = [
   { testo: '--accent-on', su: 'accento', min: 4.5 },
   { testo: '--cta-text', su: 'cta', min: 4.5 },
 
-  // Bordo che delimita un controllo: 3:1 basta, ma non 1.5:1.
-  { testo: '--border-strong', su: 'pagina', min: 3 },
+  // Il bordo di checkbox e radio. Con `appearance: none` quel bordo è
+  // l'unica cosa che identifica il controllo, quindi ricade sotto WCAG
+  // 1.4.11 e servono 3:1. La card è il caso peggiore: nel tema scuro è più
+  // chiara della pagina, quindi un bordo chiaro lì contrasta di meno.
+  //
+  // `--border-strong` NON è in questa lista di proposito: serve a stati
+  // hover e alla maniglia del foglio dal basso, che non identificano nulla
+  // da soli. Portarlo a 3:1 significherebbe alzarne l'alfa da 0.16 a 0.36
+  // nello scuro e oltre 0.5 nel chiaro, trasformando ogni filo del sistema
+  // del vetro in una linea dura.
+  { testo: '--control-border', su: 'card', min: 3 },
 ];
 
 for (const [nomeTema, tema] of [['scuro', SCURO], ['chiaro', CHIARO]]) {
@@ -344,6 +354,8 @@ test('ogni token di testo dichiarato compare in almeno una coppia', () => {
 Run: `cd client && npm test`
 
 Expected: FAIL su entrambi i temi. Nello scuro `--text-muted su card: 3.54`, `--nav-item su chrome: 4.17`. Nel chiaro `--positive su pagina: 3.33`, `--warning su pagina: 2.81`, `--accent-on su accento: 3.03`, `--text-muted su pagina: 4.20`.
+
+Fallirà anche con `token non interpretabile: --control-border = undefined`, perché quel token non esiste ancora: lo crea lo Step 3.
 
 Se un token risulta «non interpretabile», è perché usa `color-mix` o una variabile: aggiungerlo all'esclusione dell'ultimo test, non aggirare il parser.
 
@@ -393,6 +405,36 @@ Aggiungi sopra quest'ultimo il commento che spiega perché:
      3.03:1, e scurire il verde avrebbe cambiato il colore del brand. */
   --accent-on: #04241C;
 ```
+
+Poi il token nuovo, in **entrambi** i blocchi. Aggiungilo accanto a `--border-strong`, con il commento:
+
+```css
+  /* Bordo dei controlli che hanno perso l'aspetto nativo con
+     `appearance: none` — checkbox e radio. Lì il bordo è l'unica cosa che
+     dice all'utente che c'è un controllo, quindi vale WCAG 1.4.11 e servono
+     3:1. `--border-strong` resta com'è: disegna stati hover e la maniglia
+     del foglio dal basso, che non identificano nulla da soli. */
+```
+
+Nel blocco `:root, html.dark`:
+
+```css
+  --control-border: #66667A;
+```
+
+Nel blocco `html.light`:
+
+```css
+  --control-border: #7A8699;
+```
+
+E fai usare il token ai due controlli che lo richiedono. In `client/src/assets/styles/glass.css`, nella regola di `input[type='checkbox'], input[type='radio']` (riga 206 circa), sostituisci:
+
+```css
+  border: 1.5px solid var(--control-border);
+```
+
+Verifica con `grep -n "border-strong" client/src/assets/styles/glass.css` che la riga 220 — l'hover con `color-mix` — **resti** su `--border-strong`: è uno stato, non l'identità del controllo.
 
 - [ ] **Step 4: Eseguire il test e verificare che passi**
 
