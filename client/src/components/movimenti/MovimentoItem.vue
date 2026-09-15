@@ -226,13 +226,13 @@ const handleClick = () => {
 .mov-info { flex: 1; min-width: 0; }
 .mov-cat { font-size: 0.875rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mov-cat-row { display: flex; align-items: center; gap: 0.5rem; }
-.mov-desc { font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mov-desc { font-size: var(--text-xs); color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mov-right { display: flex; align-items: center; gap: 0.375rem; flex-shrink: 0; }
 .mov-importo { font-size: 0.9375rem; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: -.025em; }
 .mov-importo.neutral { color: var(--text-secondary); }
 .positive { color: color-mix(in srgb, var(--positive) 65%, var(--text-primary)); }
 .negative { color: color-mix(in srgb, var(--negative) 50%, var(--text-primary)); }
-.badge { font-size: 0.75rem; color: var(--text-muted); display: inline-flex; align-items: center; }
+.badge { font-size: var(--text-xs); color: var(--text-muted); display: inline-flex; align-items: center; }
 .badge--icon svg { stroke: currentColor; }
 .badge--conf-low { color: #fff; background: rgba(255, 71, 87, 0.85); border: 1px solid rgba(255, 71, 87, 0.3); padding: 0.25rem 0.45rem; border-radius: 999px; }
 
@@ -252,7 +252,7 @@ const handleClick = () => {
   color: #fff;
   border: none;
   cursor: pointer;
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   z-index: 0;
 }
@@ -280,5 +280,5 @@ const handleClick = () => {
   .mov-delete:hover { color: var(--negative); }
   .mov-delete:focus-visible { opacity: 1; outline: 2px solid var(--accent-green); outline-offset: -3px; }
 }
-@media (max-width: 380px) { .mov-item { padding: .75rem; gap: .5rem; } .mov-icon { width: 32px; height: 32px; } .mov-importo { font-size: .8125rem; } }
+@media (max-width: 380px) { .mov-item { padding: .75rem; gap: .5rem; } .mov-icon { width: 32px; height: 32px; } .mov-importo { font-size: var(--text-xs); } }
 </style>

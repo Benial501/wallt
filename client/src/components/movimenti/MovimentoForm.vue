@@ -372,7 +372,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
 
 <style scoped>
 .form-space { display: flex; flex-direction: column; gap: 1.125rem; }
-.form-intro { font-size: 0.8125rem; line-height: var(--leading-normal); color: var(--text-muted); }
+.form-intro { font-size: var(--text-xs); line-height: var(--leading-normal); color: var(--text-muted); }
 .prereq {
   display: flex;
   flex-direction: column;
@@ -383,10 +383,10 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
   border: 1px solid color-mix(in srgb, var(--warning) 32%, transparent);
   background: color-mix(in srgb, var(--warning) 10%, transparent);
 }
-.prereq__text { font-size: 0.8125rem; line-height: var(--leading-normal); color: var(--text-secondary); }
+.prereq__text { font-size: var(--text-xs); line-height: var(--leading-normal); color: var(--text-secondary); }
 .field label {
   display: block;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
@@ -501,7 +501,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
   border-color: color-mix(in srgb, var(--cat-color, var(--accent-green)) 50%, var(--border));
 }
 .cat-label {
-  font-size: 0.625rem;
+  font-size: var(--text-xs);
   line-height: 1.25;
   color: var(--text-muted);
   text-align: center;
@@ -510,7 +510,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
 }
 .cat-btn.active .cat-label { color: var(--text-primary); font-weight: 600; }
 .transfer-arrow { text-align: center; font-size: 1.25rem; color: var(--accent-green); opacity: 0.7; }
-.error-text { color: var(--negative); font-size: 0.8125rem; margin-top: 0.25rem; }
+.error-text { color: var(--negative); font-size: var(--text-xs); margin-top: 0.25rem; }
 /* Lo spazio resta occupato anche senza messaggio: comparendo e sparendo
    spingerebbe in basso i campi sottostanti. */
 .error-text--reserved { min-height: 1.125rem; }

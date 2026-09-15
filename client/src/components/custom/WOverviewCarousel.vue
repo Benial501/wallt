@@ -625,7 +625,10 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  font-size: 0.8125rem;
+  /* deroga: etichetta che introduce lo slide (es. "Patrimonio totale",
+     "Investimenti"), sempre seguita a ruota dal valore vero — l'importo
+     grande e animato subito sotto, non questa riga. */
+  font-size: var(--text-micro);
   font-weight: 600;
   letter-spacing: 0.06em;
   color: var(--text-muted);
@@ -638,7 +641,7 @@ onUnmounted(() => {
   margin-left: 0.375rem;
   padding: 0.125rem 0.4375rem;
   border-radius: 999px;
-  font-size: 0.625rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
@@ -691,7 +694,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   color: var(--text-secondary);
 }
 
@@ -705,7 +708,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.3rem;
   margin-top: 0.375rem;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
@@ -736,7 +739,7 @@ onUnmounted(() => {
 
 .w-overview__goal-list-name {
   display: block;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
@@ -746,7 +749,7 @@ onUnmounted(() => {
 }
 
 .w-overview__goal-list-pct {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   color: var(--accent-green);
   flex-shrink: 0;
@@ -763,7 +766,7 @@ onUnmounted(() => {
 .w-overview__amount--sm { font-size: clamp(1.375rem, 5vw, 1.75rem); }
 
 .w-overview__variation {
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   margin-top: 0.25rem;
   margin-bottom: 0.75rem;
 }
@@ -772,7 +775,7 @@ onUnmounted(() => {
 .w-overview__variation.is-negative { color: var(--negative); }
 
 .w-overview__subtitle {
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   color: var(--text-secondary);
   margin-bottom: 0.75rem;
 }
@@ -830,7 +833,9 @@ onUnmounted(() => {
 
 .w-overview__split-label {
   display: block;
-  font-size: 0.6875rem;
+  /* deroga: etichetta ("Entrate mese"/"Uscite mese") accanto al relativo
+     .w-overview__split-val, già leggibile a 1rem in grassetto. */
+  font-size: var(--text-micro);
   color: var(--text-muted);
   margin-bottom: 0.125rem;
 }
@@ -858,7 +863,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
 }
 
 .w-overview__legend-dot {
@@ -879,7 +884,7 @@ onUnmounted(() => {
 .w-overview__legend-pct {
   font-weight: 600;
   color: var(--text-primary);
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
 }
 
 .w-overview__hero-stat {
@@ -914,7 +919,7 @@ onUnmounted(() => {
 }
 
 .w-overview__hint-block {
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   color: var(--text-secondary);
   text-align: center;
   margin-bottom: 0.75rem;
@@ -943,7 +948,10 @@ onUnmounted(() => {
 .w-overview__feature-card--out svg { color: var(--negative); }
 
 .w-overview__feature-label {
-  font-size: 0.625rem;
+  /* deroga: etichetta ("Vincite"/"Perdite") subito sopra il relativo
+     .w-overview__feature-val, l'importo vero, già leggibile a 0.9375rem
+     in grassetto. */
+  font-size: var(--text-micro);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-muted);
@@ -965,7 +973,9 @@ onUnmounted(() => {
 .w-overview__net-box.is-positive { border-color: rgba(0, 168, 132, 0.2); }
 .w-overview__net-box.is-negative { border-color: rgba(220, 38, 38, 0.2); }
 
-.w-overview__net-label { font-size: 0.8125rem; color: var(--text-secondary); }
+/* deroga: etichetta ("Bilancio netto") accanto al relativo .w-overview__net-val,
+   l'importo vero, già leggibile a 1.0625rem in grassetto. */
+.w-overview__net-label { font-size: var(--text-micro); color: var(--text-secondary); }
 .w-overview__net-val { font-size: 1.0625rem; font-weight: 700; }
 .w-overview__net-box.is-positive .w-overview__net-val { color: var(--positive); }
 .w-overview__net-box.is-negative .w-overview__net-val { color: var(--negative); }
@@ -981,7 +991,7 @@ onUnmounted(() => {
   background: none;
   border: none;
   color: var(--accent-green);
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   cursor: pointer;
   padding: 0.25rem 0;
@@ -1014,7 +1024,7 @@ onUnmounted(() => {
 }
 
 .w-overview__cta-desc {
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   color: var(--text-secondary);
   margin-bottom: 1rem;
   max-width: 240px;

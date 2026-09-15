@@ -262,7 +262,7 @@ const disattiva = async () => {
 
 .notifiche-settings__intro {
   margin: 0;
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   line-height: 1.45;
   color: var(--text-muted);
 }
@@ -279,7 +279,7 @@ const disattiva = async () => {
   min-height: 44px;
 }
 
-.hint { font-size: 0.8125rem; color: var(--text-muted); margin: 0 0 0 1.75rem; }
+.hint { font-size: var(--text-xs); color: var(--text-muted); margin: 0 0 0 1.75rem; }
 .hint--inline { margin-left: 0; }
 
 .notifiche-settings__campo {
@@ -327,7 +327,7 @@ const disattiva = async () => {
   border-radius: 999px;
   background: var(--surface-subtle);
   color: var(--text-muted);
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 

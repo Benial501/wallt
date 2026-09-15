@@ -128,10 +128,10 @@ const submit = async () => {
 .support-contact__email { overflow-wrap: anywhere; margin: 0; }
 .support-contact__form { display: flex; flex-direction: column; gap: 1rem; margin-top: 1.25rem; border-top: 1px solid var(--border); padding-top: 1.25rem; }
 .support-contact__fields { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 1rem; }
-label { display: block; margin-bottom: 0.375rem; color: var(--text-primary); font-weight: 600; font-size: 0.8125rem; }
+label { display: block; margin-bottom: 0.375rem; color: var(--text-primary); font-weight: 600; font-size: var(--text-xs); }
 .wallt-input { width: 100%; padding-left: 1rem; }
 textarea { resize: vertical; min-height: 140px; }
-.support-contact__hint { margin-top: 0.375rem; color: var(--text-muted); font-size: 0.75rem; }
+.support-contact__hint { margin-top: 0.375rem; color: var(--text-muted); font-size: var(--text-xs); }
 .support-contact__feedback { margin-top: 1rem; color: var(--accent-green); font-size: 0.875rem; line-height: 1.6; }
 .support-contact__error { color: var(--accent-red, #dc2626); font-size: 0.875rem; }
 .support-contact__submit { align-self: flex-start; }

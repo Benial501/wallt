@@ -149,7 +149,7 @@ const numeroStep = (index) => index + 1;
 
 .getting-started__sub {
   margin-top: 0.1875rem;
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   line-height: 1.45;
   color: var(--text-secondary);
 }
@@ -197,7 +197,7 @@ const numeroStep = (index) => index + 1;
   border: 1px solid var(--border);
   background: var(--surface-inset);
   color: var(--text-secondary);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .step__marker svg { stroke: currentColor; }
@@ -226,7 +226,7 @@ const numeroStep = (index) => index + 1;
   border-radius: 999px;
   background: var(--surface-inset);
   color: var(--text-muted);
-  font-size: 0.625rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.02em;
   vertical-align: middle;
@@ -239,14 +239,14 @@ const numeroStep = (index) => index + 1;
 
 .step__text {
   margin-top: 0.1875rem;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   line-height: 1.5;
   color: var(--text-muted);
 }
 
 .step__unknown {
   margin-top: 0.25rem;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   line-height: 1.45;
   color: var(--warning);
 }
@@ -266,7 +266,7 @@ const numeroStep = (index) => index + 1;
   background: linear-gradient(135deg, var(--accent-green), var(--accent-hover));
   color: #0A0A0F;
   font-family: inherit;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   cursor: pointer;
 }
@@ -301,7 +301,7 @@ const numeroStep = (index) => index + 1;
   padding: 0.375rem 0;
   color: var(--text-secondary);
   font-family: inherit;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;

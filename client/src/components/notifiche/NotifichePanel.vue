@@ -230,7 +230,7 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   background: var(--accent-green);
   color: #041210;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   line-height: 20px;
   text-align: center;
@@ -300,7 +300,7 @@ onBeforeUnmount(() => {
 
 .notifiche-panel__vuoto-testo {
   margin: 0;
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   line-height: 1.4;
   max-width: 260px;
 }
@@ -322,7 +322,7 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-pill);
   background: var(--glass-interactive-bg);
   color: var(--text-secondary);
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   font-weight: 550;
   cursor: pointer;
   min-height: 36px;

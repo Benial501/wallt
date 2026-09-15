@@ -106,7 +106,7 @@ const etichetta = () => (nonLette.value > 0
   border-radius: 999px;
   background: var(--negative);
   color: #fff;
-  font-size: 0.625rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   line-height: 16px;
   text-align: center;

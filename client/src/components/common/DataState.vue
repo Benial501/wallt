@@ -170,7 +170,7 @@ const orarioAggiornamento = computed(() => {
    dell'avviso è vincolata alla lettera e deve restare intatta. */
 .data-state__avviso-orario {
   margin: 0.25rem 0 0;
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
@@ -203,7 +203,7 @@ const orarioAggiornamento = computed(() => {
   flex-shrink: 0;
   min-height: 36px;
   padding: 0.375rem 0.6875rem;
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
 }
 
 @media (max-width: 480px) {

@@ -75,13 +75,13 @@ const goToImport = () => router.push('/importa');
 }
 
 .import-hint__title {
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .import-hint__desc {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   line-height: 1.3;
 }

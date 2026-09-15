@@ -21,10 +21,7 @@ const SRC = join(dirname(fileURLToPath(import.meta.url)), '..', 'src');
 const PAVIMENTO_REM = 0.875;
 
 /** Svuotata dai task 4a, 4b e 4c, in quest'ordine. */
-const AREE_NON_ANCORA_MIGRATE = [
-  'components',
-  'assets',
-];
+const AREE_NON_ANCORA_MIGRATE = [];
 
 const sorgenti = (dir) => readdirSync(dir).flatMap((nome) => {
   const percorso = join(dir, nome);

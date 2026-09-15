@@ -75,7 +75,7 @@ const visibile = computed(() => props.alwaysOpen || aperto.value);
   border: none;
   color: var(--text-muted);
   font-family: inherit;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   cursor: pointer;
   text-align: left;
@@ -93,7 +93,7 @@ const visibile = computed(() => props.alwaysOpen || aperto.value);
 }
 
 .help-note__text {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   line-height: 1.55;
   color: var(--text-secondary);
 }
@@ -103,7 +103,7 @@ const visibile = computed(() => props.alwaysOpen || aperto.value);
   display: flex;
   align-items: flex-start;
   gap: 0.375rem;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   line-height: 1.5;
   color: var(--text-muted);
 }

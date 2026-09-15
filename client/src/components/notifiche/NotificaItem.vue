@@ -115,13 +115,13 @@ const quando = computed(() => {
 }
 
 .notifica__messaggio {
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   line-height: 1.35;
   color: var(--text-secondary);
 }
 
 .notifica__meta {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   margin-top: 0.125rem;
 }

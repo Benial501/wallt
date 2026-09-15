@@ -90,7 +90,7 @@ const segno = computed(() => (isEntrata.value ? '+' : '-'));
 }
 
 .analisi-mov-row__date {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -109,7 +109,7 @@ const segno = computed(() => (isEntrata.value ? '+' : '-'));
 
 .analisi-mov-row__title {
   margin: 0;
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--text-primary);
   line-height: 1.35;
@@ -121,7 +121,7 @@ const segno = computed(() => (isEntrata.value ? '+' : '-'));
 
 .analisi-mov-row__meta {
   margin: 0.2rem 0 0;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;

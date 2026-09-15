@@ -130,7 +130,7 @@ const importoClass = (tipo) => {
   background: none;
   border: none;
   color: var(--text-link);
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   font-weight: 500;
   cursor: pointer;
   padding: 0;
@@ -213,7 +213,7 @@ const importoClass = (tipo) => {
 }
 
 .recent-tx__cat {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--text-subtle);
   margin-top: 0.125rem;
 }
@@ -233,7 +233,7 @@ const importoClass = (tipo) => {
 .recent-tx__amount.neutral { color: var(--text-subtle); }
 
 .recent-tx__date {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   margin-top: 0.125rem;
 }
@@ -254,7 +254,7 @@ const importoClass = (tipo) => {
 
 .recent-tx__empty-hint {
   text-align: center;
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
   line-height: 1.45;
   color: var(--text-secondary);
   max-width: 320px;
@@ -270,7 +270,7 @@ const importoClass = (tipo) => {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 500;
   cursor: pointer;
   padding: 0.25rem 0;

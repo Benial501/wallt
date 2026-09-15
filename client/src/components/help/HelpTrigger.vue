@@ -47,7 +47,7 @@ const apri = () => helpStore.openTopic(props.topic);
   background: var(--surface-subtle);
   color: var(--text-secondary);
   font-family: inherit;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   line-height: 1.2;
   cursor: pointer;

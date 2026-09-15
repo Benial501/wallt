@@ -246,7 +246,9 @@ onBeforeUnmount(unlockScroll);
 }
 
 .help-panel__eyebrow {
-  font-size: 0.6875rem;
+  /* deroga: occhiello ("Aiuto") sopra il titolo dell'argomento
+     (.help-panel__title), già leggibile a 1.0625rem. */
+  font-size: var(--text-micro);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -330,7 +332,7 @@ onBeforeUnmount(unlockScroll);
 
 .help-panel__related-title {
   width: 100%;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   color: var(--text-muted);
 }
@@ -342,7 +344,7 @@ onBeforeUnmount(unlockScroll);
   background: var(--glass-interactive-bg);
   color: var(--text-secondary);
   font-family: inherit;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   cursor: pointer;
   min-height: 34px;

@@ -443,7 +443,7 @@ const handleLogout = async () => {
   padding: 4px 8px;
   min-width: 56px;
   min-height: 48px;
-  font-size: 0.625rem;
+  font-size: var(--text-xs);
   font-weight: 550;
   letter-spacing: var(--tracking-normal);
   transition: color var(--dur-base) var(--ease-out);
@@ -541,5 +541,5 @@ const handleLogout = async () => {
 .funz-grid__icon { color: var(--text-secondary); stroke: currentColor; margin-bottom: 0.125rem; }
 .funz-grid__item--active .funz-grid__icon { color: var(--accent-green); }
 .funz-grid__label { font-size: 0.9375rem; font-weight: 600; letter-spacing: var(--tracking-tight); color: var(--text-primary); }
-.funz-grid__desc { font-size: 0.6875rem; color: var(--text-muted); line-height: 1.35; }
+.funz-grid__desc { font-size: var(--text-xs); color: var(--text-muted); line-height: 1.35; }
 </style>
