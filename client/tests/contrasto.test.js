@@ -16,10 +16,18 @@ import { fileURLToPath } from 'node:url';
  * Aggiungere un token di testo significa aggiungerlo lì.
  */
 
-const CSS = readFileSync(
+const CSS_GREZZO = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'assets', 'styles', 'variables.css'),
   'utf8',
 );
+
+/**
+ * Il CSS senza commenti. `variables.css` documenta ogni scelta di design, e
+ * un commento che cita `--token: valore` verrebbe letto come una
+ * dichiarazione vera: il token sparisce o ne assume uno sbagliato, e il test
+ * misura la cosa sbagliata senza dirlo. È già successo.
+ */
+const CSS = CSS_GREZZO.replace(/\/\*[\s\S]*?\*\//g, '');
 
 /** Token dichiarati dentro un blocco. Le regole chiudono con `}` a inizio riga. */
 const leggiBlocco = (selettore) => {
@@ -178,4 +186,13 @@ test('ogni token di testo dichiarato compare in almeno una coppia', () => {
   const coperti = new Set(COPPIE.map((c) => c.testo));
   const scoperti = daVerificare.filter((t) => !coperti.has(t));
   assert.deepEqual(scoperti, [], `token di testo mai verificati: ${scoperti.join(', ')}`);
+});
+
+test('un token citato dentro un commento non viene scambiato per una dichiarazione', () => {
+  // La regressione concreta: il commento di --accent-text cita --accent-green
+  // in mezzo alla prosa. Prima della correzione il parser lo leggeva come
+  // dichiarazione, e --accent-text spariva dal blocco.
+  assert.match(SCURO['--accent-text'], /^#[0-9A-Fa-f]{6}$/);
+  assert.match(CHIARO['--accent-text'], /^#[0-9A-Fa-f]{6}$/);
+  assert.equal(CHIARO['--accent-green'], '#00A884');
 });
