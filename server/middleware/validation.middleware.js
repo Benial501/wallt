@@ -1,5 +1,7 @@
 const { assertCategory } = require('../services/categorie.service');
-const { UNITA_VALIDE, QUANTITA_MIN, QUANTITA_MAX } = require('../services/confrontoPeriodi.service');
+const {
+  UNITA_VALIDE, QUANTITA_MIN, QUANTITA_MAX, QUANTITA_MAX_PER_UNITA,
+} = require('../services/confrontoPeriodi.service');
 const {
   body, param, query, validationResult,
 } = require('express-validator');
@@ -54,10 +56,10 @@ const validateMovimentiQuery = [
 
 const validateAnalisiQuery = [...intervalloDate, validate];
 
-// Confronto periodi: l'unita' e' una whitelist, la quantita' e' il selettore
-// 2-12 della pagina. `mesi` e' il parametro storico della versione precedente
-// del client e resta accettato durante i rilasci (client e API deployano
-// separatamente).
+// Confronto periodi: l'unita' e' una whitelist, la quantita' ha un tetto che
+// dipende dall'unita' (fino a 31 giorni, 12 per il resto). `mesi` e' il
+// parametro storico della versione precedente del client e resta accettato
+// durante i rilasci (client e API deployano separatamente).
 const validateConfrontoQuery = [
   query('unita')
     .optional({ values: 'falsy' })
@@ -65,8 +67,14 @@ const validateConfrontoQuery = [
     .withMessage('Unita di confronto non valida'),
   query('quantita')
     .optional({ values: 'falsy' })
-    .isInt({ min: QUANTITA_MIN, max: QUANTITA_MAX })
-    .withMessage(`Scegli da ${QUANTITA_MIN} a ${QUANTITA_MAX} periodi`),
+    .custom((valore, { req }) => {
+      const massimo = QUANTITA_MAX_PER_UNITA[req.query.unita] ?? QUANTITA_MAX;
+      const n = parseInt(valore, 10);
+      if (!Number.isInteger(n) || n < QUANTITA_MIN || n > massimo) {
+        throw new Error(`Scegli da ${QUANTITA_MIN} a ${massimo} periodi`);
+      }
+      return true;
+    }),
   query('mesi')
     .optional({ values: 'falsy' })
     .isInt({ min: QUANTITA_MIN, max: QUANTITA_MAX })

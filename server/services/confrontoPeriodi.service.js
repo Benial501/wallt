@@ -12,13 +12,27 @@
  */
 
 const MESI_SHORT = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+const MESI_LONG = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
+  'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
 
 /** Unita' che ammettono un numero di periodi scelto dall'utente. */
-const UNITA_VALIDE = ['settimana', 'mese', 'anno'];
+const UNITA_VALIDE = ['giorno', 'settimana', 'mese', 'anno'];
 
 /** Estremi del selettore "quante ne confronto". */
 const QUANTITA_MIN = 2;
 const QUANTITA_MAX = 12;
+
+/**
+ * Tetto per unita'. Il grafico dell'andamento chiede fino a 30 giorni, ma
+ * alzare un tetto unico a 31 renderebbe legali anche 31 anni: il selettore
+ * del confronto nelle Analisi resta a 12 per settimane, mesi e anni.
+ */
+const QUANTITA_MAX_PER_UNITA = {
+  giorno: 31,
+  settimana: QUANTITA_MAX,
+  mese: QUANTITA_MAX,
+  anno: QUANTITA_MAX,
+};
 
 /** Tetto di sicurezza sui mesi restituiti da un intervallo custom molto ampio. */
 const MAX_PERIODI_CUSTOM = 24;
@@ -43,11 +57,18 @@ const lunediDellaSettimana = (date) => {
   return d;
 };
 
-/** Normalizza la quantita' richiesta dentro gli estremi del selettore. */
-const normalizzaQuantita = (valore, fallback = 6) => {
+/**
+ * Normalizza la quantita' richiesta dentro gli estremi dell'unita'.
+ *
+ * `unita` e' opzionale: senza, vale il tetto storico di 12. E' la firma che
+ * usavano le Analisi prima del bucket giornaliero, e i chiamanti che non
+ * passano l'unita' devono continuare a ottenere il comportamento di prima.
+ */
+const normalizzaQuantita = (valore, unita, fallback = 6) => {
+  const massimo = QUANTITA_MAX_PER_UNITA[unita] ?? QUANTITA_MAX;
   const n = parseInt(valore, 10);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.min(QUANTITA_MAX, Math.max(QUANTITA_MIN, n));
+  if (!Number.isFinite(n)) return Math.min(massimo, fallback);
+  return Math.min(massimo, Math.max(QUANTITA_MIN, n));
 };
 
 const bucketSettimane = (quantita, oggi) => {
@@ -77,6 +98,32 @@ const bucketSettimane = (quantita, oggi) => {
         : `${giornoInizio} ${meseInizio} – ${giornoFine} ${meseFine}`,
       da,
       a,
+    });
+  }
+
+  return periodi;
+};
+
+/**
+ * Un punto per giorno. Serve al grafico dell'andamento del patrimonio, dove
+ * "7 giorni" e "30 giorni" sono le finestre che si guardano piu' spesso.
+ */
+const bucketGiorni = (quantita, oggi) => {
+  const periodi = [];
+
+  for (let i = quantita - 1; i >= 0; i--) {
+    const giorno = new Date(oggi);
+    giorno.setUTCDate(giorno.getUTCDate() - i);
+    const iso = giorno.toISOString().slice(0, 10);
+
+    periodi.push({
+      chiave: iso,
+      // Etichetta corta per l'asse, estesa per il tooltip: su 30 punti
+      // l'asse non ha spazio per il nome intero del mese.
+      label: `${giorno.getUTCDate()} ${MESI_SHORT[giorno.getUTCMonth()].toLowerCase()}`,
+      labelEsteso: `${giorno.getUTCDate()} ${MESI_LONG[giorno.getUTCMonth()]} ${giorno.getUTCFullYear()}`,
+      da: iso,
+      a: iso,
     });
   }
 
@@ -149,8 +196,8 @@ const bucketIntervallo = (da, a) => {
  * Intervalli da confrontare.
  *
  * @param {object} opzioni
- * @param {string} [opzioni.unita]      'settimana' | 'mese' | 'anno' (default 'mese')
- * @param {number|string} [opzioni.quantita]  quanti periodi, da 2 a 12
+ * @param {string} [opzioni.unita]      'giorno' | 'settimana' | 'mese' | 'anno' (default 'mese')
+ * @param {number|string} [opzioni.quantita]  quanti periodi, entro il tetto dell'unita'
  * @param {string} [opzioni.da]         con 'a': i mesi dell'intervallo, ignora unita/quantita
  * @param {string} [opzioni.a]
  * @param {Date} [oggi]                 istante di riferimento, iniettabile nei test
@@ -159,12 +206,13 @@ const bucketIntervallo = (da, a) => {
 const buildPeriodi = ({ unita, quantita, da, a } = {}, oggi = new Date()) => {
   if (da && a) return bucketIntervallo(da, a);
 
-  const n = normalizzaQuantita(quantita);
+  const n = normalizzaQuantita(quantita, unita);
   const riferimento = new Date(Date.UTC(
     oggi.getUTCFullYear(), oggi.getUTCMonth(), oggi.getUTCDate(),
   ));
 
   switch (unita) {
+    case 'giorno': return bucketGiorni(n, riferimento);
     case 'settimana': return bucketSettimane(n, riferimento);
     case 'anno': return bucketAnni(n, riferimento);
     default: return bucketMesi(n, riferimento);
@@ -177,5 +225,6 @@ module.exports = {
   UNITA_VALIDE,
   QUANTITA_MIN,
   QUANTITA_MAX,
+  QUANTITA_MAX_PER_UNITA,
   MAX_PERIODI_CUSTOM,
 };

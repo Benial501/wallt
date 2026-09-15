@@ -2,8 +2,10 @@
 // senza database: la parte che sbaglia in silenzio (settimane che partono di
 // domenica, mesi di lunghezza diversa, anni bisestili, fuso del processo).
 require('./setup');
+const assert = require('assert');
 const {
   buildPeriodi, normalizzaQuantita, QUANTITA_MIN, QUANTITA_MAX,
+  QUANTITA_MAX_PER_UNITA, UNITA_VALIDE,
 } = require('../services/confrontoPeriodi.service');
 
 // Mercoledì 10 settembre 2026.
@@ -145,5 +147,62 @@ describe('normalizzaQuantita', () => {
   it('usa il valore predefinito quando il parametro manca o non è un numero', () => {
     expect(normalizzaQuantita(undefined)).toBe(6);
     expect(normalizzaQuantita('abc')).toBe(6);
+  });
+});
+
+describe('buildPeriodi — giorni', () => {
+  it('restituisce un punto per giorno, dal più vecchio a oggi', () => {
+    const periodi = buildPeriodi({ unita: 'giorno', quantita: 7 }, OGGI);
+    assert.equal(periodi.length, 7);
+    assert.equal(periodi[0].da, '2026-09-04');
+    assert.equal(periodi[6].da, '2026-09-10');
+  });
+
+  it('ogni giorno è un intervallo di un giorno solo', () => {
+    const periodi = buildPeriodi({ unita: 'giorno', quantita: 3 }, OGGI);
+    periodi.forEach((p) => {
+      assert.equal(p.da, p.a);
+      assert.equal(p.chiave, p.da);
+    });
+  });
+
+  it('attraversa il confine del mese senza saltare giorni', () => {
+    // 2 settembre 2026: cinque giorni indietro finiscono in agosto.
+    const periodi = buildPeriodi({ unita: 'giorno', quantita: 5 }, new Date(Date.UTC(2026, 8, 2)));
+    assert.deepEqual(periodi.map((p) => p.da), [
+      '2026-08-29', '2026-08-30', '2026-08-31', '2026-09-01', '2026-09-02',
+    ]);
+  });
+
+  it('etichetta breve per l\'asse ed estesa per il tooltip', () => {
+    const [primo] = buildPeriodi({ unita: 'giorno', quantita: 2 }, OGGI);
+    assert.equal(primo.label, '9 set');
+    assert.equal(primo.labelEsteso, '9 settembre 2026');
+  });
+
+  it('accetta fino a 31 giorni', () => {
+    assert.equal(buildPeriodi({ unita: 'giorno', quantita: 31 }, OGGI).length, 31);
+  });
+
+  it('taglia a 31 una richiesta più ampia', () => {
+    assert.equal(buildPeriodi({ unita: 'giorno', quantita: 90 }, OGGI).length, 31);
+  });
+});
+
+describe('normalizzaQuantita — tetto per unità', () => {
+  it('il tetto di 31 vale solo per i giorni', () => {
+    assert.equal(normalizzaQuantita(31, 'giorno'), 31);
+    assert.equal(normalizzaQuantita(31, 'settimana'), 12);
+    assert.equal(normalizzaQuantita(31, 'mese'), 12);
+    assert.equal(normalizzaQuantita(31, 'anno'), 12);
+  });
+
+  it('senza unità vale il tetto storico, perché è la firma che usavano le Analisi', () => {
+    assert.equal(normalizzaQuantita(31), 12);
+  });
+
+  it('il minimo resta 2 per ogni unità', () => {
+    assert.equal(normalizzaQuantita(1, 'giorno'), 2);
+    assert.equal(normalizzaQuantita(0, 'mese'), 2);
   });
 });

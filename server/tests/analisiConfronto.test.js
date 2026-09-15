@@ -193,4 +193,27 @@ describe('GET /api/analisi/andamento-patrimonio', () => {
     const res = await request(app).get('/api/analisi/andamento-patrimonio');
     expect(res.status).toBe(401);
   });
+
+  it('accetta 30 giorni e restituisce trenta punti', async () => {
+    const res = await request(app)
+      .get('/api/analisi/andamento-patrimonio?unita=giorno&quantita=30')
+      .set(authHeader(token));
+    expect(res.status).toBe(200);
+    expect(res.body.punti).toHaveLength(30);
+    expect(res.body.unita).toBe('giorno');
+  });
+
+  it('rifiuta 30 settimane, perché il tetto di 31 vale solo per i giorni', async () => {
+    const res = await request(app)
+      .get('/api/analisi/andamento-patrimonio?unita=settimana&quantita=30')
+      .set(authHeader(token));
+    expect(res.status).toBe(400);
+  });
+
+  it('rifiuta un\'unità fuori dalla whitelist', async () => {
+    const res = await request(app)
+      .get('/api/analisi/andamento-patrimonio?unita=ora&quantita=5')
+      .set(authHeader(token));
+    expect(res.status).toBe(400);
+  });
 });
