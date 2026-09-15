@@ -395,8 +395,8 @@ const messaggioTipo = computed(() => {
           </select>
         </div>
         <DataState
-          :stato="investimentiStore.risorsaMovimentiAttiva.stato.value"
-          :last-updated="investimentiStore.risorsaMovimentiAttiva.lastUpdated.value"
+          :stato="investimentiStore.risorsaMovimentiAttiva.stato"
+          :last-updated="investimentiStore.risorsaMovimentiAttiva.lastUpdated"
           messaggio-errore="Non è stato possibile caricare lo storico."
           @riprova="investimentiStore.risorsaMovimentiAttiva.riprova()"
         >
