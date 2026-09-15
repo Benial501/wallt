@@ -158,7 +158,7 @@ async function ripristina(c) {
   color: var(--text-secondary);
   transition: color var(--dur-fast) var(--ease-out);
 }
-.back:hover { color: var(--accent-green); }
+.back:hover { color: var(--accent-text); }
 .back:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 
 header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin: 1.5rem 0; }
@@ -242,7 +242,7 @@ strong { font-size: 0.9375rem; font-weight: 600; letter-spacing: var(--tracking-
 small { font-size: var(--text-xs); margin-top: 0.125rem; color: var(--text-muted); }
 .actions { display: flex; gap: 0.7rem; font-size: var(--text-xs); }
 .actions button {
-  color: var(--accent-green);
+  color: var(--accent-text);
   font-weight: 550;
   transition: opacity var(--dur-fast) var(--ease-out);
 }

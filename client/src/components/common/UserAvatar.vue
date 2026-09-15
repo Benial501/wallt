@@ -60,7 +60,7 @@ const stile = computed(() => ({
 
 .user-avatar--accent {
   background: var(--accent-light);
-  color: var(--accent-green);
+  color: var(--accent-text);
 }
 
 .user-avatar--neutro {

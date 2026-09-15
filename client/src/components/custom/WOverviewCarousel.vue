@@ -701,7 +701,7 @@ onUnmounted(() => {
 
 .w-overview__goal-pct {
   font-weight: 700;
-  color: var(--accent-green);
+  color: var(--accent-text);
 }
 
 .w-overview__goal-deadline {
@@ -752,7 +752,7 @@ onUnmounted(() => {
 .w-overview__goal-list-pct {
   font-size: var(--text-xs);
   font-weight: 700;
-  color: var(--accent-green);
+  color: var(--accent-text);
   flex-shrink: 0;
 }
 
@@ -772,7 +772,7 @@ onUnmounted(() => {
   margin-bottom: 0.75rem;
 }
 
-.w-overview__variation.is-positive { color: var(--accent-green); }
+.w-overview__variation.is-positive { color: var(--accent-text); }
 .w-overview__variation.is-negative { color: var(--negative); }
 
 .w-overview__subtitle {
@@ -842,7 +842,7 @@ onUnmounted(() => {
 }
 
 .w-overview__split-val { font-size: 1rem; font-weight: 700; }
-.w-overview__split-val.is-positive { color: var(--accent-green); }
+.w-overview__split-val.is-positive { color: var(--accent-text); }
 .w-overview__split-val.is-negative { color: var(--negative); }
 
 .w-overview__doughnut-wrap {
@@ -994,7 +994,7 @@ onUnmounted(() => {
   align-self: center;
   background: none;
   border: none;
-  color: var(--accent-green);
+  color: var(--accent-text);
   font-size: var(--text-xs);
   font-weight: 600;
   cursor: pointer;
@@ -1083,7 +1083,7 @@ onUnmounted(() => {
   outline-offset: 3px;
 }
 
-.is-positive { color: var(--accent-green); }
+.is-positive { color: var(--accent-text); }
 .is-negative { color: var(--negative); }
 .tabular-nums { font-variant-numeric: tabular-nums; }
 

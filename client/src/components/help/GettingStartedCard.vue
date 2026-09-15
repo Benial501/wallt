@@ -205,7 +205,7 @@ const numeroStep = (index) => index + 1;
 .step--done .step__marker {
   border-color: rgba(0, 168, 132, 0.4);
   background: var(--accent-light);
-  color: var(--accent-green);
+  color: var(--accent-text);
 }
 
 .step__body { flex: 1; min-width: 0; }
@@ -234,7 +234,7 @@ const numeroStep = (index) => index + 1;
 
 .step__tag--done {
   background: var(--accent-light);
-  color: var(--accent-green);
+  color: var(--accent-text);
 }
 
 .step__text {
@@ -308,6 +308,6 @@ const numeroStep = (index) => index + 1;
   text-underline-offset: 3px;
   min-height: 32px;
 }
-.getting-started__link:hover { color: var(--accent-green); }
+.getting-started__link:hover { color: var(--accent-text); }
 .getting-started__link:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; border-radius: 4px; }
 </style>

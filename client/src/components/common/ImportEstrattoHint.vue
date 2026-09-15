@@ -64,7 +64,7 @@ const goToImport = () => router.push('/importa');
   height: 32px;
   border-radius: 8px;
   background: var(--accent-light);
-  color: var(--accent-green);
+  color: var(--accent-text);
 }
 
 .import-hint__icon svg {
@@ -103,7 +103,7 @@ const goToImport = () => router.push('/importa');
 }
 
 .import-hint:hover .import-hint__arrow {
-  color: var(--accent-green);
+  color: var(--accent-text);
   transform: translateX(2px);
 }
 </style>

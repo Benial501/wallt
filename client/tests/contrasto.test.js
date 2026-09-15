@@ -73,6 +73,11 @@ const rapporto = (a, b) => {
 const SUPERFICI = {
   pagina: ['--bg-primary'],
   card: ['--glass-primary-bg', '--bg-primary'],
+  // Due strati di vetro sovrapposti: un riquadro interno dentro una card.
+  // Nel tema scuro ogni strato schiarisce lo sfondo, quindi il testo grigio
+  // contrasta MENO che su una card singola — ed è il caso peggiore reale,
+  // non quello teorico.
+  cardAnnidata: ['--glass-secondary-bg', '--glass-primary-bg', '--bg-primary'],
   chrome: ['--glass-chrome-bg', '--bg-primary'],
   elevata: ['--glass-elevated-bg', '--bg-primary'],
   accento: ['--accent-green'],
@@ -97,6 +102,11 @@ const COPPIE = [
   { testo: '--negative', su: 'pagina', min: 4.5 },
   { testo: '--warning', su: 'pagina', min: 4.5 },
 
+  // L'accento come testo, non come sfondo: è la lacuna che ha lasciato
+  // importi e pulsanti di collegamento a 2.7-2.9 nel tema chiaro.
+  { testo: '--accent-text', su: 'pagina', min: 4.5 },
+  { testo: '--accent-text', su: 'card', min: 4.5 },
+
   { testo: '--text-primary', su: 'card', min: 4.5 },
   { testo: '--text-secondary', su: 'card', min: 4.5 },
   { testo: '--text-muted', su: 'card', min: 4.5 },
@@ -104,6 +114,10 @@ const COPPIE = [
   { testo: '--positive', su: 'card', min: 4.5 },
   { testo: '--negative', su: 'card', min: 4.5 },
   { testo: '--warning', su: 'card', min: 4.5 },
+
+  { testo: '--text-muted', su: 'cardAnnidata', min: 4.5 },
+  { testo: '--text-secondary', su: 'cardAnnidata', min: 4.5 },
+  { testo: '--text-subtle', su: 'cardAnnidata', min: 4.5 },
 
   { testo: '--text-primary', su: 'elevata', min: 4.5 },
   { testo: '--text-secondary', su: 'elevata', min: 4.5 },

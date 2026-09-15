@@ -173,7 +173,7 @@ const submit = async () => {
   font-size: var(--text-micro);
   font-weight: 700;
   letter-spacing: var(--tracking-wide);
-  color: var(--accent-green);
+  color: var(--accent-text);
   margin-bottom: 0.5rem;
 }
 .contatto__title {

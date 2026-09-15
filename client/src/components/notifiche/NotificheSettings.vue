@@ -333,7 +333,7 @@ const disattiva = async () => {
 
 .notifiche-settings__stato--attivo {
   background: rgba(0, 212, 170, 0.12);
-  color: var(--accent-green);
+  color: var(--accent-text);
 }
 
 .notifiche-settings__btn {

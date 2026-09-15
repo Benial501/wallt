@@ -801,13 +801,13 @@ const esportaDati = async () => {
 .periodo-tabs button, .sub-tabs button, .tab-nav button {
   display: inline-flex; align-items: center; gap: 0.375rem;
 }
-.tab-nav button.active .tab-icon { color: var(--accent-green); }
+.tab-nav button.active .tab-icon { color: var(--accent-text); }
 .tab-icon { stroke: currentColor; flex-shrink: 0; }
 .empty-icon { display: block; margin: 0 auto 1rem; color: var(--text-muted); stroke: currentColor; }
 .empty-icon--inline { display: inline; margin: 0 0.375rem 0 0; vertical-align: middle; color: var(--positive); }
 .empty-state, .empty-ok { text-align: center; padding: 3rem 1rem; color: var(--text-secondary); }
 .empty-ok { display: flex; align-items: center; justify-content: center; gap: 0.375rem; }
-.link-accent { color: var(--accent-green); text-decoration: none; font-weight: 500; }
+.link-accent { color: var(--accent-text); text-decoration: none; font-weight: 500; }
 .export-section { margin-top: 2rem; text-align: center; }
 .mt-4 { margin-top: 1rem; }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }

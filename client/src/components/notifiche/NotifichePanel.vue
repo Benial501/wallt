@@ -222,7 +222,7 @@ onBeforeUnmount(() => {
   color: var(--text-primary);
 }
 
-.notifiche-panel__titolo svg { color: var(--accent-green); }
+.notifiche-panel__titolo svg { color: var(--accent-text); }
 
 .notifiche-panel__conteggio {
   min-width: 20px;

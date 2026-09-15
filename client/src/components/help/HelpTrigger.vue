@@ -55,7 +55,7 @@ const apri = () => helpStore.openTopic(props.topic);
 }
 
 .help-trigger:hover {
-  color: var(--accent-green);
+  color: var(--accent-text);
   border-color: rgba(0, 168, 132, 0.35);
   background: var(--accent-light);
 }

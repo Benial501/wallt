@@ -839,7 +839,7 @@ const eliminaAccountOAuth = async () => {
 .section-toggle svg { flex-shrink: 0; stroke: currentColor; }
 .section-toggle span { flex: 1; }
 .theme-toggle__label { display: inline-flex; align-items: center; gap: 0.5rem; }
-.theme-icon-svg { stroke: currentColor; color: var(--accent-green); }
+.theme-icon-svg { stroke: currentColor; color: var(--accent-text); }
 .toggle-row { display: flex; align-items: center; gap: 0.5rem; }
 .section-body { padding: 0 1.25rem 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
 /* .form-input: aspetto condiviso in assets/styles/main.css */

@@ -29,7 +29,7 @@ html.dark ::-webkit-calendar-picker-indicator {
 }
 
 html.light .logo-ll {
-  color: var(--accent-green);
+  color: var(--accent-text);
 }
 
 /* Le icone Lucide ereditano currentColor: sul chiaro serve un grigio leggibile. */
@@ -39,5 +39,5 @@ html.light .category-icon {
 }
 
 html.light .sidebar__link.active .sidebar__icon {
-  color: var(--accent-green);
+  color: var(--accent-text);
 }

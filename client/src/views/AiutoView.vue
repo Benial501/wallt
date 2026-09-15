@@ -198,7 +198,7 @@ const riattivaPrimiPassi = () => {
   font-weight: 600;
   cursor: pointer;
 }
-.indice__link:hover { color: var(--accent-green); border-color: rgba(0, 168, 132, 0.35); }
+.indice__link:hover { color: var(--accent-text); border-color: rgba(0, 168, 132, 0.35); }
 .indice__link:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
 
 .sezione { margin-bottom: 1.75rem; scroll-margin-top: 80px; }
@@ -229,7 +229,7 @@ const riattivaPrimiPassi = () => {
   min-height: 44px;
 }
 .argomento__toggle svg { flex-shrink: 0; margin-top: 0.1875rem; stroke: currentColor; color: var(--text-muted); }
-.argomento__toggle:hover .argomento__title { color: var(--accent-green); }
+.argomento__toggle:hover .argomento__title { color: var(--accent-text); }
 .argomento__toggle:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; border-radius: var(--radius-sm); }
 
 .argomento__heading { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1875rem; }
@@ -258,7 +258,7 @@ const riattivaPrimiPassi = () => {
   padding: 0.375rem 0;
   background: none;
   border: none;
-  color: var(--accent-green);
+  color: var(--accent-text);
   font-family: inherit;
   font-size: var(--text-xs);
   font-weight: 600;

@@ -60,5 +60,5 @@ const config = computed(() => tipoConfig[props.tipo] || tipoConfig.info);
 .tipo-obiettivo .sug-icon { color: var(--accent-purple, #6C5CE7); }
 .sug-messaggio { font-weight: 600; font-size: 0.875rem; color: var(--text-primary); }
 .sug-dettaglio { font-size: var(--text-xs); color: var(--text-secondary); margin-top: 0.25rem; }
-.sug-azione { font-size: var(--text-xs); color: var(--accent-green); margin-top: 0.375rem; }
+.sug-azione { font-size: var(--text-xs); color: var(--accent-text); margin-top: 0.375rem; }
 </style>

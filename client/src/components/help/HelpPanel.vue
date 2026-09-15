@@ -254,7 +254,7 @@ onBeforeUnmount(unlockScroll);
      perche' rallentano la lettura. Il peso e il colore d'accento restano
      a fare la gerarchia. */
   letter-spacing: var(--tracking-wide);
-  color: var(--accent-green);
+  color: var(--accent-text);
   margin-bottom: 0.25rem;
 }
 
@@ -354,7 +354,7 @@ onBeforeUnmount(unlockScroll);
 }
 @media (hover: hover) {
   .help-panel__related-btn:hover {
-    color: var(--accent-green);
+    color: var(--accent-text);
     background: var(--glass-interactive-bg-hover);
     border-color: color-mix(in srgb, var(--accent-green) 35%, transparent);
   }

@@ -428,7 +428,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
 }
 .tipo-btn:active { transform: scale(0.98); }
 .tipo-btn:focus-visible { outline: none; box-shadow: var(--focus-ring), var(--glass-highlight); }
-.tipo-btn svg { color: var(--accent-green); stroke: currentColor; }
+.tipo-btn svg { color: var(--accent-text); stroke: currentColor; }
 .tipo-btn.active { border-color: color-mix(in srgb, var(--accent-green) 55%, transparent); background: var(--accent-light); }
 
 /* --- Selettore categoria -------------------------------------------------
@@ -513,7 +513,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
   overflow-wrap: anywhere;
 }
 .cat-btn.active .cat-label { color: var(--text-primary); font-weight: 600; }
-.transfer-arrow { text-align: center; font-size: 1.25rem; color: var(--accent-green); opacity: 0.7; }
+.transfer-arrow { text-align: center; font-size: 1.25rem; color: var(--accent-text); opacity: 0.7; }
 .error-text { color: var(--negative); font-size: var(--text-xs); margin-top: 0.25rem; }
 /* Lo spazio resta occupato anche senza messaggio: comparendo e sparendo
    spingerebbe in basso i campi sottostanti. */

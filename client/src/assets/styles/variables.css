@@ -41,12 +41,19 @@ html.dark {
 
   --text-primary: #FFFFFF;
   --text-secondary: #A8A8BC;
-  --text-muted: #7E7E94;
+  --text-muted: #8388A0;
   --text-subtle: #94A3B8;
   --text-link: #74B9FF;
   --text-on-glass: #F5F5FA;
 
   --accent-green: #00D4AA;
+  /* L'accento quando deve portare TESTO invece di fare da sfondo. Nel tema
+     chiaro #00A884 come testo dà 2.67:1 su pagina: sotto soglia ovunque.
+     Nello scuro l'accento è già a 9.63:1, quindi qui i due token coincidono
+     e il tema scuro non cambia di un pixel. Sfondi, bordi e riempimenti
+     restano su --accent-green (soglia 3:1 contro il contorno, non 4.5:1
+     contro il testo). */
+  --accent-text: #00D4AA;
   --accent-hover: #00B894;
   --accent-light: rgba(0, 212, 170, 0.15);
   --accent-glow: rgba(0, 212, 170, 0.3);
@@ -164,6 +171,7 @@ html.light {
   --text-on-glass: #0F172A;
 
   --accent-green: #00A884;
+  --accent-text: #007A5E;
   --accent-hover: #008F72;
   --accent-light: rgba(0, 168, 132, 0.12);
   --accent-glow: rgba(0, 168, 132, 0.18);

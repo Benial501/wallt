@@ -651,7 +651,7 @@ onMounted(async () => {
   height: 40px;
   border-radius: 10px;
   background: var(--accent-light);
-  color: var(--accent-green);
+  color: var(--accent-text);
 }
 .import-prereq--warn .import-prereq__icon {
   background: rgba(251, 191, 36, 0.15);
@@ -674,7 +674,7 @@ onMounted(async () => {
   background: none;
   border: none;
   padding: 0;
-  color: var(--accent-green);
+  color: var(--accent-text);
   font-weight: 600;
   font-size: inherit;
   font-family: inherit;
@@ -816,7 +816,7 @@ onMounted(async () => {
 }
 .select:disabled { opacity: 0.55; cursor: not-allowed; }
 .cat-pill { display: inline-flex; align-items: center; padding: 0.35rem 0.55rem; border-radius: var(--radius-md); border: 1px solid rgba(0, 212, 170, 0.35); background: rgba(0, 212, 170, 0.12); }
-.cat-pill__label { color: var(--accent-green); font-weight: 800; font-size: var(--text-xs); text-transform: capitalize; }
+.cat-pill__label { color: var(--accent-text); font-weight: 800; font-size: var(--text-xs); text-transform: capitalize; }
 
 .badge { display: inline-flex; align-items: center; padding: 0.35rem 0.55rem; border-radius: 999px; font-size: var(--text-xs); font-weight: 800; }
 .badge--duplicate { color: #fff; background: rgba(255, 71, 87, 0.85); border: 1px solid rgba(255, 71, 87, 0.3); }

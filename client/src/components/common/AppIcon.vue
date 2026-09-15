@@ -25,7 +25,7 @@ defineProps({
 }
 
 .app-icon--active {
-  color: var(--accent-green);
+  color: var(--accent-text);
   filter: drop-shadow(0 0 6px rgba(0, 212, 170, 0.35));
 }
 </style>

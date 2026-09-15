@@ -442,7 +442,7 @@ const getPiattaformaPan = (id) => pan.value.piattaforme?.find((p) => p.id === id
 .stat-label { display: inline-flex !important; align-items: center; gap: 0.375rem; }
 .stat-label svg { stroke: currentColor; }
 .tipo-grid button { display: flex; flex-direction: column; align-items: center; gap: 0.375rem; }
-.tipo-grid button svg { stroke: currentColor; color: var(--accent-green); }
+.tipo-grid button svg { stroke: currentColor; color: var(--accent-text); }
 .alert--danger { background: rgba(255, 71, 87, 0.15); border: 1px solid var(--negative); color: var(--negative); }
 .alert--warning { background: rgba(255, 165, 2, 0.15); border: 1px solid var(--warning); color: var(--warning); }
 .pan-card { text-align: center; padding: 1.5rem; margin-bottom: 1.5rem; }
@@ -487,7 +487,7 @@ const getPiattaformaPan = (id) => pan.value.piattaforme?.find((p) => p.id === id
 .form-input--lg { font-size: 1.5rem; font-weight: 700; text-align: center; }
 .tipo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 .tipo-grid button { padding: 0.75rem 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); cursor: pointer; font-size: var(--text-xs); min-height: 44px; }
-.tipo-grid button.active { border-color: var(--accent-green); color: var(--accent-green); background: var(--accent-light); }
+.tipo-grid button.active { border-color: var(--accent-green); color: var(--accent-text); background: var(--accent-light); }
 .tipo-grid button:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 .hint { font-size: var(--text-xs); color: var(--text-muted); }
 .mt-4 { margin-top: 1rem; }

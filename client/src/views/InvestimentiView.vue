@@ -485,7 +485,7 @@ const messaggioTipo = computed(() => {
 .tab-nav button { display: inline-flex; align-items: center; gap: 0.375rem; }
 .tab-icon { stroke: currentColor; flex-shrink: 0; }
 .tipo-grid button { display: flex; flex-direction: column; align-items: center; gap: 0.375rem; }
-.tipo-grid button svg { stroke: currentColor; color: var(--accent-green); }
+.tipo-grid button svg { stroke: currentColor; color: var(--accent-text); }
 .empty h2 { color: var(--text-primary); margin-bottom: 0.5rem; }
 .empty p { color: var(--text-secondary); margin-bottom: 1.5rem; }
 .empty-small { text-align: center; padding: 2rem; color: var(--text-secondary); }

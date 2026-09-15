@@ -359,14 +359,14 @@ const handleLogout = async () => {
 .sidebar__link:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 /* La voce attiva non sposta piu' il testo: il segno e' una barretta
    posizionata in assoluto, non un bordo che ruba 3px al padding. */
-.sidebar__link.active { background: var(--sidebar-active-bg); color: var(--accent-green); font-weight: 600; }
+.sidebar__link.active { background: var(--sidebar-active-bg); color: var(--accent-text); font-weight: 600; }
 .sidebar__link.active::before {
   content: '';
   position: absolute; left: 0; top: 50%; transform: translateY(-50%);
   width: 3px; height: 18px; border-radius: var(--radius-pill);
   background: var(--accent-green);
 }
-.sidebar__link.active .sidebar__icon { color: var(--accent-green); }
+.sidebar__link.active .sidebar__icon { color: var(--accent-text); }
 .sidebar__icon { flex-shrink: 0; color: currentColor; stroke: currentColor; }
 .sidebar__link--logout { color: var(--negative); margin-top: 0.25rem; }
 @media (hover: hover) {
@@ -453,7 +453,7 @@ const handleLogout = async () => {
   transition: color var(--dur-base) var(--ease-out);
 }
 .bottom-nav__item.active {
-  color: var(--accent-green);
+  color: var(--accent-text);
 }
 /* La pastiglia dietro l'icona attiva e' l'unico elemento colorato della
    barra: niente alone diffuso, solo un fondo tinto e un bordo appena visibile. */
@@ -510,7 +510,7 @@ const handleLogout = async () => {
 }
 .action-btn:active { transform: scale(0.97); }
 .action-btn:focus-visible { outline: none; box-shadow: var(--focus-ring), var(--glass-highlight); }
-.action-btn svg { color: var(--accent-green); stroke: currentColor; }
+.action-btn svg { color: var(--accent-text); stroke: currentColor; }
 .funz-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -547,7 +547,7 @@ const handleLogout = async () => {
   background: var(--sidebar-active-bg);
 }
 .funz-grid__icon { color: var(--text-secondary); stroke: currentColor; margin-bottom: 0.125rem; }
-.funz-grid__item--active .funz-grid__icon { color: var(--accent-green); }
+.funz-grid__item--active .funz-grid__icon { color: var(--accent-text); }
 .funz-grid__label { font-size: 0.9375rem; font-weight: 600; letter-spacing: var(--tracking-tight); color: var(--text-primary); }
 .funz-grid__desc { font-size: var(--text-xs); color: var(--text-muted); line-height: 1.35; }
 </style>

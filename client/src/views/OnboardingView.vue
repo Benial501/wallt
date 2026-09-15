@@ -730,7 +730,7 @@ watch(() => form.value.paga_bollette, (val) => {
 .step-title svg, .option-icon {
   stroke: currentColor;
   flex-shrink: 0;
-  color: var(--accent-green);
+  color: var(--accent-text);
 }
 
 .pill-btn.selected .option-icon {

@@ -268,7 +268,7 @@ onMounted(() => obiettiviStore.fetchObiettivi());
 .obj-bar-fill--done { background: var(--positive); }
 .obj-mancante { font-size: var(--text-xs); color: var(--text-muted); }
 .obj-deadline { font-size: var(--text-xs); color: var(--text-secondary); margin-top: 0.25rem; }
-.obj-btn { margin-top: 0.75rem; padding: 0.5rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--accent-green); background: transparent; color: var(--accent-green); cursor: pointer; font-size: var(--text-xs); width: 100%; }
+.obj-btn { margin-top: 0.75rem; padding: 0.5rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--accent-green); background: transparent; color: var(--accent-text); cursor: pointer; font-size: var(--text-xs); width: 100%; }
 .obj-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .empty { text-align: center; padding: 3rem; }
 .empty-icon { display: block; margin: 0 auto 1rem; color: var(--text-muted); stroke: currentColor; }

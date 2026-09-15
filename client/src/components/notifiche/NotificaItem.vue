@@ -97,7 +97,7 @@ const quando = computed(() => {
   height: 34px;
   border-radius: 50%;
   background: var(--accent-light, var(--surface-subtle));
-  color: var(--accent-green);
+  color: var(--accent-text);
 }
 
 .notifica__icona--urgente {

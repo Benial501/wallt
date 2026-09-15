@@ -81,7 +81,7 @@ const visibile = computed(() => props.alwaysOpen || aperto.value);
   text-align: left;
   min-height: 32px;
 }
-.help-note__toggle:hover { color: var(--accent-green); }
+.help-note__toggle:hover { color: var(--accent-text); }
 .help-note__toggle:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; border-radius: 4px; }
 .help-note__toggle svg { flex-shrink: 0; stroke: currentColor; }
 

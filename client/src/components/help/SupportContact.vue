@@ -132,7 +132,7 @@ label { display: block; margin-bottom: 0.375rem; color: var(--text-primary); fon
 .wallt-input { width: 100%; padding-left: 1rem; }
 textarea { resize: vertical; min-height: 140px; }
 .support-contact__hint { margin-top: 0.375rem; color: var(--text-muted); font-size: var(--text-xs); }
-.support-contact__feedback { margin-top: 1rem; color: var(--accent-green); font-size: 0.875rem; line-height: 1.6; }
+.support-contact__feedback { margin-top: 1rem; color: var(--accent-text); font-size: 0.875rem; line-height: 1.6; }
 .support-contact__error { color: var(--accent-red, #dc2626); font-size: 0.875rem; }
 .support-contact__submit { align-self: flex-start; }
 @media (max-width: 480px) {
