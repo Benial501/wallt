@@ -31,11 +31,17 @@ html.dark {
   --bg-input: rgba(255, 255, 255, 0.05);
   --border: rgba(255, 255, 255, 0.09);
   --border-strong: rgba(255, 255, 255, 0.16);
+  /* Bordo dei controlli che hanno perso l'aspetto nativo con
+     `appearance: none` — checkbox e radio. Lì il bordo è l'unica cosa che
+     dice all'utente che c'è un controllo, quindi vale WCAG 1.4.11 e servono
+     3:1. `--border-strong` resta com'è: disegna stati hover e la maniglia
+     del foglio dal basso, che non identificano nulla da soli. */
+  --control-border: #66667A;
   --border-focus: #00D4AA;
 
   --text-primary: #FFFFFF;
   --text-secondary: #A8A8BC;
-  --text-muted: #6B6B80;
+  --text-muted: #7E7E94;
   --text-subtle: #94A3B8;
   --text-link: #74B9FF;
   --text-on-glass: #F5F5FA;
@@ -99,7 +105,7 @@ html.dark {
   --ambient-2: rgba(108, 92, 231, 0.14);
   --ambient-3: rgba(116, 185, 255, 0.09);
 
-  --nav-item: #64748B;
+  --nav-item: #7A8799;
   --nav-active-bg: rgba(0, 212, 170, 0.14);
   --nav-active-glow: rgba(0, 212, 170, 0.22);
 
@@ -136,12 +142,18 @@ html.light {
   --bg-input: rgba(255, 255, 255, 0.62);
   --border: rgba(15, 23, 42, 0.09);
   --border-strong: rgba(15, 23, 42, 0.16);
+  /* Bordo dei controlli che hanno perso l'aspetto nativo con
+     `appearance: none` — checkbox e radio. Lì il bordo è l'unica cosa che
+     dice all'utente che c'è un controllo, quindi vale WCAG 1.4.11 e servono
+     3:1. `--border-strong` resta com'è: disegna stati hover e la maniglia
+     del foglio dal basso, che non identificano nulla da soli. */
+  --control-border: #7A8699;
   --border-focus: #00A884;
 
   --text-primary: #0F172A;
   --text-secondary: #475569;
-  --text-muted: #64748B;
-  --text-subtle: #64748B;
+  --text-muted: #5A6779;
+  --text-subtle: #5A6779;
   --text-link: #2563EB;
   --text-on-glass: #0F172A;
 
@@ -149,11 +161,13 @@ html.light {
   --accent-hover: #008F72;
   --accent-light: rgba(0, 168, 132, 0.12);
   --accent-glow: rgba(0, 168, 132, 0.18);
-  --accent-on: #FFFFFF;
+  /* Scuro sull'accento, come nel tema scuro: il bianco su #00A884 faceva
+     3.03:1, e scurire il verde avrebbe cambiato il colore del brand. */
+  --accent-on: #04241C;
 
-  --positive: #059669;
-  --negative: #DC2626;
-  --warning: #D97706;
+  --positive: #047857;
+  --negative: #C81E1E;
+  --warning: #A34A07;
   --neutral: #2563EB;
   --accent-purple: #7C3AED;
   --accent-blue: #2563EB;
@@ -194,7 +208,7 @@ html.light {
   --ambient-2: rgba(124, 58, 237, 0.11);
   --ambient-3: rgba(37, 99, 235, 0.10);
 
-  --nav-item: #64748B;
+  --nav-item: #5A6779;
   --nav-active-bg: rgba(0, 168, 132, 0.12);
   --nav-active-glow: rgba(0, 168, 132, 0.16);
 
