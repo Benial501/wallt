@@ -60,7 +60,10 @@ export const risorseGrezze = (dir = STORES) => {
   return esenti;
 };
 
-const PATH_VALUE = /\b(\w*[Rr]isorsa\w*)(?:\.\w+)*\.value\b/g;
+// Ogni passo del percorso può usare `.` o l'optional chaining `?.`:
+// `risorsaX?.error?.value` evadeva la guardia perché la versione precedente
+// ammetteva solo `.` fra i passi, `?.` interrompeva il match a metà catena.
+const PATH_VALUE = /\b(\w*[Rr]isorsa\w*)(?:\??\.\w+)*\??\.value\b/g;
 
 /** Identificatori di risorsa letti con `.value` che non sono esentati. */
 export const colpevoliDellaRiga = (riga, esenti) => [...riga.matchAll(PATH_VALUE)]
@@ -134,5 +137,22 @@ test('il rilevatore distingue il caso rotto da quello corretto', () => {
     colpevoliDellaRiga(':stato="movimentiStore.risorsaMovimenti.stato"', esenti),
     [],
     'senza `.value` non c\'è nulla da segnalare',
+  );
+});
+
+test('il rilevatore intercetta anche il .value dopo optional chaining', () => {
+  // `risorsaX?.error?.value` evadeva PATH_VALUE: l'optional chaining rompeva
+  // la sequenza di `.campo` che il regex si aspettava fra l'identificatore e
+  // `.value` finale, e la riga passava come se non leggesse `.value` affatto.
+  const esenti = new Set();
+  assert.deepEqual(
+    colpevoliDellaRiga('<p v-if="risorsaX?.error?.value">x</p>', esenti),
+    ['risorsaX'],
+    'risorsaX?.error?.value deve essere segnalato come le altre forme',
+  );
+  assert.deepEqual(
+    colpevoliDellaRiga('<p v-if="risorsaX?.value">x</p>', esenti),
+    ['risorsaX'],
+    'anche senza passi intermedi, un solo ?. prima di value va segnalato',
   );
 });
