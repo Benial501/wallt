@@ -175,12 +175,25 @@ const opzioniGrafico = computed(() => {
     scales: props.compatta
       ? { x: { display: false }, y: { display: false } }
       : {
-        x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } },
+        x: {
+          grid: { display: false },
+          ticks: {
+            maxRotation: 0,
+            autoSkip: true,
+            // Stesso token del testo secondario dell'app: senza, Chart.js
+            // usa il suo grigio di default (#666), che nel tema scuro cade
+            // sotto la soglia di contrasto AA per il testo (misurato 3.20:1).
+            color: leggiVariabileCss('--text-secondary', tema, '#A8A8BC', '#475569'),
+          },
+        },
         y: {
           grid: {
             color: leggiVariabileCss('--divider', tema, 'rgba(255, 255, 255, 0.08)', 'rgba(15, 23, 42, 0.08)'),
           },
-          ticks: { callback: (v) => formatValuta(v) },
+          ticks: {
+            callback: (v) => formatValuta(v),
+            color: leggiVariabileCss('--text-secondary', tema, '#A8A8BC', '#475569'),
+          },
         },
       },
   };
