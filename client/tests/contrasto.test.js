@@ -96,6 +96,12 @@ const SUPERFICI = {
   accento: ['--accent-green'],
   cta: ['--cta-bg'],
   positivo: ['--positive'],
+  // --accent-light è una tinta traslucida direttamente sulla pagina, non su
+  // una card: la chip attiva dei filtri (MovimentiFilters.vue) e il periodo
+  // attivo del grafico (AndamentoPatrimonio.vue) vivono entrambi fuori da un
+  // WCard. Una superficie diversa da 'pagina' perché il tint cambia il
+  // colore composto, anche se di poco.
+  accentoLeggero: ['--accent-light', '--bg-primary'],
 };
 
 const risolviSuperficie = (nome, tema) => SUPERFICI[nome].reduceRight((sotto, token) => {
@@ -140,6 +146,11 @@ const COPPIE = [
 
   { testo: '--nav-item', su: 'chrome', min: 4.5 },
   { testo: '--text-primary', su: 'chrome', min: 4.5 },
+
+  // .filtri__chip--attivo e .andamento__periodo--attivo: stesso accostamento
+  // (background: --accent-light; color: --text-primary), usato in due
+  // componenti nuovi di questo branch.
+  { testo: '--text-primary', su: 'accentoLeggero', min: 4.5 },
 
   // Testo su una superficie piena: qui il colore di sfondo è il pulsante.
   { testo: '--accent-on', su: 'accento', min: 4.5 },
