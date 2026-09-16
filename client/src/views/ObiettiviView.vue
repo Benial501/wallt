@@ -270,7 +270,7 @@ onMounted(() => obiettiviStore.fetchObiettivi());
   margin-bottom: 0.625rem;
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--accent-green) 10%, var(--bg-input));
-  color: var(--accent-green);
+  color: var(--accent-text);
 }
 .obj-icon svg { stroke: currentColor; }
 .obj-nome { font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; }
@@ -335,7 +335,7 @@ onMounted(() => obiettiviStore.fetchObiettivi());
 .icon-btn.active {
   border-color: var(--accent-green);
   background: color-mix(in srgb, var(--accent-green) 12%, var(--bg-input));
-  color: var(--accent-green);
+  color: var(--accent-text);
 }
 @media (max-width: 479px) { .icon-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text-secondary); cursor: pointer; }
@@ -349,7 +349,7 @@ onMounted(() => obiettiviStore.fetchObiettivi());
   margin-bottom: 0.875rem;
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--accent-green) 10%, var(--bg-input));
-  color: var(--accent-green);
+  color: var(--accent-text);
 }
 .dettaglio-icon svg { stroke: currentColor; }
 .dettaglio-bar-lg { height: 16px; background: var(--bg-input); border-radius: 8px; overflow: hidden; margin-bottom: 0.75rem; }
