@@ -198,9 +198,11 @@ for (const [nomeTema, tema] of [['scuro', SCURO], ['chiaro', CHIARO]]) {
 
 test('ogni token di testo dichiarato compare in almeno una coppia', () => {
   // Impedisce che un token nuovo entri nel tema senza essere mai verificato.
+  // Nessuna eccezione a mano: --text-on-glass, l'unico token che ne aveva
+  // bisogno perché non aveva consumatori in src/, è stato rimosso insieme
+  // al token stesso (variables.css) invece di restare qui come deroga.
   const daVerificare = Object.keys(SCURO).filter(
-    (t) => /^--(text|nav-item|positive|negative|warning|accent-on|cta-text)/.test(t)
-      && !['--text-on-glass'].includes(t),
+    (t) => /^--(text|nav-item|positive|negative|warning|accent-on|cta-text)/.test(t),
   );
   const coperti = new Set(COPPIE.map((c) => c.testo));
   const scoperti = daVerificare.filter((t) => !coperti.has(t));

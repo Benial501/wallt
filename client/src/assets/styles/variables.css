@@ -44,7 +44,6 @@ html.dark {
   --text-muted: #8A90A8;
   --text-subtle: #94A3B8;
   --text-link: #74B9FF;
-  --text-on-glass: #F5F5FA;
 
   --accent-green: #00D4AA;
   /* L'accento quando deve portare TESTO invece di fare da sfondo. Nel tema
@@ -168,7 +167,6 @@ html.light {
   --text-muted: #5A6779;
   --text-subtle: #5A6779;
   --text-link: #2563EB;
-  --text-on-glass: #0F172A;
 
   --accent-green: #00A884;
   --accent-text: #007A5E;
