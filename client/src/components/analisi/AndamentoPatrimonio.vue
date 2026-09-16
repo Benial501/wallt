@@ -53,6 +53,23 @@ const { formatValuta } = useValuta();
 const temaCorrente = ref(typeof document === 'undefined' ? '' : document.documentElement.className);
 let osservatoreTema;
 
+/**
+ * La regola globale in main.css neutralizza animazioni e transizioni CSS,
+ * ma l'animazione della linea è di Chart.js (1000ms via JS, sul canvas):
+ * quella regola non la tocca. Prima di questo componente lo slide del
+ * patrimonio era una <path> SVG statica, quindi il caso non esisteva.
+ *
+ * La preferenza può cambiare mentre l'app è aperta (non solo al primo
+ * caricamento): da qui l'ascolto su `change`, non una lettura una tantum
+ * come in AiutoView.vue, dove basta perché è dentro un click handler
+ * rivalutato a ogni click.
+ */
+const mediaRiduciMovimento = typeof window === 'undefined'
+  ? null
+  : window.matchMedia('(prefers-reduced-motion: reduce)');
+const riduciMovimento = ref(mediaRiduciMovimento?.matches ?? false);
+const aggiornaRiduciMovimento = (e) => { riduciMovimento.value = e.matches; };
+
 onMounted(() => {
   carica();
   osservatoreTema = new MutationObserver(() => {
@@ -62,9 +79,13 @@ onMounted(() => {
     attributes: true,
     attributeFilter: ['class'],
   });
+  mediaRiduciMovimento?.addEventListener('change', aggiornaRiduciMovimento);
 });
 
-onBeforeUnmount(() => osservatoreTema?.disconnect());
+onBeforeUnmount(() => {
+  osservatoreTema?.disconnect();
+  mediaRiduciMovimento?.removeEventListener('change', aggiornaRiduciMovimento);
+});
 
 const direzione = computed(() => {
   const v = statistiche.value.variazioneImporto;
@@ -162,6 +183,11 @@ const opzioniGrafico = computed(() => {
   return {
     responsive: true,
     maintainAspectRatio: false,
+    // Assente (non `undefined`) quando il movimento non va ridotto: Chart.js
+    // fa merge di questo oggetto sui suoi default con Object.keys(), quindi
+    // una chiave `animation: undefined` esplicita sovrascriverebbe comunque
+    // il default invece di lasciarlo stare.
+    ...(riduciMovimento.value ? { animation: false } : {}),
     // Elenco esplicito degli eventi, touch compresi: il tooltip al tocco è
     // un requisito, e non deve dipendere dal default di Chart.js — anche se
     // in questa versione (4.5.1) coincide con esso — perché un default può
