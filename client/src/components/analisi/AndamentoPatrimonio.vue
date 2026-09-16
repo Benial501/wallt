@@ -204,6 +204,16 @@ const opzioniGrafico = computed(() => {
       },
   };
 });
+
+/**
+ * `carica` rilegge la risorsa mantenendo il periodo già scelto (lo stesso
+ * che userebbe `cambiaPeriodo`, senza cambiarlo): serve al genitore per
+ * aggiornare il grafico dopo un salvataggio altrove nella pagina, ad
+ * esempio dalla Dashboard. Un `:key` che rimonta il componente otterrebbe
+ * lo stesso refresh ma riporterebbe `periodo` al valore iniziale, perdendo
+ * la scelta dell'utente — qui invece resta quella già in `periodo`.
+ */
+defineExpose({ carica });
 </script>
 
 <template>

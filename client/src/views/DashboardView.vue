@@ -43,6 +43,12 @@ const formOpen = ref(false);
 const formTipo = ref('uscita');
 const movimentoEdit = ref(null);
 
+// Per far rileggere AndamentoPatrimonio da onSaved: DataState tiene lo slot
+// montato per progetto, quindi solo `onMounted` non basta, e una `key` che
+// rimonta il componente perderebbe il periodo scelto dall'utente. Vedi
+// ricaricaAndamento() in WOverviewCarousel.vue.
+const overviewRef = ref(null);
+
 // Traguardo di "Primi passi" non coperto da una risorsa: è una lettura non
 // filtrata a parte (vedi checkHaMovimenti), quindi resta un flag tenuto a
 // mano. null = non ancora noto (o richiesta fallita) → stato "sconosciuto".
@@ -227,6 +233,10 @@ const onSaved = async () => {
     loadScommesse(),
     loadInvestimenti(),
     loadObiettivi(),
+    // Senza, il numero in cima allo slide si aggiorna e la linea/variazione
+    // due centimetri sotto restano sul valore vecchio finché non si ricarica
+    // la pagina: due numeri della stessa schermata in contraddizione.
+    overviewRef.value?.ricaricaAndamento(),
   ]);
 };
 
@@ -264,6 +274,7 @@ onMounted(async () => {
     </div>
 
     <WOverviewCarousel
+      ref="overviewRef"
       :conti="contiStore.contiAttivi"
       :patrimonio="contiStore.patrimonioTotale"
       :composizione="contiStore.composizionePatrimonio"

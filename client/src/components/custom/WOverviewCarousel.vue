@@ -66,6 +66,10 @@ const { formatValuta } = useValuta();
 const { baseOptions } = useChartTheme();
 const trackRef = ref(null);
 const activeIndex = ref(0);
+// Ref sul componente figlio: serve solo a inoltrare ricaricaAndamento() qui
+// sotto, non è mai `null` quando serve perché la slide 'saldo' che lo
+// contiene è sempre nell'elenco di slides.
+const andamentoRef = ref(null);
 
 const slides = computed(() => {
   const list = ['saldo', 'conti', 'budget', 'uscite-oggi', 'entrate-oggi', 'obiettivi'];
@@ -196,6 +200,15 @@ onMounted(() => {
 onUnmounted(() => {
   trackRef.value?.removeEventListener('scroll', onScroll);
 });
+
+/**
+ * Inoltrata al genitore (Dashboard) per far rileggere il grafico del
+ * patrimonio dopo un salvataggio: il carosello non ha un suo stato da
+ * ricaricare, fa solo da tramite verso AndamentoPatrimonio.
+ */
+defineExpose({
+  ricaricaAndamento: () => andamentoRef.value?.carica(),
+});
 </script>
 
 <template>
@@ -232,7 +245,7 @@ onUnmounted(() => {
                  regola della spec — importo in euro davanti, percentuale
                  nascosta vicino allo zero. Due percentuali diverse una
                  sopra l'altra confondevano più di quanto informassero. -->
-            <AndamentoPatrimonio compatta />
+            <AndamentoPatrimonio ref="andamentoRef" compatta />
             <div class="w-overview__split">
               <div class="w-overview__split-item">
                 <span class="w-overview__split-label">Entrate mese</span>
