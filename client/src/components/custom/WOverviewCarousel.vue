@@ -13,7 +13,7 @@ import { etichetta } from '@/content/glossario';
 import { useNumberCounter } from '@/composables/useNumberCounter';
 import { useValuta } from '@/composables/useValuta';
 import { useChartTheme } from '@/composables/useChartTheme';
-import { formatVariazione, formatData } from '@/utils/formatters';
+import { formatData } from '@/utils/formatters';
 import { getCategoriaUscita } from '@/utils/categorie';
 import { PieChart, Dices, LineChart, ArrowDown, ArrowUp, Trophy, TrendingDown, Target, Calendar } from '@/utils/appIcons';
 
@@ -29,8 +29,6 @@ const props = defineProps({
   usciteMese: { type: Number, default: 0 },
   entrateOggi: { type: Number, default: 0 },
   usciteOggi: { type: Number, default: 0 },
-  variazionePercentuale: { type: Number, default: 0 },
-  trendPositive: { type: Boolean, default: true },
   hasBudget: { type: Boolean, default: false },
   budgetStato: { type: Array, default: () => [] },
   budgetTotale: { type: Number, default: 0 },
@@ -228,9 +226,12 @@ onUnmounted(() => {
               ·
               {{ etichetta('componente_investimenti') }} <span class="tabular-nums">{{ formatValuta(composizione.investimenti) }}</span>
             </p>
-            <p class="w-overview__variation" :class="trendPositive ? 'is-positive' : 'is-negative'">
-              {{ formatVariazione(variazionePercentuale) }} questo mese
-            </p>
+            <!-- La variazione "questo mese" del carosello è stata tolta: il
+                 grafico appena sotto ne mostra già una, su un periodo
+                 diverso (3 mesi di default), ed è quella che segue la
+                 regola della spec — importo in euro davanti, percentuale
+                 nascosta vicino allo zero. Due percentuali diverse una
+                 sopra l'altra confondevano più di quanto informassero. -->
             <AndamentoPatrimonio compatta />
             <div class="w-overview__split">
               <div class="w-overview__split-item">

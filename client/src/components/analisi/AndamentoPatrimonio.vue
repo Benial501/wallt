@@ -72,16 +72,32 @@ const iconaDirezione = computed(() => (
 ));
 
 /**
+ * Etichetta del periodo scelto ("7 giorni", "3 mesi", ...). In modalità
+ * compatta non c'è il selettore a spiegare su cosa è calcolata la
+ * variazione: la Dashboard mostrava già un'altra percentuale ("questo
+ * mese", da `contiStore`) subito sopra questa, su una finestra diversa, e
+ * senza l'etichetta un numero da solo si prestava allo stesso equivoco.
+ */
+const etichettaPeriodo = computed(() => (
+  periodi.find((p) => p.id === periodo.value)?.label || ''
+));
+
+/**
  * Mai solo colore: la frase dice da sola cosa è successo, e resta l'unica
  * fonte per chi usa uno screen reader o non distingue verde e rosso.
+ *
+ * In modalità compatta il periodo prende il posto del generico "nel
+ * periodo": nella vista intera basta perché il selettore è accanto, in
+ * compatta il selettore non c'è, quindi lo dice la frase.
  */
 const fraseVariazione = computed(() => {
   const { variazioneImporto, variazionePercentuale, mostraPercentuale } = statistiche.value;
   const verso = { su: 'in aumento di', giu: 'in calo di', fermo: 'invariato' }[direzione.value];
-  if (direzione.value === 'fermo') return 'Patrimonio invariato nel periodo';
+  const suffisso = props.compatta ? ` · ${etichettaPeriodo.value}` : ' nel periodo';
+  if (direzione.value === 'fermo') return `Patrimonio invariato${suffisso}`;
   const importo = formatValuta(Math.abs(variazioneImporto));
   const percentuale = mostraPercentuale ? ` (${Math.abs(variazionePercentuale)}%)` : '';
-  return `Patrimonio ${verso} ${importo}${percentuale} nel periodo`;
+  return `Patrimonio ${verso} ${importo}${percentuale}${suffisso}`;
 });
 
 const segno = computed(() => ({ su: '+', giu: '−', fermo: '' }[direzione.value]));
@@ -252,6 +268,13 @@ const opzioniGrafico = computed(() => {
           >
             {{ segno }}{{ Math.abs(statistiche.variazionePercentuale) }}%
           </span>
+          <!-- Solo in compatta: senza il selettore di periodo, il numero da
+               solo non direbbe su quale finestra è calcolato. `aria-hidden`
+               per lo stesso motivo dei due span sopra: la frase sr-only
+               accanto lo dice già per esteso. -->
+          <span v-if="compatta" class="andamento__periodo-inline" aria-hidden="true">
+            · {{ etichettaPeriodo }}
+          </span>
           <span class="sr-only">{{ fraseVariazione }}</span>
         </p>
 
@@ -340,6 +363,8 @@ const opzioniGrafico = computed(() => {
 .andamento__variazione--fermo { color: var(--text-secondary); }
 
 .andamento__percentuale { color: var(--text-secondary); }
+
+.andamento__periodo-inline { color: var(--text-muted); }
 
 .andamento__statistiche {
   display: grid;

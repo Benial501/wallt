@@ -271,8 +271,6 @@ onMounted(async () => {
       :uscite-mese="usciteMese"
       :entrate-oggi="movimentiStore.entrateOggi"
       :uscite-oggi="movimentiStore.usciteOggi"
-      :variazione-percentuale="contiStore.variazionePercentuale"
-      :trend-positive="contiStore.variazioneImporto >= 0"
       :has-budget="budgetStore.hasBudget"
       :budget-stato="budgetStore.statoBudget"
       :budget-totale="budgetTotale"
