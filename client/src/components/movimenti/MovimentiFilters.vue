@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import dayjs from 'dayjs';
 import BottomSheet from '@/components/layout/BottomSheet.vue';
+import CategoryIcon from '@/components/common/CategoryIcon.vue';
 import { SlidersHorizontal, Search, X } from '@/utils/appIcons';
 import { CATEGORIE_ENTRATA, CATEGORIE_USCITA } from '@/utils/categorie';
 import {
@@ -172,7 +173,8 @@ const rimuovi = (chiave) => {
         :aria-pressed="modelValue.categoria === categoria.id"
         @click="aggiorna('categoria', modelValue.categoria === categoria.id ? '' : categoria.id)"
       >
-        {{ categoria.emoji }} {{ categoria.nome }}
+        <CategoryIcon :categoria="categoria.id" :tipo="categoria.tipo" :size="16" />
+        {{ categoria.nome }}
       </button>
     </div>
 
@@ -271,8 +273,12 @@ const rimuovi = (chiave) => {
               {{ modelValue.tipo === 'trasferimento' ? 'Non disponibile per i trasferimenti' : 'Tutte le categorie' }}
             </option>
             <optgroup v-for="gruppo in categoriePerGruppo" :key="gruppo.nome" :label="gruppo.nome">
+              <!-- Niente glifo qui: un <option> può contenere solo testo, quindi
+                   l'icona dell'app non è renderizzabile. Meglio il solo nome che
+                   un'emoji, che sarebbe l'unico linguaggio visivo estraneo
+                   rimasto nel pannello. I gruppi danno già la struttura. -->
               <option v-for="categoria in gruppo.categorie" :key="categoria.id" :value="categoria.id">
-                {{ categoria.emoji }} {{ categoria.nome }}
+                {{ categoria.nome }}
               </option>
             </optgroup>
           </select>
