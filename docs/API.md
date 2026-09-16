@@ -538,9 +538,12 @@ Confronto fra periodi. L'unità segue il periodo scelto nella pagina Analisi.
 - **Frontend**: `analisi.store.js` → `AnalisiView.vue`
 
 ### GET /api/analisi/andamento-patrimonio
-Un punto per periodo, con la stessa unità del confronto. Il patrimonio è ricostruito
-a ritroso dal saldo di oggi: WALLT non conserva uno storico dei saldi.
-- **Query**: `unita` (`settimana` | `mese` | `anno`, default `mese`), `quantita` (2–12, default 6)
+Un punto per periodo, con la stessa unità del confronto — e la stessa validazione:
+questo endpoint condivide `validateConfrontoQuery`, che è dove `giorno` e il tetto di
+31 sono nati, per il bucket giornaliero che il client chiama con `unita=giorno` e
+`quantita=7`/`30`. Il patrimonio è ricostruito a ritroso dal saldo di oggi: WALLT non
+conserva uno storico dei saldi.
+- **Query**: `unita` (`giorno` | `settimana` | `mese` | `anno`, default `mese`), `quantita` (2–31 per `giorno`, 2–12 per le altre unità; default 6)
 - **Query alternativa**: `da` + `a` → i mesi toccati dall'intervallo (periodo "Custom")
 - **Query storica**: `periodo` (`3m` | `6m` | `1a` | `tutto`), mappato sulle unità nuove
 - **Risposta**: `{ punti: [{ data, fine, label, labelEsteso, delta, patrimonio }], unita, min, max, inizio, fine, variazione_importo, variazione_percentuale }`
