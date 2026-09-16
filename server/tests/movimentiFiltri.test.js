@@ -105,6 +105,30 @@ describe('GET /api/movimenti — ordinamento', () => {
     expect(res.status).toBe(200);
     expect(elenco(res.body)).toHaveLength(3);
   });
+
+  it('con più movimenti nello stesso giorno resta un gruppo unitario per movimento', async () => {
+    // Il test sopra usa date diverse apposta per non confondere ordine e
+    // raggruppamento: qui invece tre movimenti condividono lo stesso giorno,
+    // il caso che il client sbagliava a chiavare (stessa `gruppo.data` per
+    // gruppi diversi, vedi MovimentiView.vue).
+    await creaMovimento(userId, contoId, 'Piccola stesso giorno', 20, { data: '2026-09-10' });
+    await creaMovimento(userId, contoId, 'Grande stesso giorno', 900, { data: '2026-09-10' });
+    await creaMovimento(userId, contoId, 'Media stesso giorno', 300, { data: '2026-09-10' });
+
+    const res = await request(app).get('/api/movimenti?ordine=importo_desc').set(authHeader(token));
+
+    // 3 dai beforeEach + 3 nuovi: un gruppo per movimento, non uno per data.
+    expect(res.body.gruppi).toHaveLength(6);
+    expect(res.body.gruppi.map((g) => Number(g.movimenti[0].importo)))
+      .toEqual([900, 500, 300, 100, 20, 10]);
+
+    // Le quattro righe dello stesso giorno (le tre nuove più "Media" del
+    // beforeEach) restano quattro gruppi con la stessa `data`: una chiave
+    // `gruppo.data` lato client non sarebbe univoca.
+    const stessoGiorno = res.body.gruppi.filter((g) => g.data === '2026-09-10');
+    expect(stessoGiorno).toHaveLength(4);
+    expect(new Set(stessoGiorno.map((g) => g.movimenti[0].id)).size).toBe(4);
+  });
 });
 
 describe('GET /api/movimenti — validazione', () => {

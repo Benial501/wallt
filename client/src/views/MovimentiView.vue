@@ -15,6 +15,7 @@ import { useToastStore } from '@/stores/toast.store';
 import { useValuta } from '@/composables/useValuta';
 import { getCategoriaEntrata, getCategoriaUscita } from '@/utils/categorie';
 import { FILTRI_INIZIALI, aParametriQuery } from '@/utils/filtriMovimenti';
+import { ordinePerImporto } from '@/utils/movimentiGruppi';
 import { ArrowLeftRight } from '@/utils/appIcons';
 import ImportEstrattoHint from '@/components/common/ImportEstrattoHint.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
@@ -73,6 +74,19 @@ const senzaConti = computed(() => contiStore.contiAttivi.length === 0);
 
 const movimentiMostrati = computed(() => (
   movimentiStore.movimentiPerData.reduce((sum, g) => sum + g.movimenti.length, 0)
+));
+
+/**
+ * Ordinando per importo il server risponde con gruppi unitari (un gruppo per
+ * movimento, stesso `data` per più movimenti dello stesso giorno): l'intera
+ * base del raggruppamento per giorno — chiave, intestazione, totali — perde
+ * di senso. La lista diventa piatta, senza intestazioni che ripeterebbero
+ * l'importo scritto subito sotto (vedi movimentiGruppi.js).
+ */
+const ordinatoPerImporto = computed(() => ordinePerImporto(filtriUI.value.ordine));
+
+const movimentiPiatti = computed(() => (
+  movimentiStore.movimentiPerData.flatMap((g) => g.movimenti)
 ));
 
 /**
@@ -295,25 +309,45 @@ onBeforeUnmount(() => clearTimeout(attesa));
         <p v-if="movimentiStore.pagination.total" class="results-meta" role="status">
           {{ risultatiLabel }}
         </p>
-        <div v-for="gruppo in movimentiStore.movimentiPerData" :key="gruppo.data" class="gruppo animate-slide-up">
-          <div class="gruppo-header">
-            <span>{{ gruppo.label }} · {{ dayjs(gruppo.data).format('D MMMM') }}</span>
-            <span class="gruppo-totali">
-              <span v-if="gruppo.totale_entrate_giorno" class="positive">+{{ formatValuta(gruppo.totale_entrate_giorno) }}</span>
-              <span v-if="gruppo.totale_uscite_giorno" class="negative">-{{ formatValuta(gruppo.totale_uscite_giorno) }}</span>
-            </span>
-          </div>
-
+        <!--
+          Per importo il server restituisce gruppi unitari con `data`
+          ripetuta fra movimenti dello stesso giorno: una chiave `gruppo.data`
+          non sarebbe univoca, e intestazione/totali di giorno ripeterebbero
+          l'importo di un solo movimento. Lista piatta, niente intestazioni.
+        -->
+        <template v-if="ordinatoPerImporto">
           <MovimentoItem
-            v-for="mov in gruppo.movimenti"
+            v-for="mov in movimentiPiatti"
             :key="mov.id"
             :movimento="mov"
             :cat-info="getCatInfo(mov)"
             :selected="formOpen && movimentoEdit?.id === mov.id"
+            class="animate-slide-up"
             @click="(m) => m.tipo !== 'trasferimento' && apriForm(m.tipo, m)"
             @delete="elimina"
           />
-        </div>
+        </template>
+        <template v-else>
+          <div v-for="gruppo in movimentiStore.movimentiPerData" :key="gruppo.data" class="gruppo animate-slide-up">
+            <div class="gruppo-header">
+              <span>{{ gruppo.label }} · {{ dayjs(gruppo.data).format('D MMMM') }}</span>
+              <span class="gruppo-totali">
+                <span v-if="gruppo.totale_entrate_giorno" class="positive">+{{ formatValuta(gruppo.totale_entrate_giorno) }}</span>
+                <span v-if="gruppo.totale_uscite_giorno" class="negative">-{{ formatValuta(gruppo.totale_uscite_giorno) }}</span>
+              </span>
+            </div>
+
+            <MovimentoItem
+              v-for="mov in gruppo.movimenti"
+              :key="mov.id"
+              :movimento="mov"
+              :cat-info="getCatInfo(mov)"
+              :selected="formOpen && movimentoEdit?.id === mov.id"
+              @click="(m) => m.tipo !== 'trasferimento' && apriForm(m.tipo, m)"
+              @delete="elimina"
+            />
+          </div>
+        </template>
 
         <div v-if="hasMoreMovimenti">
           <div class="load-more">
