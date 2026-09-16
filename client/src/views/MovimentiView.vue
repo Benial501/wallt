@@ -11,7 +11,8 @@ import { useMovimentiStore } from '@/stores/movimenti.store';
 import { useToastStore } from '@/stores/toast.store';
 import { useValuta } from '@/composables/useValuta';
 import { CATEGORIE_ENTRATA, CATEGORIE_USCITA, getCategoriaEntrata, getCategoriaUscita } from '@/utils/categorie';
-import { ArrowLeftRight } from '@/utils/appIcons';
+import { ArrowLeftRight, ChevronDown } from '@/utils/appIcons';
+import { SlidersHorizontal } from 'lucide-vue-next';
 import ImportEstrattoHint from '@/components/common/ImportEstrattoHint.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import DataState from '@/components/common/DataState.vue';
@@ -283,10 +284,23 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
 
     <!-- Altri filtri -->
     <div class="filtri-section">
-      <button class="filtri-toggle md:hidden" @click="filtriAperti = !filtriAperti">
-        {{ filtriAperti ? '▼' : '▶' }} Altri filtri
+      <button
+        type="button"
+        class="filtri-toggle md:hidden"
+        :aria-expanded="filtriAperti"
+        aria-controls="filtri-movimenti"
+        @click="filtriAperti = !filtriAperti"
+      >
+        <SlidersHorizontal :size="17" :stroke-width="1.75" />
+        <span>Altri filtri</span>
+        <ChevronDown
+          class="filtri-toggle__chevron"
+          :class="{ 'filtri-toggle__chevron--open': filtriAperti }"
+          :size="16"
+          :stroke-width="1.75"
+        />
       </button>
-      <div class="filtri" :class="{ open: filtriAperti }">
+      <div id="filtri-movimenti" class="filtri" :class="{ open: filtriAperti }">
         <div class="filtro-tabs">
           <button :class="{ active: !filtroTipo }" @click="filtroTipo = ''">Tutti</button>
           <button :class="{ active: filtroTipo === 'entrata' }" @click="filtroTipo = 'entrata'">Entrate</button>
@@ -465,7 +479,26 @@ const tutteCategorie = computed(() => [...CATEGORIE_ENTRATA, ...CATEGORIE_USCITA
 @media (hover: hover) { .add-btn:hover { filter: brightness(1.06); transform: translateY(-1px); } }
 .add-btn:active { transform: scale(0.94); }
 .filtri-section { margin-bottom: 1.25rem; }
-.filtri-toggle { background: none; border: none; color: var(--text-secondary); cursor: pointer; margin-bottom: 0.5rem; font-size: 0.875rem; }
+.filtri-toggle {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--glass-interactive-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-interactive-bg);
+  box-shadow: var(--glass-highlight);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.filtri-toggle svg { flex-shrink: 0; stroke: currentColor; }
+.filtri-toggle:focus-visible { outline: none; box-shadow: var(--focus-ring), var(--glass-highlight); }
+.filtri-toggle__chevron { transition: transform var(--dur-fast) var(--ease-out); }
+.filtri-toggle__chevron--open { transform: rotate(180deg); }
 .filtri { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 @media (max-width: 767px) { .filtri:not(.open) { display: none; } }
 .filtro-tabs { display: flex; gap: 0.375rem; }
