@@ -194,10 +194,6 @@ const rimuovi = (chiave) => {
       </button>
     </div>
 
-    <p class="filtri__risultati" role="status">
-      {{ risultati }} {{ risultati === 1 ? 'movimento' : 'movimenti' }}
-    </p>
-
     <BottomSheet
       :open="pannelloAperto"
       title="Filtri"
@@ -394,12 +390,6 @@ const rimuovi = (chiave) => {
 }
 
 .filtri__azzera { border-style: dashed; }
-
-.filtri__risultati {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-}
 
 .pannello { display: flex; flex-direction: column; gap: var(--space-4); }
 .pannello__campo { display: flex; flex-direction: column; gap: var(--space-2); }

@@ -75,6 +75,19 @@ const movimentiMostrati = computed(() => (
   movimentiStore.movimentiPerData.reduce((sum, g) => sum + g.movimenti.length, 0)
 ));
 
+/**
+ * Unico contatore dei risultati (l'altro, nel componente dei filtri, è stato
+ * rimosso per non duplicarlo): a lista completa mostra solo il totale, con il
+ * singolare corretto; finché mancano righe da caricare il confronto "X di Y"
+ * è l'unica informazione che serve.
+ */
+const risultatiLabel = computed(() => {
+  const totale = movimentiStore.pagination.total;
+  const parola = totale === 1 ? 'movimento' : 'movimenti';
+  if (movimentiMostrati.value >= totale) return `${totale} ${parola}`;
+  return `${movimentiMostrati.value} di ${totale} ${parola}`;
+});
+
 const hasMoreMovimenti = computed(() => (
   movimentiStore.pagination.page < movimentiStore.pagination.pages
 ));
@@ -279,8 +292,8 @@ onBeforeUnmount(() => clearTimeout(attesa));
       </template>
 
       <div>
-        <p v-if="movimentiStore.pagination.total" class="results-meta">
-          {{ movimentiMostrati }} di {{ movimentiStore.pagination.total }} movimenti
+        <p v-if="movimentiStore.pagination.total" class="results-meta" role="status">
+          {{ risultatiLabel }}
         </p>
         <div v-for="gruppo in movimentiStore.movimentiPerData" :key="gruppo.data" class="gruppo animate-slide-up">
           <div class="gruppo-header">
