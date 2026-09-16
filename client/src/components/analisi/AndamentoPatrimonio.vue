@@ -10,7 +10,7 @@ import {
 import DataState from '@/components/common/DataState.vue';
 import { TrendingUp, TrendingDown, Minus } from '@/utils/appIcons';
 import { etichetta } from '@/content/glossario';
-import { formatValuta } from '@/utils/formatters';
+import { useValuta } from '@/composables/useValuta';
 import { useAndamentoPatrimonio } from '@/composables/useAndamentoPatrimonio';
 
 ChartJS.register(Tooltip, CategoryScale, LinearScale, PointElement, LineElement, Filler);
@@ -30,6 +30,12 @@ const {
   stato, lastUpdated, loading, punti, statistiche, periodo, periodi,
   carica, cambiaPeriodo, riprova,
 } = useAndamentoPatrimonio({ periodoIniziale: props.periodoIniziale });
+
+// Come il resto dell'app (15 file): la valuta è quella scelta dall'utente
+// nel profilo, non l'EUR fisso di default di @/utils/formatters. Prima
+// della sostituzione con questo componente, AnalisiView formattava queste
+// stesse quattro statistiche con useValuta().
+const { formatValuta } = useValuta();
 
 /**
  * Il tema vive come classe su <html>, e i colori del canvas vanno riletti
