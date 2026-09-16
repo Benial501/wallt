@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import api from '@/utils/axios';
 import { creaRisorsa } from '@/utils/risorsa';
 import { FILTRI_INIZIALI } from '@/utils/filtriMovimenti';
+import { mergeGruppi, ordinePerImporto } from '@/utils/movimentiGruppi';
 
 const PAGE_SIZE = 100;
 
@@ -13,32 +14,6 @@ const saldoInsufficienteMsg = (err) => {
     return `Saldo insufficiente: disponibili €${saldo}`;
   }
   return data?.messaggio || data?.message || data?.error || 'Errore';
-};
-
-const mergeGruppi = (existing, incoming, { preservaOrdine = false } = {}) => {
-  // Negli ordini per importo l'API restituisce gruppi unitari: riaccorparli
-  // per data qui annullerebbe l'ordine globale quando arriva pagina 2.
-  if (preservaOrdine) return [...existing, ...incoming];
-
-  const map = new Map(
-    existing.map((g) => [g.data, {
-      ...g,
-      movimenti: [...g.movimenti],
-    }]),
-  );
-
-  incoming.forEach((g) => {
-    const current = map.get(g.data);
-    if (current) {
-      current.movimenti.push(...g.movimenti);
-      current.totale_entrate_giorno = Math.round((current.totale_entrate_giorno + g.totale_entrate_giorno) * 100) / 100;
-      current.totale_uscite_giorno = Math.round((current.totale_uscite_giorno + g.totale_uscite_giorno) * 100) / 100;
-    } else {
-      map.set(g.data, { ...g, movimenti: [...g.movimenti] });
-    }
-  });
-
-  return Array.from(map.values()).sort((a, b) => b.data.localeCompare(a.data));
 };
 
 export const useMovimentiStore = defineStore('movimenti', () => {
@@ -156,7 +131,7 @@ export const useMovimentiStore = defineStore('movimenti', () => {
 
   const movimentiPerData = computed(() => {
     const prima = risorsaMovimenti.data.value?.gruppi || [];
-    const perImporto = ['importo_desc', 'importo_asc'].includes(filtri.value.ordine);
+    const perImporto = ordinePerImporto(filtri.value.ordine);
     return paginaExtra.value.length
       ? mergeGruppi(prima, paginaExtra.value, { preservaOrdine: perImporto })
       : prima;
@@ -197,7 +172,11 @@ export const useMovimentiStore = defineStore('movimenti', () => {
       // una ricerca che non è più a schermo. Mescolarle sarebbe peggio di
       // un errore visibile: sembrerebbero dati veri.
       if (mia !== generazione) return;
-      paginaExtra.value = mergeGruppi(paginaExtra.value, data.gruppi || []);
+      // Stesso flag di movimentiPerData: senza, la pagina 2 di un ordine per
+      // importo passa dal ramo che riaccorpa per data e perde l'ordine globale.
+      paginaExtra.value = mergeGruppi(paginaExtra.value, data.gruppi || [], {
+        preservaOrdine: ordinePerImporto(filtri.value.ordine),
+      });
       paginaCorrente.value += 1;
     } catch (e) {
       if (mia !== generazione) return;
