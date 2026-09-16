@@ -48,8 +48,38 @@ const optionalDataQuery = (name) => query(name)
 
 const intervalloDate = [optionalDataQuery('da'), optionalDataQuery('a')];
 
+// Filtri della lista movimenti. Prima di questa versione erano validati solo
+// conto_id e le date: tipo, categoria, ordine, page e limit arrivavano al
+// controller senza alcun controllo.
+const ORDINI_MOVIMENTI = ['data', 'caricamento', 'importo_desc', 'importo_asc'];
+
 const validateMovimentiQuery = [
   optionalIdQuery('conto_id', 'Conto non valido'),
+  query('tipo')
+    .optional({ values: 'falsy' })
+    .isIn(['entrata', 'uscita', 'trasferimento'])
+    .withMessage('Tipo di movimento non valido'),
+  query('categoria')
+    .optional({ values: 'falsy' })
+    .isLength({ max: 60 })
+    .withMessage('Categoria non valida'),
+  query('cerca')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('La ricerca può contenere al massimo 100 caratteri'),
+  query('ordine')
+    .optional({ values: 'falsy' })
+    .isIn(ORDINI_MOVIMENTI)
+    .withMessage('Ordinamento non valido'),
+  query('page')
+    .optional({ values: 'falsy' })
+    .isInt({ min: 1 })
+    .withMessage('Pagina non valida'),
+  query('limit')
+    .optional({ values: 'falsy' })
+    .isInt({ min: 1, max: 200 })
+    .withMessage('Limite non valido'),
   ...intervalloDate,
   validate,
 ];

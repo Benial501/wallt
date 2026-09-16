@@ -41,7 +41,7 @@ const getMovimenti = async (req, res) => {
     const {
       tipo, categoria, conto_id, da, a,
       page = 1, limit = 50,
-      ordine,
+      ordine, cerca,
       solo_conti_attivi: soloContiAttivi,
     } = req.query;
 
@@ -56,11 +56,31 @@ const getMovimenti = async (req, res) => {
       if (a) where.data[Op.lte] = a;
     }
 
+    // Ricerca testuale sulla descrizione. I caratteri jolly di LIKE vanno
+    // neutralizzati: chi cerca "50%" cerca quel testo, non "50 seguito da
+    // qualunque cosa". L'operatore e' parametrizzato da Sequelize: nessuna
+    // interpolazione, nessun literal.
+    const termine = typeof cerca === 'string' ? cerca.trim() : '';
+    if (termine) {
+      const esatto = termine.replace(/[\\%_]/g, (c) => `\\${c}`);
+      where.descrizione = { [Op.iLike]: `%${esatto}%` };
+    }
+
     const pageNum = Math.max(parseInt(page, 10) || 1, 1);
     const limitNum = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);
     const offset = (pageNum - 1) * limitNum;
 
-    const orderByCaricamento = ordine === 'caricamento';
+    // `data` e' il default storico. `caricamento` e' il parametro gia' usato
+    // dal client e non cambia. L'id in coda rende l'ordine deterministico:
+    // senza, due movimenti dello stesso giorno o dello stesso importo
+    // cambierebbero posto fra una pagina e l'altra.
+    const ORDINAMENTI = {
+      caricamento: [['createdAt', 'DESC'], ['id', 'DESC']],
+      importo_desc: [['importo', 'DESC'], ['id', 'DESC']],
+      importo_asc: [['importo', 'ASC'], ['id', 'DESC']],
+      data: [['data', 'DESC'], ['id', 'DESC']],
+    };
+    const order = ORDINAMENTI[ordine] || ORDINAMENTI.data;
     const contoInclude = {
       model: Conto,
       as: 'conto',
@@ -74,9 +94,7 @@ const getMovimenti = async (req, res) => {
         contoInclude,
         { model: Conto, as: 'contoDestinazione', attributes: ['id', 'nome', 'icona', 'colore'] },
       ],
-      order: orderByCaricamento
-        ? [['createdAt', 'DESC'], ['id', 'DESC']]
-        : [['data', 'DESC'], ['id', 'DESC']],
+      order,
       limit: limitNum,
       offset,
       distinct: soloContiAttivi === 'true',
@@ -87,33 +105,49 @@ const getMovimenti = async (req, res) => {
       dataLabel: formatDataLabel(mov.data),
     }));
 
-    const gruppi = {};
-    rows.forEach((mov) => {
-      const dataKey = mov.data;
-      if (!gruppi[dataKey]) {
-        gruppi[dataKey] = {
-          data: dataKey,
-          label: formatDataLabel(dataKey),
-          movimenti: [],
-          totale_entrate_giorno: 0,
-          totale_uscite_giorno: 0,
-        };
-      }
-      gruppi[dataKey].movimenti.push(mov);
-      if (mov.tipo === 'entrata') {
-        gruppi[dataKey].totale_entrate_giorno += toNumber(mov.importo);
-      } else if (mov.tipo === 'uscita') {
-        gruppi[dataKey].totale_uscite_giorno += toNumber(mov.importo);
-      }
-    });
+    const ordinePerImporto = ordine === 'importo_desc' || ordine === 'importo_asc';
+    let risultato;
 
-    const risultato = Object.values(gruppi)
-      .sort((a, b) => String(b.data).localeCompare(String(a.data)))
-      .map((g) => ({
-        ...g,
-        totale_entrate_giorno: Math.round(g.totale_entrate_giorno * 100) / 100,
-        totale_uscite_giorno: Math.round(g.totale_uscite_giorno * 100) / 100,
+    if (ordinePerImporto) {
+      // Accorpare per giorno renderebbe impossibile un ordine globale: due
+      // movimenti dello stesso giorno possono trovarsi ai lati opposti della
+      // classifica. I gruppi unitari conservano esattamente l'ordine SQL.
+      risultato = rows.map((mov) => ({
+        data: mov.data,
+        label: formatDataLabel(mov.data),
+        movimenti: [mov],
+        totale_entrate_giorno: mov.tipo === 'entrata' ? toNumber(mov.importo) : 0,
+        totale_uscite_giorno: mov.tipo === 'uscita' ? toNumber(mov.importo) : 0,
       }));
+    } else {
+      const gruppi = {};
+      rows.forEach((mov) => {
+        const dataKey = mov.data;
+        if (!gruppi[dataKey]) {
+          gruppi[dataKey] = {
+            data: dataKey,
+            label: formatDataLabel(dataKey),
+            movimenti: [],
+            totale_entrate_giorno: 0,
+            totale_uscite_giorno: 0,
+          };
+        }
+        gruppi[dataKey].movimenti.push(mov);
+        if (mov.tipo === 'entrata') {
+          gruppi[dataKey].totale_entrate_giorno += toNumber(mov.importo);
+        } else if (mov.tipo === 'uscita') {
+          gruppi[dataKey].totale_uscite_giorno += toNumber(mov.importo);
+        }
+      });
+
+      risultato = Object.values(gruppi)
+        .sort((a, b) => String(b.data).localeCompare(String(a.data)))
+        .map((g) => ({
+          ...g,
+          totale_entrate_giorno: Math.round(g.totale_entrate_giorno * 100) / 100,
+          totale_uscite_giorno: Math.round(g.totale_uscite_giorno * 100) / 100,
+        }));
+    }
 
     res.json({
       gruppi: risultato,
