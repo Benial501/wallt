@@ -296,7 +296,13 @@ notifiche dell'utente autenticato.
 
 ### GET /api/movimenti
 - **Auth**: Sì
-- **Query**: `tipo`, `categoria`, `conto_id`, `da`, `a`, `page`, `limit`, `ordine` (`caricamento`), `solo_conti_attivi`
+- **Query**: `tipo`, `categoria`, `conto_id`, `da`, `a`, `page`, `limit`, `cerca`, `ordine`, `solo_conti_attivi`
+
+| Parametro | Valori | Descrizione |
+|---|---|---|
+| `cerca` | stringa, max 100 | Sottostringa cercata nella descrizione, senza distinzione di maiuscole |
+| `ordine` | `data`, `caricamento`, `importo_desc`, `importo_asc` | Default `data` |
+
 - **Risposta**: `{ gruppi[], movimenti[], pagination }`
 - **File**: `movimenti.controller.js`
 - **Frontend**: `movimenti.store.js`, `DashboardView.vue` (recenti con `ordine=caricamento`)
@@ -523,7 +529,7 @@ tutta la cascata di categorizzazione (`CategoryMatcherService._finalize`).
 
 ### GET /api/analisi/confronto-mesi
 Confronto fra periodi. L'unità segue il periodo scelto nella pagina Analisi.
-- **Query**: `unita` (`settimana` | `mese` | `anno`, default `mese`), `quantita` (2–12, default 6)
+- **Query**: `unita` (`giorno` | `settimana` | `mese` | `anno`, default `mese`), `quantita` (2–31 per `giorno`, 2–12 per le altre unità; default 6)
 - **Query alternativa**: `da` + `a` → i mesi toccati dall'intervallo (periodo "Custom"); hanno la precedenza su `unita`/`quantita`
 - **Query storica**: `mesi` (2–12) — equivalente a `quantita` con `unita=mese`, mantenuta perché client e API deployano separatamente
 - **Risposta**: `{ mesi: [{ chiave, label, labelEsteso, da, a, entrate, uscite, saldo }], unita }`
@@ -538,7 +544,7 @@ a ritroso dal saldo di oggi: WALLT non conserva uno storico dei saldi.
 - **Query alternativa**: `da` + `a` → i mesi toccati dall'intervallo (periodo "Custom")
 - **Query storica**: `periodo` (`3m` | `6m` | `1a` | `tutto`), mappato sulle unità nuove
 - **Risposta**: `{ punti: [{ data, fine, label, labelEsteso, delta, patrimonio }], unita, min, max, inizio, fine, variazione_importo, variazione_percentuale }`
-- **Frontend**: `analisi.store.js` → `DashboardView.vue` (sparkline, 12 settimane), `AnalisiView.vue`
+- **Frontend**: `AndamentoPatrimonio.vue` tramite `useAndamentoPatrimonio`; ogni istanza mantiene il proprio periodo
 
 ### GET /api/analisi/suggerimenti
 - **Risposta**: Suggerimenti automatici basati su dati utente

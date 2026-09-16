@@ -95,6 +95,11 @@ client/src/
 | `ui.store` | Form movimento globale (entrata/uscita/trasferimento) |
 | `toast.store` | Notifiche toast |
 
+L'andamento del patrimonio non passa più da `analisi.store`: ogni istanza di
+`AndamentoPatrimonio.vue` possiede la propria risorsa tramite
+`useAndamentoPatrimonio`. Dashboard e Analisi mantengono quindi periodi
+indipendenti e non possono sovrascriversi a vicenda durante la navigazione.
+
 ### Stato delle letture: `creaRisorsa` + `DataState`
 
 Nasce da un difetto concreto: più store azzeravano i dati nel gestore dell'errore (`catch { lista.value = [] }`), e la vista mostrava lo stato vuoto — "Nessun budget per settembre" in `BudgetView`, "Aggiungi il tuo primo conto" in `ContiView` — al posto di un errore di rete. L'utente leggeva una perdita di dati dove c'era solo una richiesta fallita.

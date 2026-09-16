@@ -92,6 +92,18 @@ const TOPICS = [
     link: { label: 'Vai ai Movimenti', to: '/movimenti' },
   },
   {
+    id: 'filtrare-i-movimenti',
+    title: 'Come trovare un movimento',
+    summary: 'Combina ricerca, periodo, conto, categoria e ordinamento per restringere la lista.',
+    paragraphs: [
+      'I pulsanti in alto filtrano per tipo: entrate, uscite o trasferimenti. Le categorie recenti sono quelle che hai usato di più negli ultimi movimenti.',
+      'Il pannello "Filtri" apre tutto il resto: la ricerca nella descrizione, il periodo, il conto, la categoria e l\'ordinamento. Puoi ordinare per importo quando cerchi la spesa più grande di un mese.',
+      'I filtri che hai scelto compaiono sotto i pulsanti e si tolgono uno alla volta. "Azzera filtri" li rimuove tutti insieme.',
+      'I filtri restano mentre navighi nell\'app e si azzerano quando esci: non vengono salvati sul tuo dispositivo.',
+    ],
+    link: { label: 'Vai ai Movimenti', to: '/movimenti' },
+  },
+  {
     id: 'import-come-funziona',
     title: 'Importare un estratto conto',
     summary: 'Carichi un file della banca, controlli l\'anteprima e confermi.',
@@ -232,7 +244,7 @@ export const HELP_SECTIONS = [
     id: 'movimenti',
     title: 'Movimenti e trasferimenti',
     description: 'Registrare entrate e uscite, spostare soldi tra i tuoi conti.',
-    topics: ['movimento-registrare', 'movimento-ricorrenza', 'trasferimenti', 'movimenti-pagina'],
+    topics: ['movimento-registrare', 'movimento-ricorrenza', 'trasferimenti', 'movimenti-pagina', 'filtrare-i-movimenti'],
   },
   {
     id: 'categorie',

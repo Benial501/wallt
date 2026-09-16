@@ -724,12 +724,6 @@ const esportaDati = async () => {
 .cat-row-icon { color: var(--text-muted); }
 .data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 .data-table th, .data-table td { padding: 0.625rem; text-align: left; border-bottom: 1px solid var(--border); color: var(--text-primary); }
-.stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin: 1rem 0; }
-@media (min-width: 768px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
-/* deroga: didascalia sopra il valore in .stat-val, già leggibile a --text-base */
-.stat-label { display: block; font-size: var(--text-micro); color: var(--text-muted); margin-bottom: 0.25rem; }
-.stat-val { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
-.variazione { text-align: center; font-size: 1.125rem; font-weight: 600; margin-top: 0.5rem; }
 .positive { color: var(--positive); }
 .negative { color: var(--negative); }
 .sug-list { display: flex; flex-direction: column; gap: 0.75rem; }
