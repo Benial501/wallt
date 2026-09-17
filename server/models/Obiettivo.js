@@ -35,6 +35,11 @@ const Obiettivo = sequelize.define('Obiettivo', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
+  tipo_obiettivo: {
+    type: DataTypes.STRING(30),
+    allowNull: false,
+    defaultValue: 'generico',
+  },
 }, {
   tableName: 'obiettivi',
 });

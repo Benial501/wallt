@@ -682,6 +682,10 @@ const validateObiettivo = [
     .optional({ values: 'null' })
     .isDecimal({ decimal_digits: '0,2' })
     .withMessage('Importo iniziale non valido'),
+  body('tipo_obiettivo')
+    .optional({ values: 'null' })
+    .isIn(['generico', 'fondo_sicurezza'])
+    .withMessage('Tipo obiettivo non valido'),
   validate,
 ];
 
@@ -707,6 +711,10 @@ const validateUpdateObiettivo = [
     .trim()
     .isLength({ max: 20 })
     .withMessage('Icona non valida'),
+  body('tipo_obiettivo')
+    .optional({ values: 'null' })
+    .isIn(['generico', 'fondo_sicurezza'])
+    .withMessage('Tipo obiettivo non valido'),
   validate,
 ];
 
