@@ -136,6 +136,15 @@ const mobileNav = [
   { path: '/impostazioni', icon: Settings, label: 'Impostazioni' },
 ];
 
+/**
+ * L'etichetta testuale compare solo sotto la voce attiva: a 5 etichette
+ * intere in italiano non c'è larghezza per stare tutte su una riga sola
+ * senza scendere sotto il pavimento tipografico (--text-xs, 14px).
+ */
+const isMobileNavActive = (item) => (
+  item.path === 'altro' ? isFunzionalitaActive.value : isActive(item.path)
+);
+
 const handleMobileNav = (item) => {
   if (item.path === 'altro') {
     funzionalitaSheetOpen.value = true;
@@ -249,16 +258,17 @@ const handleLogout = async () => {
         :key="item.path"
         class="bottom-nav__item"
         :class="{
-          active: item.path === 'altro' ? isFunzionalitaActive : isActive(item.path),
+          active: isMobileNavActive(item),
           'bottom-nav__item--funzioni': item.path === 'altro',
         }"
+        :aria-label="item.label"
         @click="handleMobileNav(item)"
       >
         <span class="bottom-nav__icon-wrap">
           <component :is="resolveAppIcon(item.icon)" class="bottom-nav__icon-svg" :stroke-width="1.75" />
           <span v-if="item.path === 'altro'" class="bottom-nav__badge" />
         </span>
-        <span v-if="item.label" class="bottom-nav__label">{{ item.label }}</span>
+        <span v-if="item.label && isMobileNavActive(item)" class="bottom-nav__label">{{ item.label }}</span>
       </button>
     </nav>
 
@@ -434,6 +444,12 @@ const handleLogout = async () => {
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .bottom-nav { background: var(--glass-elevated-solid); }
 }
+/* L'etichetta compare solo sotto la voce attiva (vedi isMobileNavActive):
+   con una sola label alla volta ogni voce può tenere la larghezza del
+   proprio contenuto invece di dividersi lo spazio in colonne fisse, e la
+   voce attiva ha sempre margine per stare su una riga sola. Il risultato è
+   anche un'altezza di barra costante: c'e' sempre esattamente una voce
+   attiva, quindi la riga più alta (icona + etichetta) è sempre presente. */
 .bottom-nav__item {
   display: flex;
   flex-direction: column;
@@ -444,12 +460,12 @@ const handleLogout = async () => {
   border: none;
   color: var(--nav-item);
   cursor: pointer;
-  padding: 4px 4px;
-  flex: 1 1 0;
-  min-width: 0;
+  padding: 4px 6px;
+  flex: 0 0 auto;
+  min-width: 48px;
   min-height: 48px;
   font-size: var(--text-xs);
-  font-weight: 550;
+  font-weight: 600;
   letter-spacing: var(--tracking-normal);
   transition: color var(--dur-base) var(--ease-out);
 }
@@ -486,13 +502,11 @@ const handleLogout = async () => {
   stroke: currentColor;
 }
 .bottom-nav__label {
-  width: 100%;
   line-height: 1.2;
   letter-spacing: 0.01em;
   text-align: center;
-  white-space: normal;
-  overflow-wrap: break-word;
-  hyphens: auto;
+  white-space: nowrap;
+  hyphens: none;
 }
 .bottom-nav__badge {
   position: absolute;
