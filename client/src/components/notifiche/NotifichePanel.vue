@@ -5,7 +5,11 @@ import { useRouter } from 'vue-router';
 import { useNotificheStore } from '@/stores/notifiche.store';
 import { useToastStore } from '@/stores/toast.store';
 import NotificaItem from './NotificaItem.vue';
-import { Bell, CheckCircle2, Settings, Trash2, X } from '@/utils/appIcons';
+import AppDialog from '@/components/common/AppDialog.vue';
+import WButton from '@/components/common/WButton.vue';
+import {
+  AlertTriangle, Bell, CheckCircle2, Settings, Trash2, X,
+} from '@/utils/appIcons';
 
 /**
  * Pannello del centro notifiche. Va montato una sola volta (AppLayout).
@@ -20,6 +24,8 @@ const toastStore = useToastStore();
 const router = useRouter();
 
 const panelRef = ref(null);
+const showSvuota = ref(false);
+const svuotaLoading = ref(false);
 
 const vuoto = computed(() => !loading.value && notifiche.value.length === 0);
 const promemoriaAperto = computed(() => notifiche.value.some(
@@ -43,13 +49,21 @@ const segnaTutte = async () => {
   }
 };
 
-const svuotaNotifiche = async () => {
-  if (!confirm('Eliminare tutte le notifiche? L\'operazione non è reversibile.')) return;
+const chiudiSvuota = () => {
+  if (svuotaLoading.value) return;
+  showSvuota.value = false;
+};
+
+const confermaSvuota = async () => {
+  svuotaLoading.value = true;
   try {
     await notificheStore.eliminaTutte();
     toastStore.success('Notifiche eliminate');
+    showSvuota.value = false;
   } catch {
     toastStore.error('Non è stato possibile eliminare le notifiche');
+  } finally {
+    svuotaLoading.value = false;
   }
 };
 
@@ -175,7 +189,7 @@ onBeforeUnmount(() => {
               v-if="notifiche.length > 0"
               type="button"
               class="notifiche-panel__azione notifiche-panel__azione--pericolo"
-              @click="svuotaNotifiche"
+              @click="showSvuota = true"
             >
               <Trash2 :size="14" :stroke-width="1.75" />
               <span>Svuota notifiche</span>
@@ -185,6 +199,23 @@ onBeforeUnmount(() => {
       </div>
     </Transition>
   </Teleport>
+
+  <AppDialog :open="showSvuota" title="Svuota notifiche" @close="chiudiSvuota">
+    <div class="svuota-modal">
+      <div class="svuota-modal__alert">
+        <AlertTriangle :size="18" :stroke-width="1.75" />
+        <p>Stai per eliminare <strong>tutte le notifiche</strong>. L'operazione non è reversibile.</p>
+      </div>
+      <div class="svuota-modal__actions">
+        <WButton variant="secondary" size="lg" :disabled="svuotaLoading" @click="chiudiSvuota">
+          Annulla
+        </WButton>
+        <WButton variant="danger" size="lg" :loading="svuotaLoading" @click="confermaSvuota">
+          Svuota notifiche
+        </WButton>
+      </div>
+    </div>
+  </AppDialog>
 </template>
 
 <style scoped>
@@ -429,5 +460,26 @@ onBeforeUnmount(() => {
     transform: translateX(-8px) scale(0.97);
     transform-origin: left bottom;
   }
+}
+
+/* --- Conferma "Svuota notifiche": stesso linguaggio del dialog di
+   eliminazione conto (ContiView.vue), non l'alert nativo del browser. --- */
+.svuota-modal { display: flex; flex-direction: column; gap: 1rem; }
+.svuota-modal__alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 71, 87, 0.1);
+  border: 1px solid rgba(255, 71, 87, 0.25);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+.svuota-modal__alert svg { flex-shrink: 0; stroke: var(--negative); margin-top: 0.125rem; }
+.svuota-modal__alert strong { color: var(--text-primary); }
+.svuota-modal__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; }
+@media (max-width: 420px) {
+  .svuota-modal__actions { grid-template-columns: 1fr; }
 }
 </style>
