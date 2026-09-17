@@ -136,6 +136,11 @@ const router = createRouter({
           component: () => import('@/views/ObiettiviView.vue'),
         },
         {
+          path: 'ricorrenti',
+          name: 'ricorrenti',
+          component: () => import('@/views/RicorrentiView.vue'),
+        },
+        {
           path: 'notifiche',
           name: 'notifiche',
           component: () => import('@/views/NotificheView.vue'),

@@ -85,6 +85,7 @@ import {
   Palette,
   Coins,
   BookOpen,
+  Pencil,
 } from 'lucide-vue-next';
 import { getCategoriaEntrata, getCategoriaUscita } from '@/utils/categorie';
 
@@ -269,4 +270,5 @@ export {
   PartyPopper,
   Landmark,
   Info,
+  Pencil,
 };
