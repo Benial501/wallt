@@ -82,6 +82,18 @@ const TOPICS = [
     ],
   },
   {
+    id: 'ricorrenti-gestione',
+    title: 'Gestire i movimenti ricorrenti',
+    summary: 'Controlla le ricorrenze mensili, la prossima esecuzione e il conto coinvolto.',
+    paragraphs: [
+      'La pagina Ricorrenti raccoglie in un solo posto i movimenti mensili già configurati. Per ciascuno mostra importo, conto, giorno del mese e prossima esecuzione prevista.',
+      'Puoi modificare i dati della ricorrenza oppure eliminarla. Al momento non è possibile metterla in pausa: se non deve più essere eseguita, eliminala e ricreala quando ti servirà di nuovo.',
+      'Se il giorno scelto non esiste in un mese, la prossima esecuzione cade nell\'ultimo giorno disponibile di quel mese.',
+    ],
+    link: { label: 'Vai a Ricorrenti', to: '/ricorrenti' },
+    related: ['movimento-ricorrenza'],
+  },
+  {
     id: 'movimenti-pagina',
     title: 'La pagina Movimenti',
     summary: 'Filtri per periodo, tipo, categoria e conto: quello che vedi dipende dai filtri attivi.',
@@ -218,6 +230,26 @@ const TOPICS = [
     link: { label: 'Apri Categorie', to: '/impostazioni/categorie' },
     related: ['categorie-creare', 'import-come-funziona'],
   },
+  {
+    id: 'funzionalita-navigazione',
+    title: 'Trovare tutte le funzionalità',
+    summary: 'Su computer sono nella barra laterale; su mobile nel menu Funzionalità.',
+    paragraphs: [
+      'Su schermi ampi le sezioni di WALLT sono raccolte nella barra laterale. Su mobile le destinazioni principali restano in basso e il pulsante “Funzionalità” apre l\'elenco completo.',
+      'Le due navigazioni mostrano le stesse sezioni disponibili per il tuo profilo, comprese Ricorrenti, Notifiche e Impostazioni.',
+    ],
+    link: { label: 'Resta in Aiuto', to: '/aiuto' },
+  },
+  {
+    id: 'notifiche-aggiornamento',
+    title: 'Aggiornare le notifiche',
+    summary: 'Un errore di connessione non cancella le notifiche già caricate.',
+    paragraphs: [
+      'La pagina Notifiche distingue chiaramente il caricamento, l\'assenza di elementi e un problema di connessione. In caso di errore puoi usare “Riprova” senza cambiare pagina.',
+      'Se erano già presenti notifiche, restano visibili mentre WALLT segnala che l\'aggiornamento non è riuscito. La lettura e l\'eliminazione riprendono normalmente quando la connessione torna disponibile.',
+    ],
+    link: { label: 'Vai alle Notifiche', to: '/notifiche' },
+  },
 ];
 
 /** Mappa id → argomento, per accessi diretti. */
@@ -238,13 +270,13 @@ export const HELP_SECTIONS = [
     id: 'iniziare',
     title: 'Per iniziare',
     description: 'Il percorso minimo per avere numeri veri in WALLT.',
-    topics: ['primi-passi', 'conti-cosa-sono', 'conti-saldo-iniziale'],
+    topics: ['primi-passi', 'funzionalita-navigazione', 'conti-cosa-sono', 'conti-saldo-iniziale'],
   },
   {
     id: 'movimenti',
     title: 'Movimenti e trasferimenti',
     description: 'Registrare entrate e uscite, spostare soldi tra i tuoi conti.',
-    topics: ['movimento-registrare', 'movimento-ricorrenza', 'trasferimenti', 'movimenti-pagina', 'filtrare-i-movimenti'],
+    topics: ['movimento-registrare', 'movimento-ricorrenza', 'ricorrenti-gestione', 'trasferimenti', 'movimenti-pagina', 'filtrare-i-movimenti'],
   },
   {
     id: 'categorie',
@@ -263,5 +295,11 @@ export const HELP_SECTIONS = [
     title: 'Home, budget, obiettivi e analisi',
     description: 'Come leggere i riepiloghi e cosa fanno davvero i pulsanti.',
     topics: ['patrimonio-come-si-calcola', 'dashboard-riepilogo', 'budget-come-funziona', 'obiettivi-contributi', 'analisi-come-funziona'],
+  },
+  {
+    id: 'notifiche',
+    title: 'Notifiche',
+    description: 'Controllare gli aggiornamenti e riprovare dopo un problema di connessione.',
+    topics: ['notifiche-aggiornamento'],
   },
 ];

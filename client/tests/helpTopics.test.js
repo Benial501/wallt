@@ -70,3 +70,17 @@ test('getHelpTopic ignora id sconosciuti', () => {
   assert.equal(getHelpTopic(null), null);
   assert.equal(getHelpTopic(undefined), null);
 });
+
+test('la guida copre le nuove superfici realmente disponibili', () => {
+  const attesi = [
+    ['funzionalita-navigazione', '/aiuto'],
+    ['ricorrenti-gestione', '/ricorrenti'],
+    ['notifiche-aggiornamento', '/notifiche'],
+  ];
+
+  attesi.forEach(([id, link]) => {
+    const topic = getHelpTopic(id);
+    assert.ok(topic, `argomento mancante: ${id}`);
+    assert.equal(topic.link?.to, link);
+  });
+});

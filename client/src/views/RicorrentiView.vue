@@ -54,7 +54,7 @@ const confermaEliminazione = async () => {
       <div>
         <div class="ricorrenti-view__title-row">
           <h1>Ricorrenti</h1>
-          <HelpTrigger topic="movimento-ricorrenza" />
+          <HelpTrigger topic="ricorrenti-gestione" />
         </div>
         <p>Entrate e uscite che WALLT registra automaticamente ogni mese.</p>
       </div>
