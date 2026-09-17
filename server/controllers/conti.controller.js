@@ -9,6 +9,7 @@ const {
   backfillUserLinks,
 } = require('../services/scommesseContoSync.service');
 const { calcolaPatrimonio } = require('../services/financialSummary.service');
+const { calcolaLiquidita } = require('../services/liquidita.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
 
@@ -240,6 +241,16 @@ const getPatrimonioTotale = async (req, res) => {
   }
 };
 
+const getLiquidita = async (req, res) => {
+  try {
+    const risultato = await calcolaLiquidita(req.userId);
+    res.json(risultato);
+  } catch (error) {
+    logger.error('Errore getLiquidita', { err: error });
+    res.status(500).json({ message: 'Errore nel calcolo della liquidità' });
+  }
+};
+
 const trasferimento = async (req, res) => {
   const t = await sequelize.transaction();
   try {
@@ -325,5 +336,6 @@ module.exports = {
   updateConto,
   deleteConto,
   getPatrimonioTotale,
+  getLiquidita,
   trasferimento,
 };

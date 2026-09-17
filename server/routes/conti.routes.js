@@ -1,7 +1,7 @@
 const express = require('express');
 const {
   getConti, createConto, updateConto, deleteConto,
-  getPatrimonioTotale, trasferimento,
+  getPatrimonioTotale, getLiquidita, trasferimento,
 } = require('../controllers/conti.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 const {
@@ -14,6 +14,7 @@ const {
 const router = express.Router();
 
 router.get('/patrimonio', authMiddleware, getPatrimonioTotale);
+router.get('/liquidita', authMiddleware, getLiquidita);
 router.post('/trasferimento', authMiddleware, validateTrasferimento, trasferimento);
 router.get('/', authMiddleware, getConti);
 router.post('/', authMiddleware, validateConto, createConto);
