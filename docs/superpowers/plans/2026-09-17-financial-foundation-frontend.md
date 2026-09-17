@@ -202,48 +202,48 @@ git commit -m "feat(recurring): add reliable recurring data resource"
 ### Task 3: Pagina Ricorrenti e route
 
 **Files:**
+- Create: `client/src/components/ricorrenti/RicorrenteItem.vue`
 - Create: `client/src/views/RicorrentiView.vue`
 - Create: `client/tests/ricorrentiView.test.js`
+- Create: `client/tests/helpers/renderVue.js`
 - Modify: `client/src/router/index.js`
 
 **Interfaces:**
 - Consumes: `useMovimentiStore().risorsaRicorrenti`, `ricorrenti`, `fetchRicorrenti`, `updateMovimento`, `deleteMovimento`.
 - Consumes: `presentaRicorrente`, `MovimentoForm`, `DataState`, `AppDialog`.
 
-- [ ] **Step 1: Scrivere una guardia statica fallente per rendering e accessibilità**
+- [ ] **Step 1: Scrivere un test SSR fallente per rendering e accessibilità**
 
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { renderSfc } from './helpers/renderVue.js';
 
-const vista = readFileSync(new URL('../src/views/RicorrentiView.vue', import.meta.url), 'utf8');
-
-test('la vista usa DataState per caricamento vuoto errore e retry', () => {
-  assert.match(vista, /<DataState/);
-  assert.match(vista, /#vuoto/);
-  assert.match(vista, /@riprova=/);
+test('la riga ricorrente rende i campi e le azioni richiesti', async () => {
+  const html = await renderSfc('/src/components/ricorrenti/RicorrenteItem.vue', {
+    movimento: { id: 1, tipo: 'uscita', importo: '19.90', descrizione: 'Telefono', ricorrente: true, ricorrente_giorno: 20, conto: { nome: 'Carta' } },
+  });
+  for (const testo of ['Telefono', 'Uscita', 'Ogni mese', 'Prossima esecuzione', 'Carta', 'Attiva', 'Modifica', 'Elimina']) assert.match(html, new RegExp(testo));
 });
 
-test('la vista espone i campi e azioni richiesti', () => {
-  for (const testo of ['Prossima esecuzione', 'Conto', 'Modifica', 'Elimina']) assert.match(vista, new RegExp(testo));
-  assert.match(vista, /<AppDialog/);
-  assert.doesNotMatch(vista, /\bconfirm\s*\(/);
-});
-
-test('le azioni con sola icona hanno etichette accessibili', () => {
-  assert.doesNotMatch(vista, /<button(?:(?!aria-label)[\s\S])*?<svg/);
+test('la riga usa testo oltre al colore', async () => {
+  const html = await renderSfc('/src/components/ricorrenti/RicorrenteItem.vue', {
+    movimento: { id: 1, tipo: 'entrata', importo: '100', descrizione: 'Rimborso', ricorrente: true, ricorrente_giorno: 5, conto: { nome: 'Banca' } },
+  });
+  assert.match(html, />Entrata</);
+  assert.match(html, />Modifica</);
+  assert.match(html, />Elimina</);
 });
 ```
 
 - [ ] **Step 2: Eseguire e verificare RED**
 
 Run: `cd client && node --test tests/ricorrentiView.test.js`  
-Expected: FAIL perché la vista non esiste.
+Expected: FAIL perché il componente non esiste.
 
 - [ ] **Step 3: Implementare la pagina**
 
-Creare una vista che:
+Creare `RicorrenteItem.vue` come componente presentazionale e una vista che:
 
 ```vue
 <DataState
@@ -274,7 +274,7 @@ Expected: PASS e build riuscita.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add client/src/views/RicorrentiView.vue client/tests/ricorrentiView.test.js client/src/router/index.js
+git add client/src/components/ricorrenti/RicorrenteItem.vue client/src/views/RicorrentiView.vue client/tests/helpers/renderVue.js client/tests/ricorrentiView.test.js client/src/router/index.js
 git commit -m "feat(recurring): add recurring transactions view"
 ```
 
@@ -359,6 +359,7 @@ git commit -m "fix(notifications): distinguish error from empty state"
 
 **Files:**
 - Create: `client/src/views/NotFoundView.vue`
+- Create: `client/src/router/routes.js`
 - Create: `client/tests/notFoundRoute.test.js`
 - Modify: `client/src/router/index.js`
 - Modify: `client/src/content/helpTopics.js`
@@ -371,18 +372,22 @@ git commit -m "fix(notifications): distinguish error from empty state"
 - [ ] **Step 1: Scrivere test fallenti**
 
 ```js
-test('il router termina con una route catch-all verso la vista 404', () => {
-  const router = readFileSync(new URL('../src/router/index.js', import.meta.url), 'utf8');
-  assert.match(router, /path:\s*['"]\/:pathMatch\(\.\*\)\*['"]/);
-  assert.match(router, /name:\s*['"]not-found['"]/);
-  assert.match(router, /NotFoundView\.vue/);
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createRouter, createMemoryHistory } from 'vue-router';
+import { loadModule, renderSfc } from './helpers/renderVue.js';
+
+test('una URL sconosciuta risolve la route 404', async () => {
+  const { routes } = await loadModule('/src/router/routes.js');
+  const router = createRouter({ history: createMemoryHistory(), routes });
+  assert.equal(router.resolve('/questa-pagina-non-esiste').name, 'not-found');
 });
 
-test('la 404 offre Home e ritorno accessibili', () => {
-  const vista = readFileSync(new URL('../src/views/NotFoundView.vue', import.meta.url), 'utf8');
-  assert.match(vista, /Torna alla Home/);
-  assert.match(vista, /Torna indietro/);
-  assert.match(vista, /<main/);
+test('la 404 rende Home e ritorno come azioni nominate', async () => {
+  const html = await renderSfc('/src/views/NotFoundView.vue');
+  assert.match(html, /Torna alla Home/);
+  assert.match(html, /Torna indietro/);
+  assert.match(html, /<main/);
 });
 ```
 
@@ -413,7 +418,7 @@ Expected: PASS e build riuscita.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add client/src/views/NotFoundView.vue client/tests/notFoundRoute.test.js client/src/router/index.js client/src/content/helpTopics.js client/tests/helpTopics.test.js
+git add client/src/views/NotFoundView.vue client/src/router/routes.js client/tests/notFoundRoute.test.js client/src/router/index.js client/src/content/helpTopics.js client/tests/helpTopics.test.js
 git commit -m "feat(router): add themed not-found route and update help"
 ```
 
