@@ -81,3 +81,41 @@ describe('Classificazione essenzialità', () => {
     expect(personale.essenzialita).toBe('semi_essenziale');
   });
 });
+
+describe('Sostituzione euristica hardcoded in getSuggerimenti', () => {
+  let app;
+  let token;
+  const oggi = () => new Date().toISOString().split('T')[0];
+
+  beforeEach(async () => {
+    app = createApp({ enableRateLimit: false });
+    const { res } = await registerUser(app);
+    token = res.body.token;
+  });
+
+  it('una categoria personale discrezionale entra nel calcolo esattamente come le predefinite', async () => {
+    const { Conto, Movimento } = require('./setup');
+    const contoRes = await request(app).post('/api/conti').set(authHeader(token)).send({ nome: 'C', tipo: 'banca', saldo_iniziale: 1000 });
+    const contoId = contoRes.body.conto.id;
+
+    const catRes = await request(app)
+      .post('/api/categorie')
+      .set(authHeader(token))
+      .send({ nome: 'Mio hobby', tipo: 'uscita', essenzialita: 'discrezionale' });
+    const categoriaId = catRes.body.categoria.id;
+
+    // 40% del totale in una categoria discrezionale personale, sopra la soglia del 30%.
+    await request(app).post('/api/movimenti').set(authHeader(token)).send({
+      conto_id: contoId, tipo: 'uscita', importo: 40, categoria: categoriaId, data: oggi(),
+    });
+    await request(app).post('/api/movimenti').set(authHeader(token)).send({
+      conto_id: contoId, tipo: 'uscita', importo: 60, categoria: 'affitto', data: oggi(),
+    });
+
+    const res = await request(app).get('/api/analisi/suggerimenti').set(authHeader(token));
+    const info = res.body.suggerimenti.find((s) => s.tipo === 'info' && s.messaggio?.includes('non essenziale'));
+
+    expect(info).toBeDefined();
+    expect(info.messaggio).toContain('40%');
+  });
+});

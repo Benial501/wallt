@@ -1,5 +1,6 @@
 const { list: listCategories } = require('../services/categorie.service');
 const { buildPeriodi } = require('../services/confrontoPeriodi.service');
+const { aggregaPerEssenzialita } = require('../services/essenzialita.service');
 const logger = require('../utils/logger');
 const { Op } = require('sequelize');
 const {
@@ -336,7 +337,8 @@ const getSuggerimenti = async (req, res) => {
       }
     });
 
-    const nonEssenziali = (corrente.map.svago || 0) + (corrente.map.acquisti_vari || 0) + (corrente.map.abbigliamento || 0);
+    const categorieUscita = categories.filter((c) => c.tipo === 'uscita');
+    const { discrezionale: nonEssenziali } = aggregaPerEssenzialita(corrente.map, categorieUscita);
     if (corrente.tot > 0) {
       const pct = (nonEssenziali / corrente.tot) * 100;
       if (pct > 30) {
