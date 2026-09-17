@@ -19,10 +19,10 @@ test('le route conosciute continuano a risolvere prima della catch-all', async (
   assert.equal(router.resolve('/notifiche').name, 'notifiche');
 });
 
-test('la pagina 404 rende un landmark e due vie di uscita nominate', async () => {
+test('la pagina 404 rende una sezione nominata e due vie di uscita', async () => {
   const html = await renderSfc('/src/views/NotFoundView.vue');
 
-  assert.match(html, /<main/);
+  assert.match(html, /<section[^>]*aria-labelledby="not-found-title"/);
   assert.match(html, /Pagina non trovata/);
   assert.match(html, /Torna alla Home/);
   assert.match(html, /Torna indietro/);

@@ -1,5 +1,5 @@
 <template>
-  <main class="not-found" aria-labelledby="not-found-title">
+  <section class="not-found" aria-labelledby="not-found-title">
     <section class="not-found__card">
       <div class="not-found__code" aria-hidden="true">404</div>
       <p class="not-found__eyebrow">Fuori percorso</p>
@@ -16,7 +16,7 @@
         </button>
       </div>
     </section>
-  </main>
+  </section>
 </template>
 
 <script setup>
