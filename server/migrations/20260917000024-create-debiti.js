@@ -28,6 +28,27 @@ module.exports = {
         { transaction },
       );
       await q.addIndex('debiti', ['user_id', 'attivo'], { transaction });
+      // Come per ogni altra tabella WALLT su Supabase (vedi 20260830000010 e
+      // 20260907000017): RLS attiva senza policy e nessun privilegio ai ruoli
+      // raggiungibili con la chiave anon, che è pubblica per definizione.
+      // L'API si connette con il ruolo proprietario, quindi resta invariata.
+      await q.sequelize.query(`
+        DO $$
+        DECLARE role_name text;
+        BEGIN
+          EXECUTE format('ALTER TABLE %I.%I ENABLE ROW LEVEL SECURITY', 'public', 'debiti');
+          FOREACH role_name IN ARRAY ARRAY['anon', 'authenticated']
+          LOOP
+            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
+              EXECUTE format(
+                'REVOKE ALL PRIVILEGES ON TABLE %I.%I FROM %I',
+                'public', 'debiti', role_name
+              );
+            END IF;
+          END LOOP;
+        END
+        $$;
+      `, { transaction });
     });
   },
   async down(q) {
