@@ -31,6 +31,7 @@ import WalltLogo from '@/components/common/WalltLogo.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import BottomSheet from './BottomSheet.vue';
 import { performLogout } from '@/utils/session';
+import { getFunctionalityItems } from '@/config/functionalityItems';
 
 const route = useRoute();
 const router = useRouter();
@@ -43,7 +44,12 @@ const uiStore = useUiStore();
 const helpStore = useHelpStore();
 const notificheStore = useNotificheStore();
 const { mostraFormMovimento, tipoFormMovimento } = storeToRefs(uiStore);
-const { mostraScommesse, mostraInvestimenti, canAccessScommesseFeature, canAccessInvestimentiFeature } = storeToRefs(authStore);
+const {
+  mostraScommesse,
+  mostraInvestimenti,
+  canAccessScommesseFeature,
+  canAccessInvestimentiFeature,
+} = storeToRefs(authStore);
 const { toggle: toggleTheme } = useTheme();
 
 onUnmounted(() => {
@@ -87,40 +93,34 @@ const primoNome = computed(() => authStore.user?.nome?.split(' ')[0] || 'Utente'
 
 const isActive = (path) => route.path === path || route.path.startsWith(path + '/');
 
+const functionalityContext = computed(() => ({
+  mostraScommesse: mostraScommesse.value,
+  mostraInvestimenti: mostraInvestimenti.value,
+  canAccessScommesseFeature: canAccessScommesseFeature.value,
+  canAccessInvestimentiFeature: canAccessInvestimentiFeature.value,
+}));
+
+const resolveFunctionalityItems = (placement) => getFunctionalityItems(
+  functionalityContext.value,
+  placement,
+).map((item) => ({
+  ...item,
+  path: item.route,
+  desc: item.description,
+  icon: NAV_ICON_MAP[item.icon],
+}));
+
 const navItems = computed(() => {
   const items = [
     { path: '/dashboard', icon: NAV_ICON_MAP.dashboard, label: 'Dashboard' },
     { path: '/conti', icon: NAV_ICON_MAP.conti, label: 'I miei conti' },
     { path: '/movimenti', icon: NAV_ICON_MAP.movimenti, label: 'Movimenti' },
-    { path: '/budget', icon: NAV_ICON_MAP.budget, label: 'Budget' },
   ];
-  if (mostraScommesse.value) {
-    items.push({ path: '/scommesse', icon: NAV_ICON_MAP.scommesse, label: 'Scommesse' });
-  }
-  if (mostraInvestimenti.value) {
-    items.push({ path: '/investimenti', icon: NAV_ICON_MAP.investimenti, label: 'Investimenti' });
-  }
-  items.push(
-    { path: '/obiettivi', icon: NAV_ICON_MAP.obiettivi, label: 'Obiettivi' },
-    { path: '/analisi', icon: NAV_ICON_MAP.analisi, label: 'Analisi' },
-  );
+  items.push(...resolveFunctionalityItems('sidebar'));
   return items;
 });
 
-const funzionalitaItems = computed(() => {
-  const items = [
-    { path: '/obiettivi', icon: NAV_ICON_MAP.obiettivi, label: 'Obiettivi', desc: 'Risparmi e traguardi' },
-    { path: '/budget', icon: NAV_ICON_MAP.budget, label: 'Budget', desc: 'Pianifica le spese' },
-  ];
-  if (canAccessScommesseFeature.value) {
-    items.push({ path: '/scommesse', icon: NAV_ICON_MAP.scommesse, label: 'Scommesse', desc: 'Piattaforme e movimenti' });
-  }
-  if (canAccessInvestimentiFeature.value) {
-    items.push({ path: '/investimenti', icon: NAV_ICON_MAP.investimenti, label: 'Investimenti', desc: 'Portafoglio e rendimenti' });
-  }
-  items.push({ path: '/aiuto', icon: CircleHelp, label: 'Aiuto', desc: 'Guida e primi passi' });
-  return items;
-});
+const funzionalitaItems = computed(() => resolveFunctionalityItems('sheet'));
 
 const isFunzionalitaActive = computed(() =>
   funzionalitaItems.value.some((item) => isActive(item.path)),

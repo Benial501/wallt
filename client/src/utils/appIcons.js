@@ -97,6 +97,7 @@ export const NAV_ICON_MAP = {
   scommesse: Dices,
   investimenti: LineChart,
   obiettivi: Target,
+  ricorrenti: Repeat2,
   analisi: TrendingUp,
   aiuto: CircleHelp,
 };
