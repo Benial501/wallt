@@ -52,6 +52,35 @@ describe('migrazioni compatibili con PostgreSQL e Supabase', () => {
     expect(sql).toContain("'password_reset_tokens'");
   });
 
+  it('riapplica l’hardening a debiti con una migrazione additiva e transazionale', async () => {
+    const migrationPath = path.join(
+      migrationsDir,
+      '20260917000025-harden-debiti-access.js',
+    );
+    expect(fs.existsSync(migrationPath)).toBe(true);
+
+    const migration = require(migrationPath);
+    const query = jest.fn().mockResolvedValue([]);
+    const transaction = jest.fn(async (callback) => callback('transaction-test'));
+    const queryInterface = { sequelize: { query, transaction } };
+
+    await migration.up(queryInterface);
+
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("'public', 'debiti'"),
+      { transaction: 'transaction-test' },
+    );
+    const sql = query.mock.calls[0][0];
+    expect(sql).toContain('ENABLE ROW LEVEL SECURITY');
+    expect(sql).toContain("ARRAY['anon', 'authenticated']");
+    expect(sql).toContain('REVOKE ALL PRIVILEGES');
+
+    await migration.down(queryInterface);
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
   it('impone una sola esecuzione per ricorrenza e mese', async () => {
     const migration = require('../migrations/20260830000011-add-recurring-idempotency');
     const queryInterface = {
@@ -110,6 +139,12 @@ describe('migrazioni compatibili con PostgreSQL e Supabase', () => {
     const queryInterface = sequelize.getQueryInterface();
     const tables = await queryInterface.showAllTables();
     const userColumns = await queryInterface.describeTable('users');
+    const [debitiSecurity] = await sequelize.query(`
+      SELECT c.relrowsecurity
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relname = 'debiti'
+    `);
 
     expect(tables).toEqual(expect.arrayContaining([
       'users',
@@ -121,5 +156,8 @@ describe('migrazioni compatibili con PostgreSQL e Supabase', () => {
     expect(userColumns.password.allowNull).toBe(true);
     expect(userColumns.auth_provider).toBeDefined();
     expect(userColumns.google_id).toBeDefined();
+    expect(debitiSecurity).toEqual([
+      expect.objectContaining({ relrowsecurity: true }),
+    ]);
   });
 });
