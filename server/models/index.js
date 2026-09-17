@@ -25,6 +25,7 @@ const AuthRateLimit = require('./AuthRateLimit');
 const Notifica = require('./Notifica');
 const PreferenzeNotifiche = require('./PreferenzeNotifiche');
 const PushSubscription = require('./PushSubscription');
+const Debito = require('./Debito');
 
 // User associations
 User.hasOne(ProfiloUtente, { foreignKey: 'user_id', as: 'profilo' });
@@ -84,6 +85,10 @@ PreferenzeNotifiche.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 User.hasMany(PushSubscription, { foreignKey: 'user_id', as: 'pushSubscriptions' });
 PushSubscription.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
+User.hasMany(Debito, { foreignKey: 'user_id', as: 'debiti' });
+Debito.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+Debito.belongsTo(Conto, { foreignKey: 'conto_id', as: 'conto' });
+
 module.exports = {
   CategoriaPersonale,
   CategoriaDefaultNascosta,
@@ -107,4 +112,5 @@ module.exports = {
   Notifica,
   PreferenzeNotifiche,
   PushSubscription,
+  Debito,
 };
