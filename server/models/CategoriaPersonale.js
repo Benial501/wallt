@@ -9,4 +9,5 @@ module.exports = sequelize.define('CategoriaPersonale', {
   icona: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'Tag' },
   colore: { type: DataTypes.STRING(7), allowNull: false, defaultValue: '#3498DB' },
   attiva: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+  essenzialita: { type: DataTypes.STRING(20), allowNull: true, defaultValue: 'discrezionale' },
 }, { tableName: 'categorie_personali', indexes: [{ unique: true, fields: ['user_id', 'tipo', 'nome_normalizzato'] }] });

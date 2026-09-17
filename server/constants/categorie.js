@@ -29,6 +29,7 @@ const CATEGORIE_SISTEMA_IDS = [
 ];
 const CATEGORIE_SISTEMA = new Set(CATEGORIE_SISTEMA_IDS);
 const isCategoriaSistema = id => CATEGORIE_SISTEMA.has(id);
+const ESSENZIALITA_VALUES = ['essenziale', 'semi_essenziale', 'discrezionale'];
 
 // `sistema` viaggia fino al client: la UI deve sapere quali categorie non
 // offrono l'eliminazione senza tenere una seconda copia di questo elenco.
@@ -50,4 +51,5 @@ module.exports = {
   CATEGORIE_SISTEMA_IDS,
   CATEGORIE_SISTEMA,
   isCategoriaSistema,
+  ESSENZIALITA_VALUES,
 };
