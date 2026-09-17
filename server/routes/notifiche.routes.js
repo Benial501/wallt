@@ -4,6 +4,7 @@ const {
   getNonLette,
   segnaLetta,
   segnaTutteLette,
+  eliminaTutte,
   getPreferenze,
   updatePreferenze,
   registraPush,
@@ -39,6 +40,7 @@ router.post('/prova', inviaNotificaDiProva);
 // `/lette` va dichiarata prima di `/:id/letta` non per conflitto di path, ma
 // per tenere insieme le due rotte di lettura massiva.
 router.put('/lette', segnaTutteLette);
+router.delete('/', eliminaTutte);
 router.put('/:id/letta', validateIdParam, segnaLetta);
 
 module.exports = router;

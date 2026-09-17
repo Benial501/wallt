@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router';
 import { useNotificheStore } from '@/stores/notifiche.store';
 import { useToastStore } from '@/stores/toast.store';
 import NotificaItem from './NotificaItem.vue';
-import { Bell, CheckCircle2, Settings, X } from '@/utils/appIcons';
+import { Bell, CheckCircle2, Settings, Trash2, X } from '@/utils/appIcons';
 
 /**
  * Pannello del centro notifiche. Va montato una sola volta (AppLayout).
@@ -40,6 +40,16 @@ const segnaTutte = async () => {
     toastStore.success('Notifiche segnate come lette');
   } catch {
     toastStore.error('Non è stato possibile aggiornare le notifiche');
+  }
+};
+
+const svuotaNotifiche = async () => {
+  if (!confirm('Eliminare tutte le notifiche? L\'operazione non è reversibile.')) return;
+  try {
+    await notificheStore.eliminaTutte();
+    toastStore.success('Notifiche eliminate');
+  } catch {
+    toastStore.error('Non è stato possibile eliminare le notifiche');
   }
 };
 
@@ -161,6 +171,15 @@ onBeforeUnmount(() => {
             <button type="button" class="notifiche-panel__azione" @click="vaiATutte">
               Vedi tutte
             </button>
+            <button
+              v-if="notifiche.length > 0"
+              type="button"
+              class="notifiche-panel__azione notifiche-panel__azione--pericolo"
+              @click="svuotaNotifiche"
+            >
+              <Trash2 :size="14" :stroke-width="1.75" />
+              <span>Svuota notifiche</span>
+            </button>
           </footer>
         </div>
       </div>
@@ -270,13 +289,15 @@ onBeforeUnmount(() => {
   outline-offset: -2px;
 }
 
+/* Il gap era 0.25rem: con più notifiche non lette (sfondo evidenziato) una
+   accanto all'altra si leggevano come un unico blocco. */
 .notifiche-panel__lista {
   flex: 1;
   overflow-y: auto;
   padding: 0.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.625rem;
 }
 
 .notifiche-panel__stato {
@@ -352,6 +373,15 @@ onBeforeUnmount(() => {
 .notifiche-panel__azione:focus-visible {
   outline: 2px solid var(--border-focus);
   outline-offset: -2px;
+}
+
+.notifiche-panel__azione--pericolo { color: var(--negative); }
+
+@media (hover: hover) {
+  .notifiche-panel__azione--pericolo:hover {
+    color: var(--negative);
+    border-color: color-mix(in srgb, var(--negative) 35%, transparent);
+  }
 }
 
 .notifiche-fade-enter-active,

@@ -100,6 +100,16 @@ const segnaTutteLette = async (req, res) => {
   }
 };
 
+const eliminaTutte = async (req, res) => {
+  try {
+    const eliminate = await NotificheService.eliminaTutte(req.userId);
+    res.json({ message: 'Notifiche eliminate', eliminate, non_lette: 0 });
+  } catch (error) {
+    logger.error('Errore eliminaTutte', { err: error });
+    res.status(500).json({ message: 'Errore nell\'eliminazione delle notifiche' });
+  }
+};
+
 const getPreferenze = async (req, res) => {
   try {
     const preferenze = await NotificheService.getPreferenze(req.userId);
@@ -308,6 +318,7 @@ module.exports = {
   getNonLette,
   segnaLetta,
   segnaTutteLette,
+  eliminaTutte,
   getPreferenze,
   updatePreferenze,
   registraPush,

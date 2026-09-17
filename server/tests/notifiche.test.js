@@ -433,6 +433,11 @@ describe('Sistema di notifiche', () => {
     await notificaA.reload();
     expect(notificaA.letta).toBe(false);
 
+    // Nemmeno lo svuotamento tocca le notifiche di un altro utente.
+    const eliminazioneB = await request(app).delete('/api/notifiche').set(authHeader(tokenB)).expect(200);
+    expect(eliminazioneB.body.eliminate).toBe(0);
+    await expect(Notifica.findByPk(notificaA.id)).resolves.not.toBeNull();
+
     // E l'utente B non tocca nemmeno le preferenze di A.
     await request(app)
       .put('/api/notifiche/preferenze')
@@ -450,6 +455,7 @@ describe('Sistema di notifiche', () => {
     await request(app).get('/api/notifiche').expect(401);
     await request(app).get('/api/notifiche/preferenze').expect(401);
     await request(app).put('/api/notifiche/lette').expect(401);
+    await request(app).delete('/api/notifiche').expect(401);
     await request(app).post('/api/notifiche/push').send({}).expect(401);
   });
 
@@ -681,6 +687,26 @@ describe('Sistema di notifiche', () => {
       .set(authHeader(token))
       .expect(200);
     expect(tutte.body.non_lette).toBe(0);
+    expect(await NotificheService.contaNonLette(userId)).toBe(0);
+  });
+
+  it('14d) elimina tutte le notifiche dell\'utente', async () => {
+    await creaBudget([{ categoria: 'cibo', importo: 100 }]);
+    await creaMovimento({ importo: 130, categoria: 'cibo_spesa' });
+    await generaPerUtente({ userId, adesso: SERA_ROMA });
+
+    const primaLista = await request(app).get('/api/notifiche').set(authHeader(token)).expect(200);
+    expect(primaLista.body.notifiche.length).toBeGreaterThan(0);
+
+    const eliminazione = await request(app)
+      .delete('/api/notifiche')
+      .set(authHeader(token))
+      .expect(200);
+    expect(eliminazione.body.eliminate).toBe(primaLista.body.notifiche.length);
+    expect(eliminazione.body.non_lette).toBe(0);
+
+    const dopoLista = await request(app).get('/api/notifiche').set(authHeader(token)).expect(200);
+    expect(dopoLista.body.notifiche).toHaveLength(0);
     expect(await NotificheService.contaNonLette(userId)).toBe(0);
   });
 

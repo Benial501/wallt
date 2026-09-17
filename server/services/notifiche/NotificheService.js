@@ -204,6 +204,9 @@ const segnaTutteLette = async (userId) => {
   return aggiornate;
 };
 
+/** Svuota il centro notifiche dell'utente: cancella tutte quelle già consegnate. */
+const eliminaTutte = async (userId) => Notifica.destroy({ where: filtroConsegnate(userId) });
+
 /**
  * Marca il giorno locale corrente come "già controllato": il promemoria
  * giornaliero non verrà più generato per quella data.
@@ -242,6 +245,7 @@ module.exports = {
   contaNonLette,
   segnaLetta,
   segnaTutteLette,
+  eliminaTutte,
   segnaGiornataControllata,
   potaNotificheVecchie,
 };

@@ -92,6 +92,13 @@ export const useNotificheStore = defineStore('notifiche', () => {
     return data.aggiornate;
   };
 
+  const eliminaTutte = async () => {
+    const { data } = await api.delete('/notifiche');
+    notifiche.value = [];
+    nonLette.value = data.non_lette ?? 0;
+    return data.eliminate;
+  };
+
   const fetchPreferenze = async () => {
     const { data } = await api.get('/notifiche/preferenze');
     preferenze.value = { ...PREFERENZE_DEFAULT, ...data.preferenze };
@@ -184,6 +191,7 @@ export const useNotificheStore = defineStore('notifiche', () => {
     fetchConteggio,
     segnaLetta,
     segnaTutteLette,
+    eliminaTutte,
     fetchPreferenze,
     updatePreferenze,
     registraPush,

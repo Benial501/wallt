@@ -444,8 +444,9 @@ const handleLogout = async () => {
   border: none;
   color: var(--nav-item);
   cursor: pointer;
-  padding: 4px 8px;
-  min-width: 56px;
+  padding: 4px 4px;
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 48px;
   font-size: var(--text-xs);
   font-weight: 550;
@@ -484,7 +485,15 @@ const handleLogout = async () => {
   height: 22px;
   stroke: currentColor;
 }
-.bottom-nav__label { line-height: 1.2; letter-spacing: 0.01em; }
+.bottom-nav__label {
+  width: 100%;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
 .bottom-nav__badge {
   position: absolute;
   top: 1px;
