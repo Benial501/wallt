@@ -8,6 +8,10 @@ module.exports = {
         type: S.STRING(20), allowNull: true, defaultValue: 'discrezionale',
       }, { transaction });
       await q.sequelize.query(
+        "UPDATE categorie_personali SET essenzialita = NULL WHERE tipo = 'entrata'",
+        { transaction },
+      );
+      await q.sequelize.query(
         "ALTER TABLE categorie_personali ADD CONSTRAINT categorie_personali_essenzialita CHECK (essenzialita IS NULL OR essenzialita IN ('essenziale','semi_essenziale','discrezionale'))",
         { transaction },
       );
