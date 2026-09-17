@@ -8,6 +8,7 @@ const {
   deactivateLinkedPiattaforma,
   backfillUserLinks,
 } = require('../services/scommesseContoSync.service');
+const { calcolaPatrimonio } = require('../services/financialSummary.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
 
@@ -34,24 +35,14 @@ const getConti = async (req, res) => {
   try {
     await backfillUserLinks(req.userId);
 
-    const conti = await Conto.findAll({
-      where: { user_id: req.userId, attivo: true },
-      order: [['ordine', 'ASC'], ['id', 'ASC']],
-    });
-
-    const patrimonio_conti = conti.reduce((sum, c) => sum + toNumber(c.saldo), 0);
-
-    const investimenti = await Investimento.findAll({
-      where: { user_id: req.userId, attivo: true },
-    });
-    const patrimonio_investimenti = investimenti.reduce((sum, i) => sum + toNumber(i.saldo_attuale), 0);
-    const patrimonio_totale = patrimonio_conti + patrimonio_investimenti;
+    const { conti, patrimonio_conti, patrimonio_investimenti, patrimonio_totale } = await calcolaPatrimonio(req.userId);
+    conti.sort((a, b) => (a.ordine - b.ordine) || (a.id - b.id));
 
     res.json({
       conti,
-      patrimonio_totale: Math.round(patrimonio_totale * 100) / 100,
-      patrimonio_conti: Math.round(patrimonio_conti * 100) / 100,
-      patrimonio_investimenti: Math.round(patrimonio_investimenti * 100) / 100,
+      patrimonio_totale,
+      patrimonio_conti,
+      patrimonio_investimenti,
     });
   } catch (error) {
     logger.error('Errore getConti', { err: error });
@@ -210,17 +201,7 @@ const deleteConto = async (req, res) => {
 
 const getPatrimonioTotale = async (req, res) => {
   try {
-    const conti = await Conto.findAll({
-      where: { user_id: req.userId, attivo: true },
-    });
-
-    const totaleConti = conti.reduce((sum, c) => sum + toNumber(c.saldo), 0);
-
-    const investimenti = await Investimento.findAll({
-      where: { user_id: req.userId, attivo: true },
-    });
-    const totaleInvestimenti = investimenti.reduce((sum, i) => sum + toNumber(i.saldo_attuale), 0);
-    const totale = totaleConti + totaleInvestimenti;
+    const { patrimonio_conti: totaleConti, patrimonio_investimenti: totaleInvestimenti, patrimonio_totale: totale } = await calcolaPatrimonio(req.userId);
 
     const now = new Date();
     const primoGiorno = new Date(now.getFullYear(), now.getMonth(), 1);

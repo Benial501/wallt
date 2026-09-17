@@ -6,6 +6,7 @@ const {
   Movimento, Conto, BudgetMensile, BudgetCategoria,
   Obiettivo, ObiettivoContributo, MovimentoScommesse, Investimento,
 } = require('../models');
+const { calcolaPatrimonio } = require('../services/financialSummary.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
 
@@ -193,11 +194,7 @@ const getAndamentoPatrimonio = async (req, res) => {
 
     const periodi = buildPeriodi({ unita, quantita, da, a });
 
-    const conti = await Conto.findAll({ where: { user_id: req.userId, attivo: true } });
-    const investimenti = await Investimento.findAll({ where: { user_id: req.userId, attivo: true } });
-    const patrimonioConti = conti.reduce((s, c) => s + toNumber(c.saldo), 0);
-    const patrimonioInvestimenti = investimenti.reduce((s, i) => s + toNumber(i.saldo_attuale), 0);
-    const patrimonioAttuale = patrimonioConti + patrimonioInvestimenti;
+    const { patrimonio_totale: patrimonioAttuale } = await calcolaPatrimonio(req.userId);
 
     if (!periodi.length) {
       return res.json({
@@ -390,8 +387,7 @@ const getSuggerimenti = async (req, res) => {
       }
     });
 
-    const conti = await Conto.findAll({ where: { user_id: req.userId, attivo: true } });
-    const patrimonio = conti.reduce((s, c) => s + toNumber(c.saldo), 0);
+    const { patrimonio_totale: patrimonio } = await calcolaPatrimonio(req.userId);
     const movimentiMese = await Movimento.findAll({
       where: {
         user_id: req.userId,
