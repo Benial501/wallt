@@ -1,5 +1,5 @@
 const { Conto, Obiettivo, Movimento } = require('../models');
-const { Op } = require('sequelize');
+const { getRomeDateParts } = require('./ricorrenti.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
 const round2 = (val) => Math.round(val * 100) / 100;
@@ -23,8 +23,9 @@ const round2 = (val) => Math.round(val * 100) / 100;
  *   ancora quell'uscita, quindi non è denaro davvero disponibile.
  */
 async function calcolaLiquidita(userId, { data = new Date().toISOString().split('T')[0], transaction } = {}) {
-  const oggi = new Date(data);
-  const periodoCorrente = `${oggi.getFullYear()}-${String(oggi.getMonth() + 1).padStart(2, '0')}`;
+  const dataDate = new Date(data);
+  const romeDateParts = getRomeDateParts(dataDate);
+  const periodoCorrente = romeDateParts.period;
 
   const conti = await Conto.findAll({ where: { user_id: userId, attivo: true }, transaction });
   const saldo_conti = round2(conti.reduce((sum, c) => sum + toNumber(c.saldo), 0));
@@ -37,7 +38,7 @@ async function calcolaLiquidita(userId, { data = new Date().toISOString().split(
   const obiettivi_allocati = obiettiviAttivi.map((o) => ({
     id: o.id,
     nome: o.nome,
-    importo_attuale: toNumber(o.importo_attuale),
+    importo_attuale: round2(toNumber(o.importo_attuale)),
   }));
 
   const ricorrenti = await Movimento.findAll({
@@ -61,7 +62,7 @@ async function calcolaLiquidita(userId, { data = new Date().toISOString().split(
       impegni.push({
         movimento_id: r.id,
         categoria: r.categoria,
-        importo: toNumber(r.importo),
+        importo: round2(toNumber(r.importo)),
         giorno: r.ricorrente_giorno || 1,
       });
     }

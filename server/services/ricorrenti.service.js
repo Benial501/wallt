@@ -130,4 +130,4 @@ function avviaCronRicorrenti() {
   logger.info('Recurring transactions cron scheduled (daily 09:00 Europe/Rome)');
 }
 
-module.exports = { processaRicorrenti, avviaCronRicorrenti };
+module.exports = { processaRicorrenti, avviaCronRicorrenti, getRomeDateParts };
