@@ -1,7 +1,7 @@
 # Financial Foundation Frontend — Design
 
-**Data:** 17 settembre 2026  
-**Branch:** `feature/financial-foundation-frontend`  
+**Data:** 17 settembre 2026
+**Branch:** `feature/financial-foundation-frontend`
 **Ambito:** esclusivamente frontend, UX, navigazione, Help e test client.
 
 ## Obiettivo

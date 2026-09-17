@@ -69,7 +69,7 @@ test('le restrizioni filtrano le funzioni senza duplicare le liste', () => {
 
 - [ ] **Step 2: Eseguire il test e verificare RED**
 
-Run: `cd client && node --test tests/functionalityItems.test.js`  
+Run: `cd client && node --test tests/functionalityItems.test.js`
 Expected: FAIL perché `src/config/functionalityItems.js` non esiste.
 
 - [ ] **Step 3: Implementare il catalogo minimo**
@@ -97,7 +97,7 @@ Estendere `NAV_ICON_MAP` con `ricorrenti: Repeat2`, importare il selettore in `A
 
 - [ ] **Step 4: Verificare GREEN e regressioni**
 
-Run: `cd client && node --test tests/functionalityItems.test.js && npm test`  
+Run: `cd client && node --test tests/functionalityItems.test.js && npm test`
 Expected: PASS per il nuovo file e per tutta la suite.
 
 - [ ] **Step 5: Commit**
@@ -157,7 +157,7 @@ test('una lista riuscita ma vuota è vuoto, un fallimento è errore', async () =
 
 - [ ] **Step 2: Eseguire e verificare RED**
 
-Run: `cd client && node --test tests/ricorrenti.test.js`  
+Run: `cd client && node --test tests/ricorrenti.test.js`
 Expected: FAIL perché `src/utils/ricorrenti.js` non esiste.
 
 - [ ] **Step 3: Implementare utility e risorsa store**
@@ -187,7 +187,7 @@ Aggiungere `risorsaRicorrenti.reset()` al reset e restituire risorsa/computed da
 
 - [ ] **Step 4: Verificare GREEN**
 
-Run: `cd client && node --test tests/ricorrenti.test.js && npm test`  
+Run: `cd client && node --test tests/ricorrenti.test.js && npm test`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -238,7 +238,7 @@ test('la riga usa testo oltre al colore', async () => {
 
 - [ ] **Step 2: Eseguire e verificare RED**
 
-Run: `cd client && node --test tests/ricorrentiView.test.js`  
+Run: `cd client && node --test tests/ricorrentiView.test.js`
 Expected: FAIL perché il componente non esiste.
 
 - [ ] **Step 3: Implementare la pagina**
@@ -268,7 +268,7 @@ Aggiungere nel router, prima della catch-all futura:
 
 - [ ] **Step 4: Verificare GREEN e build**
 
-Run: `cd client && node --test tests/ricorrentiView.test.js && npm test && npm run build`  
+Run: `cd client && node --test tests/ricorrentiView.test.js && npm test && npm run build`
 Expected: PASS e build riuscita.
 
 - [ ] **Step 5: Commit**
@@ -322,7 +322,7 @@ test('retry notifiche recupera e un errore successivo conserva i dati', async ()
 
 - [ ] **Step 2: Eseguire e verificare RED rispetto allo store attuale**
 
-Run: `cd client && node --test tests/notificheResource.test.js` e aggiungere una guardia che richiede `risorsaNotifiche` nello store.  
+Run: `cd client && node --test tests/notificheResource.test.js` e aggiungere una guardia che richiede `risorsaNotifiche` nello store.
 Expected: la guardia dello store FAIL perché il simbolo non esiste.
 
 - [ ] **Step 3: Migrare lo store e le due superfici**
@@ -343,7 +343,7 @@ Rimpiazzare i rami manuali `loading`/`vuoto` in pagina e pannello con `DataState
 
 - [ ] **Step 4: Verificare GREEN**
 
-Run: `cd client && node --test tests/notificheResource.test.js && npm test && npm run build`  
+Run: `cd client && node --test tests/notificheResource.test.js && npm test && npm run build`
 Expected: PASS e build riuscita.
 
 - [ ] **Step 5: Commit**
@@ -401,7 +401,7 @@ for (const id of ['funzionalita-navigazione', 'ricorrenti-gestione', 'notifiche-
 
 - [ ] **Step 2: Eseguire e verificare RED**
 
-Run: `cd client && node --test tests/notFoundRoute.test.js tests/helpTopics.test.js`  
+Run: `cd client && node --test tests/notFoundRoute.test.js tests/helpTopics.test.js`
 Expected: FAIL per vista/route/argomenti mancanti.
 
 - [ ] **Step 3: Implementare vista, route e contenuti reali**
@@ -412,7 +412,7 @@ Nel catalogo Help aggiungere tre topic con link interni a `/ricorrenti`, `/notif
 
 - [ ] **Step 4: Verificare GREEN**
 
-Run: `cd client && node --test tests/notFoundRoute.test.js tests/helpTopics.test.js && npm test && npm run build`  
+Run: `cd client && node --test tests/notFoundRoute.test.js tests/helpTopics.test.js && npm test && npm run build`
 Expected: PASS e build riuscita.
 
 - [ ] **Step 5: Commit**
@@ -435,12 +435,12 @@ git commit -m "feat(router): add themed not-found route and update help"
 
 - [ ] **Step 1: Eseguire verifiche statiche finali**
 
-Run: `cd client && npm test && npm run build && git diff --check`  
+Run: `cd client && npm test && npm run build && git diff --check`
 Expected: 0 fallimenti, build riuscita, nessun errore whitespace. Annotare che `npm run lint` non esiste.
 
 - [ ] **Step 2: Avviare frontend e backend disponibili**
 
-Run client: `cd client && npm run dev -- --host 127.0.0.1`  
+Run client: `cd client && npm run dev -- --host 127.0.0.1`
 Run server, solo se dipendenze e database locali sono configurati: `cd server && npm start`.
 
 - [ ] **Step 3: Verificare realmente le route**
