@@ -144,4 +144,17 @@ describe('FondoSicurezzaService.calcolaMesiCopertura', () => {
     const res = await request(app).get('/api/obiettivi/999999/copertura').set(authHeader(token));
     expect(res.status).toBe(404);
   });
+
+  it('404 se l\'obiettivo esiste ma è di un altro utente', async () => {
+    const { res: registerRes } = await registerUser(app);
+    const altroToken = registerRes.body.token;
+    const altroFondoRes = await request(app)
+      .post('/api/obiettivi')
+      .set(authHeader(altroToken))
+      .send({ nome: 'Fondo altrui', importo_target: 5000, tipo_obiettivo: 'fondo_sicurezza' });
+    const altroId = altroFondoRes.body.obiettivo.id;
+
+    const res = await request(app).get(`/api/obiettivi/${altroId}/copertura`).set(authHeader(token));
+    expect(res.status).toBe(404);
+  });
 });

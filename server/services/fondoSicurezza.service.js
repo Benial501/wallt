@@ -2,22 +2,36 @@ const { Op } = require('sequelize');
 const { Movimento } = require('../models');
 const { list } = require('./categorie.service');
 const { aggregaPerEssenzialita } = require('./essenzialita.service');
+const { getRomeDateParts } = require('./ricorrenti.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
 const round1 = (val) => Math.round(val * 10) / 10;
+const pad2 = (n) => String(n).padStart(2, '0');
 
-/** Primo giorno del mese, N mesi indietro rispetto a `riferimento`. */
+/** Primo giorno del mese, N mesi indietro rispetto a `riferimento`, nel
+ * calendario di Roma (mai in quello del processo, che su Vercel e' UTC:
+ * CLAUDE.md regola #16). */
 const inizioMesiFa = (riferimento, n) => {
-  const d = new Date(riferimento.getFullYear(), riferimento.getMonth() - n, 1);
-  return d.toISOString().split('T')[0];
+  const [anno, mese] = getRomeDateParts(riferimento).period.split('-').map(Number);
+  let y = anno;
+  let m = mese - n;
+  while (m <= 0) { m += 12; y -= 1; }
+  return `${y}-${pad2(m)}-01`;
 };
 
 /** Ultimo giorno del mese precedente a `riferimento` (esclude il mese corrente,
  * ancora parziale, per non far apparire le spese essenziali piu' basse di
- * quanto sono davvero). */
+ * quanto sono davvero), nel calendario di Roma. */
 const fineMeseScorso = (riferimento) => {
-  const d = new Date(riferimento.getFullYear(), riferimento.getMonth(), 0);
-  return d.toISOString().split('T')[0];
+  const [anno, mese] = getRomeDateParts(riferimento).period.split('-').map(Number);
+  let y = anno;
+  let m = mese - 1;
+  if (m <= 0) { m = 12; y -= 1; }
+  // Date.UTC(y, m, 0) usa `m` come indice di mese 0-based: passandogli il
+  // nostro `m` 1-based si ottiene il mese successivo in JS, il cui giorno 0
+  // e' l'ultimo giorno del mese `m` che vogliamo (calcolo timezone-neutro).
+  const ultimoGiorno = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return `${y}-${pad2(m)}-${pad2(ultimoGiorno)}`;
 };
 
 /**
