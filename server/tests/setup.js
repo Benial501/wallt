@@ -62,6 +62,7 @@ const TABLES = [
   'movimenti_scommesse',
   'obiettivo_contributi',
   'budget_categorie',
+  'debiti',
   'movimenti',
   'investimenti',
   'piattaforme_scommesse',

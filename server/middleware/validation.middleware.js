@@ -830,6 +830,130 @@ const validateMovimentoInvestimento = [
   validate,
 ];
 
+// --- Debiti ---
+
+const TIPI_DEBITO = ['prestito', 'mutuo', 'finanziamento', 'revolving', 'debito_personale', 'altro'];
+const FREQUENZE_DEBITO = ['mensile', 'settimanale', 'annuale', 'unica'];
+
+const isValidDateOnly = (value) => {
+  if (typeof value !== 'string') return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year < 1 || month < 1 || month > 12 || day < 1) return false;
+
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysPerMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day <= daysPerMonth[month - 1];
+};
+
+const optionalDateOnly = (field, message) => body(field)
+  .optional({ values: 'null' })
+  .custom(isValidDateOnly)
+  .withMessage(message);
+
+const nonNegativeDecimal = (
+  field,
+  message,
+  max,
+  { optional = false, nullable = false } = {},
+) => {
+  let chain = body(field);
+  if (optional) chain = chain.optional({ values: nullable ? 'null' : 'undefined' });
+
+  return chain
+    .isDecimal({ decimal_digits: '0,2' })
+    .withMessage(message)
+    .bail()
+    .custom((value) => {
+      const numericValue = Number(value);
+      return Number.isFinite(numericValue) && numericValue >= 0 && numericValue <= max;
+    })
+    .withMessage(message);
+};
+
+const validateDebito = [
+  body('nome')
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 200 })
+    .withMessage('Nome obbligatorio'),
+  body('tipo')
+    .optional({ values: 'undefined' })
+    .isIn(TIPI_DEBITO)
+    .withMessage('Tipo debito non valido'),
+  nonNegativeDecimal('saldo_residuo', 'Saldo residuo non valido', 9999999999.99),
+  nonNegativeDecimal(
+    'rata_periodica', 'Rata periodica non valida', 9999999999.99,
+    { optional: true, nullable: true },
+  ),
+  nonNegativeDecimal(
+    'tasso_interesse', 'Tasso interesse non valido', 100,
+    { optional: true, nullable: true },
+  ),
+  nonNegativeDecimal(
+    'taeg', 'TAEG non valido', 100,
+    { optional: true, nullable: true },
+  ),
+  body('frequenza')
+    .optional({ values: 'null' })
+    .isIn(FREQUENZE_DEBITO)
+    .withMessage('Frequenza non valida'),
+  optionalDateOnly('prossima_scadenza', 'Prossima scadenza non valida'),
+  optionalDateOnly('data_fine', 'Data fine non valida'),
+  body('conto_id')
+    .optional({ values: 'null' })
+    .isInt({ min: 1 })
+    .withMessage('Conto non valido'),
+  validate,
+];
+
+const validateUpdateDebito = [
+  idParam,
+  body('nome')
+    .optional({ values: 'undefined' })
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 200 })
+    .withMessage('Nome non valido'),
+  body('tipo')
+    .optional({ values: 'undefined' })
+    .isIn(TIPI_DEBITO)
+    .withMessage('Tipo debito non valido'),
+  nonNegativeDecimal(
+    'saldo_residuo', 'Saldo residuo non valido', 9999999999.99,
+    { optional: true },
+  ),
+  nonNegativeDecimal(
+    'rata_periodica', 'Rata periodica non valida', 9999999999.99,
+    { optional: true, nullable: true },
+  ),
+  nonNegativeDecimal(
+    'tasso_interesse', 'Tasso interesse non valido', 100,
+    { optional: true, nullable: true },
+  ),
+  nonNegativeDecimal(
+    'taeg', 'TAEG non valido', 100,
+    { optional: true, nullable: true },
+  ),
+  body('frequenza')
+    .optional({ values: 'null' })
+    .isIn(FREQUENZE_DEBITO)
+    .withMessage('Frequenza non valida'),
+  optionalDateOnly('prossima_scadenza', 'Prossima scadenza non valida'),
+  optionalDateOnly('data_fine', 'Data fine non valida'),
+  body('conto_id')
+    .optional({ values: 'null' })
+    .isInt({ min: 1 })
+    .withMessage('Conto non valido'),
+  validate,
+];
+
+const validateDeleteDebito = validateIdParam;
+
 // --- Scommesse ---
 
 const validatePiattaformaScommesse = [
@@ -1126,6 +1250,9 @@ module.exports = {
   validateUpdateInvestimento,
   validateDeleteInvestimento,
   validateMovimentoInvestimento,
+  validateDebito,
+  validateUpdateDebito,
+  validateDeleteDebito,
   validatePiattaformaScommesse,
   validateUpdatePiattaformaScommesse,
   validateDeletePiattaformaScommesse,
