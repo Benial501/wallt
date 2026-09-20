@@ -1,4 +1,4 @@
-const { Conto, Investimento } = require('../models');
+const { Conto, Investimento, Debito } = require('../models');
 
 const toNumber = (val) => parseFloat(val) || 0;
 const round2 = (val) => Math.round(val * 100) / 100;
@@ -28,4 +28,26 @@ async function calcolaPatrimonio(userId, { transaction } = {}) {
   };
 }
 
-module.exports = { calcolaPatrimonio, toNumber, round2 };
+/** Passività = somma saldo_residuo dei debiti attivi. */
+async function calcolaPassivita(userId, { transaction } = {}) {
+  const debiti = await Debito.findAll({ where: { user_id: userId, attivo: true }, transaction });
+  const passivita_totale = round2(debiti.reduce((sum, d) => sum + toNumber(d.saldo_residuo), 0));
+  return { debiti, passivita_totale };
+}
+
+/**
+ * Patrimonio netto = attività finanziarie (conti + investimenti) - passività
+ * (debiti). Non sostituisce patrimonio_totale (che resta le sole attività,
+ * come oggi): lo affianca, additivo.
+ */
+async function calcolaPatrimonioNetto(userId, { transaction } = {}) {
+  const patrimonio = await calcolaPatrimonio(userId, { transaction });
+  const { passivita_totale } = await calcolaPassivita(userId, { transaction });
+  return {
+    ...patrimonio,
+    passivita_totale,
+    patrimonio_netto: round2(patrimonio.patrimonio_totale - passivita_totale),
+  };
+}
+
+module.exports = { calcolaPatrimonio, calcolaPassivita, calcolaPatrimonioNetto, toNumber, round2 };

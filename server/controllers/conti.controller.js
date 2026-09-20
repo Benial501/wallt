@@ -8,7 +8,7 @@ const {
   deactivateLinkedPiattaforma,
   backfillUserLinks,
 } = require('../services/scommesseContoSync.service');
-const { calcolaPatrimonio } = require('../services/financialSummary.service');
+const { calcolaPatrimonio, calcolaPatrimonioNetto } = require('../services/financialSummary.service');
 const { calcolaLiquidita } = require('../services/liquidita.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
@@ -202,7 +202,10 @@ const deleteConto = async (req, res) => {
 
 const getPatrimonioTotale = async (req, res) => {
   try {
-    const { patrimonio_conti: totaleConti, patrimonio_investimenti: totaleInvestimenti, patrimonio_totale: totale } = await calcolaPatrimonio(req.userId);
+    const {
+      patrimonio_conti: totaleConti, patrimonio_investimenti: totaleInvestimenti,
+      patrimonio_totale: totale, passivita_totale, patrimonio_netto,
+    } = await calcolaPatrimonioNetto(req.userId);
 
     const now = new Date();
     const primoGiorno = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -234,6 +237,8 @@ const getPatrimonioTotale = async (req, res) => {
       totale_investimenti: Math.round(totaleInvestimenti * 100) / 100,
       variazione_importo,
       variazione_percentuale,
+      passivita_totale,
+      patrimonio_netto,
     });
   } catch (error) {
     logger.error('Errore getPatrimonioTotale', { err: error });

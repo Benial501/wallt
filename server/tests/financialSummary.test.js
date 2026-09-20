@@ -85,3 +85,51 @@ describe('FinancialSummaryService.calcolaPatrimonio', () => {
     expect(crescita.dettaglio).toContain('1450');
   });
 });
+
+describe('FinancialSummaryService.calcolaPatrimonioNetto', () => {
+  const { Debito } = require('../models');
+  let app;
+  let token;
+  let userId;
+
+  beforeEach(async () => {
+    app = createApp({ enableRateLimit: false });
+    const { res } = await registerUser(app);
+    token = res.body.token;
+    userId = res.body.user.id;
+  });
+
+  it('patrimonio netto = attivita - passivita (solo debiti attivi)', async () => {
+    await Conto.create({
+      user_id: userId, nome: 'Conto', tipo: 'banca', saldo: 5000, attivo: true,
+    });
+    await Debito.create({
+      user_id: userId, nome: 'Prestito', saldo_residuo: 2000, attivo: true,
+    });
+    await Debito.create({
+      user_id: userId, nome: 'Estinto', saldo_residuo: 999, attivo: false,
+    });
+
+    const { calcolaPatrimonioNetto } = require('../services/financialSummary.service');
+    const result = await calcolaPatrimonioNetto(userId);
+
+    expect(result.patrimonio_totale).toBe(5000);
+    expect(result.passivita_totale).toBe(2000);
+    expect(result.patrimonio_netto).toBe(3000);
+  });
+
+  it('GET /api/conti/patrimonio espone passivita_totale e patrimonio_netto senza cambiare i campi esistenti', async () => {
+    await Conto.create({
+      user_id: userId, nome: 'Conto', tipo: 'banca', saldo: 1000, attivo: true,
+    });
+    await Debito.create({
+      user_id: userId, nome: 'Prestito', saldo_residuo: 300, attivo: true,
+    });
+
+    const res = await request(app).get('/api/conti/patrimonio').set(authHeader(token));
+
+    expect(res.body.totale).toBe(1000);
+    expect(res.body.passivita_totale).toBe(300);
+    expect(res.body.patrimonio_netto).toBe(700);
+  });
+});
