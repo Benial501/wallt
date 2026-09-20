@@ -92,6 +92,42 @@ describe('LiquiditaService.calcolaLiquidita', () => {
     expect(result.impegni_pertinenti).toBe(300);
   });
 
+  it('senza `data` esplicita, usa il mese corrente a Roma, non quello UTC del processo', async () => {
+    // Alle 22:30 UTC del 30 settembre, a Roma (CEST, +2h) è già il 1° ottobre:
+    // il periodo corrente corretto è '2026-10'. Se il default troncasse
+    // prima in UTC (new Date().toISOString().split('T')[0] => '2026-09-30'),
+    // il periodo calcolato sarebbe '2026-09' invece di '2026-10'.
+    //
+    // Per distinguere i due esiti, simuliamo che il ricorrente sia GIA'
+    // stato eseguito per settembre (ricorrenza_periodo: '2026-09'). Col
+    // periodo corretto ('2026-10') quell'esecuzione di settembre non
+    // "copre" ottobre, quindi il ricorrente resta un impegno pertinente.
+    // Col bug (periodo '2026-09') l'esecuzione di settembre verrebbe
+    // scambiata per quella del periodo corrente e l'impegno sparirebbe.
+    jest.useFakeTimers({
+      doNotFake: ['nextTick', 'setImmediate', 'setInterval', 'setTimeout', 'clearImmediate', 'clearInterval', 'clearTimeout'],
+    }).setSystemTime(new Date('2026-09-30T22:30:00Z'));
+
+    try {
+      const ricorrente = await Movimento.create({
+        user_id: userId, conto_id: conto.id, tipo: 'uscita', importo: 300, categoria: 'affitto',
+        descrizione: 'Affitto', data: '2026-01-01', ricorrente: true, ricorrente_frequenza: 'mensile',
+        ricorrente_giorno: 1,
+      });
+      await Movimento.create({
+        user_id: userId, conto_id: conto.id, tipo: 'uscita', importo: 300, categoria: 'affitto',
+        descrizione: 'Affitto (automatico)', data: '2026-09-01', ricorrente: false,
+        ricorrenza_origine_id: ricorrente.id, ricorrenza_periodo: '2026-09',
+      });
+
+      const result = await calcolaLiquidita(userId);
+      expect(result.impegni_pertinenti).toBe(300);
+      expect(result.liquidita_libera).toBe(700);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('GET /api/conti/liquidita espone lo stesso risultato del service', async () => {
     await Obiettivo.create({
       user_id: userId, nome: 'Vacanza', importo_target: 500, importo_attuale: 150, completato: false,

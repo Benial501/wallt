@@ -22,10 +22,9 @@ const round2 = (val) => Math.round(val * 100) / 100;
  *   ricorrenza_periodo=<periodo corrente>). Il saldo del conto non riflette
  *   ancora quell'uscita, quindi non è denaro davvero disponibile.
  */
-async function calcolaLiquidita(userId, { data = new Date().toISOString().split('T')[0], transaction } = {}) {
-  const dataDate = new Date(data);
-  const romeDateParts = getRomeDateParts(dataDate);
-  const periodoCorrente = romeDateParts.period;
+async function calcolaLiquidita(userId, { data, transaction } = {}) {
+  const riferimento = data ? new Date(data) : new Date();
+  const periodoCorrente = getRomeDateParts(riferimento).period;
 
   const conti = await Conto.findAll({ where: { user_id: userId, attivo: true }, transaction });
   const saldo_conti = round2(conti.reduce((sum, c) => sum + toNumber(c.saldo), 0));
