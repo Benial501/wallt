@@ -6,7 +6,7 @@ const {
   Conto, Movimento,
 } = require('./setup');
 const {
-  BudgetMensile, Obiettivo, Investimento, PiattaformaScommesse, User, ProfiloUtente,
+  BudgetMensile, Obiettivo, Investimento, PiattaformaScommesse, User, ProfiloUtente, Debito,
 } = require('../models');
 
 const enableScommesseInvestimenti = async (userId) => {
@@ -226,6 +226,34 @@ describe('Isolamento tra utenti (USER_A vs USER_B)', () => {
     await obiettivoB.reload();
     expect(obiettivoB.nome).toBe('Segreto B');
     expect(Number(obiettivoB.importo_attuale)).toBe(0);
+  });
+
+  it('USER_A non può leggere/modificare/eliminare il debito di USER_B', async () => {
+    const debitoB = await Debito.create({
+      user_id: userIdB,
+      nome: 'Prestito segreto B',
+      saldo_residuo: 5000,
+    });
+
+    const listRes = await request(app)
+      .get('/api/debiti')
+      .set(authHeader(tokenA));
+    expect(listRes.body.debiti.some((d) => d.id === debitoB.id)).toBe(false);
+
+    const putRes = await request(app)
+      .put(`/api/debiti/${debitoB.id}`)
+      .set(authHeader(tokenA))
+      .send({ nome: 'Rubato' });
+    expect(putRes.status).toBe(404);
+
+    const delRes = await request(app)
+      .delete(`/api/debiti/${debitoB.id}`)
+      .set(authHeader(tokenA));
+    expect(delRes.status).toBe(404);
+
+    await debitoB.reload();
+    expect(debitoB.nome).toBe('Prestito segreto B');
+    expect(debitoB.attivo).toBe(true);
   });
 
   it('USER_A non può leggere/modificare/eliminare l’investimento di USER_B', async () => {
