@@ -97,28 +97,28 @@ Nota: prima di questa diagnosi era stato corretto un bug CSP indipendente (`conn
 ### Stato del rischio
 **Riaperto e accettato esplicitamente.** Per gli account Google le tre operazioni distruttive sono protette dal solo JWT più una stringa pubblica (`ELIMINA`/`RESETTA`; l'export non ha nemmeno quella). Chi ottiene un JWT valido può esportare tutti i dati, azzerare le transazioni ed eliminare l'account senza possedere le credenziali Google. Gli account con password locale mantengono lo step-up bcrypt reale, invariato.
 
-Verificato con 18 test in `server/tests/googleStepUp.test.js`: il meccanismo Google resta coperto (nonce, sub, freschezza, single-use del challenge), due test sulla non-trasferibilità dello step-up sono stati ri-targettizzati sugli utenti locali — gli unici ancora soggetti — e 4 test nuovi fissano il comportamento attuale (Google reset/delete senza step-up, conferma errata comunque rifiutata, utenti locali ancora sotto step-up). Suite completa: 12 suite, 125 test.
+Verificato con 18 test in `server/tests/googleStepUp.test.js`: il meccanismo Google resta coperto (nonce, sub, freschezza, single-use del challenge), due test sulla non-trasferibilità dello step-up sono stati ri-targettizzati sugli utenti locali — gli unici ancora soggetti — e 4 test nuovi fissano il comportamento attuale (Google reset/delete senza step-up, conferma errata comunque rifiutata, utenti locali ancora sotto step-up). Suite completa: 44 suite, 542 test.
 
 ### Should it be changed?
 **Sì, se e quando l'app va in produzione con dati reali.** Il gap si richiude in due passi: registrare `http://localhost:5173` e il dominio di produzione tra le **origini JavaScript autorizzate** del client OAuth in Google Cloud, poi rimettere `requireStepUp` al posto di `requireStepUpUnlessOAuth` sulle tre rotte e ripristinare il pulsante Google nei modali. La lezione delle iterazioni 1→2→3→4 è che questa protezione viene rimossa ogni volta che la configurazione Google Cloud diventa un ostacolo pratico: se si vuole che regga, va configurata l'origin una volta per tutte.
 
 ---
 
-## Decision: MySQL con Sequelize ORM
+## Decision: PostgreSQL con Sequelize ORM
 
 ### Context
 Database relazionale per dati finanziari strutturati con relazioni utente→conti→movimenti.
 
 ### Current implementation
-- MySQL 8 con Sequelize 6.
-- 15 modelli, 16 migrazioni.
+- PostgreSQL (Supabase) con Sequelize 6, driver `pg` + `pg-hstore`.
+- 22 modelli, 32 migrazioni.
 - Auto-migrate all'avvio server **solo fuori produzione** (vedi decisione dedicata sotto); in produzione le migrazioni sono uno step di deploy separato.
 - Transazioni DB con row-level locking (`SELECT ... FOR UPDATE`) per operazioni su saldo — verificato con test di race condition (`server/tests/financialConsistency.test.js`).
 
 ### Advantages
 - Relazioni ben definite, transazioni ACID per saldi.
 - Sequelize migrations per evoluzione schema.
-- MySQL diffuso e economico da hostare.
+- PostgreSQL/Supabase diffuso, gestito (backup, pooling) e ben supportato dai provider managed.
 
 ### Disadvantages
 - Sequelize overhead vs query raw.

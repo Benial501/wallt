@@ -4,23 +4,25 @@
 
 ## Database utilizzato
 
-- **MySQL 8.x**
+- **PostgreSQL (Supabase)**
 - ORM: **Sequelize 6.37**
-- Driver: **mysql2 3.22**
+- Driver: **pg ^8.23.0 + pg-hstore ^2.3.4**
 - Configurazione: `server/config/database.js` (per env dev/test/prod) + `server/config/sequelize.js` (runtime)
 
 ## Configurazione
 
+Il path primario è la connection string `DATABASE_URL` (runtime, Transaction Pooler Supabase porta 6543) o `DATABASE_MIGRATION_URL` (migrazioni, Session Pooler porta 5432). I parametri `DB_*` sono un fallback separato, usato solo dove previsto (development/test locali) — `server/config/database.js` non ammette una miscela dei due path.
+
 | Variabile | Default | Descrizione |
 |---|---|---|
-| `DB_HOST` | `127.0.0.1` | Host MySQL |
-| `DB_PORT` | `3306` | Porta |
+| `DB_HOST` | `127.0.0.1` | Host PostgreSQL |
+| `DB_PORT` | `5432` | Porta |
 | `DB_NAME` | `wallt_db` | Database produzione |
 | `DB_NAME_TEST` | `wallt_test` | Database test (Jest) |
 | `DB_USER` | `root` | Utente |
 | `DB_PASSWORD` | (vuoto) | Password |
 
-Migrazioni: `npm run migrate` o auto-run all'avvio (`server.js`).
+Migrazioni: `npm run migrate` o auto-run all'avvio (`server.js`, disabilitato in produzione).
 
 ## Tabelle e modelli
 
@@ -302,6 +304,17 @@ prima esecuzione del cron.
 | `attiva` | BOOLEAN | `false` dopo un 404/410 dal push service |
 | `ultimo_errore` / `disattivata_at` | STRING(255) / DATE | |
 
+### `auth_rate_limits`
+| Campo | Tipo | Note |
+|---|---|---|
+| `id` | BIGINT PK AI | |
+| `key_hash` | STRING(64) | Hash della chiave di rate limit (IP/utente/rotta) |
+| `route` | STRING(100) | Rotta auth protetta |
+| `window_start` | DATE | Inizio finestra di conteggio |
+| `hit_count` | INTEGER | Default 1 |
+
+Nessuna FK verso `users`: rate limit persistente lato auth, usato prima/indipendentemente dall'identificazione dell'utente.
+
 ## Relazioni testuali
 
 ```
@@ -355,6 +368,17 @@ CategorieRegola (globali, user_id = NULL) — nessuna FK
 | `20260830000012-create-auth-rate-limits.js` | Rate limit persistente auth |
 | `20260830000013-harden-sequelize-meta.js` | Protezione tabella SequelizeMeta |
 | `20260906000014-create-notifiche.js` | notifiche + preferenze_notifiche + push_subscriptions (con RLS) |
+| `20260907000015-create-categorie-personali.js` | Tabella categorie_personali + colonna movimenti.categoria_fonte |
+| `20260907000016-category-rule-type.js` | categorie_regole.tipo + indice unico personale per tipo |
+| `20260907000017-harden-categorie-personali.js` | RLS + revoca privilegi ruoli pubblici su categorie_personali |
+| `20260909000018-add-avatar-immagine.js` | users.avatar_immagine (data URL) |
+| `20260909000019-create-categorie-default-nascoste.js` | Tabella categorie_default_nascoste (eliminazione predefinite per-utente) |
+| `20260914000020-scommesse-movimenti-come-trasferimenti.js` | Converte depositi/prelievi scommesse in trasferimenti |
+| `20260914000021-riallinea-conti-di-gioco.js` | Riallinea saldo conti di gioco alla piattaforma collegata |
+| `20260917000022-add-essenzialita-categorie-personali.js` | categorie_personali.essenzialita (essenziale/semi_essenziale/discrezionale) |
+| `20260917000023-add-tipo-obiettivo.js` | obiettivi.tipo_obiettivo (generico/fondo_sicurezza) |
+| `20260917000024-create-debiti.js` | Tabella debiti |
+| `20260917000025-harden-debiti-access.js` | RLS + revoca privilegi ruoli pubblici su debiti (follow-up hardening, additiva) |
 
 ## Query importanti
 
@@ -388,7 +412,7 @@ CategorieRegola (globali, user_id = NULL) — nessuna FK
 - **File**: Non presente nel repository
 - **Problema**: Nessuno script o configurazione di backup DB.
 - **Impatto**: Perdita dati in caso di crash DB.
-- **Soluzione**: Cron mysqldump o backup managed del provider.
+- **Soluzione**: Cron pg_dump o backup managed del provider (Supabase).
 - **Rischio modifica**: Low (aggiunta, non modifica)
 
 ### DR-4: Soft-delete conti senza cascade

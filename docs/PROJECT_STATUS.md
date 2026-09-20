@@ -49,7 +49,7 @@ Funzionalità realmente implementate e collegate end-to-end (frontend + backend)
 | Budget suggerito da profilo | Parziale | API `GET /profilo/budget-suggerito` esiste; frontend non la chiama |
 | Movimenti ricorrenti UI | Parziale | API `GET /movimenti/ricorrenti` esiste; nessuna view la usa |
 | CI/CD | Base | `.github/workflows/ci.yml`: test backend + build frontend su ogni push/PR verso `main`. Deploy resta manuale. |
-| Test coverage | Parziale | 12 suite (auth, security, gdpr, profilo, import, categorization, isolation, googleStepUp, financialConsistency, ricorrenti, excelParser, validateEnv); 125 test. Isolamento cross-user, coerenza finanziaria (saldo/trasferimenti/race condition), step-up Google, cron ricorrenti, config produzione coperti. Non coperta: logica di business di budget/obiettivi/investimenti/scommesse (solo isolamento) |
+| Test coverage | Parziale | 44 suite; 542 test. Isolamento cross-user, coerenza finanziaria (saldo/trasferimenti/race condition), step-up Google, cron ricorrenti, config produzione coperti. Non coperta: logica di business di budget/obiettivi/investimenti/scommesse (solo isolamento) |
 
 ## Missing / Planned Features
 
@@ -72,7 +72,7 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 
 | Bug | Gravità | File | Dettaglio |
 |---|---|---|---|
-| Session reset incompleto | Medium | `session.js` | Logout non pulisce `recentiHome` (movimenti.store) né `panoramica`/`analisi` (scommesse.store); lo store `analisi` principale viene invece resettato correttamente |
+| ~~Session reset incompleto~~ | ~~Medium~~ | `session.js` | **Risolto** (`f565764`): i sette store che alimentano la dashboard leggono ora da `creaRisorsa`, e `resetPiniaStores()` richiama il `reset()` di ciascuno invece di elencarne i campi a mano — quel `reset()` azzera anche le risorse interne (`recentiHome`, `panoramica`/`analisi` di scommesse) |
 | ~~Cron ricorrenti: doppio addebito su riesecuzione~~ | ~~High~~ | `ricorrenti.service.js` | **Risolto**: il controllo anti-duplicazione confrontava la descrizione sbagliata e non trovava mai un "già creato" — ogni riesecuzione nello stesso giorno duplicava il movimento e scalava il saldo due volte. Corretto + guardia di rientranza contro esecuzioni sovrapposte. Vedi `tests/ricorrenti.test.js`. |
 | Logout cache leak cross-user | Medium | `session.js`, `movimenti.store.js` | Dati precedente utente visibili brevemente dopo login diverso |
 | `fetchBudgetSuggerito` mai chiamato | Low | `profilo.store.js` | API esistente ma UI non la usa |
@@ -131,7 +131,7 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 
 **Lint**: nessun linter configurato (né backend né frontend).
 
-**Build**: `npm run build` in client/ (verificato — nessun errore). `npm test` in server/ (125 test, richiede MySQL test DB). CI: `.github/workflows/ci.yml` esegue entrambi su ogni push/PR.
+**Build**: `npm run build` in client/ (verificato — nessun errore). `npm test` in server/ (542 test, richiede PostgreSQL test DB). CI: `.github/workflows/ci.yml` esegue entrambi su ogni push/PR.
 
 ## Production Readiness
 
@@ -141,7 +141,7 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 |---|---|---|
 | Funzionalità core | 8/10 | Tutte le feature principali implementate |
 | Sicurezza | 6/10 | Step-up reale solo per gli account con password locale (⚠️ saltato per Google, rischio accettato); rate limit dedicato; CSP SPA; residui: riverifica identità Google, rotazione password DB (.env.test in history), xlsx senza fix upstream (mitigato) |
-| Test | 6/10 | 12 suite backend incluso isolamento cross-user, coerenza finanziaria e race condition; nessun test frontend |
+| Test | 6/10 | 44 suite backend incluso isolamento cross-user, coerenza finanziaria e race condition; nessun test frontend |
 | DevOps | 2/10 | No CI/CD, no Docker, no backup, deploy manuale |
 | Documentazione | 6/10 | README + report interni; ora docs/ completa |
 | Performance | 5/10 | Nessun caching, dashboard fa 8+ API call |
@@ -161,7 +161,7 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 | Frontend | 7/10 | Vue 3 ben strutturato, componenti orfani, no test |
 | Backend | 7/10 | Pattern controller→service solido, gap test e import duale |
 | Database | 7/10 | Schema coerente, migrazioni duplicate, no backup |
-| API | 7/10 | 64 endpoint ben organizzati, gap validazione GET |
+| API | 7/10 | 98 endpoint ben organizzati, gap validazione GET |
 | Autenticazione | 7/10 | JWT + OAuth + step-up reale per i soli account con password locale (⚠️ nessuna riverifica per gli account Google) + invalidazione password |
 | Sicurezza | 6/10 | Baseline solida, ma nessuna riverifica di identità sulle operazioni distruttive per gli account Google (rischio accettato); rate limit dedicato, CSP SPA, config produzione validata all'avvio; residuo rotazione password DB |
 | Performance | 5/10 | Nessun caching, troppe API call per pagina |
@@ -171,7 +171,7 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 | Duplicazioni | 4/10 | Feature access, import, formatValuta, toBool, isMobile |
 | Technical debt | 5/10 | Accumulo moderato, gestibile con refactoring mirato |
 | Bug potenziali | 6/10 | Nessun bug critico noto, cache leak su logout |
-| Testing | 6/10 | 125 test backend (isolamento cross-user, coerenza finanziaria, race condition, step-up Google, cron), zero frontend |
+| Testing | 6/10 | 542 test backend (isolamento cross-user, coerenza finanziaria, race condition, step-up Google, cron), zero frontend |
 | Scalabilità | 4/10 | Single process, cron interno, no caching layer |
 
 ---
@@ -244,16 +244,14 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 - **Risk of modification**: Medium
 - **Priority**: P2
 
-### P-7: Session reset incompleto
-- **Severity**: Medium
+### P-7: Session reset incompleto — RISOLTO
+- **Severity**: Medium (era aperto).
 - **Area**: Frontend
 - **Files**: `client/src/utils/session.js`
-- **Description**: Logout non pulisce `recentiHome` (movimenti.store) né i campi `panoramica`/`analisi` interni allo store `scommesse`. Lo store `analisi` principale viene invece resettato correttamente in `resetPiniaStores()`.
-- **Why it is a problem**: Dati utente precedente visibili brevemente.
-- **Possible consequences**: Leak dati tra sessioni sullo stesso browser.
-- **Recommended solution**: Reset completo di tutti gli store in `resetPiniaStores()`.
+- **Description**: Logout non puliva `recentiHome` (movimenti.store) né i campi `panoramica`/`analisi` interni allo store `scommesse`. Lo store `analisi` principale veniva invece resettato correttamente in `resetPiniaStores()`.
+- **Fix applicata** (`f565764`): da quando i sette store che alimentano la dashboard leggono da `creaRisorsa`, `resetPiniaStores()` richiama il `reset()` di ciascuno invece di elencarne i campi a mano, e quel `reset()` azzera anche le risorse interne — il sintomo sparisce insieme alla causa.
 - **Risk of modification**: Low
-- **Priority**: P2
+- **Priority**: Risolto
 
 ### P-8: Feature access logic duplicata
 - **Severity**: Medium
@@ -298,11 +296,13 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 - blocco 5 — revisione di contrasto, dimensioni tipografiche e `prefers-reduced-motion`;
 - blocco 6 — centro movimenti ricorrenti, controllo qualità degli import, budget suggerito dallo storico, previsioni di cassa.
 
+**Financial Brain** (backend, spec: `docs/superpowers/plans/2026-09-17-financial-foundation-backend.md`) è **completo**: calcolo del patrimonio centralizzato in `financialSummary.service.js`, modello di liquidità libera/allocata (`liquidita.service.js`, `GET /api/conti/liquidita`), classificazione di essenzialità delle spese per categoria personale (`essenzialita.service.js`), fondo di sicurezza come tipo di obiettivo con mesi di copertura (`fondoSicurezza.service.js`, `GET /api/obiettivi/:id/copertura`), modello Debiti/Passività (`Debito`, CRUD `/api/debiti`) e patrimonio netto (patrimonio − passività) su `GET /api/conti/patrimonio`. È il preparatorio esplicitamente **non** comprensivo di **Piano Smart** (Audit finanziario, Cash Flow Optimizer, Piano Patrimoniale, AI finanziaria, simulazioni/Monte Carlo), che resta il prossimo passo e non è ancora iniziato.
+
 ### P0 — Critical
 
 | Task | Obiettivo | File/Area | Difficoltà | Rischio | Dipendenze |
 |---|---|---|---|---|---|
-| ~~Step-up su reset-account/delete-account/export~~ | ~~Proteggere operazioni distruttive~~ | `impostazioni.routes.js`, `verifyPassword.controller.js`, `googleStepUp.*` | — | — | **Risolto** (reale per locali e Google) |
+| Step-up su reset-account/delete-account/export | Proteggere operazioni distruttive | `impostazioni.routes.js`, `verifyPassword.controller.js`, `googleStepUp.*` | Low | Low | **RIAPERTO, rischio accettato** (reale per i soli account con password locale; saltato per Google — vedi P-1) |
 | ~~.env.test in .gitignore~~ | ~~Prevenire leak credenziali~~ | `.gitignore` | — | — | **Risolto** (tracking; rotazione password DB resta MANUAL ACTION) |
 
 ### P1 — High Priority
@@ -319,7 +319,7 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 | Task | Obiettivo | File/Area | Difficoltà | Rischio | Dipendenze |
 |---|---|---|---|---|---|
 | Consolidare import pipeline | Unificare import/ e importazioni/ | `server/services/` | High | High | Test import (P1) |
-| Fix session reset | Pulire `recentiHome` (movimenti.store) e `panoramica`/`analisi` (scommesse.store) | `session.js` | Low | Low | — |
+| ~~Fix session reset~~ | ~~Pulire `recentiHome` (movimenti.store) e `panoramica`/`analisi` (scommesse.store)~~ | `session.js` | — | — | **Risolto** (`f565764`) |
 | Cron tutte le frequenze | O implementare o limitare UI | `ricorrenti.service.js` | Medium | Medium | — |
 | Rimuovere codice morto | Pulizia componenti e middleware | client + server | Low | Low | — |
 | Migrazioni come step deploy | Rimuovere auto-migrate | `server.js` | Low | Low | CI/CD (P1) |

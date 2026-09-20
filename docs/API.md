@@ -277,9 +277,15 @@ notifiche dell'utente autenticato.
 
 ### GET /api/conti/patrimonio
 - **Auth**: Sì
-- **Risposta**: `{ totale, totale_conti, totale_investimenti, variazione_importo, variazione_percentuale }`
-- **File**: `conti.controller.js`
+- **Risposta**: `{ totale, totale_conti, totale_investimenti, variazione_importo, variazione_percentuale, passivita_totale, patrimonio_netto }` — `passivita_totale` è la somma di `Debito.saldo_residuo` attivi, `patrimonio_netto = totale - passivita_totale`
+- **File**: `conti.controller.js` → `services/financialSummary.service.js`
 - **Frontend**: `conti.store.js` → `DashboardView.vue`
+
+### GET /api/conti/liquidita
+- **Auth**: Sì
+- **Azione**: Overlay di sola lettura — nessun euro viene spostato: calcola quanto del saldo conti è davvero libero, sottraendo la liquidità già allocata su obiettivi non completati e le uscite ricorrenti mensili non ancora addebitate nel periodo corrente.
+- **Risposta**: `{ saldo_conti, liquidita_allocata, impegni_pertinenti, liquidita_libera, obiettivi_allocati[], impegni[] }`
+- **File**: `conti.controller.js` → `services/liquidita.service.js`
 
 ### POST /api/conti/trasferimento
 - **Auth**: Sì
@@ -462,12 +468,51 @@ tutta la cascata di categorizzazione (`CategoryMatcherService._finalize`).
 - **File**: `obiettivi.controller.js`
 - **Frontend**: `obiettivi.store.js`
 
+### GET /api/obiettivi/:id/copertura
+- **Auth**: Sì
+- **Azione**: Solo per obiettivi con `tipo_obiettivo: 'fondo_sicurezza'` — calcola i mesi di copertura del fondo rispetto alla media delle spese essenziali mensili (categorie con `essenzialita: 'essenziale'`)
+- **Risposta**: `{ stato, mesi_copertura, spese_essenziali_mensili, importo_fondo, motivo }` — `stato` è `disponibile` | `dati_insufficienti` | `non_calcolabile`; `mesi_copertura` è `null` quando `stato` non è `disponibile`
+- **Errori**: 404 (obiettivo non trovato/di un altro utente), 400 (obiettivo non è un fondo di sicurezza)
+- **File**: `obiettivi.controller.js` → `services/fondoSicurezza.service.js`
+
 ### POST /api/obiettivi/:id/contributi
 - **Auth**: Sì
 - **Body**: `{ importo, data, nota? }`
 - **Validazione**: `validateContributo`
 - **File**: `obiettivi.controller.js`
 - **Frontend**: `ObiettiviView.vue`
+
+---
+
+## Debiti
+
+Passività dell'utente (prestiti, mutui, finanziamenti, ecc.), usate per calcolare `patrimonio_netto` su `GET /api/conti/patrimonio`. Tutte le rotte richiedono `Authorization: Bearer <jwt>` e operano solo sui debiti dell'utente autenticato.
+
+### GET /api/debiti
+- **Risposta**: `{ debiti[] }` (solo `attivo: true`)
+- **File**: `debiti.controller.js`
+
+### POST /api/debiti
+- **Body**: `{ nome, tipo?, saldo_residuo, rata_periodica?, tasso_interesse?, taeg?, frequenza?, prossima_scadenza?, data_fine?, conto_id? }` — `tipo` in `prestito`/`mutuo`/`finanziamento`/`revolving`/`debito_personale`/`altro` (default `altro`), `frequenza` default `mensile`
+- **Validazione**: `validateDebito`
+- **Azione**: se `conto_id` è indicato, deve essere un conto attivo dell'utente
+- **Risposta**: `201 { debito }`
+- **Errori**: 404 (conto indicato non trovato/di un altro utente)
+- **File**: `debiti.controller.js`
+
+### PUT /api/debiti/:id
+- **Body**: campi opzionali (stesso set di `POST`)
+- **Validazione**: `validateUpdateDebito`
+- **Risposta**: `{ debito }`
+- **Errori**: 404 (debito o conto indicato non trovato/di un altro utente)
+- **File**: `debiti.controller.js`
+
+### DELETE /api/debiti/:id
+- **Validazione**: `validateDeleteDebito`
+- **Azione**: Soft-delete (`attivo: false`)
+- **Risposta**: `{ message }`
+- **Errori**: 404 (debito non trovato/di un altro utente)
+- **File**: `debiti.controller.js`
 
 ---
 
