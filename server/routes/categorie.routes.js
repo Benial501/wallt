@@ -8,15 +8,24 @@ const normalizeName = value => value.normalize('NFKC').trim().replace(/\s+/g, ' 
 const ICONS = ['Tag', 'House', 'ShoppingBasket', 'Car', 'ShoppingBag', 'Heart', 'Dumbbell', 'Music', 'Plane', 'Wallet', 'BookOpen', 'Gift', 'Briefcase', 'Coffee', 'Gamepad2', 'GraduationCap', 'PawPrint'];
 router.use(require('../middleware/auth.middleware'));
 router.get('/', async (req, res) => res.json({ categorie: await list(req.userId, { includeArchived: req.query.archiviate === 'true' }), icone: ICONS }));
-function validate(body) {
+function validate(body, { existing } = {}) {
   if (typeof body.nome !== 'string' || !body.nome.trim() || body.nome.trim().length > 80) throw error('Nome categoria obbligatorio, massimo 80 caratteri');
   if (!['entrata', 'uscita'].includes(body.tipo)) throw error('Tipo categoria non valido');
   if (!ICONS.includes(body.icona || 'Tag') || !/^#[0-9a-f]{6}$/i.test(body.colore || '#3498DB')) throw error('Icona o colore non valido');
   const nome = body.nome.normalize('NFKC').trim().replace(/\s+/g, ' ');
   if (CATEGORIE_DEFAULT.some(c => c.tipo === body.tipo && normalizeName(c.nome) === normalizeName(nome))) throw error('Esiste già una categoria predefinita con questo nome', 409);
-  const essenzialita = body.tipo === 'uscita' && ESSENZIALITA_VALUES.includes(body.essenzialita)
-    ? body.essenzialita
-    : (body.tipo === 'uscita' ? 'discrezionale' : null);
+
+  let essenzialita;
+  if (body.tipo !== 'uscita') {
+    essenzialita = null;
+  } else if (body.essenzialita === undefined) {
+    essenzialita = existing ? existing.essenzialita : 'discrezionale';
+  } else if (ESSENZIALITA_VALUES.includes(body.essenzialita)) {
+    essenzialita = body.essenzialita;
+  } else {
+    throw error('Essenzialità non valida');
+  }
+
   return {
     nome, nome_normalizzato: normalizeName(nome), tipo: body.tipo,
     icona: body.icona || 'Tag', colore: body.colore || '#3498DB', essenzialita,
@@ -100,10 +109,10 @@ router.post('/', handle(async (req, res) => {
   res.status(201).json({ categoria: serialize(c) });
 }));
 router.put('/:id', handle(async (req, res) => {
-  const fields = validate(req.body);
   const c = await sequelize.transaction(async transaction => {
     const category = await CategoriaPersonale.findOne({ where: { id: req.params.id, user_id: req.userId, attiva: true }, transaction, lock: transaction.LOCK.UPDATE });
     if (!category) throw error('Categoria personale non trovata', 404);
+    const fields = validate(req.body, { existing: category });
     if (category.tipo !== fields.tipo) {
       const used = await Movimento.count({ where: { user_id: req.userId, categoria: category.id }, transaction });
       const rules = await CategorieRegola.count({ where: { user_id: req.userId, categoria: category.id }, transaction });

@@ -67,6 +67,52 @@ describe('Classificazione essenzialità', () => {
     expect(res.body.categoria.essenzialita).toBeNull();
   });
 
+  it('PUT senza essenzialita nel body preserva quella esistente (non la resetta a discrezionale)', async () => {
+    const createRes = await request(app)
+      .post('/api/categorie')
+      .set(authHeader(token))
+      .send({ nome: 'Mutuo personale extra', tipo: 'uscita', essenzialita: 'essenziale' });
+    expect(createRes.body.categoria.essenzialita).toBe('essenziale');
+    const id = createRes.body.categoria.id;
+
+    // Il form di modifica del frontend invia solo nome/tipo/icona/colore.
+    const updateRes = await request(app)
+      .put(`/api/categorie/${id}`)
+      .set(authHeader(token))
+      .send({ nome: 'Mutuo personale extra rinominato', tipo: 'uscita', icona: 'Tag', colore: '#3498DB' });
+
+    expect(updateRes.status).toBe(200);
+    expect(updateRes.body.categoria.essenzialita).toBe('essenziale');
+  });
+
+  it('POST con essenzialita non valida viene rifiutato con 400', async () => {
+    const res = await request(app)
+      .post('/api/categorie')
+      .set(authHeader(token))
+      .send({ nome: 'Categoria strana', tipo: 'uscita', essenzialita: 'molto_essenziale' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('PUT con essenzialita non valida viene rifiutato con 400 e non altera il valore salvato', async () => {
+    const createRes = await request(app)
+      .post('/api/categorie')
+      .set(authHeader(token))
+      .send({ nome: 'Bollette secondarie extra', tipo: 'uscita', essenzialita: 'semi_essenziale' });
+    const id = createRes.body.categoria.id;
+
+    const updateRes = await request(app)
+      .put(`/api/categorie/${id}`)
+      .set(authHeader(token))
+      .send({ nome: 'Bollette secondarie extra', tipo: 'uscita', essenzialita: 'molto_essenziale' });
+
+    expect(updateRes.status).toBe(400);
+
+    const categorie = await list(userId);
+    const invariata = categorie.find((c) => c.id === id);
+    expect(invariata.essenzialita).toBe('semi_essenziale');
+  });
+
   it('list(userId) restituisce essenzialita sia per predefinite sia per personali', async () => {
     await request(app)
       .post('/api/categorie')
