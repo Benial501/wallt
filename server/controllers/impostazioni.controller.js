@@ -2,7 +2,7 @@ const logger = require('../utils/logger');
 const bcrypt = require('bcrypt');
 const {
   User, ProfiloUtente, Conto, Movimento, BudgetMensile, BudgetCategoria,
-  Obiettivo, ObiettivoContributo, PiattaformaScommesse, MovimentoScommesse,
+  Obiettivo, ObiettivoContributo, Debito, PiattaformaScommesse, MovimentoScommesse,
   Investimento, MovimentoInvestimento, CategorieRegola, RegolaPersonaleMerchant,
   Notifica, PreferenzeNotifiche, CategoriaPersonale,
   sequelize,
@@ -191,6 +191,7 @@ const esportaDati = async (req, res) => {
       movimenti,
       budget,
       obiettivi,
+      debiti,
       investimenti,
       movimentiInvestimento,
       piattaformeScommesse,
@@ -217,6 +218,10 @@ const esportaDati = async (req, res) => {
       safeExportQuery('obiettivi', () => Obiettivo.findAll({
         where: { user_id: userId },
         include: [{ model: ObiettivoContributo, as: 'contributi' }],
+        order: [['createdAt', 'DESC']],
+      })),
+      safeExportQuery('debiti', () => Debito.findAll({
+        where: { user_id: userId },
         order: [['createdAt', 'DESC']],
       })),
       safeExportQuery('investimenti', () => Investimento.findAll({
@@ -274,6 +279,7 @@ const esportaDati = async (req, res) => {
       movimenti,
       budget,
       obiettivi,
+      debiti,
       portafoglio_investimenti: {
         investimenti,
         movimenti_investimento: movimentiInvestimento,

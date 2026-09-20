@@ -10,6 +10,7 @@ const {
   Conto,
   Movimento,
 } = require('./setup');
+const { Debito } = require('../models');
 
 describe('GDPR API', () => {
   let app;
@@ -28,6 +29,8 @@ describe('GDPR API', () => {
     return {
       tokenA: resA.body.token,
       tokenB: resB.body.token,
+      idA: resA.body.user.id,
+      idB: resB.body.user.id,
       userA,
       userB,
       dataA,
@@ -36,7 +39,14 @@ describe('GDPR API', () => {
   };
 
   it('export restituisce solo i dati dell\'utente loggato', async () => {
-    const { tokenA, tokenB, userA, userB, dataA, dataB } = await createTwoUsers();
+    const { tokenA, tokenB, idA, idB, userA, userB, dataA, dataB } = await createTwoUsers();
+
+    const debitoA = await Debito.create({
+      user_id: idA, nome: 'Prestito auto A', saldo_residuo: 5000,
+    });
+    const debitoB = await Debito.create({
+      user_id: idB, nome: 'Prestito auto B', saldo_residuo: 8000,
+    });
 
     const stepUpA = await getStepUpToken(app, tokenA, userA.password);
     const exportA = await request(app)
@@ -54,9 +64,12 @@ describe('GDPR API', () => {
     expect(exported.conti[0].nome).toBe(dataA.conto.nome);
     expect(exported.movimenti).toHaveLength(1);
     expect(exported.movimenti[0].descrizione).toBe(dataA.movimento.descrizione);
+    expect(exported.debiti).toHaveLength(1);
+    expect(exported.debiti[0].nome).toBe(debitoA.nome);
 
     expect(exported.conti.some((c) => c.nome === dataB.conto.nome)).toBe(false);
     expect(exported.movimenti.some((m) => m.id === dataB.movimento.id)).toBe(false);
+    expect(exported.debiti.some((d) => d.id === debitoB.id)).toBe(false);
 
     const stepUpB = await getStepUpToken(app, tokenB, userB.password);
     const exportB = await request(app)
@@ -69,6 +82,8 @@ describe('GDPR API', () => {
     const exportedB = JSON.parse(exportB.text);
     expect(exportedB.utente.email).toBe(userB.email);
     expect(exportedB.conti[0].nome).toBe(dataB.conto.nome);
+    expect(exportedB.debiti).toHaveLength(1);
+    expect(exportedB.debiti[0].nome).toBe(debitoB.nome);
   });
 
   it('cancellazione account richiede step-up', async () => {
