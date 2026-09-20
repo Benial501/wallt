@@ -4,6 +4,7 @@ import api from '@/utils/axios';
 import { creaRisorsa } from '@/utils/risorsa';
 import { FILTRI_INIZIALI } from '@/utils/filtriMovimenti';
 import { mergeGruppi, ordinePerImporto } from '@/utils/movimentiGruppi';
+import { creaRisorsaRicorrenti } from '@/utils/ricorrenti';
 
 const PAGE_SIZE = 100;
 
@@ -80,11 +81,17 @@ export const useMovimentiStore = defineStore('movimenti', () => {
     { iniziale: { entrate: 0, uscite: 0 }, vuotoSe: () => false },
   );
 
+  const risorsaRicorrenti = creaRisorsaRicorrenti(async () => {
+    const { data } = await api.get('/movimenti/ricorrenti');
+    return data.movimenti || [];
+  });
+
   // --- Interfaccia pubblica invariata -------------------------------------
   const recentiHome = computed(() => risorsaRecenti.data.value || []);
   const bilancioMese = computed(() => risorsaBilancio.data.value || {});
   const entrateOggi = computed(() => risorsaOggi.data.value?.entrate || 0);
   const usciteOggi = computed(() => risorsaOggi.data.value?.uscite || 0);
+  const ricorrenti = computed(() => risorsaRicorrenti.data.value || []);
   const filtri = ref({});
   /**
    * Stato dei filtri a livello di interfaccia: più ricco dei parametri della
@@ -215,10 +222,7 @@ export const useMovimentiStore = defineStore('movimenti', () => {
     await api.delete(`/movimenti/${id}`);
   };
 
-  const fetchRicorrenti = async () => {
-    const { data } = await api.get('/movimenti/ricorrenti');
-    return data.movimenti;
-  };
+  const fetchRicorrenti = () => risorsaRicorrenti.carica();
 
   const reset = () => {
     generazione += 1;
@@ -226,6 +230,7 @@ export const useMovimentiStore = defineStore('movimenti', () => {
     risorsaRecenti.reset();
     risorsaBilancio.reset();
     risorsaOggi.reset();
+    risorsaRicorrenti.reset();
     paginaExtra.value = [];
     paginaCorrente.value = 1;
     errorMore.value = null;
@@ -238,11 +243,13 @@ export const useMovimentiStore = defineStore('movimenti', () => {
     risorsaRecenti,
     risorsaBilancio,
     risorsaOggi,
+    risorsaRicorrenti,
     movimentiPerData,
     recentiHome,
     bilancioMese,
     entrateOggi,
     usciteOggi,
+    ricorrenti,
     filtri,
     filtriUI,
     impostaFiltriUI,

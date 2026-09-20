@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import api from '@/utils/axios';
+import { creaRisorsaNotifiche } from '@/utils/notifiche';
 
 /**
  * Centro notifiche.
@@ -30,10 +31,6 @@ const PREFERENZE_DEFAULT = {
 };
 
 export const useNotificheStore = defineStore('notifiche', () => {
-  const notifiche = ref([]);
-  const nonLette = ref(0);
-  const totale = ref(0);
-  const loading = ref(false);
   const panelOpen = ref(false);
   const preferenze = ref({ ...PREFERENZE_DEFAULT });
   const chiavePubblicaPush = ref(null);
@@ -41,61 +38,80 @@ export const useNotificheStore = defineStore('notifiche', () => {
 
   let timerPolling = null;
 
+  const risorsaNotifiche = creaRisorsaNotifiche(async ({ soloNonLette = false, limit = 30 } = {}) => {
+    const { data } = await api.get('/notifiche', {
+      params: { ...(soloNonLette ? { non_lette: 'true' } : {}), limit },
+    });
+    return {
+      notifiche: data.notifiche || [],
+      totale: data.totale || 0,
+      nonLette: data.non_lette || 0,
+    };
+  });
+
+  const notifiche = computed(() => risorsaNotifiche.data.value.notifiche || []);
+  const nonLette = computed(() => risorsaNotifiche.data.value.nonLette || 0);
+  const totale = computed(() => risorsaNotifiche.data.value.totale || 0);
+  const loading = computed(() => risorsaNotifiche.loading.value);
+
   const haNonLette = computed(() => nonLette.value > 0);
   const badge = computed(() => (nonLette.value > 9 ? '9+' : String(nonLette.value)));
 
-  const fetchNotifiche = async ({ soloNonLette = false, limit = 30 } = {}) => {
-    loading.value = true;
-    try {
-      const { data } = await api.get('/notifiche', {
-        params: { ...(soloNonLette ? { non_lette: 'true' } : {}), limit },
-      });
-      notifiche.value = data.notifiche || [];
-      totale.value = data.totale || 0;
-      nonLette.value = data.non_lette || 0;
-      return data;
-    } finally {
-      loading.value = false;
-    }
-  };
+  const fetchNotifiche = (opzioni = {}) => risorsaNotifiche.carica(opzioni);
 
   /** Chiamata dal polling: aggiorna solo il badge, senza toccare la lista. */
   const fetchConteggio = async () => {
     try {
       const { data } = await api.get('/notifiche/non-lette');
-      nonLette.value = data.non_lette || 0;
+      risorsaNotifiche.data.value = {
+        ...risorsaNotifiche.data.value,
+        nonLette: data.non_lette || 0,
+      };
     } catch {
       // Un badge non aggiornato non è un errore da mostrare all'utente.
     }
   };
 
   const segnaLetta = async (id) => {
+    const precedente = risorsaNotifiche.data.value;
     const notifica = notifiche.value.find((n) => n.id === id);
     if (notifica && !notifica.letta) {
-      notifica.letta = true;
-      nonLette.value = Math.max(0, nonLette.value - 1);
+      risorsaNotifiche.data.value = {
+        ...precedente,
+        notifiche: precedente.notifiche.map((n) => (n.id === id ? { ...n, letta: true } : n)),
+        nonLette: Math.max(0, precedente.nonLette - 1),
+      };
     }
     try {
       const { data } = await api.put(`/notifiche/${id}/letta`);
-      nonLette.value = data.non_lette ?? nonLette.value;
+      risorsaNotifiche.data.value = {
+        ...risorsaNotifiche.data.value,
+        nonLette: data.non_lette ?? risorsaNotifiche.data.value.nonLette,
+      };
     } catch {
       // Ripristina lo stato ottimistico se il server rifiuta.
-      if (notifica) notifica.letta = false;
+      risorsaNotifiche.data.value = precedente;
       await fetchConteggio();
     }
   };
 
   const segnaTutteLette = async () => {
     const { data } = await api.put('/notifiche/lette');
-    notifiche.value = notifiche.value.map((n) => ({ ...n, letta: true }));
-    nonLette.value = data.non_lette ?? 0;
+    risorsaNotifiche.data.value = {
+      ...risorsaNotifiche.data.value,
+      notifiche: notifiche.value.map((n) => ({ ...n, letta: true })),
+      nonLette: data.non_lette ?? 0,
+    };
     return data.aggiornate;
   };
 
   const eliminaTutte = async () => {
     const { data } = await api.delete('/notifiche');
-    notifiche.value = [];
-    nonLette.value = data.non_lette ?? 0;
+    risorsaNotifiche.data.value = {
+      notifiche: [],
+      totale: 0,
+      nonLette: data.non_lette ?? 0,
+    };
     return data.eliminate;
   };
 
@@ -167,9 +183,7 @@ export const useNotificheStore = defineStore('notifiche', () => {
   /** Azzera lo stato al logout / cambio utente. */
   const resetState = () => {
     fermaPolling();
-    notifiche.value = [];
-    nonLette.value = 0;
-    totale.value = 0;
+    risorsaNotifiche.reset();
     panelOpen.value = false;
     preferenze.value = { ...PREFERENZE_DEFAULT };
     chiavePubblicaPush.value = null;
@@ -178,6 +192,7 @@ export const useNotificheStore = defineStore('notifiche', () => {
 
   return {
     notifiche,
+    risorsaNotifiche,
     nonLette,
     totale,
     loading,

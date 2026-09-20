@@ -85,6 +85,7 @@ import {
   Palette,
   Coins,
   BookOpen,
+  Pencil,
 } from 'lucide-vue-next';
 import { getCategoriaEntrata, getCategoriaUscita } from '@/utils/categorie';
 
@@ -97,6 +98,7 @@ export const NAV_ICON_MAP = {
   scommesse: Dices,
   investimenti: LineChart,
   obiettivi: Target,
+  ricorrenti: Repeat2,
   analisi: TrendingUp,
   aiuto: CircleHelp,
 };
@@ -268,4 +270,5 @@ export {
   PartyPopper,
   Landmark,
   Info,
+  Pencil,
 };

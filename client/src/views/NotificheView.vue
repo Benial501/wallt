@@ -1,20 +1,19 @@
 <script setup>
-import { onMounted, computed } from 'vue';
+import { onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router';
 import WCard from '@/components/common/WCard.vue';
 import NotificaItem from '@/components/notifiche/NotificaItem.vue';
+import DataState from '@/components/common/DataState.vue';
 import { useNotificheStore } from '@/stores/notifiche.store';
 import { useToastStore } from '@/stores/toast.store';
 import { Bell, Settings } from '@/utils/appIcons';
 
 /** Elenco completo delle notifiche (versione a pagina intera del pannello). */
 const notificheStore = useNotificheStore();
-const { notifiche, nonLette, loading } = storeToRefs(notificheStore);
+const { notifiche, nonLette } = storeToRefs(notificheStore);
 const toastStore = useToastStore();
 const router = useRouter();
-
-const vuoto = computed(() => !loading.value && notifiche.value.length === 0);
 
 onMounted(() => {
   notificheStore.fetchNotifiche({ limit: 100 });
@@ -65,25 +64,32 @@ const segnaTutte = async () => {
     </header>
 
     <WCard>
-      <p v-if="loading" class="notifiche-view__stato">Caricamento…</p>
+      <DataState
+        :stato="notificheStore.risorsaNotifiche.stato"
+        :last-updated="notificheStore.risorsaNotifiche.lastUpdated"
+        messaggio-errore="Non è stato possibile caricare le notifiche."
+        @riprova="notificheStore.risorsaNotifiche.riprova()"
+      >
+        <template #vuoto>
+          <div class="notifiche-view__vuoto">
+            <Bell :size="28" :stroke-width="1.5" />
+            <p class="notifiche-view__vuoto-titolo">Nessuna notifica</p>
+            <p class="notifiche-view__vuoto-testo">
+              WALLT ti avvisa solo quando serve: promemoria, budget vicino al limite,
+              pagamenti in arrivo e traguardi raggiunti. Mai più di due volte al giorno.
+            </p>
+          </div>
+        </template>
 
-      <div v-else-if="vuoto" class="notifiche-view__vuoto">
-        <Bell :size="28" :stroke-width="1.5" />
-        <p class="notifiche-view__vuoto-titolo">Nessuna notifica</p>
-        <p class="notifiche-view__vuoto-testo">
-          WALLT ti avvisa solo quando serve: promemoria, budget vicino al limite,
-          pagamenti in arrivo e traguardi raggiunti. Mai più di due volte al giorno.
-        </p>
-      </div>
-
-      <div v-else class="notifiche-view__lista">
-        <NotificaItem
-          v-for="notifica in notifiche"
-          :key="notifica.id"
-          :notifica="notifica"
-          @apri="apriNotifica"
-        />
-      </div>
+        <div class="notifiche-view__lista">
+          <NotificaItem
+            v-for="notifica in notifiche"
+            :key="notifica.id"
+            :notifica="notifica"
+            @apri="apriNotifica"
+          />
+        </div>
+      </DataState>
     </WCard>
   </div>
 </template>
@@ -139,12 +145,6 @@ const segnaTutte = async () => {
 }
 
 .notifiche-view__lista { display: flex; flex-direction: column; gap: 0.25rem; }
-
-.notifiche-view__stato {
-  padding: 2rem 1rem;
-  text-align: center;
-  color: var(--text-muted);
-}
 
 .notifiche-view__vuoto {
   display: flex;

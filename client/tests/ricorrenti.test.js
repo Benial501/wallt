@@ -1,0 +1,66 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import dayjs from 'dayjs';
+import {
+  creaRisorsaRicorrenti,
+  presentaRicorrente,
+  prossimaEsecuzione,
+} from '../src/utils/ricorrenti.js';
+
+test('usa il giorno di questo mese quando non è ancora passato', () => {
+  const risultato = prossimaEsecuzione(20, dayjs('2026-09-17'));
+  assert.equal(risultato.format('YYYY-MM-DD'), '2026-09-20');
+});
+
+test('passa al mese successivo quando il giorno è già trascorso', () => {
+  const risultato = prossimaEsecuzione(5, dayjs('2026-09-17'));
+  assert.equal(risultato.format('YYYY-MM-DD'), '2026-10-05');
+});
+
+test('limita il giorno all ultimo giorno disponibile nel mese', () => {
+  const risultato = prossimaEsecuzione(31, dayjs('2026-09-17'));
+  assert.equal(risultato.format('YYYY-MM-DD'), '2026-09-30');
+});
+
+test('presenta tutti i dati restituiti dal backend senza inventare una pausa', () => {
+  const item = presentaRicorrente({
+    tipo: 'uscita',
+    importo: '19.90',
+    descrizione: 'Telefono',
+    ricorrente_frequenza: 'mensile',
+    ricorrente_giorno: 5,
+    ricorrente: true,
+    conto: { nome: 'Carta' },
+  }, dayjs('2026-09-17'));
+
+  assert.deepEqual(item, {
+    descrizione: 'Telefono',
+    tipoLabel: 'Uscita',
+    frequenzaLabel: 'Ogni mese',
+    contoLabel: 'Carta',
+    statoLabel: 'Attiva',
+    prossimaEsecuzione: '2026-10-05',
+  });
+});
+
+test('una risposta riuscita senza ricorrenti produce lo stato vuoto', async () => {
+  const risorsa = creaRisorsaRicorrenti(async () => []);
+  await risorsa.carica();
+  assert.equal(risorsa.stato.value, 'vuoto');
+  assert.deepEqual(risorsa.data.value, []);
+});
+
+test('un fallimento produce errore e retry recupera i dati', async () => {
+  let tentativi = 0;
+  const risorsa = creaRisorsaRicorrenti(async () => {
+    tentativi += 1;
+    if (tentativi === 1) throw new Error('rete');
+    return [{ id: 7 }];
+  });
+
+  await risorsa.carica();
+  assert.equal(risorsa.stato.value, 'errore');
+  await risorsa.riprova();
+  assert.equal(risorsa.stato.value, 'pronto');
+  assert.deepEqual(risorsa.data.value, [{ id: 7 }]);
+});

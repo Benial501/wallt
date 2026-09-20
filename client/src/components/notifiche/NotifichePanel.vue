@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router';
 import { useNotificheStore } from '@/stores/notifiche.store';
 import { useToastStore } from '@/stores/toast.store';
 import NotificaItem from './NotificaItem.vue';
+import DataState from '@/components/common/DataState.vue';
 import AppDialog from '@/components/common/AppDialog.vue';
 import WButton from '@/components/common/WButton.vue';
 import {
@@ -19,7 +20,7 @@ import {
  */
 
 const notificheStore = useNotificheStore();
-const { notifiche, nonLette, loading, panelOpen } = storeToRefs(notificheStore);
+const { notifiche, nonLette, panelOpen } = storeToRefs(notificheStore);
 const toastStore = useToastStore();
 const router = useRouter();
 
@@ -27,7 +28,6 @@ const panelRef = ref(null);
 const showSvuota = ref(false);
 const svuotaLoading = ref(false);
 
-const vuoto = computed(() => !loading.value && notifiche.value.length === 0);
 const promemoriaAperto = computed(() => notifiche.value.some(
   (n) => n.tipo === 'promemoria_giornaliero' && !n.letta,
 ));
@@ -145,23 +145,30 @@ onBeforeUnmount(() => {
           </header>
 
           <div class="notifiche-panel__lista">
-            <p v-if="loading" class="notifiche-panel__stato">Caricamento…</p>
+            <DataState
+              :stato="notificheStore.risorsaNotifiche.stato"
+              :last-updated="notificheStore.risorsaNotifiche.lastUpdated"
+              messaggio-errore="Non è stato possibile caricare le notifiche."
+              :skeleton-lines="3"
+              @riprova="notificheStore.risorsaNotifiche.riprova()"
+            >
+              <template #vuoto>
+                <div class="notifiche-panel__vuoto">
+                  <Bell :size="26" :stroke-width="1.5" />
+                  <p class="notifiche-panel__vuoto-titolo">Nessuna notifica</p>
+                  <p class="notifiche-panel__vuoto-testo">
+                    Ti avvisiamo solo quando serve davvero: al massimo due volte al giorno.
+                  </p>
+                </div>
+              </template>
 
-            <div v-else-if="vuoto" class="notifiche-panel__vuoto">
-              <Bell :size="26" :stroke-width="1.5" />
-              <p class="notifiche-panel__vuoto-titolo">Nessuna notifica</p>
-              <p class="notifiche-panel__vuoto-testo">
-                Ti avvisiamo solo quando serve davvero: al massimo due volte al giorno.
-              </p>
-            </div>
-
-            <NotificaItem
-              v-for="notifica in notifiche"
-              v-else
-              :key="notifica.id"
-              :notifica="notifica"
-              @apri="apriNotifica"
-            />
+              <NotificaItem
+                v-for="notifica in notifiche"
+                :key="notifica.id"
+                :notifica="notifica"
+                @apri="apriNotifica"
+              />
+            </DataState>
           </div>
 
           <footer class="notifiche-panel__footer">
