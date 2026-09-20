@@ -74,6 +74,27 @@ const FINANCIAL_KEYS = new Set([
   'budget_importo',
   'totale_entrate_giorno',
   'totale_uscite_giorno',
+  // Financial Foundation (liquidita, essenzialita, fondo sicurezza, debiti, netto)
+  'liquidita_libera',
+  'liquidita_allocata',
+  'saldo_conti',
+  'impegni_pertinenti',
+  'patrimonio_netto',
+  'passivita',
+  'passivita_totale',
+  'saldo_residuo',
+  'rata_periodica',
+  'rata',
+  'tasso_interesse',
+  'taeg',
+  'importo_fondo',
+  'spese_essenziali_mensili',
+  'mesi_copertura',
+  'totale_conti',
+  'totale_investimenti',
+  'patrimonio_conti',
+  'patrimonio_investimenti',
+  'patrimonio_investito_totale',
 ]);
 
 const JWT_PATTERN = /eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g;
