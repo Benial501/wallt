@@ -4,6 +4,7 @@ const {
   sequelize, Investimento, MovimentoInvestimento, Movimento, Conto,
 } = require('../models');
 const { aggiornaSaldoConto } = require('../services/scommesseContoSync.service');
+const { descriviLiquidabilita } = require('../services/investimentiLiquidabilita.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
 
@@ -59,7 +60,7 @@ const getInvestimenti = async (req, res) => {
         patrimonioInvestitoTotale += toNumber(inv.saldo_attuale);
         rendimentoTotale += stats.rendimento_netto;
         totaleVersatoGlobale += stats.totale_versato;
-        return { ...inv.toJSON(), ...stats };
+        return { ...inv.toJSON(), ...descriviLiquidabilita(inv), ...stats };
       })
     );
 
@@ -84,6 +85,7 @@ const createInvestimento = async (req, res) => {
   try {
     const {
       nome_piattaforma, tipo, saldo_iniziale = 0, colore, note,
+      liquidabilita, giorni_disponibilita, condizioni_disponibilita, data_apertura,
     } = req.body;
 
     if (!nome_piattaforma || !tipo) {
@@ -99,6 +101,10 @@ const createInvestimento = async (req, res) => {
       nome_piattaforma,
       tipo,
       saldo_attuale: saldo,
+      liquidabilita: liquidabilita || 'sconosciuto',
+      giorni_disponibilita: giorni_disponibilita ?? null,
+      condizioni_disponibilita: condizioni_disponibilita ?? null,
+      data_apertura: data_apertura ?? null,
       colore: colore || '#6C5CE7',
       note: note || null,
       attivo: true,
@@ -118,7 +124,7 @@ const createInvestimento = async (req, res) => {
 
     await t.commit();
     const stats = await calcolaStatsInvestimento(investimento.id);
-    res.status(201).json({ investimento: { ...investimento.toJSON(), ...stats } });
+    res.status(201).json({ investimento: { ...investimento.toJSON(), ...descriviLiquidabilita(investimento), ...stats } });
   } catch (error) {
     await t.rollback();
     logger.error('Errore createInvestimento', { err: error });
@@ -136,16 +142,20 @@ const updateInvestimento = async (req, res) => {
       return res.status(404).json({ message: 'Investimento non trovato' });
     }
 
-    const { nome_piattaforma, tipo, colore, note } = req.body;
+    const { nome_piattaforma, tipo, colore, note, liquidabilita, giorni_disponibilita, condizioni_disponibilita, data_apertura } = req.body;
     const updateData = {};
     if (nome_piattaforma !== undefined) updateData.nome_piattaforma = nome_piattaforma;
     if (tipo !== undefined) updateData.tipo = tipo;
     if (colore !== undefined) updateData.colore = colore;
     if (note !== undefined) updateData.note = note;
+    if (liquidabilita !== undefined) updateData.liquidabilita = liquidabilita;
+    if (giorni_disponibilita !== undefined) updateData.giorni_disponibilita = giorni_disponibilita;
+    if (condizioni_disponibilita !== undefined) updateData.condizioni_disponibilita = condizioni_disponibilita;
+    if (data_apertura !== undefined) updateData.data_apertura = data_apertura;
 
     await investimento.update(updateData);
     const stats = await calcolaStatsInvestimento(investimento.id);
-    res.json({ investimento: { ...investimento.toJSON(), ...stats } });
+    res.json({ investimento: { ...investimento.toJSON(), ...descriviLiquidabilita(investimento), ...stats } });
   } catch (error) {
     logger.error('Errore updateInvestimento', { err: error });
     res.status(500).json({ message: 'Errore nell\'aggiornamento dell\'investimento' });
@@ -388,6 +398,7 @@ const getAnalisiInvestimenti = async (req, res) => {
           tipo: inv.tipo,
           colore: inv.colore,
           saldo_attuale: toNumber(inv.saldo_attuale),
+          ...descriviLiquidabilita(inv),
           ...stats,
         };
       })

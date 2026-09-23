@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { randomUUID } = require('crypto');
 const { Op } = require('sequelize');
 const { sequelize, CategoriaPersonale, CategoriaDefaultNascosta, Movimento, CategorieRegola, RegolaPersonaleMerchant, User, BudgetCategoria, BudgetMensile } = require('../models');
-const { list, serialize, error } = require('../services/categorie.service');
+const { list, serialize, error, setEssenzialitaDefault } = require('../services/categorie.service');
 const { CATEGORIE_DEFAULT, isCategoriaSistema, ESSENZIALITA_VALUES } = require('../constants/categorie');
 const normalizeName = value => value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('it');
 const ICONS = ['Tag', 'House', 'ShoppingBasket', 'Car', 'ShoppingBag', 'Heart', 'Dumbbell', 'Music', 'Plane', 'Wallet', 'BookOpen', 'Gift', 'Briefcase', 'Coffee', 'Gamepad2', 'GraduationCap', 'PawPrint', 'Siren', 'Scale', 'HeartHandshake', 'SprayCan'];
@@ -90,6 +90,20 @@ router.post('/default/ripristina', handle(async (req, res) => {
   const ripristinate = await CategoriaDefaultNascosta.destroy({ where: whereBatch(req.userId, parsed) });
   clear(req.userId);
   res.json({ ripristinate, message: 'Categorie ripristinate.' });
+}));
+
+/**
+ * Personalizza (o, con `essenzialita: null`, rimuove la personalizzazione)
+ * l'essenzialità di una categoria predefinita di uscita — solo per questo
+ * utente, senza toccare il catalogo globale (Regola 6.2: le predefinite non
+ * sono file per-utente, l'override vive in una tabella separata).
+ */
+router.put('/default/:id/essenzialita', handle(async (req, res) => {
+  const valore = req.body?.essenzialita ?? null;
+  if (valore !== null && typeof valore !== 'string') throw error('Essenzialità non valida');
+  const categoria = await setEssenzialitaDefault(req.userId, req.params.id, valore);
+  clear(req.userId);
+  res.json({ categoria });
 }));
 
 /** Riattiva una categoria personale archiviata. */

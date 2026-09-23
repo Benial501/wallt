@@ -18,7 +18,7 @@ const props = defineProps({
   valuta: { type: String, default: 'EUR' },
 });
 
-defineEmits(['modifica', 'elimina']);
+defineEmits(['modifica', 'elimina', 'cambia-stato']);
 
 const presentazione = computed(() => presentaRicorrente(props.movimento));
 const isEntrata = computed(() => props.movimento.tipo === 'entrata');
@@ -76,7 +76,7 @@ const importoFormattato = computed(() => new Intl.NumberFormat('it-IT', {
           <dt><Calendar :size="15" aria-hidden="true" /> Frequenza</dt>
           <dd>{{ presentazione.frequenzaLabel }}</dd>
         </div>
-        <div>
+        <div v-if="presentazione.prossimaEsecuzione">
           <dt><Calendar :size="15" aria-hidden="true" /> Prossima esecuzione</dt>
           <dd>{{ formatData(presentazione.prossimaEsecuzione, 'medio') }}</dd>
         </div>
@@ -86,11 +86,14 @@ const importoFormattato = computed(() => new Intl.NumberFormat('it-IT', {
         </div>
         <div>
           <dt>Stato</dt>
-          <dd><span class="ricorrente-card__stato">{{ presentazione.statoLabel }}</span></dd>
+          <dd><span class="ricorrente-card__stato" :class="{ 'ricorrente-card__stato--inattiva': movimento.stato_ricorrenza !== 'attiva' && movimento.stato_ricorrenza }">{{ presentazione.statoLabel }}</span></dd>
         </div>
       </dl>
 
       <div class="ricorrente-card__azioni">
+        <WButton v-if="movimento.stato_ricorrenza === 'sospesa'" variant="secondary" size="md" @click="$emit('cambia-stato', movimento, 'attiva')">Riprendi</WButton>
+        <WButton v-if="!movimento.stato_ricorrenza || movimento.stato_ricorrenza === 'attiva'" variant="secondary" size="md" @click="$emit('cambia-stato', movimento, 'sospesa')">Sospendi</WButton>
+        <WButton v-if="movimento.stato_ricorrenza !== 'terminata'" variant="secondary" size="md" @click="$emit('cambia-stato', movimento, 'terminata')">Termina</WButton>
         <WButton variant="secondary" size="md" @click="$emit('modifica', movimento)">
           <Pencil :size="16" aria-hidden="true" />
           Modifica
@@ -128,7 +131,8 @@ const importoFormattato = computed(() => new Intl.NumberFormat('it-IT', {
 .ricorrente-card__dati dd { margin: 0.3rem 0 0; color: var(--text-primary); font-size: var(--text-xs); font-weight: 600; overflow-wrap: anywhere; }
 .ricorrente-card__stato { display: inline-flex; align-items: center; gap: 0.35rem; }
 .ricorrente-card__stato::before { content: ''; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--positive); }
-.ricorrente-card__azioni { display: flex; justify-content: flex-end; gap: 0.625rem; }
+.ricorrente-card__stato--inattiva::before { background: var(--text-muted); }
+.ricorrente-card__azioni { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 0.625rem; }
 .ricorrente-card__elimina { color: var(--negative); }
 
 @media (max-width: 720px) {

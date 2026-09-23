@@ -1,4 +1,8 @@
 const { assertCategory } = require('../services/categorie.service');
+const { NATURE_ENTRATA, PERIODICITA_ENTRATA } = require('../services/entrate.service');
+const { LIQUIDABILITA } = require('../services/investimentiLiquidabilita.service');
+const { STATI_RICORRENZA } = require('../services/ricorrenti.service');
+const { oggiLocale, FUSO_DEFAULT } = require('../utils/dateRome');
 const {
   UNITA_VALIDE, QUANTITA_MIN, QUANTITA_MAX, QUANTITA_MAX_PER_UNITA,
 } = require('../services/confrontoPeriodi.service');
@@ -23,6 +27,22 @@ const validate = (req, res, next) => {
 const idParam = param('id')
   .isInt({ min: 1 })
   .withMessage('ID non valido');
+
+/**
+ * Un movimento rappresenta un'operazione già avvenuta: non ha senso
+ * registrarla nel futuro. Il confronto è per giorno civile nel fuso
+ * applicativo (Europe/Rome), non nel fuso del processo — vicino alla
+ * mezzanotte un confronto in UTC accetterebbe o rifiuterebbe la data
+ * sbagliata. Le ricorrenti restano fuori: la loro programmazione futura è
+ * un concetto distinto (CLAUDE.md § Date e timezone), non un movimento già
+ * avvenuto.
+ */
+const nonDataFutura = (value) => {
+  if (String(value).slice(0, 10) > oggiLocale(FUSO_DEFAULT)) {
+    throw new Error('La data non può essere nel futuro');
+  }
+  return true;
+};
 
 const validateIdParam = [idParam, validate];
 
@@ -241,6 +261,14 @@ const validateMovimento = [
   body('tipo')
     .isIn(['entrata', 'uscita'])
     .withMessage('Tipo non valido'),
+  body('natura_entrata')
+    .optional()
+    .isIn(NATURE_ENTRATA)
+    .withMessage('Natura entrata non valida'),
+  body('periodicita_entrata')
+    .optional()
+    .isIn(PERIODICITA_ENTRATA)
+    .withMessage('Periodicità entrata non valida'),
   body('categoria')
     .notEmpty()
     .withMessage('Categoria obbligatoria'),
@@ -249,7 +277,9 @@ const validateMovimento = [
     .withMessage('Conto non valido'),
   body('data')
     .isISO8601({ strict: false })
-    .withMessage('Data non valida'),
+    .withMessage('Data non valida')
+    .bail()
+    .custom(nonDataFutura),
   body('descrizione')
     .optional({ values: 'null' })
     .isString()
@@ -315,7 +345,9 @@ const validateUpdateMovimento = [
   body('data')
     .optional({ values: 'null' })
     .isISO8601({ strict: false })
-    .withMessage('Data non valida'),
+    .withMessage('Data non valida')
+    .bail()
+    .custom(nonDataFutura),
   body('conto_id')
     .optional({ values: 'null' })
     .isInt({ min: 1 })
@@ -324,6 +356,14 @@ const validateUpdateMovimento = [
     .optional({ values: 'null' })
     .isIn(['entrata', 'uscita'])
     .withMessage('Tipo non valido'),
+  body('natura_entrata')
+    .optional()
+    .isIn(NATURE_ENTRATA)
+    .withMessage('Natura entrata non valida'),
+  body('periodicita_entrata')
+    .optional()
+    .isIn(PERIODICITA_ENTRATA)
+    .withMessage('Periodicità entrata non valida'),
   body('ricorrente')
     .optional({ values: 'null' })
     .isBoolean()
@@ -351,6 +391,12 @@ const validateUpdateMovimento = [
 ];
 
 const validateDeleteMovimento = validateIdParam;
+
+const validateStatoRicorrenza = [
+  idParam,
+  body('stato').isIn(STATI_RICORRENZA).withMessage('Stato ricorrenza non valido'),
+  validate,
+];
 
 // --- Conti ---
 
@@ -452,7 +498,9 @@ const validateTrasferimento = [
   body('data')
     .optional({ values: 'null' })
     .isISO8601({ strict: false })
-    .withMessage('Data non valida'),
+    .withMessage('Data non valida')
+    .bail()
+    .custom(nonDataFutura),
   validate,
 ];
 
@@ -715,6 +763,10 @@ const validateObiettivo = [
     .optional({ values: 'null' })
     .isIn(['generico', 'fondo_sicurezza'])
     .withMessage('Tipo obiettivo non valido'),
+  body('priorita')
+    .optional({ values: 'null' })
+    .isIn(['alta', 'media', 'bassa'])
+    .withMessage('Priorità non valida'),
   validate,
 ];
 
@@ -744,6 +796,10 @@ const validateUpdateObiettivo = [
     .optional({ values: 'null' })
     .isIn(['generico', 'fondo_sicurezza'])
     .withMessage('Tipo obiettivo non valido'),
+  body('priorita')
+    .optional({ values: 'null' })
+    .isIn(['alta', 'media', 'bassa'])
+    .withMessage('Priorità non valida'),
   validate,
 ];
 
@@ -757,7 +813,9 @@ const validateContributo = [
   body('data')
     .optional({ values: 'null' })
     .isISO8601({ strict: false })
-    .withMessage('Data non valida'),
+    .withMessage('Data non valida')
+    .bail()
+    .custom(nonDataFutura),
   body('nota')
     .optional({ values: 'null' })
     .isString()
@@ -778,6 +836,10 @@ const validateInvestimento = [
   body('tipo')
     .isIn(['azioni', 'etf', 'crypto', 'fondi', 'obbligazioni', 'altro'])
     .withMessage('Tipo non valido'),
+  body('liquidabilita').optional().isIn(LIQUIDABILITA).withMessage('Liquidabilità non valida'),
+  body('giorni_disponibilita').optional({ values: 'null' }).isInt({ min: 0 }).withMessage('Giorni disponibilità non validi'),
+  body('condizioni_disponibilita').optional({ values: 'null' }).isString().trim().escape().isLength({ max: 255 }).withMessage('Condizioni disponibilità non valide'),
+  body('data_apertura').optional({ values: 'null' }).isISO8601({ strict: true }).withMessage('Data apertura non valida'),
   body('saldo_iniziale')
     .optional({ values: 'null' })
     .isDecimal({ decimal_digits: '0,2' })
@@ -810,6 +872,10 @@ const validateUpdateInvestimento = [
     .optional({ values: 'null' })
     .isIn(['azioni', 'etf', 'crypto', 'fondi', 'obbligazioni', 'altro'])
     .withMessage('Tipo non valido'),
+  body('liquidabilita').optional().isIn(LIQUIDABILITA).withMessage('Liquidabilità non valida'),
+  body('giorni_disponibilita').optional({ values: 'null' }).isInt({ min: 0 }).withMessage('Giorni disponibilità non validi'),
+  body('condizioni_disponibilita').optional({ values: 'null' }).isString().trim().escape().isLength({ max: 255 }).withMessage('Condizioni disponibilità non valide'),
+  body('data_apertura').optional({ values: 'null' }).isISO8601({ strict: true }).withMessage('Data apertura non valida'),
   body('colore')
     .optional({ values: 'null' })
     .isString()
@@ -840,7 +906,9 @@ const validateMovimentoInvestimento = [
   body('data')
     .optional({ values: 'null' })
     .isISO8601({ strict: false })
-    .withMessage('Data non valida'),
+    .withMessage('Data non valida')
+    .bail()
+    .custom(nonDataFutura),
   body('nota')
     .optional({ values: 'null' })
     .isString()
@@ -1042,7 +1110,9 @@ const validateMovimentoScommesse = [
   body('data')
     .optional({ values: 'null' })
     .isISO8601({ strict: false })
-    .withMessage('Data non valida'),
+    .withMessage('Data non valida')
+    .bail()
+    .custom(nonDataFutura),
   body('nota')
     .optional({ values: 'null' })
     .isString()
@@ -1255,6 +1325,7 @@ module.exports = {
   validateMovimento,
   validateUpdateMovimento,
   validateDeleteMovimento,
+  validateStatoRicorrenza,
   validateConto,
   validateUpdateConto,
   validateDeleteConto,

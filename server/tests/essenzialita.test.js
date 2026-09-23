@@ -128,6 +128,167 @@ describe('Classificazione essenzialità', () => {
   });
 });
 
+describe('Personalizzazione essenzialità delle categorie predefinite (per utente)', () => {
+  let app;
+  let tokenA;
+  let tokenB;
+
+  beforeEach(async () => {
+    app = createApp({ enableRateLimit: false });
+    const a = await registerUser(app);
+    tokenA = a.res.body.token;
+    const b = await registerUser(app);
+    tokenB = b.res.body.token;
+  });
+
+  it('personalizza l\'essenzialità di una predefinita solo per chi la modifica', async () => {
+    const res = await request(app)
+      .put('/api/categorie/default/svago/essenzialita')
+      .set(authHeader(tokenA))
+      .send({ essenzialita: 'essenziale' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.categoria.essenzialita).toBe('essenziale');
+    expect(res.body.categoria.essenzialitaPersonalizzata).toBe(true);
+
+    const listaA = await request(app).get('/api/categorie').set(authHeader(tokenA));
+    const listaB = await request(app).get('/api/categorie').set(authHeader(tokenB));
+    const svagoA = listaA.body.categorie.find((c) => c.id === 'svago' && c.tipo === 'uscita');
+    const svagoB = listaB.body.categorie.find((c) => c.id === 'svago' && c.tipo === 'uscita');
+
+    expect(svagoA.essenzialita).toBe('essenziale');
+    expect(svagoB.essenzialita).toBe('discrezionale'); // valore di catalogo, invariato
+  });
+
+  it('il catalogo globale non cambia: una nuova registrazione vede ancora il default', async () => {
+    await request(app)
+      .put('/api/categorie/default/svago/essenzialita')
+      .set(authHeader(tokenA))
+      .send({ essenzialita: 'essenziale' });
+
+    const svago = CATEGORIE_DEFAULT.find((c) => c.id === 'svago' && c.tipo === 'uscita');
+    expect(svago.essenzialita).toBe('discrezionale');
+  });
+
+  it('essenzialita: null rimuove la personalizzazione e torna al valore di catalogo', async () => {
+    await request(app)
+      .put('/api/categorie/default/svago/essenzialita')
+      .set(authHeader(tokenA))
+      .send({ essenzialita: 'essenziale' });
+
+    const res = await request(app)
+      .put('/api/categorie/default/svago/essenzialita')
+      .set(authHeader(tokenA))
+      .send({ essenzialita: null });
+
+    expect(res.status).toBe(200);
+    expect(res.body.categoria.essenzialita).toBe('discrezionale');
+    expect(res.body.categoria.essenzialitaPersonalizzata).toBeUndefined();
+  });
+
+  it('un valore non valido viene rifiutato con 400', async () => {
+    const res = await request(app)
+      .put('/api/categorie/default/svago/essenzialita')
+      .set(authHeader(tokenA))
+      .send({ essenzialita: 'molto_essenziale' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('404 su una categoria predefinita inesistente o di tipo entrata', async () => {
+    const inesistente = await request(app)
+      .put('/api/categorie/default/id_che_non_esiste/essenzialita')
+      .set(authHeader(tokenA))
+      .send({ essenzialita: 'essenziale' });
+    expect(inesistente.status).toBe(404);
+
+    const entrata = await request(app)
+      .put('/api/categorie/default/stipendio/essenzialita')
+      .set(authHeader(tokenA))
+      .send({ essenzialita: 'essenziale' });
+    expect(entrata.status).toBe(404);
+  });
+
+  it('la personalizzazione si propaga al fondo di sicurezza (svago riclassificato entra tra le essenziali)', async () => {
+    const contoRes = await request(app).post('/api/conti').set(authHeader(tokenA)).send({ nome: 'C', tipo: 'banca', saldo_iniziale: 10000 });
+    const contoId = contoRes.body.conto.id;
+    const meseScorso = new Date();
+    meseScorso.setMonth(meseScorso.getMonth() - 1);
+    const data = meseScorso.toISOString().split('T')[0];
+
+    await request(app)
+      .put('/api/categorie/default/svago/essenzialita')
+      .set(authHeader(tokenA))
+      .send({ essenzialita: 'essenziale' });
+    await request(app).post('/api/movimenti').set(authHeader(tokenA)).send({
+      conto_id: contoId, tipo: 'uscita', importo: 300, categoria: 'svago', data,
+    });
+
+    const fondoRes = await request(app)
+      .post('/api/obiettivi')
+      .set(authHeader(tokenA))
+      .send({ nome: 'Fondo', importo_target: 10000, tipo_obiettivo: 'fondo_sicurezza' });
+    const copertura = await request(app)
+      .get(`/api/obiettivi/${fondoRes.body.obiettivo.id}/copertura`)
+      .set(authHeader(tokenA));
+
+    // 300€ su 3 mesi di finestra = 100€/mese: senza la personalizzazione
+    // 'svago' sarebbe discrezionale e spese_essenziali_mensili sarebbe 0
+    // (stato 'non_calcolabile').
+    expect(copertura.body.stato).toBe('disponibile');
+    expect(copertura.body.spese_essenziali_mensili).toBe(100);
+  });
+});
+
+describe('aggregaPerEssenzialita — non_classificata invece del fallback a discrezionale', () => {
+  const { aggregaPerEssenzialita, getEssenzialita, NON_CLASSIFICATA } = require('../services/essenzialita.service');
+
+  const categorieUscita = [
+    { id: 'affitto', tipo: 'uscita', essenzialita: 'essenziale' },
+    { id: 'svago', tipo: 'uscita', essenzialita: 'discrezionale' },
+    { id: 'corrotta', tipo: 'uscita', essenzialita: 'valore_non_valido' },
+    { id: 'null_esplicito', tipo: 'uscita', essenzialita: null },
+  ];
+
+  it('una categoria non trovata (id orfano) è non_classificata, non discrezionale', () => {
+    expect(getEssenzialita('id_inesistente', categorieUscita)).toBe(NON_CLASSIFICATA);
+  });
+
+  it('una categoria trovata ma con essenzialita non valida è non_classificata', () => {
+    expect(getEssenzialita('corrotta', categorieUscita)).toBe(NON_CLASSIFICATA);
+  });
+
+  it('una categoria trovata con essenzialita null è non_classificata', () => {
+    expect(getEssenzialita('null_esplicito', categorieUscita)).toBe(NON_CLASSIFICATA);
+  });
+
+  it('una categoria valida resta classificata normalmente', () => {
+    expect(getEssenzialita('affitto', categorieUscita)).toBe('essenziale');
+    expect(getEssenzialita('svago', categorieUscita)).toBe('discrezionale');
+  });
+
+  it('i quattro gruppi si riconciliano sempre con il totale', () => {
+    const totali = {
+      affitto: 800, svago: 120, corrotta: 50, null_esplicito: 30, id_inesistente: 15,
+    };
+    const risultato = aggregaPerEssenzialita(totali, categorieUscita);
+
+    expect(risultato).toEqual({
+      essenziale: 800,
+      semi_essenziale: 0,
+      discrezionale: 120,
+      non_classificata: 95, // 50 + 30 + 15: mai silenziosamente in discrezionale
+      totale: 1015,
+    });
+  });
+
+  it('nessuna categoria non classificata: il quarto gruppo resta a zero, non manca', () => {
+    const risultato = aggregaPerEssenzialita({ affitto: 800, svago: 120 }, categorieUscita);
+    expect(risultato.non_classificata).toBe(0);
+    expect(risultato.totale).toBe(920);
+  });
+});
+
 describe('Sostituzione euristica hardcoded in getSuggerimenti', () => {
   let app;
   let token;

@@ -11,6 +11,7 @@ import RicorrenteForm from '@/components/ricorrenti/RicorrenteForm.vue';
 import RicorrenteItem from '@/components/ricorrenti/RicorrenteItem.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import { AlertTriangle, Repeat2 } from '@/utils/appIcons';
+import api from '@/utils/axios';
 
 const movimentiStore = useMovimentiStore();
 const toastStore = useToastStore();
@@ -19,6 +20,7 @@ const showNuova = ref(false);
 const movimentoInModifica = ref(null);
 const movimentoDaEliminare = ref(null);
 const eliminazioneInCorso = ref(false);
+const statoInCorso = ref(false);
 
 onMounted(() => movimentiStore.fetchRicorrenti());
 
@@ -49,6 +51,20 @@ const confermaEliminazione = async () => {
     toastStore.error('Non è stato possibile eliminare il movimento ricorrente');
   } finally {
     eliminazioneInCorso.value = false;
+  }
+};
+
+const cambiaStato = async (movimento, stato) => {
+  if (statoInCorso.value) return;
+  statoInCorso.value = true;
+  try {
+    await api.patch(`/movimenti/${movimento.id}/ricorrenza/stato`, { stato });
+    toastStore.success(stato === 'sospesa' ? 'Ricorrenza sospesa' : stato === 'attiva' ? 'Ricorrenza riattivata' : 'Ricorrenza terminata');
+    await movimentiStore.fetchRicorrenti();
+  } catch {
+    toastStore.error('Non è stato possibile cambiare lo stato della ricorrenza');
+  } finally {
+    statoInCorso.value = false;
   }
 };
 </script>
@@ -91,6 +107,7 @@ const confermaEliminazione = async () => {
           :valuta="authStore.user?.valuta || 'EUR'"
           @modifica="modifica"
           @elimina="chiediEliminazione"
+          @cambia-stato="cambiaStato"
         />
       </div>
     </DataState>

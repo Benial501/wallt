@@ -60,6 +60,7 @@ describe('FondoSicurezzaService.calcolaMesiCopertura', () => {
   const { Conto, Movimento } = require('./setup');
   let app;
   let token;
+  let userId;
   let contoId;
 
   const creaMovimentoUscita = async (importo, categoria, data) => request(app)
@@ -71,6 +72,7 @@ describe('FondoSicurezzaService.calcolaMesiCopertura', () => {
     app = createApp({ enableRateLimit: false });
     const { res } = await registerUser(app);
     token = res.body.token;
+    userId = res.body.user.id;
     const contoRes = await request(app).post('/api/conti').set(authHeader(token)).send({ nome: 'C', tipo: 'banca', saldo_iniziale: 10000 });
     contoId = contoRes.body.conto.id;
   });
@@ -132,6 +134,40 @@ describe('FondoSicurezzaService.calcolaMesiCopertura', () => {
     expect(res.body.mesi_copertura).toBe(round1(10000 / 300));
 
     function round1(v) { return Math.round(v * 10) / 10; }
+  });
+
+  it('segnala classificazione_incompleta quando una spesa ha una categoria orfana', async () => {
+    const meseScorso = new Date();
+    meseScorso.setMonth(meseScorso.getMonth() - 1);
+    const data = meseScorso.toISOString().split('T')[0];
+    await creaMovimentoUscita(900, 'affitto', data);
+    // Simula una categoria personale poi cancellata per davvero (non solo
+    // archiviata): l'API di creazione movimenti non lo permette, si inserisce
+    // direttamente col modello, come farebbe un dato legacy nel DB.
+    await Movimento.create({
+      user_id: userId,
+      conto_id: contoId, tipo: 'uscita', importo: 100, categoria: 'id_orfano_inesistente', data,
+    });
+
+    const id = await creaFondo(1000);
+    const res = await request(app).get(`/api/obiettivi/${id}/copertura`).set(authHeader(token));
+
+    expect(res.body.stato).toBe('disponibile');
+    expect(res.body.classificazione_incompleta).toBe(true);
+    // Le spese essenziali restano solo l'affitto: la quota orfana non vi entra.
+    expect(res.body.spese_essenziali_mensili).toBe(300);
+  });
+
+  it('classificazione_incompleta è false con dati interamente classificati', async () => {
+    const meseScorso = new Date();
+    meseScorso.setMonth(meseScorso.getMonth() - 1);
+    const data = meseScorso.toISOString().split('T')[0];
+    await creaMovimentoUscita(900, 'affitto', data);
+
+    const id = await creaFondo(1000);
+    const res = await request(app).get(`/api/obiettivi/${id}/copertura`).set(authHeader(token));
+
+    expect(res.body.classificazione_incompleta).toBe(false);
   });
 
   it('400 se l\'obiettivo non è un fondo di sicurezza', async () => {

@@ -15,6 +15,8 @@ const confermaElimina = ref(false);
 const icone = ref(['Tag']);
 const iconLabels = { Tag: 'Etichetta', House: 'Casa', ShoppingBasket: 'Spesa', Car: 'Auto', ShoppingBag: 'Shopping', Heart: 'Cuore', Dumbbell: 'Sport', Music: 'Musica', Plane: 'Viaggi', Wallet: 'Portafoglio', BookOpen: 'Libri', Gift: 'Regalo', Briefcase: 'Lavoro', Coffee: 'Caffè', Gamepad2: 'Videogiochi', GraduationCap: 'Istruzione', PawPrint: 'Animali', Siren: 'Multe', Scale: 'Legale', HeartHandshake: 'Beneficenza', SprayCan: 'Pulizie' };
 const form = ref({});
+const ESSENZIALITA_LABELS = { essenziale: 'Essenziale', semi_essenziale: 'Semi-essenziale', discrezionale: 'Discrezionale' };
+const essenzialitaBusy = ref(new Set());
 
 // La selezione è per coppia id+tipo: lo stesso id può esistere su entrambi i versi.
 const chiave = c => `${c.id}:${c.tipo}`;
@@ -83,6 +85,33 @@ async function elimina() {
   finally { busy.value = false; }
 }
 
+/**
+ * Il livello di necessità di una categoria di uscita: per le personali è un
+ * campo come gli altri (PUT normale), per le predefinite è una
+ * personalizzazione per-utente che non tocca il catalogo globale (endpoint
+ * dedicato). `valore: null` rimuove la personalizzazione di una predefinita,
+ * tornando al valore di catalogo.
+ */
+async function cambiaEssenzialita(cat, valore) {
+  const key = chiave(cat);
+  const busy1 = new Set(essenzialitaBusy.value); busy1.add(key); essenzialitaBusy.value = busy1;
+  error.value = '';
+  try {
+    if (cat.isDefault) {
+      await api.put(`/categorie/default/${cat.id}/essenzialita`, { essenzialita: valore || null });
+    } else {
+      await api.put(`/categorie/${cat.id}`, {
+        nome: cat.nome, tipo: cat.tipo, icona: cat.icona, colore: cat.colore, essenzialita: valore,
+      });
+    }
+    await refresh();
+  } catch (e) {
+    error.value = e.response?.data?.message || 'Impossibile aggiornare l\'essenzialità della categoria';
+  } finally {
+    const busy2 = new Set(essenzialitaBusy.value); busy2.delete(key); essenzialitaBusy.value = busy2;
+  }
+}
+
 async function ripristina(c) {
   busy.value = true; error.value = '';
   try {
@@ -117,6 +146,26 @@ async function ripristina(c) {
         <span v-else class="checkbox-placeholder" aria-hidden="true"></span>
         <span class="mark" :style="{ color: cat.colore, background: cat.colore + '18' }"><CategoryIcon :categoria="cat.id" :tipo="tipo" /></span>
         <div class="category-name"><strong>{{ cat.nome }}</strong><small>{{ cat.sistema ? 'Di sistema' : cat.isDefault ? 'Predefinita' : 'Personale' }}</small></div>
+        <div v-if="tipo === 'uscita'" class="essenzialita">
+          <select
+            class="form-select essenzialita__select"
+            :value="cat.essenzialita || ''"
+            :disabled="essenzialitaBusy.has(chiave(cat))"
+            :aria-label="`Essenzialità di ${cat.nome}`"
+            @change="cambiaEssenzialita(cat, $event.target.value)"
+          >
+            <option v-if="!cat.essenzialita" value="" disabled>Non classificata</option>
+            <option v-for="(label, val) in ESSENZIALITA_LABELS" :key="val" :value="val">{{ label }}</option>
+          </select>
+          <button
+            v-if="cat.isDefault && cat.essenzialitaPersonalizzata"
+            type="button"
+            class="essenzialita__reset"
+            :disabled="essenzialitaBusy.has(chiave(cat))"
+            :aria-label="`Torna al valore predefinito di ${cat.nome}`"
+            @click="cambiaEssenzialita(cat, null)"
+          >Predefinita</button>
+        </div>
         <div v-if="!cat.isDefault" class="actions"><button :aria-label="`Modifica ${cat.nome}`" @click="edit(cat)">Modifica</button></div>
       </WCard>
     </div></section>
@@ -240,6 +289,22 @@ h2 {
 strong, small { display: block; }
 strong { font-size: 0.9375rem; font-weight: 600; letter-spacing: var(--tracking-tight); }
 small { font-size: var(--text-xs); margin-top: 0.125rem; color: var(--text-muted); }
+.essenzialita { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+.essenzialita__select {
+  min-height: 34px;
+  padding: 0.3rem 0.6rem;
+  font-size: var(--text-xs);
+  max-width: 9.5rem;
+}
+.essenzialita__reset {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.essenzialita__reset:hover { color: var(--text-primary); text-decoration: underline; }
+.essenzialita__reset:disabled { opacity: 0.5; }
+.essenzialita__reset:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
+
 .actions { display: flex; gap: 0.7rem; font-size: var(--text-xs); }
 .actions button {
   color: var(--accent-text);

@@ -47,6 +47,18 @@ const fineMeseScorso = (riferimento) => {
  *   mesi_copertura=0 (e' un risultato legittimo, non un errore)
  * - obiettivo completato → nessun trattamento speciale, la formula si applica
  *   comunque con l'importo_attuale corrente
+ *
+ * Copertura e semi-essenziali: il fondo copre solo le spese 'essenziale',
+ * mai le 'semi_essenziale' (comprimibili in caso di necessità, per
+ * definizione — vedi essenzialita.service.js — quindi non richiedono una
+ * riserva dedicata) né le 'non_classificata'. Non è un'omissione: è la
+ * regola esplicita adottata qui, 0% delle semi-essenziali, senza percentuali
+ * arbitrarie.
+ *
+ * `classificazione_incompleta: true` nella risposta segnala che una quota
+ * non trascurabile (>1%) delle uscite nel periodo non ha una categoria con
+ * essenzialità valida: `spese_essenziali_mensili` potrebbe essere
+ * sottostimata, perché quella quota non entra mai nel totale essenziale.
  */
 async function calcolaMesiCopertura({ userId, obiettivo, mesi = 3, riferimento = new Date() }) {
   const importoFondo = toNumber(obiettivo.importo_attuale);
@@ -79,8 +91,15 @@ async function calcolaMesiCopertura({ userId, obiettivo, mesi = 3, riferimento =
 
   const categorie = await list(userId, { includeArchived: true });
   const categorieUscita = categorie.filter((c) => c.tipo === 'uscita');
-  const { essenziale } = aggregaPerEssenzialita(spesoPerCategoria, categorieUscita);
+  const {
+    essenziale, non_classificata: nonClassificata, totale,
+  } = aggregaPerEssenzialita(spesoPerCategoria, categorieUscita);
   const speseEssenzialiMensili = essenziale / mesi;
+  // Vero solo se manca almeno una classificazione E quella spesa non è
+  // trascurabile: pochi centesimi non classificati su un totale alto non
+  // meritano di marcare l'intera stima come incompleta.
+  const classificazioneIncompleta = nonClassificata > 0 && totale > 0
+    && (nonClassificata / totale) > 0.01;
 
   if (speseEssenzialiMensili === 0) {
     return {
@@ -89,6 +108,7 @@ async function calcolaMesiCopertura({ userId, obiettivo, mesi = 3, riferimento =
       spese_essenziali_mensili: 0,
       importo_fondo: importoFondo,
       motivo: 'Le spese essenziali mensili sono pari a zero: la copertura non è calcolabile.',
+      classificazione_incompleta: classificazioneIncompleta,
     };
   }
 
@@ -98,6 +118,11 @@ async function calcolaMesiCopertura({ userId, obiettivo, mesi = 3, riferimento =
     spese_essenziali_mensili: Math.round(speseEssenzialiMensili * 100) / 100,
     importo_fondo: importoFondo,
     motivo: null,
+    // true quando una parte non trascurabile delle uscite nel periodo non ha
+    // una categoria classificata (id orfano o senza essenzialita valida):
+    // la stima delle spese essenziali potrebbe essere sottostimata, perché
+    // NON_CLASSIFICATA non entra mai in `essenziale` (vedi essenzialita.service.js).
+    classificazione_incompleta: classificazioneIncompleta,
   };
 }
 
