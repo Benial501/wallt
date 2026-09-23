@@ -13,6 +13,7 @@ const { Movimento } = require('../models');
 const { list: listCategories } = require('./categorie.service');
 const { aggregaPerEssenzialita } = require('./essenzialita.service');
 const { ultimiNMesi } = require('./confrontoPeriodi.service');
+const { classificaFinestra } = require('./finestraMesi.service');
 const { finestraGiorni, oggiLocale, FUSO_DEFAULT } = require('../utils/dateRome');
 
 const round2 = (v) => Math.round(v * 100) / 100;
@@ -72,15 +73,59 @@ async function aggregaSpeseGiorni(userId, giorni, riferimento) {
  * getConfrontoMesi in analisi.controller.js: N round-trip singoli sarebbero
  * uno spreco).
  *
- * `media_mensile` usa solo i mesi COMPLETI (esclude il mese corrente
- * parziale, come già fa fondoSicurezza.service.js per lo stesso motivo: un
- * mese a metà farebbe apparire la spesa media più bassa di quanto sia
- * davvero). `null` se non c'è nessun mese completo nella finestra —
- * "storico insufficiente", non zero.
+ * `opzioni.primoMovimento` ('YYYY-MM-DD' del primo movimento mai registrato
+ * dall'utente, o null) attiva il clipping della finestra osservata: senza di
+ * esso lo storico resta l'intera finestra richiesta — comportamento storico,
+ * conservato per i chiamanti che non sanno da dove comincia lo storico. Con
+ * esso i mesi precedenti al primo movimento NON compaiono: non sono "spesa
+ * zero", sono mesi che per quell'utente non esistono (vedi
+ * finestraMesi.service.js).
+ *
+ * Tre grandezze distinte, tre denominatori dichiarati:
+ * - `totale`: somma dell'intero storico restituito, mese corrente parziale
+ *   compreso. Non divisibile per un numero di mesi: mescola mesi completi e
+ *   uno in corso.
+ * - `totale_mesi_completi` / `media_mensile`: solo i mesi civili COMPLETI
+ *   (esclude il mese corrente e il primo mese quando le registrazioni non
+ *   partono dal suo giorno 1). `media_mensile` è `null` se non c'è nessun
+ *   mese completo — "dato insufficiente", mai zero.
+ * - `mese_corrente`: il mese in corso, a parte.
+ *
+ * `byNecessity` resta la distribuzione sull'intero storico restituito e
+ * riconcilia con `totale` (significato invariato per chi già la consuma).
+ * `byNecessityMesiCompleti` è la stessa distribuzione sui soli mesi completi:
+ * riconcilia con `totale_mesi_completi`, quindi ha lo STESSO denominatore di
+ * `media_mensile` ed è l'unica da cui ricavare medie per classe.
  */
-async function aggregaSpeseMesi(userId, numMesi, riferimento = new Date()) {
-  const periodi = ultimiNMesi(numMesi, riferimento);
+async function aggregaSpeseMesi(userId, numMesi, riferimento = new Date(), opzioni = {}) {
+  const periodiRichiesti = ultimiNMesi(numMesi, riferimento);
   const meseCorrente = oggiLocale(FUSO_DEFAULT, riferimento).slice(0, 7);
+  const clipAttivo = Object.prototype.hasOwnProperty.call(opzioni, 'primoMovimento');
+  const finestra = classificaFinestra({
+    mesiRichiesti: periodiRichiesti.map((p) => p.chiave),
+    meseCorrente,
+    // Senza informazione sul primo movimento si conserva il comportamento
+    // storico: tutta la finestra è "osservata" e il primo mese non è sospetto.
+    primoMovimento: clipAttivo ? opzioni.primoMovimento : `${periodiRichiesti[0].chiave}-01`,
+  });
+  const periodi = clipAttivo
+    ? periodiRichiesti.filter((p) => finestra.osservati.includes(p.chiave))
+    : periodiRichiesti;
+
+  if (periodi.length === 0) {
+    const vuoto = aggregaPerEssenzialita({}, []);
+    return {
+      storico: [],
+      finestra,
+      totale: 0,
+      totale_mesi_completi: 0,
+      media_mensile: null,
+      mesi_completi: 0,
+      mese_corrente: null,
+      byNecessity: vuoto,
+      byNecessityMesiCompleti: vuoto,
+    };
+  }
 
   const movimenti = await Movimento.findAll({
     where: {
@@ -110,27 +155,38 @@ async function aggregaSpeseMesi(userId, numMesi, riferimento = new Date()) {
     };
   });
 
-  const mesiCompleti = storico.filter((m) => !m.parziale);
+  const mesiCompleti = storico.filter((m) => finestra.completi.includes(m.periodo));
   const totaleCompleti = round2(mesiCompleti.reduce((s, m) => s + m.totale, 0));
   const media_mensile = mesiCompleti.length > 0 ? round2(totaleCompleti / mesiCompleti.length) : null;
   const totale = round2(storico.reduce((s, m) => s + m.totale, 0));
 
-  const totaliPerCategoriaGlobale = {};
-  Object.values(Object.fromEntries(totaliPerPeriodo)).forEach((bucket) => {
-    Object.entries(bucket).forEach(([cat, importo]) => {
-      totaliPerCategoriaGlobale[cat] = (totaliPerCategoriaGlobale[cat] || 0) + importo;
+  const sommaBucket = (chiavi) => {
+    const totali = {};
+    chiavi.forEach((chiave) => {
+      Object.entries(totaliPerPeriodo.get(chiave) || {}).forEach(([cat, importo]) => {
+        totali[cat] = (totali[cat] || 0) + importo;
+      });
     });
-  });
+    return totali;
+  };
+
   const categorie = await listCategories(userId, { includeArchived: true });
   const categorieUscita = categorie.filter((c) => c.tipo === 'uscita');
-  const byNecessity = aggregaPerEssenzialita(totaliPerCategoriaGlobale, categorieUscita);
+  const byNecessity = aggregaPerEssenzialita(sommaBucket(periodi.map((p) => p.chiave)), categorieUscita);
+  const byNecessityMesiCompleti = aggregaPerEssenzialita(
+    sommaBucket(mesiCompleti.map((m) => m.periodo)), categorieUscita,
+  );
 
   return {
     storico,
+    finestra,
     totale,
+    totale_mesi_completi: totaleCompleti,
     media_mensile,
     mesi_completi: mesiCompleti.length,
+    mese_corrente: storico.find((m) => m.periodo === meseCorrente) || null,
     byNecessity,
+    byNecessityMesiCompleti,
   };
 }
 

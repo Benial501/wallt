@@ -194,3 +194,124 @@ describe('LiquiditaService.calcolaLiquidita', () => {
     expect(res.body.liquidita_libera).toBe(850);
   });
 });
+
+// Regressione: una ricorrenza che il cron non processerà mai non è un impegno.
+// La regola di "quali ricorrenze generano un addebito" vive in un solo posto
+// (ricorrenti.service.js#whereRicorrenzaAttiva, la stessa usata dal cron):
+// liquidita.service.js deve riusarla, non reimplementarne una più permissiva.
+describe('LiquiditaService — solo le ricorrenze attive generano impegni', () => {
+  let app;
+  let userId;
+  let conto;
+
+  const creaRicorrente = (stato) => Movimento.create({
+    user_id: userId,
+    conto_id: conto.id,
+    tipo: 'uscita',
+    importo: 300,
+    categoria: 'affitto',
+    descrizione: `Affitto ${stato}`,
+    data: '2026-01-01',
+    ricorrente: true,
+    stato_ricorrenza: stato,
+    ricorrente_frequenza: 'mensile',
+    ricorrente_giorno: 25,
+  });
+
+  beforeEach(async () => {
+    app = createApp({ enableRateLimit: false });
+    const { res } = await registerUser(app);
+    userId = res.body.user.id;
+    conto = await Conto.create({
+      user_id: userId, nome: 'Conto', tipo: 'banca', saldo: 1000, attivo: true,
+    });
+  });
+
+  it('una ricorrenza attiva non ancora addebitata è un impegno', async () => {
+    await creaRicorrente('attiva');
+    const result = await calcolaLiquidita(userId, { data: '2026-09-17' });
+    expect(result.impegni_pertinenti).toBe(300);
+    expect(result.impegni).toHaveLength(1);
+    expect(result.liquidita_libera).toBe(700);
+  });
+
+  it('una ricorrenza sospesa non è un impegno: il cron non la processa', async () => {
+    await creaRicorrente('sospesa');
+    const result = await calcolaLiquidita(userId, { data: '2026-09-17' });
+    expect(result.impegni_pertinenti).toBe(0);
+    expect(result.impegni).toEqual([]);
+    expect(result.liquidita_libera).toBe(1000);
+  });
+
+  it('una ricorrenza terminata non è un impegno', async () => {
+    await creaRicorrente('terminata');
+    const result = await calcolaLiquidita(userId, { data: '2026-09-17' });
+    expect(result.impegni_pertinenti).toBe(0);
+    expect(result.liquidita_libera).toBe(1000);
+  });
+
+  it('una ricorrenza attiva già addebitata nel periodo corrente non viene sottratta di nuovo', async () => {
+    const ricorrente = await creaRicorrente('attiva');
+    await Movimento.create({
+      user_id: userId, conto_id: conto.id, tipo: 'uscita', importo: 300, categoria: 'affitto',
+      descrizione: 'Affitto (automatico)', data: '2026-09-25', ricorrente: false,
+      ricorrenza_origine_id: ricorrente.id, ricorrenza_periodo: '2026-09',
+    });
+    await conto.update({ saldo: 700 });
+
+    const result = await calcolaLiquidita(userId, { data: '2026-09-17' });
+    expect(result.impegni_pertinenti).toBe(0);
+    expect(result.liquidita_libera).toBe(700);
+  });
+
+  it('sospese e terminate non riducono la liquidità nemmeno insieme a una attiva', async () => {
+    await creaRicorrente('attiva');
+    await creaRicorrente('sospesa');
+    await creaRicorrente('terminata');
+    const result = await calcolaLiquidita(userId, { data: '2026-09-17' });
+    expect(result.impegni_pertinenti).toBe(300);
+    expect(result.liquidita_libera).toBe(700);
+  });
+});
+
+// Coerenza fra i due punti che leggono le ricorrenze: l'API liquidità
+// (impegni del solo periodo corrente non ancora addebitati) e
+// FinancialContext.recurring.commitments (rata mensile equivalente di TUTTE
+// le attive). Sono grandezze diverse per definizione, ma devono concordare
+// su QUALI ricorrenze contano.
+describe('liquidità e FinancialContext concordano su quali ricorrenze contano', () => {
+  it('una sospesa è esclusa da entrambi; una attiva mensile è inclusa in entrambi', async () => {
+    const app = createApp({ enableRateLimit: false });
+    const { res } = await registerUser(app);
+    const userId = res.body.user.id;
+    const c = await Conto.create({
+      user_id: userId, nome: 'Conto', tipo: 'banca', saldo: 1000, attivo: true,
+    });
+    const base = {
+      user_id: userId,
+      conto_id: c.id,
+      tipo: 'uscita',
+      categoria: 'affitto',
+      data: '2026-01-01',
+      ricorrente: true,
+      ricorrente_frequenza: 'mensile',
+      ricorrente_giorno: 25,
+    };
+    await Movimento.create({
+      ...base, importo: 300, descrizione: 'Attiva', stato_ricorrenza: 'attiva',
+    });
+    await Movimento.create({
+      ...base, importo: 999, descrizione: 'Sospesa', stato_ricorrenza: 'sospesa',
+    });
+
+    const liquidita = await calcolaLiquidita(userId, { data: '2026-09-17' });
+    const { getFinancialContext } = require('../services/financialContext.service');
+    const ctx = await getFinancialContext(userId, { referenceDate: new Date('2026-09-17T10:00:00Z') });
+
+    expect(liquidita.impegni_pertinenti).toBe(300);
+    expect(ctx.recurring.commitments).toBe(300);
+    expect(ctx.recurring.active).toBe(1);
+    expect(ctx.recurring.paused).toBe(1);
+    expect(ctx.liquidity.commitments).toBe(300);
+  });
+});

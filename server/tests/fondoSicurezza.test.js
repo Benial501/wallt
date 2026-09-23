@@ -194,3 +194,63 @@ describe('FondoSicurezzaService.calcolaMesiCopertura', () => {
     expect(res.status).toBe(404);
   });
 });
+
+// Punto 2 dell'audit: il fondo di sicurezza può conservare la sua finestra di
+// tre mesi completi, ma deve dichiararla e riusare le aggregazioni condivise
+// invece di reimplementare la propria query sulle spese.
+describe('calcolaMesiCopertura — periodo dichiarato e aggregazioni condivise', () => {
+  const { Conto, Movimento } = require('./setup');
+  const { calcolaMesiCopertura } = require('../services/fondoSicurezza.service');
+  const riferimento = new Date('2026-09-23T10:00:00Z');
+
+  let userId;
+  let contoId;
+
+  beforeEach(async () => {
+    const app = createApp({ enableRateLimit: false });
+    const { res } = await registerUser(app);
+    userId = res.body.user.id;
+    const conto = await Conto.create({
+      user_id: userId, nome: 'C', tipo: 'banca', saldo: 100000, attivo: true,
+    });
+    contoId = conto.id;
+  });
+
+  const spesa = (importo, categoria, data) => Movimento.create({
+    user_id: userId, conto_id: contoId, tipo: 'uscita', importo, categoria, data,
+  });
+
+  it('dichiara il proprio periodo: tre mesi civili completi, mese corrente escluso', async () => {
+    await spesa(600, 'affitto', '2026-06-10');
+    await spesa(600, 'affitto', '2026-07-10');
+    await spesa(600, 'affitto', '2026-08-10');
+    await spesa(9999, 'affitto', '2026-09-10'); // mese corrente: fuori
+
+    const res = await calcolaMesiCopertura({
+      userId, obiettivo: { importo_attuale: 1800 }, riferimento,
+    });
+
+    expect(res.periodo).toEqual({
+      da: '2026-06', a: '2026-08', mesi: 3,
+    });
+    expect(res.spese_essenziali_mensili).toBe(600);
+    expect(res.mesi_copertura).toBe(3);
+  });
+
+  it('il periodo dichiarato attraversa il cambio d\'anno', async () => {
+    const res = await calcolaMesiCopertura({
+      userId,
+      obiettivo: { importo_attuale: 0 },
+      riferimento: new Date('2026-02-10T10:00:00Z'),
+    });
+    expect(res.periodo).toEqual({ da: '2025-11', a: '2026-01', mesi: 3 });
+  });
+
+  it('nessuna spesa nel periodo: dati insufficienti, e il periodo resta dichiarato', async () => {
+    const res = await calcolaMesiCopertura({
+      userId, obiettivo: { importo_attuale: 500 }, riferimento,
+    });
+    expect(res.stato).toBe('dati_insufficienti');
+    expect(res.periodo).toEqual({ da: '2026-06', a: '2026-08', mesi: 3 });
+  });
+});

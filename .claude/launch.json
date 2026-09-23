@@ -4,14 +4,33 @@
     {
       "name": "wallt-api",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "server", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "server",
+        "run",
+        "dev"
+      ],
       "port": 3000
     },
     {
       "name": "wallt-client",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "client", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "client",
+        "run",
+        "dev"
+      ],
       "port": 5173
+    },
+    {
+      "name": "wallt-api-verifica",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "DB_NAME=wallt_verifica_browser npm --prefix server run dev"
+      ],
+      "port": 3000
     }
   ]
 }

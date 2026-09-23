@@ -11,6 +11,29 @@ let activeRun = null;
 const ricorrenzaAttiva = (movimento) => movimento.ricorrente === true
   && movimento.stato_ricorrenza === 'attiva';
 
+/**
+ * L'unica definizione di "ricorrenza che genererà davvero un addebito", in
+ * forma di clausola Sequelize. La usano il cron (che crea i movimenti) e
+ * liquidita.service.js (che li considera impegni non ancora addebitati):
+ * devono concordare per costruzione, altrimenti la liquidità sottrae uscite
+ * che nessuno addebiterà mai.
+ *
+ * `stato_ricorrenza` è NOT NULL DEFAULT 'attiva' dalla migrazione
+ * 20260923000029: i record legacy creati prima della colonna sono già
+ * 'attiva' a livello di schema, quindi qui non serve (e non va aggiunto) un
+ * OR su NULL — sarebbe una tolleranza per uno stato che il database non può
+ * contenere.
+ */
+const whereRicorrenzaAttiva = () => ({ ricorrente: true, stato_ricorrenza: 'attiva' });
+
+/**
+ * Stato di una ricorrenza letta da un record: qualunque valore fuori da
+ * STATI_RICORRENZA viene ricondotto ad 'attiva', lo stesso default dello
+ * schema. Serve ai conteggi che partono da una riga già letta, dove non c'è
+ * una WHERE di mezzo (vedi financialContext.service.js#riepilogoRicorrenti).
+ */
+const normalizzaStatoRicorrenza = (valore) => (STATI_RICORRENZA.includes(valore) ? valore : 'attiva');
+
 const cambiaStatoRicorrenza = (attuale, prossimo) => {
   if (!STATI_RICORRENZA.includes(prossimo)) throw new Error('Stato ricorrenza non valido');
   if (attuale === 'terminata' && prossimo !== 'terminata') {
@@ -100,8 +123,7 @@ async function runProcessaRicorrenti(now) {
 
   const ricorrenti = await Movimento.findAll({
     where: {
-      ricorrente: true,
-      stato_ricorrenza: 'attiva',
+      ...whereRicorrenzaAttiva(),
       ricorrente_frequenza: { [Op.in]: FREQUENZE_SUPPORTATE },
     },
   });
@@ -209,4 +231,5 @@ function avviaCronRicorrenti() {
 module.exports = {
   processaRicorrenti, avviaCronRicorrenti, getRomeDateParts, FREQUENZE_SUPPORTATE, periodoPerFrequenza,
   STATI_RICORRENZA, ricorrenzaAttiva, cambiaStatoRicorrenza,
+  whereRicorrenzaAttiva, normalizzaStatoRicorrenza,
 };

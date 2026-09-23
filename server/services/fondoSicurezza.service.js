@@ -1,38 +1,7 @@
-const { Op } = require('sequelize');
-const { Movimento } = require('../models');
-const { list } = require('./categorie.service');
-const { aggregaPerEssenzialita } = require('./essenzialita.service');
-const { getRomeDateParts } = require('./ricorrenti.service');
+const { aggregaSpeseMesi } = require('./spese.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
 const round1 = (val) => Math.round(val * 10) / 10;
-const pad2 = (n) => String(n).padStart(2, '0');
-
-/** Primo giorno del mese, N mesi indietro rispetto a `riferimento`, nel
- * calendario di Roma (mai in quello del processo, che su Vercel e' UTC:
- * CLAUDE.md regola #16). */
-const inizioMesiFa = (riferimento, n) => {
-  const [anno, mese] = getRomeDateParts(riferimento).period.split('-').map(Number);
-  let y = anno;
-  let m = mese - n;
-  while (m <= 0) { m += 12; y -= 1; }
-  return `${y}-${pad2(m)}-01`;
-};
-
-/** Ultimo giorno del mese precedente a `riferimento` (esclude il mese corrente,
- * ancora parziale, per non far apparire le spese essenziali piu' basse di
- * quanto sono davvero), nel calendario di Roma. */
-const fineMeseScorso = (riferimento) => {
-  const [anno, mese] = getRomeDateParts(riferimento).period.split('-').map(Number);
-  let y = anno;
-  let m = mese - 1;
-  if (m <= 0) { m = 12; y -= 1; }
-  // Date.UTC(y, m, 0) usa `m` come indice di mese 0-based: passandogli il
-  // nostro `m` 1-based si ottiene il mese successivo in JS, il cui giorno 0
-  // e' l'ultimo giorno del mese `m` che vogliamo (calcolo timezone-neutro).
-  const ultimoGiorno = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  return `${y}-${pad2(m)}-${pad2(ultimoGiorno)}`;
-};
 
 /**
  * mesiCopertura = importoFondo / speseEssenzialiMensili, calcolate sulla
@@ -59,41 +28,42 @@ const fineMeseScorso = (riferimento) => {
  * non trascurabile (>1%) delle uscite nel periodo non ha una categoria con
  * essenzialità valida: `spese_essenziali_mensili` potrebbe essere
  * sottostimata, perché quella quota non entra mai nel totale essenziale.
+ *
+ * Finestra e aggregazione. La finestra resta quella specifica del fondo —
+ * `mesi` (default 3) mesi civili COMPLETI, mese corrente escluso — ma non è
+ * più calcolata qui: si chiede a `aggregaSpeseMesi` una finestra di `mesi + 1`
+ * mesi (i `mesi` completi più quello in corso) e si usa la sua
+ * classificazione dei mesi completi e la sua `byNecessityMesiCompleti`. Così
+ * la distribuzione per essenzialità è la stessa che vede il resto dell'app,
+ * e il periodo effettivamente osservato viene restituito in `periodo`
+ * invece di restare implicito nel codice.
  */
 async function calcolaMesiCopertura({ userId, obiettivo, mesi = 3, riferimento = new Date() }) {
   const importoFondo = toNumber(obiettivo.importo_attuale);
-  const da = inizioMesiFa(riferimento, mesi);
-  const a = fineMeseScorso(riferimento);
+  // mesi + 1: la finestra richiesta comprende il mese corrente, che
+  // aggregaSpeseMesi marca parziale e tiene fuori dai mesi completi.
+  const aggregato = await aggregaSpeseMesi(userId, mesi + 1, riferimento);
+  const completi = aggregato.finestra.completi;
+  const periodo = {
+    da: completi[0] ?? null,
+    a: completi[completi.length - 1] ?? null,
+    mesi: completi.length,
+  };
 
-  const movimenti = await Movimento.findAll({
-    where: {
-      user_id: userId,
-      tipo: 'uscita',
-      data: { [Op.between]: [da, a] },
-    },
-  });
-
-  if (movimenti.length === 0) {
+  if (aggregato.totale_mesi_completi === 0) {
     return {
       stato: 'dati_insufficienti',
       mesi_copertura: null,
       spese_essenziali_mensili: null,
       importo_fondo: importoFondo,
+      periodo,
       motivo: 'Nessuno storico di spese sufficiente per calcolare la copertura.',
     };
   }
 
-  const spesoPerCategoria = {};
-  movimenti.forEach((m) => {
-    const cat = m.categoria || 'altro_uscita';
-    spesoPerCategoria[cat] = (spesoPerCategoria[cat] || 0) + toNumber(m.importo);
-  });
-
-  const categorie = await list(userId, { includeArchived: true });
-  const categorieUscita = categorie.filter((c) => c.tipo === 'uscita');
   const {
     essenziale, non_classificata: nonClassificata, totale,
-  } = aggregaPerEssenzialita(spesoPerCategoria, categorieUscita);
+  } = aggregato.byNecessityMesiCompleti;
   const speseEssenzialiMensili = essenziale / mesi;
   // Vero solo se manca almeno una classificazione E quella spesa non è
   // trascurabile: pochi centesimi non classificati su un totale alto non
@@ -107,6 +77,7 @@ async function calcolaMesiCopertura({ userId, obiettivo, mesi = 3, riferimento =
       mesi_copertura: null,
       spese_essenziali_mensili: 0,
       importo_fondo: importoFondo,
+      periodo,
       motivo: 'Le spese essenziali mensili sono pari a zero: la copertura non è calcolabile.',
       classificazione_incompleta: classificazioneIncompleta,
     };
@@ -117,6 +88,7 @@ async function calcolaMesiCopertura({ userId, obiettivo, mesi = 3, riferimento =
     mesi_copertura: round1(importoFondo / speseEssenzialiMensili),
     spese_essenziali_mensili: Math.round(speseEssenzialiMensili * 100) / 100,
     importo_fondo: importoFondo,
+    periodo,
     motivo: null,
     // true quando una parte non trascurabile delle uscite nel periodo non ha
     // una categoria classificata (id orfano o senza essenzialita valida):

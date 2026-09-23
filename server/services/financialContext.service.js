@@ -13,9 +13,8 @@
  * non ricalcola.
  */
 const { Obiettivo, Investimento, Movimento } = require('../models');
-const {
-  FUSO_DEFAULT, oggiLocale, sommaMesi,
-} = require('../utils/dateRome');
+const { FUSO_DEFAULT, oggiLocale } = require('../utils/dateRome');
+const { elencoMesi, classificaFinestra } = require('./finestraMesi.service');
 const { calcolaPatrimonioNetto } = require('./financialSummary.service');
 const { calcolaLiquidita } = require('./liquidita.service');
 const { aggregaSpeseMesi } = require('./spese.service');
@@ -24,7 +23,7 @@ const { calcolaMesiCopertura } = require('./fondoSicurezza.service');
 const { riepilogo: riepilogoDebiti, calcolaPressioneDebitoria } = require('./debiti.service');
 const { calcolaProgressoObiettivo } = require('./obiettiviStato.service');
 const { descriviLiquidabilita } = require('./investimentiLiquidabilita.service');
-const { STATI_RICORRENZA } = require('./ricorrenti.service');
+const { STATI_RICORRENZA, normalizzaStatoRicorrenza } = require('./ricorrenti.service');
 
 const round2 = (v) => Math.round(v * 100) / 100;
 const toNumber = (v) => parseFloat(v) || 0;
@@ -48,7 +47,7 @@ async function riepilogoRicorrenti(userId) {
   const conteggi = Object.fromEntries(STATI_RICORRENZA.map((s) => [s, 0]));
   let commitments = 0;
   ricorrenti.forEach((r) => {
-    const stato = STATI_RICORRENZA.includes(r.stato_ricorrenza) ? r.stato_ricorrenza : 'attiva';
+    const stato = normalizzaStatoRicorrenza(r.stato_ricorrenza);
     conteggi[stato] = (conteggi[stato] || 0) + 1;
     if (stato === 'attiva' && r.tipo === 'uscita') {
       const fattore = FATTORE_MENSILE[r.ricorrente_frequenza];
@@ -126,6 +125,7 @@ async function riepilogoFondoSicurezza(userId, referenceDate) {
       missingAmount: null,
       status: 'assente',
       classificazione_incompleta: null,
+      period: null,
     };
   }
 
@@ -142,6 +142,14 @@ async function riepilogoFondoSicurezza(userId, referenceDate) {
     missingAmount: round2(Math.max(target - current, 0)),
     status: copertura.stato,
     classificazione_incompleta: copertura.classificazione_incompleta ?? null,
+    // Il fondo ha una finestra propria (tre mesi civili completi) diversa da
+    // `period.averageMonths`, che dipende da `historyMonths`: dichiararla
+    // evita di far credere che i due numeri vengano dallo stesso periodo.
+    period: {
+      from: copertura.periodo.da,
+      to: copertura.periodo.a,
+      months: copertura.periodo.mesi,
+    },
   };
 }
 
@@ -180,16 +188,22 @@ async function getFinancialContext(userId, options = {}) {
     ? options.historyMonths : 12;
   const oggi = oggiLocale(FUSO_DEFAULT, referenceDate);
   const meseCorrente = oggi.slice(0, 7);
-  const meseFinestra = sommaMesi(`${meseCorrente}-01`, -(historyMonths - 1)).slice(0, 7);
+  const mesiRichiesti = elencoMesi(meseCorrente, historyMonths);
 
-  // Prima di interrogare spese/entrate, sappiamo da dove comincia lo storico
-  // reale dell'utente: un mese di calendario prima del suo primo movimento
-  // non è "storico a zero", semplicemente non esiste per lui. calcolaEntrate
-  // riceve direttamente la finestra clippata; le spese (storico completo,
-  // utile per expenses.history) si clippano dopo per la sola media.
+  // Tre finestre distinte, una sola definizione (finestraMesi.service.js):
+  // richiesta (gli N mesi chiesti), osservata (da dove comincia lo storico
+  // reale dell'utente) e mesi per le medie (i soli mesi civili completi).
+  // Prima di questa separazione entrate e spese trattavano il mese corrente
+  // in modo diverso e lo storico spese conteneva zeri per mesi in cui
+  // l'utente non aveva ancora un solo movimento.
   const primoMovimento = await primaDataMovimento(userId);
-  const primoMese = primoMovimento ? primoMovimento.slice(0, 7) : null;
-  const daEntrate = primoMese && primoMese > meseFinestra ? primoMese : meseFinestra;
+  const finestra = classificaFinestra({ mesiRichiesti, meseCorrente, primoMovimento });
+  // Senza storico osservato non c'è nulla da chiedere alle entrate: si
+  // interroga il solo mese corrente (che esiste sempre, parziale) invece di
+  // generare N mesi di zeri che non sono storico.
+  const finestraEntrate = finestra.osservata
+    ? { da: finestra.osservata.da, a: finestra.osservata.a }
+    : { da: meseCorrente, a: meseCorrente };
 
   const [
     patrimonioNetto,
@@ -204,8 +218,8 @@ async function getFinancialContext(userId, options = {}) {
   ] = await Promise.all([
     calcolaPatrimonioNetto(userId),
     calcolaLiquidita(userId, { data: oggi }),
-    aggregaSpeseMesi(userId, historyMonths, referenceDate),
-    calcolaEntrate(userId, { da: daEntrate, a: meseCorrente, now: referenceDate }),
+    aggregaSpeseMesi(userId, historyMonths, referenceDate, { primoMovimento }),
+    calcolaEntrate(userId, { da: finestraEntrate.da, a: finestraEntrate.a, now: referenceDate }),
     riepilogoDebiti(userId),
     elencoObiettivi(userId, referenceDate),
     riepilogoInvestimenti(userId),
@@ -213,18 +227,19 @@ async function getFinancialContext(userId, options = {}) {
     riepilogoFondoSicurezza(userId, referenceDate),
   ]);
 
-  const meseCompletiReali = primoMese
-    ? spese.storico.filter((m) => !m.parziale && m.periodo >= primoMese).length
-    : 0;
-  const meseCompletiRealiTotale = primoMese
-    ? round2(spese.storico
-      .filter((m) => !m.parziale && m.periodo >= primoMese)
-      .reduce((s, m) => s + m.totale, 0))
-    : 0;
+  // Un solo insieme di mesi per TUTTE le medie confrontabili: quello che
+  // spese.service.js ha già classificato a partire dagli stessi input. Non si
+  // ricalcola qui (sarebbe una seconda definizione della stessa finestra).
+  const mesiMedie = spese.finestra.completi;
+  const nMesiMedie = mesiMedie.length;
+  const mediaSuMesiCompleti = (valorePerMese) => (nMesiMedie === 0 ? null
+    : round2(mesiMedie.reduce((s, mese) => s + (valorePerMese(mese) || 0), 0) / nMesiMedie));
 
-  const monthlyAverageIncome = entrate.stabilita === 'insufficiente' ? null : entrate.media_mensile;
-  const monthlyAverageExpenses = meseCompletiReali > 0
-    ? round2(meseCompletiRealiTotale / meseCompletiReali) : null;
+  const entratePerMese = new Map(entrate.mesi.map((m) => [m.mese, m]));
+  const monthlyAverageIncome = mediaSuMesiCompleti((mese) => entratePerMese.get(mese)?.totale);
+  // spese.media_mensile è già la media sui soli mesi completi, con la stessa
+  // finestra: usarla evita di ricalcolare lo stesso numero in due modi.
+  const monthlyAverageExpenses = spese.media_mensile;
   const monthlySavings = monthlyAverageIncome !== null && monthlyAverageExpenses !== null
     ? round2(monthlyAverageIncome - monthlyAverageExpenses) : null;
   const savingsRate = monthlySavings !== null && monthlyAverageIncome
@@ -232,64 +247,108 @@ async function getFinancialContext(userId, options = {}) {
 
   // Reddito "affidabile" per la pressione debitoria: solo la quota
   // ricorrente/prevedibile del reddito, mai il totale (che può includere
-  // entrate occasionali non ripetibili — vedi entrate.service.js).
-  const redditoAffidabile = entrate.stabilita === 'insufficiente'
-    ? null : round2(entrate.quote.ricorrente / Math.max(entrate.mesi.length, 1));
+  // entrate occasionali non ripetibili — vedi entrate.service.js). Stessa
+  // finestra delle altre medie: la quota ricorrente mese per mese arriva da
+  // entrate.mesi[].quote, non dal totale dell'intera finestra.
+  const redditoAffidabile = mediaSuMesiCompleti((mese) => entratePerMese.get(mese)?.quote?.ricorrente);
   const debtPressure = calcolaPressioneDebitoria(debiti.totalMonthlyPayments, redditoAffidabile);
 
   const nonClassificataNonTrascurabile = spese.byNecessity.totale > 0
     && (spese.byNecessity.non_classificata / spese.byNecessity.totale) > 0.01;
 
+  const finestraMedie = {
+    from: spese.finestra.mesiPerLeMedie.da,
+    to: spese.finestra.mesiPerLeMedie.a,
+    count: nMesiMedie,
+  };
+  // Le quattro classi di necessità condividono il denominatore delle spese
+  // complessive: byNecessityMesiCompleti riconcilia con totale_mesi_completi,
+  // che è esattamente media_mensile * nMesiMedie (vedi spese.service.js).
+  const mediaClasse = (totale) => (nMesiMedie === 0 ? null : round2(totale / nMesiMedie));
+  const perNecessita = spese.byNecessityMesiCompleti;
+
   return {
     period: {
       timezone: FUSO_DEFAULT,
       referenceDate: oggi,
-      from: `${meseFinestra}-01`,
+      // `from`/`to`/`historyMonths` restano la finestra RICHIESTA, com'erano.
+      from: `${mesiRichiesti[0]}-01`,
       to: oggi,
       historyMonths,
+      // Le tre finestre, distinte ed esplicite (vedi finestraMesi.service.js).
+      requested: { from: spese.finestra.richiesta.da, to: spese.finestra.richiesta.a },
+      observed: spese.finestra.osservata
+        ? { from: spese.finestra.osservata.da, to: spese.finestra.osservata.a } : null,
+      averageMonths: finestraMedie,
     },
 
     dataQuality: {
-      // historyMonthsAvailable/completeMonths sono clippati a partire dal
-      // primo movimento mai registrato: un mese di calendario prima che
-      // l'utente esistesse non è "storico a zero", semplicemente non è
-      // storico (vedi primaDataMovimento sopra).
-      historyMonthsAvailable: primoMese
-        ? spese.storico.filter((m) => m.periodo >= primoMese).length : 0,
-      completeMonths: meseCompletiReali,
-      incompleteMonths: (primoMese
-        ? spese.storico.filter((m) => m.periodo >= primoMese).length : 0) - meseCompletiReali,
-      missingIncomeData: primoMovimento === null || (entrate.totale === 0 && entrate.stabilita === 'nessuna_entrata'),
-      missingExpenseData: primoMovimento === null || (meseCompletiReali === 0 && spese.totale === 0),
+      // Tutti i conteggi partono dalla finestra OSSERVATA: un mese di
+      // calendario prima del primo movimento dell'utente non è "storico a
+      // zero", semplicemente non è storico.
+      historyMonthsAvailable: spese.finestra.osservati.length,
+      completeMonths: nMesiMedie,
+      incompleteMonths: spese.finestra.osservati.length - nMesiMedie,
+      firstObservedMonthPartial: spese.finestra.primoMeseParziale,
+      missingIncomeData: primoMovimento === null || (entrate.totale === 0 && entrate.stabilita === 'nessuna_entrata') || entrate.totale === 0,
+      missingExpenseData: primoMovimento === null || (nMesiMedie === 0 && spese.totale === 0),
       missingClassificationData: nonClassificataNonTrascurabile,
-      hasSufficientHistory: meseCompletiReali >= 1 && entrate.stabilita !== 'insufficiente',
+      hasSufficientHistory: nMesiMedie >= 1 && entrate.stabilita !== 'insufficiente',
+      // LIMITE DICHIARATO: WALLT non ha collegamento bancario, quindi la
+      // completezza delle registrazioni di un mese non è osservabile. Un mese
+      // "completo" qui significa "mese civile chiuso, con almeno un indizio
+      // che le registrazioni ne coprano l'inizio", non "tutte le spese di
+      // quel mese sono state registrate".
+      registrationCompleteness: 'non_verificabile',
     },
 
     income: {
-      currentMonth: entrate.mesi[entrate.mesi.length - 1]?.totale ?? 0,
+      currentMonth: entratePerMese.get(meseCorrente)?.totale ?? 0,
       monthlyAverage: monthlyAverageIncome,
+      averageMonths: nMesiMedie,
       recurring: entrate.quote.ricorrente,
+      recurringMonthlyAverage: redditoAffidabile,
       oneOff: entrate.quote.occasionale,
       unclassified: entrate.quote.sconosciuta,
       stability: entrate.stabilita,
-      history: entrate.mesi,
+      // Senza finestra osservata non c'è storico: l'unico mese interrogato
+      // (quello corrente) non è storico dell'utente, è solo il mese in cui si
+      // trova. Esporlo come `history` sarebbe uno zero inventato.
+      history: spese.finestra.osservata ? entrate.mesi : [],
     },
 
     expenses: {
-      currentMonth: spese.storico[spese.storico.length - 1]?.totale ?? 0,
+      currentMonth: spese.mese_corrente?.totale ?? 0,
       monthlyAverage: monthlyAverageExpenses,
-      // monthlyAverage per gruppo resta null: aggregaSpeseMesi non tiene
-      // ancora una scomposizione per necessità mese per mese (solo il
-      // totale dell'intera finestra), quindi non c'è modo di dividerla per
-      // i soli mesi completi senza mescolare grandezze diverse (il totale
-      // qui sotto include anche il mese corrente parziale). Un null
-      // dichiarato è preferibile a una media calcolata su una base diversa
-      // da quella di `monthlyAverage` sopra.
+      averageMonths: nMesiMedie,
+      // Totale sui soli mesi completi: è il denominatore con cui
+      // `monthlyAverage` e le quattro classi di necessità riconciliano.
+      totalCompleteMonths: spese.totale_mesi_completi,
+      // Totale dell'intera finestra osservata, mese in corso compreso: NON
+      // divisibile per un numero di mesi (mescola mesi chiusi e uno in corso).
+      totalObserved: spese.totale,
+      // Le quattro classi hanno lo STESSO denominatore delle spese
+      // complessive: stessi mesi completi, stesso conteggio. `period` lo
+      // dichiara nella risposta, così chi legge non deve indovinarlo.
       byNecessity: {
-        essential: { total: spese.byNecessity.essenziale, monthlyAverage: null },
-        semiEssential: { total: spese.byNecessity.semi_essenziale, monthlyAverage: null },
-        discretionary: { total: spese.byNecessity.discrezionale, monthlyAverage: null },
-        unclassified: { total: spese.byNecessity.non_classificata, monthlyAverage: null },
+        period: finestraMedie,
+        essential: {
+          total: perNecessita.essenziale,
+          monthlyAverage: mediaClasse(perNecessita.essenziale),
+        },
+        semiEssential: {
+          total: perNecessita.semi_essenziale,
+          monthlyAverage: mediaClasse(perNecessita.semi_essenziale),
+        },
+        discretionary: {
+          total: perNecessita.discrezionale,
+          monthlyAverage: mediaClasse(perNecessita.discrezionale),
+        },
+        unclassified: {
+          total: perNecessita.non_classificata,
+          monthlyAverage: mediaClasse(perNecessita.non_classificata),
+        },
+        total: perNecessita.totale,
       },
       history: spese.storico,
     },
@@ -299,6 +358,7 @@ async function getFinancialContext(userId, options = {}) {
       monthlyAverageExpenses,
       monthlySavings,
       savingsRate,
+      averageMonths: nMesiMedie,
     },
 
     liquidity: {
@@ -316,9 +376,22 @@ async function getFinancialContext(userId, options = {}) {
     goals: obiettivi,
 
     debts: {
-      items: debiti.items,
+      // Oggetti semplici (vedi debiti.service.js#descriviDebito): importi
+      // numerici, identificativi conservati, nessun metadato interno.
+      items: debiti.itemsNormalizzati,
       totalOutstanding: debiti.totalOutstanding,
       totalMonthlyPayments: debiti.totalMonthlyPayments,
+      // La rata mensile equivalente è una METRICA, non un impegno accertato:
+      // `liquidity.commitments` contiene solo le ricorrenze attive che il
+      // cron addebiterà (liquidita.service.js), e `totalMonthlyPayments` non
+      // vi viene mai sommato. Senza un collegamento debito↔ricorrenza nello
+      // schema, sommarli produrrebbe o una doppia sottrazione (se la rata è
+      // già registrata come ricorrente) o un totale inventato (se non lo è).
+      monthlyPayments: {
+        total: debiti.totalMonthlyPayments,
+        includedInLiquidityCommitments: false,
+        reconciliation: debiti.riconciliazioneRate,
+      },
       debtPressure,
     },
 

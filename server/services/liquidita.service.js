@@ -1,6 +1,8 @@
 const { Op } = require('sequelize');
 const { Conto, Obiettivo, Movimento } = require('../models');
-const { getRomeDateParts, FREQUENZE_SUPPORTATE, periodoPerFrequenza } = require('./ricorrenti.service');
+const {
+  getRomeDateParts, FREQUENZE_SUPPORTATE, periodoPerFrequenza, whereRicorrenzaAttiva,
+} = require('./ricorrenti.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
 const round2 = (val) => Math.round(val * 100) / 100;
@@ -17,13 +19,18 @@ const round2 = (val) => Math.round(val * 100) / 100;
  *   stesso denaro risulterebbe libero due volte: una volta sul conto, una
  *   volta come progresso dell'obiettivo. Un obiettivo completato non blocca
  *   più liquidità: il suo scopo è stato raggiunto.
- * - impegni_pertinenti: somma degli importi dei Movimento ricorrenti (mensili,
- *   settimanali o annuali) di tipo 'uscita' il cui addebito per il periodo
- *   corrente non è ancora avvenuto (nessun Movimento con
+ * - impegni_pertinenti: somma degli importi dei Movimento ricorrenti ATTIVI
+ *   (mensili, settimanali o annuali) di tipo 'uscita' il cui addebito per il
+ *   periodo corrente non è ancora avvenuto (nessun Movimento con
  *   ricorrenza_origine_id=<id> e ricorrenza_periodo=<periodo corrente per
  *   quella frequenza — vedi periodoPerFrequenza in ricorrenti.service.js,
  *   stessa chiave usata dal cron per l'idempotenza). Il saldo del conto non
  *   riflette ancora quell'uscita, quindi non è denaro davvero disponibile.
+ *   Il filtro sullo stato viene da whereRicorrenzaAttiva() — la stessa
+ *   clausola con cui il cron sceglie cosa addebitare: una ricorrenza sospesa
+ *   o terminata non produrrà nessun movimento, quindi sottrarla dalla
+ *   liquidità significherebbe bloccare denaro per un'uscita che non arriverà
+ *   mai.
  *
  * saldo_conti resta la somma di TUTTI i conti attivi (compresi quelli di
  * tipo 'scommesse': restano nel patrimonio, CLAUDE.md Regola 12) — significato
@@ -69,7 +76,7 @@ async function calcolaLiquidita(userId, { data, transaction } = {}) {
     where: {
       user_id: userId,
       tipo: 'uscita',
-      ricorrente: true,
+      ...whereRicorrenzaAttiva(),
       ricorrente_frequenza: { [Op.in]: FREQUENZE_SUPPORTATE },
     },
     transaction,
