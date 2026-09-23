@@ -107,6 +107,21 @@ describe('getFinancialContext — utente con dati su più domini', () => {
     expect(ctx.goals[0].stato).toBe('completato');
   });
 
+  it('la priorità di un obiettivo si propaga fino a goals[], null se non impostata', async () => {
+    await Obiettivo.create({
+      user_id: userId, nome: 'Con priorità', importo_target: 500, importo_attuale: 0, priorita: 'alta',
+    });
+    await Obiettivo.create({
+      user_id: userId, nome: 'Senza priorità', importo_target: 500, importo_attuale: 0,
+    });
+
+    const ctx = await getFinancialContext(userId, { referenceDate: riferimento });
+    const conPriorita = ctx.goals.find((g) => g.priorita === 'alta');
+    const senzaPriorita = ctx.goals.find((g) => g.priorita === null);
+    expect(conPriorita).toBeDefined();
+    expect(senzaPriorita).toBeDefined();
+  });
+
   it('fondo di sicurezza assente: stato esplicito "assente", non un errore né un fondo a zero', async () => {
     const ctx = await getFinancialContext(userId, { referenceDate: riferimento });
     expect(ctx.emergencyFund.status).toBe('assente');

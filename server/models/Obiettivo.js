@@ -40,6 +40,10 @@ const Obiettivo = sequelize.define('Obiettivo', {
     allowNull: false,
     defaultValue: 'generico',
   },
+  priorita: {
+    type: DataTypes.STRING(10),
+    allowNull: true,
+  },
 }, {
   tableName: 'obiettivi',
 });

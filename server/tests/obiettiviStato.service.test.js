@@ -26,4 +26,16 @@ describe('stato deterministico obiettivi', () => {
     expect(calcolaProgressoObiettivo({ ...base, importo_target: 0 }).stato).toBe('target_non_valido');
     expect(calcolaProgressoObiettivo({ ...base, importo_attuale: null }).stato).toBe('dati_mancanti');
   });
+
+  it('espone priorita: alta/media/bassa passano invariate', () => {
+    expect(calcolaProgressoObiettivo({ ...base, priorita: 'alta' }).priorita).toBe('alta');
+    expect(calcolaProgressoObiettivo({ ...base, priorita: 'media' }).priorita).toBe('media');
+    expect(calcolaProgressoObiettivo({ ...base, priorita: 'bassa' }).priorita).toBe('bassa');
+  });
+
+  it('priorita mancante o non valida (dato legacy/corrotto) è null, mai un valore inventato', () => {
+    expect(calcolaProgressoObiettivo({ ...base }).priorita).toBeNull();
+    expect(calcolaProgressoObiettivo({ ...base, priorita: null }).priorita).toBeNull();
+    expect(calcolaProgressoObiettivo({ ...base, priorita: 'urgente' }).priorita).toBeNull();
+  });
 });

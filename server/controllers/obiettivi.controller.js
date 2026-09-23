@@ -28,7 +28,9 @@ const getObiettivi = async (req, res) => {
 
 const createObiettivo = async (req, res) => {
   try {
-    const { nome, importo_target, deadline, icona, importo_iniziale = 0, tipo_obiettivo = 'generico' } = req.body;
+    const {
+      nome, importo_target, deadline, icona, importo_iniziale = 0, tipo_obiettivo = 'generico', priorita,
+    } = req.body;
 
     if (!nome || !importo_target) {
       return res.status(400).json({ message: 'Nome e importo target sono obbligatori' });
@@ -44,6 +46,7 @@ const createObiettivo = async (req, res) => {
       icona: icona || '🎯',
       completato: iniziale >= toNumber(importo_target),
       tipo_obiettivo,
+      priorita: priorita || null,
     });
 
     if (iniziale > 0) {
@@ -72,13 +75,16 @@ const updateObiettivo = async (req, res) => {
       return res.status(404).json({ message: 'Obiettivo non trovato' });
     }
 
-    const { nome, importo_target, deadline, icona, tipo_obiettivo } = req.body;
+    const {
+      nome, importo_target, deadline, icona, tipo_obiettivo, priorita,
+    } = req.body;
     const updateData = {};
     if (nome !== undefined) updateData.nome = nome;
     if (importo_target !== undefined) updateData.importo_target = importo_target;
     if (deadline !== undefined) updateData.deadline = deadline;
     if (icona !== undefined) updateData.icona = icona;
     if (tipo_obiettivo !== undefined) updateData.tipo_obiettivo = tipo_obiettivo;
+    if (priorita !== undefined) updateData.priorita = priorita;
 
     if (importo_target !== undefined) {
       updateData.completato = calcolaProgressoObiettivo({ ...obiettivo.toJSON(), ...updateData }).stato === 'completato';

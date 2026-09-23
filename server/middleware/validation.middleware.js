@@ -763,6 +763,10 @@ const validateObiettivo = [
     .optional({ values: 'null' })
     .isIn(['generico', 'fondo_sicurezza'])
     .withMessage('Tipo obiettivo non valido'),
+  body('priorita')
+    .optional({ values: 'null' })
+    .isIn(['alta', 'media', 'bassa'])
+    .withMessage('Priorità non valida'),
   validate,
 ];
 
@@ -792,6 +796,10 @@ const validateUpdateObiettivo = [
     .optional({ values: 'null' })
     .isIn(['generico', 'fondo_sicurezza'])
     .withMessage('Tipo obiettivo non valido'),
+  body('priorita')
+    .optional({ values: 'null' })
+    .isIn(['alta', 'media', 'bassa'])
+    .withMessage('Priorità non valida'),
   validate,
 ];
 

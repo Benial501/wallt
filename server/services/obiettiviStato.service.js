@@ -4,6 +4,10 @@ const round2 = (value) => Math.round(value * 100) / 100;
 const validDate = (date) => typeof date === 'string'
   && /^\d{4}-\d{2}-\d{2}$/.test(date)
   && sommaGiorni(date, 0) === date;
+const PRIORITA_VALIDE = ['alta', 'media', 'bassa'];
+/** null per priorità mancante o non valida (dato legacy/corrotto): mai un
+ * valore inventato per un campo che l'utente non ha ancora scelto. */
+const priorita = (obiettivo) => (PRIORITA_VALIDE.includes(obiettivo.priorita) ? obiettivo.priorita : null);
 
 /** Conta i cambi di mese civile, non intervalli di 30 giorni. */
 const calcolaProgressoObiettivo = (obiettivo, now = new Date()) => {
@@ -15,6 +19,7 @@ const calcolaProgressoObiettivo = (obiettivo, now = new Date()) => {
   const scadenza = obiettivo.deadline || null;
   const result = {
     tipo_obiettivo: obiettivo.tipo_obiettivo || 'generico',
+    priorita: priorita(obiettivo),
     importo_target: Number.isFinite(target) ? target : null,
     importo_attuale: Number.isFinite(attuale) ? attuale : null,
     importo_restante: null,

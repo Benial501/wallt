@@ -66,10 +66,10 @@ async function riepilogoRicorrenti(userId) {
 
 /**
  * Obiettivi dell'utente (tutti, anche completati: uno stato deterministico
- * si applica anche a chi ha già raggiunto il traguardo), con lo stato
- * calcolato dal servizio di dominio. `priority` è null: il modello
- * Obiettivo non ha oggi un campo priorità (non introdotto in questo lavoro
- * perché nessun consumer lo richiede ancora) — mai un valore inventato.
+ * si applica anche a chi ha già raggiunto il traguardo), con stato e
+ * priorità calcolati dal servizio di dominio. `priorita` è null quando
+ * l'utente non l'ha ancora impostata o per un dato legacy/corrotto — mai
+ * un valore inventato (vedi obiettiviStato.service.js).
  */
 async function elencoObiettivi(userId, referenceDate) {
   const obiettivi = await Obiettivo.findAll({ where: { user_id: userId } });
@@ -77,7 +77,6 @@ async function elencoObiettivi(userId, referenceDate) {
     const progresso = calcolaProgressoObiettivo(o, referenceDate);
     return {
       id: o.id,
-      priority: null,
       ...progresso,
     };
   });
