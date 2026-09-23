@@ -128,6 +128,55 @@ describe('Classificazione essenzialità', () => {
   });
 });
 
+describe('aggregaPerEssenzialita — non_classificata invece del fallback a discrezionale', () => {
+  const { aggregaPerEssenzialita, getEssenzialita, NON_CLASSIFICATA } = require('../services/essenzialita.service');
+
+  const categorieUscita = [
+    { id: 'affitto', tipo: 'uscita', essenzialita: 'essenziale' },
+    { id: 'svago', tipo: 'uscita', essenzialita: 'discrezionale' },
+    { id: 'corrotta', tipo: 'uscita', essenzialita: 'valore_non_valido' },
+    { id: 'null_esplicito', tipo: 'uscita', essenzialita: null },
+  ];
+
+  it('una categoria non trovata (id orfano) è non_classificata, non discrezionale', () => {
+    expect(getEssenzialita('id_inesistente', categorieUscita)).toBe(NON_CLASSIFICATA);
+  });
+
+  it('una categoria trovata ma con essenzialita non valida è non_classificata', () => {
+    expect(getEssenzialita('corrotta', categorieUscita)).toBe(NON_CLASSIFICATA);
+  });
+
+  it('una categoria trovata con essenzialita null è non_classificata', () => {
+    expect(getEssenzialita('null_esplicito', categorieUscita)).toBe(NON_CLASSIFICATA);
+  });
+
+  it('una categoria valida resta classificata normalmente', () => {
+    expect(getEssenzialita('affitto', categorieUscita)).toBe('essenziale');
+    expect(getEssenzialita('svago', categorieUscita)).toBe('discrezionale');
+  });
+
+  it('i quattro gruppi si riconciliano sempre con il totale', () => {
+    const totali = {
+      affitto: 800, svago: 120, corrotta: 50, null_esplicito: 30, id_inesistente: 15,
+    };
+    const risultato = aggregaPerEssenzialita(totali, categorieUscita);
+
+    expect(risultato).toEqual({
+      essenziale: 800,
+      semi_essenziale: 0,
+      discrezionale: 120,
+      non_classificata: 95, // 50 + 30 + 15: mai silenziosamente in discrezionale
+      totale: 1015,
+    });
+  });
+
+  it('nessuna categoria non classificata: il quarto gruppo resta a zero, non manca', () => {
+    const risultato = aggregaPerEssenzialita({ affitto: 800, svago: 120 }, categorieUscita);
+    expect(risultato.non_classificata).toBe(0);
+    expect(risultato.totale).toBe(920);
+  });
+});
+
 describe('Sostituzione euristica hardcoded in getSuggerimenti', () => {
   let app;
   let token;
