@@ -43,6 +43,11 @@ const Movimento = sequelize.define('Movimento', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
+  stato_ricorrenza: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'attiva',
+  },
   natura_entrata: {
     type: DataTypes.STRING(20),
     allowNull: false,

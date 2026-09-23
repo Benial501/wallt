@@ -7,6 +7,7 @@ const CategoryLearningService = require('../services/import/CategoryLearningServ
 // la piattaforma collegata (vedi services/scommesseContoSync.service.js).
 const { aggiornaSaldoConto } = require('../services/scommesseContoSync.service');
 const { calcolaEntrate } = require('../services/entrate.service');
+const { cambiaStatoRicorrenza } = require('../services/ricorrenti.service');
 // Valutazione delle soglie di budget dopo una scrittura. Gira FUORI dalla
 // transazione, non lancia mai e non può alterare saldi o esito
 // dell'operazione (vedi services/notifiche/NotificheGenerator.js).
@@ -550,6 +551,27 @@ const getEntrateRiepilogo = async (req, res) => {
   }
 };
 
+const updateStatoRicorrenza = async (req, res) => {
+  try {
+    const movimento = await sequelize.transaction(async (transaction) => {
+      const origine = await Movimento.findOne({
+        where: { id: req.params.id, user_id: req.userId, ricorrente: true },
+        transaction, lock: transaction.LOCK.UPDATE,
+      });
+      if (!origine) return null;
+      const stato = cambiaStatoRicorrenza(origine.stato_ricorrenza, req.body.stato);
+      await origine.update({ stato_ricorrenza: stato }, { transaction });
+      return origine;
+    });
+    if (!movimento) return res.status(404).json({ message: 'Ricorrenza non trovata' });
+    return res.json({ movimento });
+  } catch (error) {
+    if (error.message.includes('terminata')) return res.status(409).json({ message: error.message });
+    logger.error('Errore updateStatoRicorrenza', { err: error });
+    return res.status(500).json({ message: 'Errore nello stato della ricorrenza' });
+  }
+};
+
 module.exports = {
   getMovimenti,
   createMovimento,
@@ -558,4 +580,5 @@ module.exports = {
   getBilancioMese,
   getRicorrenti,
   getEntrateRiepilogo,
+  updateStatoRicorrenza,
 };

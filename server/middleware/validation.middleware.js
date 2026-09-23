@@ -1,6 +1,7 @@
 const { assertCategory } = require('../services/categorie.service');
 const { NATURE_ENTRATA, PERIODICITA_ENTRATA } = require('../services/entrate.service');
 const { LIQUIDABILITA } = require('../services/investimentiLiquidabilita.service');
+const { STATI_RICORRENZA } = require('../services/ricorrenti.service');
 const {
   UNITA_VALIDE, QUANTITA_MIN, QUANTITA_MAX, QUANTITA_MAX_PER_UNITA,
 } = require('../services/confrontoPeriodi.service');
@@ -369,6 +370,12 @@ const validateUpdateMovimento = [
 ];
 
 const validateDeleteMovimento = validateIdParam;
+
+const validateStatoRicorrenza = [
+  idParam,
+  body('stato').isIn(STATI_RICORRENZA).withMessage('Stato ricorrenza non valido'),
+  validate,
+];
 
 // --- Conti ---
 
@@ -1281,6 +1288,7 @@ module.exports = {
   validateMovimento,
   validateUpdateMovimento,
   validateDeleteMovimento,
+  validateStatoRicorrenza,
   validateConto,
   validateUpdateConto,
   validateDeleteConto,
