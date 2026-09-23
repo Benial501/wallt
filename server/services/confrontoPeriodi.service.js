@@ -38,6 +38,23 @@ const QUANTITA_MAX_PER_UNITA = {
 const MAX_PERIODI_CUSTOM = 24;
 
 /**
+ * `oggi` arriva come istante (`new Date()` sul chiamante, spesso senza
+ * passarlo esplicitamente: vedi il default di `buildPeriodi`). Sul processo
+ * Vercel l'istante gira in UTC, ma il giorno civile "di oggi" per l'utente
+ * va deciso nel fuso applicativo (Europe/Rome, vedi CLAUDE.md § Date e
+ * timezone): vicino alla mezzanotte i due fusi possono disaccordare sul
+ * giorno. Da qui in poi il file lavora comunque su `Date` ancorate a UTC
+ * come puro contenitore di giorno civile: non serve altra conversione di
+ * fuso, perché l'unica domanda "che fuso ha l'istante di partenza" è già
+ * risolta qui.
+ */
+const { partiLocali, FUSO_DEFAULT } = require('../utils/dateRome');
+const riferimentoLocale = (oggi) => {
+  const { anno, mese, giorno } = partiLocali(oggi, FUSO_DEFAULT);
+  return new Date(Date.UTC(anno, mese - 1, giorno));
+};
+
+/**
  * Data in formato YYYY-MM-DD. Le date dei movimenti sono DATEONLY: vanno
  * trattate come giorni di calendario, mai come istanti, altrimenti il fuso del
  * processo (UTC su Vercel) sposta di un giorno i confini degli intervalli.
@@ -207,9 +224,7 @@ const buildPeriodi = ({ unita, quantita, da, a } = {}, oggi = new Date()) => {
   if (da && a) return bucketIntervallo(da, a);
 
   const n = normalizzaQuantita(quantita, unita);
-  const riferimento = new Date(Date.UTC(
-    oggi.getUTCFullYear(), oggi.getUTCMonth(), oggi.getUTCDate(),
-  ));
+  const riferimento = riferimentoLocale(oggi);
 
   switch (unita) {
     case 'giorno': return bucketGiorni(n, riferimento);

@@ -8,6 +8,7 @@ const {
   Obiettivo, ObiettivoContributo, MovimentoScommesse, Investimento,
 } = require('../models');
 const { calcolaPatrimonio } = require('../services/financialSummary.service');
+const { partiLocali, FUSO_DEFAULT } = require('../utils/dateRome');
 
 const toNumber = (val) => parseFloat(val) || 0;
 
@@ -285,9 +286,10 @@ const getSuggerimenti = async (req, res) => {
     const categories = await listCategories(req.userId, { includeArchived: true });
     const getCatDisplay = id => categories.find(c => c.id === id && c.tipo === 'uscita') || CATEGORIA_DISPLAY[id] || { nome: id, emoji: '📊' };
     const suggerimenti = [];
-    const now = new Date();
-    const meseCorrente = now.getMonth() + 1;
-    const annoCorrente = now.getFullYear();
+    // Giorno civile nel fuso applicativo (Europe/Rome), non nel fuso del
+    // processo (UTC su Vercel): vicino alla mezzanotte i due disaccordano
+    // sul mese corrente. Vedi CLAUDE.md § Date e timezone.
+    const { mese: meseCorrente, anno: annoCorrente } = partiLocali(new Date(), FUSO_DEFAULT);
     const mesePrec = meseCorrente === 1 ? 12 : meseCorrente - 1;
     const annoPrec = meseCorrente === 1 ? annoCorrente - 1 : annoCorrente;
 
