@@ -50,3 +50,12 @@ test('l importo usa la valuta scelta dall utente', async () => {
 
   assert.match(html, /19,90[^<]*USD/);
 });
+
+test('la riga sospesa propone la ripresa e non mostra una data di esecuzione', async () => {
+  const html = await renderSfc('/src/components/ricorrenti/RicorrenteItem.vue', {
+    movimento: { ...movimento, stato_ricorrenza: 'sospesa' },
+  });
+  assert.match(html, /Sospesa/);
+  assert.match(html, /Riprendi/);
+  assert.doesNotMatch(html, /Prossima esecuzione/);
+});
