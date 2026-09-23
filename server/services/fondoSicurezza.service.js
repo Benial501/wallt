@@ -1,4 +1,5 @@
 const { aggregaSpeseMesi } = require('./spese.service');
+const { Movimento } = require('../models');
 
 const toNumber = (val) => parseFloat(val) || 0;
 const round1 = (val) => Math.round(val * 10) / 10;
@@ -42,13 +43,20 @@ async function calcolaMesiCopertura({ userId, obiettivo, mesi = 3, riferimento =
   const importoFondo = toNumber(obiettivo.importo_attuale);
   // mesi + 1: la finestra richiesta comprende il mese corrente, che
   // aggregaSpeseMesi marca parziale e tiene fuori dai mesi completi.
-  const aggregato = await aggregaSpeseMesi(userId, mesi + 1, riferimento);
+  const movimentiStorici = await Movimento.findAll({
+    where: { user_id: userId }, order: [['data', 'ASC']], attributes: ['data', 'descrizione'],
+  });
+  const primo = movimentiStorici.find((m) => m.descrizione !== 'Saldo iniziale');
+  const aggregato = await aggregaSpeseMesi(userId, mesi + 1, riferimento, {
+    primoMovimento: primo ? String(primo.data).slice(0, 10) : null,
+  });
   const completi = aggregato.finestra.completi;
   const periodo = {
     da: completi[0] ?? null,
     a: completi[completi.length - 1] ?? null,
     mesi: completi.length,
   };
+  const periodoRichiesto = { da: aggregato.finestra.richiesta.da, a: aggregato.finestra.richiesta.a, mesi };
 
   if (aggregato.totale_mesi_completi === 0) {
     return {
@@ -57,6 +65,11 @@ async function calcolaMesiCopertura({ userId, obiettivo, mesi = 3, riferimento =
       spese_essenziali_mensili: null,
       importo_fondo: importoFondo,
       periodo,
+      mesi_richiesti: mesi,
+      mesi_utilizzati: 0,
+      storico_limitato: true,
+      periodo_richiesto: periodoRichiesto,
+      classificazione_incompleta: false,
       motivo: 'Nessuno storico di spese sufficiente per calcolare la copertura.',
     };
   }
@@ -64,7 +77,9 @@ async function calcolaMesiCopertura({ userId, obiettivo, mesi = 3, riferimento =
   const {
     essenziale, non_classificata: nonClassificata, totale,
   } = aggregato.byNecessityMesiCompleti;
-  const speseEssenzialiMensili = essenziale / mesi;
+  const mesiUtilizzati = aggregato.finestra.completi.length;
+  const speseEssenzialiMensili = essenziale / mesiUtilizzati;
+  const storicoLimitato = mesiUtilizzati < mesi;
   // Vero solo se manca almeno una classificazione E quella spesa non è
   // trascurabile: pochi centesimi non classificati su un totale alto non
   // meritano di marcare l'intera stima come incompleta.
@@ -78,6 +93,10 @@ async function calcolaMesiCopertura({ userId, obiettivo, mesi = 3, riferimento =
       spese_essenziali_mensili: 0,
       importo_fondo: importoFondo,
       periodo,
+      mesi_richiesti: mesi,
+      mesi_utilizzati: mesiUtilizzati,
+      storico_limitato: storicoLimitato,
+      periodo_richiesto: periodoRichiesto,
       motivo: 'Le spese essenziali mensili sono pari a zero: la copertura non è calcolabile.',
       classificazione_incompleta: classificazioneIncompleta,
     };
@@ -89,6 +108,10 @@ async function calcolaMesiCopertura({ userId, obiettivo, mesi = 3, riferimento =
     spese_essenziali_mensili: Math.round(speseEssenzialiMensili * 100) / 100,
     importo_fondo: importoFondo,
     periodo,
+    mesi_richiesti: mesi,
+    mesi_utilizzati: mesiUtilizzati,
+    storico_limitato: storicoLimitato,
+    periodo_richiesto: periodoRichiesto,
     motivo: null,
     // true quando una parte non trascurabile delle uscite nel periodo non ha
     // una categoria classificata (id orfano o senza essenzialita valida):

@@ -101,3 +101,32 @@ describe('riepilogo entrate — quote per mese', () => {
     expect(r.mesi.reduce((s, m) => s + m.quote.sconosciuta, 0)).toBe(r.quote.sconosciuta);
   });
 });
+
+describe('riepilogo entrate — stabilità sui mesi completi osservati', () => {
+  const riferimento = new Date('2026-09-02T10:00:00Z');
+
+  it('non diventa variabile quando il mese corrente è appena iniziato', () => {
+    const r = riepilogoEntrateDaMovimenti([
+      { tipo: 'entrata', importo: 1800, data: '2026-06-01' },
+      { tipo: 'entrata', importo: 1800, data: '2026-07-01' },
+      { tipo: 'entrata', importo: 1800, data: '2026-08-01' },
+    ], { da: '2026-06', a: '2026-09', now: riferimento,
+      primoMovimento: '2026-06-01' });
+
+    expect(r.stabilita).toBe('stabile');
+    expect(r.variabilita).toBe(0);
+    expect(r.mesi_stabilita).toBe(3);
+  });
+
+  it('richiede tre mesi completi effettivamente utilizzabili', () => {
+    const r = riepilogoEntrateDaMovimenti([
+      { tipo: 'entrata', importo: 1800, data: '2026-07-15' },
+      { tipo: 'entrata', importo: 1800, data: '2026-08-01' },
+    ], { da: '2026-07', a: '2026-09', now: riferimento,
+      primoMovimento: '2026-07-15' });
+
+    expect(r.stabilita).toBe('insufficiente');
+    expect(r.variabilita).toBeNull();
+    expect(r.mesi_stabilita).toBe(1);
+  });
+});

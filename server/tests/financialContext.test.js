@@ -140,7 +140,7 @@ describe('getFinancialContext — utente con dati su più domini', () => {
     const ctx = await getFinancialContext(userId, { referenceDate: riferimento, historyMonths: 12 });
     // Tre mesi civili completi, sempre e comunque: è la regola del fondo, non
     // la finestra delle medie generali.
-    expect(ctx.emergencyFund.period).toEqual({ from: '2026-06', to: '2026-08', months: 3 });
+    expect(ctx.emergencyFund.period).toEqual({ from: null, to: null, months: 0 });
   });
 
   it('investimento non liquido: valore separato da liquidValue', async () => {

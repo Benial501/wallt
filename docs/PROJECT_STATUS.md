@@ -290,6 +290,20 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 
 ## Roadmap
 
+### Nota metriche finanziarie (23 settembre 2026)
+
+La semantica delle finestre è centralizzata in
+`server/services/finestraMesi.service.js`: richiesta, osservata e mesi
+completi utilizzabili restano distinti. Fondo sicurezza e stabilità entrate
+usano il denominatore effettivo dei mesi completi; il mese corrente e il
+primo mese parziale sono esclusi, mentre gli zeri dei mesi chiusi osservati
+restano validi. La completezza delle registrazioni manuali non è verificabile.
+
+Il fondo espone anche lo storico limitato e non include le semi-essenziali.
+La stabilità richiede almeno tre mesi e CV popolazione <= 0,25. Ricorrenti
+sospese/terminate non sono impegni; debiti e ricorrenti non sono riconciliati
+automaticamente perché lo schema non contiene il legame tra i due insiemi.
+
 **Sotto-progetto A** della proposta di evoluzione UX di WALLT — blocchi 1 e 2: stato delle letture negli store (`creaRisorsa` + `DataState`, vedi `docs/ARCHITECTURE.md`) e terminologia unica del patrimonio (`client/src/content/glossario.js`) — è **completo** (spec: `docs/superpowers/specs/2026-09-10-fondamenta-dati-e-patrimonio-design.md`). Restano da fare come sotto-progetti separati, con spec proprie:
 - blocco 3 — selettore di periodo, tooltip e valori del grafico principale;
 - blocco 4 — ricerca testuale e ordinamento dei movimenti (richiede lavoro sull'API);

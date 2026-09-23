@@ -150,6 +150,9 @@ async function riepilogoFondoSicurezza(userId, referenceDate) {
       to: copertura.periodo.a,
       months: copertura.periodo.mesi,
     },
+    requestedPeriod: copertura.periodo_richiesto ?? null,
+    usedMonths: copertura.mesi_utilizzati ?? 0,
+    limitedHistory: copertura.storico_limitato ?? false,
   };
 }
 
@@ -163,11 +166,12 @@ async function riepilogoFondoSicurezza(userId, referenceDate) {
  * sufficiente.
  */
 async function primaDataMovimento(userId) {
-  const primo = await Movimento.findOne({
+  const movimenti = await Movimento.findAll({
     where: { user_id: userId },
     order: [['data', 'ASC']],
-    attributes: ['data'],
+    attributes: ['data', 'descrizione'],
   });
+  const primo = movimenti.find((m) => m.descrizione !== 'Saldo iniziale');
   return primo ? String(primo.data).slice(0, 10) : null;
 }
 
@@ -219,7 +223,9 @@ async function getFinancialContext(userId, options = {}) {
     calcolaPatrimonioNetto(userId),
     calcolaLiquidita(userId, { data: oggi }),
     aggregaSpeseMesi(userId, historyMonths, referenceDate, { primoMovimento }),
-    calcolaEntrate(userId, { da: finestraEntrate.da, a: finestraEntrate.a, now: referenceDate }),
+    calcolaEntrate(userId, {
+      da: finestraEntrate.da, a: finestraEntrate.a, now: referenceDate, primoMovimento,
+    }),
     riepilogoDebiti(userId),
     elencoObiettivi(userId, referenceDate),
     riepilogoInvestimenti(userId),
@@ -293,7 +299,8 @@ async function getFinancialContext(userId, options = {}) {
       missingIncomeData: primoMovimento === null || (entrate.totale === 0 && entrate.stabilita === 'nessuna_entrata') || entrate.totale === 0,
       missingExpenseData: primoMovimento === null || (nMesiMedie === 0 && spese.totale === 0),
       missingClassificationData: nonClassificataNonTrascurabile,
-      hasSufficientHistory: nMesiMedie >= 1 && entrate.stabilita !== 'insufficiente',
+      hasSufficientHistory: nMesiMedie >= 1 && entrate.mesi_stabilita >= 3
+        && entrate.stabilita !== 'insufficiente',
       // LIMITE DICHIARATO: WALLT non ha collegamento bancario, quindi la
       // completezza delle registrazioni di un mese non è osservabile. Un mese
       // "completo" qui significa "mese civile chiuso, con almeno un indizio
@@ -311,6 +318,8 @@ async function getFinancialContext(userId, options = {}) {
       oneOff: entrate.quote.occasionale,
       unclassified: entrate.quote.sconosciuta,
       stability: entrate.stabilita,
+      stabilityMonths: entrate.mesi_stabilita,
+      stabilityPeriod: entrate.periodo_stabilita,
       // Senza finestra osservata non c'è storico: l'unico mese interrogato
       // (quello corrente) non è storico dell'utente, è solo il mese in cui si
       // trova. Esporlo come `history` sarebbe uno zero inventato.

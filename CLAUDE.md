@@ -236,6 +236,27 @@ Configurazione DB: `server/config/database.js` accetta `DATABASE_URL` **oppure**
 
 ## Current Roadmap
 
+### Finestre finanziarie e qualità dello storico
+
+Per la semantica ufficiale delle finestre consultare `AGENTS.md` e il codice
+di `server/services/finestraMesi.service.js`. La finestra richiesta, quella
+osservata e i mesi civili completi utilizzabili sono distinti. Il mese
+corrente e il primo mese parziale sono esclusi dalle medie; i mesi precedenti
+al primo movimento non sono zeri osservati. La completezza delle registrazioni
+manuali non è verificabile.
+
+Il fondo sicurezza usa fino a tre mesi completi e il denominatore effettivo,
+esponendo periodo richiesto, periodo usato, mesi utilizzati e
+`storico_limitato`; senza mesi utilizzabili restituisce dati insufficienti.
+La stabilità delle entrate richiede tre mesi completi, conserva gli zeri dei
+mesi osservati e usa CV popolazione con soglia 0,25. La pressione debitoria
+usa solo reddito ricorrente sui medesimi mesi; debiti e ricorrenti non sono
+riconciliati automaticamente.
+
+I test Jest puntano al solo PostgreSQL locale `wallt_test` tramite
+`TEST_DATABASE_URL`; il setup applica le migrazioni al database di test e non
+tocca produzione.
+
 Vedi `docs/PROJECT_STATUS.md` sezione Roadmap per priorità P0–P3.
 
 Priorità immediate:

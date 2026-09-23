@@ -97,7 +97,7 @@ describe('FondoSicurezzaService.calcolaMesiCopertura', () => {
   it('non_calcolabile se c\'è storico ma zero spese essenziali', async () => {
     const meseScorso = new Date();
     meseScorso.setMonth(meseScorso.getMonth() - 1);
-    const data = meseScorso.toISOString().split('T')[0];
+    const data = `${meseScorso.toISOString().slice(0, 7)}-01`;
     await creaMovimentoUscita(100, 'svago', data); // discrezionale, non essenziale
 
     const id = await creaFondo(1000);
@@ -108,7 +108,7 @@ describe('FondoSicurezzaService.calcolaMesiCopertura', () => {
   it('disponibile con mesi_copertura=0 se il fondo è vuoto ma ci sono spese essenziali', async () => {
     const meseScorso = new Date();
     meseScorso.setMonth(meseScorso.getMonth() - 1);
-    const data = meseScorso.toISOString().split('T')[0];
+    const data = `${meseScorso.toISOString().slice(0, 7)}-01`;
     await creaMovimentoUscita(300, 'affitto', data);
 
     const id = await creaFondo(0);
@@ -120,8 +120,9 @@ describe('FondoSicurezzaService.calcolaMesiCopertura', () => {
   it('calcola correttamente la copertura con dati completi, anche se l\'obiettivo è completato', async () => {
     const meseScorso = new Date();
     meseScorso.setMonth(meseScorso.getMonth() - 1);
-    const data = meseScorso.toISOString().split('T')[0];
-    // 900€ di essenziali nell'ultimo mese -> media 3 mesi = 300€/mese (0 negli altri 2 mesi contati).
+    const data = `${meseScorso.toISOString().slice(0, 7)}-01`;
+    // 900€ nell'unico mese completo osservato: non viene diluito sui mesi
+    // precedenti all'inizio dello storico.
     await creaMovimentoUscita(900, 'affitto', data);
 
     const id = await creaFondo(1500);
@@ -130,8 +131,8 @@ describe('FondoSicurezzaService.calcolaMesiCopertura', () => {
 
     const res = await request(app).get(`/api/obiettivi/${id}/copertura`).set(authHeader(token));
     expect(res.body.stato).toBe('disponibile');
-    expect(res.body.spese_essenziali_mensili).toBe(300);
-    expect(res.body.mesi_copertura).toBe(round1(10000 / 300));
+    expect(res.body.spese_essenziali_mensili).toBe(900);
+    expect(res.body.mesi_copertura).toBe(round1(10000 / 900));
 
     function round1(v) { return Math.round(v * 10) / 10; }
   });
@@ -139,7 +140,7 @@ describe('FondoSicurezzaService.calcolaMesiCopertura', () => {
   it('segnala classificazione_incompleta quando una spesa ha una categoria orfana', async () => {
     const meseScorso = new Date();
     meseScorso.setMonth(meseScorso.getMonth() - 1);
-    const data = meseScorso.toISOString().split('T')[0];
+    const data = `${meseScorso.toISOString().slice(0, 7)}-01`;
     await creaMovimentoUscita(900, 'affitto', data);
     // Simula una categoria personale poi cancellata per davvero (non solo
     // archiviata): l'API di creazione movimenti non lo permette, si inserisce
@@ -155,7 +156,7 @@ describe('FondoSicurezzaService.calcolaMesiCopertura', () => {
     expect(res.body.stato).toBe('disponibile');
     expect(res.body.classificazione_incompleta).toBe(true);
     // Le spese essenziali restano solo l'affitto: la quota orfana non vi entra.
-    expect(res.body.spese_essenziali_mensili).toBe(300);
+    expect(res.body.spese_essenziali_mensili).toBe(900);
   });
 
   it('classificazione_incompleta è false con dati interamente classificati', async () => {
@@ -231,7 +232,7 @@ describe('calcolaMesiCopertura — periodo dichiarato e aggregazioni condivise',
     });
 
     expect(res.periodo).toEqual({
-      da: '2026-06', a: '2026-08', mesi: 3,
+      da: '2026-07', a: '2026-08', mesi: 2,
     });
     expect(res.spese_essenziali_mensili).toBe(600);
     expect(res.mesi_copertura).toBe(3);
@@ -243,7 +244,7 @@ describe('calcolaMesiCopertura — periodo dichiarato e aggregazioni condivise',
       obiettivo: { importo_attuale: 0 },
       riferimento: new Date('2026-02-10T10:00:00Z'),
     });
-    expect(res.periodo).toEqual({ da: '2025-11', a: '2026-01', mesi: 3 });
+    expect(res.periodo).toEqual({ da: null, a: null, mesi: 0 });
   });
 
   it('nessuna spesa nel periodo: dati insufficienti, e il periodo resta dichiarato', async () => {
@@ -251,6 +252,29 @@ describe('calcolaMesiCopertura — periodo dichiarato e aggregazioni condivise',
       userId, obiettivo: { importo_attuale: 500 }, riferimento,
     });
     expect(res.stato).toBe('dati_insufficienti');
-    expect(res.periodo).toEqual({ da: '2026-06', a: '2026-08', mesi: 3 });
+    expect(res.periodo).toEqual({ da: null, a: null, mesi: 0 });
+  });
+
+  it('non diluisce un solo mese completo sui tre mesi richiesti', async () => {
+    await spesa(900, 'affitto', '2026-08-01');
+    const res = await calcolaMesiCopertura({
+      userId, obiettivo: { importo_attuale: 2700 }, riferimento,
+    });
+
+    expect(res.spese_essenziali_mensili).toBe(900);
+    expect(res.mesi_copertura).toBe(3);
+    expect(res.periodo.mesi).toBe(1);
+    expect(res.storico_limitato).toBe(true);
+  });
+
+  it('esclude il primo mese iniziato a metà mese dal denominatore', async () => {
+    await spesa(500, 'affitto', '2026-07-15');
+    await spesa(900, 'affitto', '2026-08-01');
+    const res = await calcolaMesiCopertura({
+      userId, obiettivo: { importo_attuale: 2700 }, riferimento,
+    });
+
+    expect(res.spese_essenziali_mensili).toBe(900);
+    expect(res.periodo).toEqual({ da: '2026-08', a: '2026-08', mesi: 1 });
   });
 });

@@ -215,6 +215,32 @@ Comunicazione: Axios con `baseURL = VITE_API_URL` (default `http://localhost:300
 
 ## Current Roadmap
 
+### Regola ufficiale per le finestre finanziarie (settembre 2026)
+
+La fonte unica per finestre richiesta/osservata e mesi civili completi è
+`server/services/finestraMesi.service.js`. `spese.service.js`,
+`entrate.service.js` e `fondoSicurezza.service.js` devono usare i mesi
+effettivamente classificati, non riempire con zeri i mesi precedenti al primo
+movimento. Il mese corrente è sempre parziale; il primo mese di storico è
+escluso quando il primo movimento non cade il giorno 1. La completezza delle
+registrazioni manuali resta non verificabile.
+
+Il fondo di sicurezza usa al massimo tre mesi civili completi, ma divide solo
+per i mesi effettivamente utilizzati: uno o due mesi producono una stima con
+`storico_limitato: true`, zero mesi produce `dati_insufficienti`. Le spese
+semi-essenziali restano escluse.
+
+La stabilità del reddito usa la stessa classificazione, almeno tre mesi
+completi e CV popolazione con soglia `<= 0.25`; sotto soglia è
+`insufficiente`, senza `variabilita`. La quota usata dalla pressione debitoria
+è quella ricorrente mensile sui medesimi mesi. Ricorrenti sospese o terminate
+non sono impegni futuri; debiti e ricorrenti restano insiemi separati e non
+riconciliati nello schema attuale.
+
+I test usano esclusivamente `TEST_DATABASE_URL`/`DB_NAME_TEST=wallt_test`.
+Le migrazioni di test sono applicate dal setup Jest al database locale; non si
+eseguono migrazioni di sviluppo personale o produzione durante i test.
+
 Vedi `docs/PROJECT_STATUS.md` sezione Roadmap per priorità P0–P3.
 
 Priorità immediate:

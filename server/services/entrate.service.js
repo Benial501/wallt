@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const { Movimento } = require('../models');
 const { giornoLocale, sommaGiorni } = require('./notifiche/notificheTime');
+const { classificaFinestra } = require('./finestraMesi.service');
 
 const round2 = (value) => Math.round(value * 100) / 100;
 const NATURE_ENTRATA = ['stipendio', 'pensione', 'compenso', 'bonus', 'regalo', 'rimborso', 'vendita', 'altro', 'sconosciuto'];
@@ -25,10 +26,12 @@ const validMonth = (month) => /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
  *   flow. `null` quando nella finestra non c'è nessun mese completo: dato
  *   insufficiente, non zero.
  *
- * `stabilita` e `variabilita` restano calcolate sull'intera finestra: sono
- * misure di dispersione dell'osservato, non medie da confrontare con altro.
+ * `stabilita` e `variabilita` usano invece i mesi civili completi osservati:
+ * il mese corrente e il primo mese parziale non possono dimostrare stabilità.
  */
-const riepilogoEntrateDaMovimenti = (movimenti, { da, a, now = new Date() }) => {
+const riepilogoEntrateDaMovimenti = (movimenti, {
+  da, a, now = new Date(), primoMovimento = null,
+}) => {
   if (!validMonth(da) || !validMonth(a) || da > a) throw new Error('Periodo non valido');
   if (a > giornoLocale(now, 'Europe/Rome').slice(0, 7)) throw new Error('Periodo futuro non osservato');
   const meseCorrente = giornoLocale(now, 'Europe/Rome').slice(0, 7);
@@ -67,8 +70,16 @@ const riepilogoEntrateDaMovimenti = (movimenti, { da, a, now = new Date() }) => 
   Object.keys(quote).forEach((key) => { quote[key] = round2(quote[key]); });
   const totale = round2(mesi.reduce((sum, entry) => sum + entry.totale, 0));
   const media = totale / mesi.length;
-  const variabilita = mesi.length >= 3 && media > 0
-    ? Math.sqrt(mesi.reduce((sum, entry) => sum + (entry.totale - media) ** 2, 0) / mesi.length) / media
+  const finestra = classificaFinestra({
+    mesiRichiesti: mesi.map((entry) => entry.mese),
+    meseCorrente,
+    primoMovimento: primoMovimento || `${da}-01`,
+  });
+  const mesiStabilita = mesi.filter((entry) => finestra.completi.includes(entry.mese));
+  const totaleStabilita = mesiStabilita.reduce((sum, entry) => sum + entry.totale, 0);
+  const mediaStabilita = mesiStabilita.length > 0 ? totaleStabilita / mesiStabilita.length : 0;
+  const variabilita = mesiStabilita.length >= 3 && mediaStabilita > 0
+    ? Math.sqrt(mesiStabilita.reduce((sum, entry) => sum + (entry.totale - mediaStabilita) ** 2, 0) / mesiStabilita.length) / mediaStabilita
     : null;
 
   const mesiCompleti = mesi.filter((entry) => !entry.parziale);
@@ -87,14 +98,16 @@ const riepilogoEntrateDaMovimenti = (movimenti, { da, a, now = new Date() }) => 
       key, totale > 0 ? round2(value * 100 / totale) : 0,
     ])),
     mesi,
+    periodo_stabilita: finestra.mesiPerLeMedie,
+    mesi_stabilita: mesiStabilita.length,
     variabilita: variabilita === null ? null : round2(variabilita),
-    stabilita: mesi.length < 3 ? 'insufficiente'
-      : totale === 0 ? 'nessuna_entrata'
+    stabilita: mesiStabilita.length < 3 ? 'insufficiente'
+      : totaleStabilita === 0 ? 'nessuna_entrata'
         : variabilita <= 0.25 ? 'stabile' : 'variabile',
   };
 };
 
-const calcolaEntrate = async (userId, { da, a, now = new Date() }) => {
+const calcolaEntrate = async (userId, { da, a, now = new Date(), primoMovimento = null }) => {
   if (!Number.isInteger(Number(userId))) throw new Error('Utente non valido');
   if (!validMonth(da) || !validMonth(a) || da > a) throw new Error('Periodo non valido');
   if (a > giornoLocale(now, 'Europe/Rome').slice(0, 7)) throw new Error('Periodo futuro non osservato');
@@ -103,7 +116,7 @@ const calcolaEntrate = async (userId, { da, a, now = new Date() }) => {
     where: { user_id: userId, tipo: 'entrata', data: { [Op.between]: [`${da}-01`, fine] } },
     attributes: ['tipo', 'importo', 'data', 'periodicita_entrata'],
   });
-  return riepilogoEntrateDaMovimenti(movimenti, { da, a, now });
+  return riepilogoEntrateDaMovimenti(movimenti, { da, a, now, primoMovimento });
 };
 
 module.exports = { NATURE_ENTRATA, PERIODICITA_ENTRATA, riepilogoEntrateDaMovimenti, calcolaEntrate };

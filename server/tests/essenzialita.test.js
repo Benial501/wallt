@@ -214,7 +214,7 @@ describe('Personalizzazione essenzialità delle categorie predefinite (per utent
     const contoId = contoRes.body.conto.id;
     const meseScorso = new Date();
     meseScorso.setMonth(meseScorso.getMonth() - 1);
-    const data = meseScorso.toISOString().split('T')[0];
+    const data = `${meseScorso.toISOString().slice(0, 7)}-01`;
 
     await request(app)
       .put('/api/categorie/default/svago/essenzialita')
@@ -232,11 +232,11 @@ describe('Personalizzazione essenzialità delle categorie predefinite (per utent
       .get(`/api/obiettivi/${fondoRes.body.obiettivo.id}/copertura`)
       .set(authHeader(tokenA));
 
-    // 300€ su 3 mesi di finestra = 100€/mese: senza la personalizzazione
-    // 'svago' sarebbe discrezionale e spese_essenziali_mensili sarebbe 0
+    // 300€ nell'unico mese completo osservato: senza la personalizzazione
+    // 'svago' sarebbe discrezionale e spese_essenziali_mensili sarebbe 0.
     // (stato 'non_calcolabile').
     expect(copertura.body.stato).toBe('disponibile');
-    expect(copertura.body.spese_essenziali_mensili).toBe(100);
+    expect(copertura.body.spese_essenziali_mensili).toBe(300);
   });
 });
 
