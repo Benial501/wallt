@@ -72,8 +72,11 @@ export const presentaRicorrente = (movimento, oggi = dayjs()) => ({
   tipoLabel: movimento.tipo === 'entrata' ? 'Entrata' : 'Uscita',
   frequenzaLabel: FREQUENZA_LABELS[movimento.ricorrente_frequenza] || 'Ogni mese',
   contoLabel: movimento.conto?.nome || 'Conto non disponibile',
-  statoLabel: movimento.ricorrente ? 'Attiva' : 'Non attiva',
-  prossimaEsecuzione: calcolaProssimaEsecuzione(movimento, oggi).format('YYYY-MM-DD'),
+  statoLabel: movimento.stato_ricorrenza === 'sospesa' ? 'Sospesa'
+    : movimento.stato_ricorrenza === 'terminata' ? 'Terminata'
+      : movimento.ricorrente ? 'Attiva' : 'Non attiva',
+  prossimaEsecuzione: movimento.stato_ricorrenza === 'sospesa' || movimento.stato_ricorrenza === 'terminata'
+    ? null : calcolaProssimaEsecuzione(movimento, oggi).format('YYYY-MM-DD'),
 });
 
 export const creaRisorsaRicorrenti = (fetcher) => creaRisorsa(fetcher, { iniziale: [] });

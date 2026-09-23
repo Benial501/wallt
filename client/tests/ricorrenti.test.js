@@ -50,6 +50,17 @@ test('una risposta riuscita senza ricorrenti produce lo stato vuoto', async () =
   assert.deepEqual(risorsa.data.value, []);
 });
 
+test('mostra sospesa e terminata senza una prossima esecuzione inventata', () => {
+  for (const [stato, label] of [['sospesa', 'Sospesa'], ['terminata', 'Terminata']]) {
+    const item = presentaRicorrente({
+      tipo: 'uscita', ricorrente: true, stato_ricorrenza: stato,
+      ricorrente_frequenza: 'mensile', ricorrente_giorno: 5,
+    }, dayjs('2026-09-17'));
+    assert.equal(item.statoLabel, label);
+    assert.equal(item.prossimaEsecuzione, null);
+  }
+});
+
 test('un fallimento produce errore e retry recupera i dati', async () => {
   let tentativi = 0;
   const risorsa = creaRisorsaRicorrenti(async () => {

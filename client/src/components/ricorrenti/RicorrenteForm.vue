@@ -40,6 +40,8 @@ const form = ref({
   categoria: null,
   conto_id: null,
   descrizione: '',
+  natura_entrata: 'sconosciuto',
+  periodicita_entrata: 'sconosciuta',
   ricorrente_frequenza: 'mensile',
   ricorrente_giorno: 1,
   ricorrente_mese: 1,
@@ -97,6 +99,8 @@ const resetForm = () => {
     categoria: null,
     conto_id: contiStore.contiAttivi[0]?.id || null,
     descrizione: '',
+    natura_entrata: 'sconosciuto',
+    periodicita_entrata: 'sconosciuta',
     ricorrente_frequenza: 'mensile',
     ricorrente_giorno: 1,
     ricorrente_mese: 1,
@@ -114,6 +118,8 @@ watch(() => props.open, (val) => {
         categoria: props.movimento.categoria || 'da_verificare',
         conto_id: props.movimento.conto_id,
         descrizione: props.movimento.descrizione || '',
+        natura_entrata: props.movimento.natura_entrata || 'sconosciuto',
+        periodicita_entrata: props.movimento.periodicita_entrata || 'sconosciuta',
         ricorrente_frequenza: normalizzaFrequenza(props.movimento.ricorrente_frequenza),
         ricorrente_giorno: props.movimento.ricorrente_giorno || 1,
         ricorrente_mese: props.movimento.ricorrente_mese || 1,
@@ -271,6 +277,30 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
         <div class="field">
           <label>Note (opzionale)</label>
           <input v-model="form.descrizione" type="text" class="form-input" placeholder="Descrizione..." />
+        </div>
+
+        <div v-if="form.tipo === 'entrata'" class="field">
+          <label>Natura dell'entrata</label>
+          <select v-model="form.natura_entrata" class="form-select">
+            <option value="sconosciuto">Non specificata</option>
+            <option value="stipendio">Stipendio</option>
+            <option value="pensione">Pensione</option>
+            <option value="compenso">Compenso</option>
+            <option value="bonus">Bonus</option>
+            <option value="regalo">Regalo</option>
+            <option value="rimborso">Rimborso</option>
+            <option value="vendita">Vendita</option>
+            <option value="altro">Altro</option>
+          </select>
+        </div>
+
+        <div v-if="form.tipo === 'entrata'" class="field">
+          <label>Periodicità dell'entrata</label>
+          <select v-model="form.periodicita_entrata" class="form-select">
+            <option value="sconosciuta">Non specificata</option>
+            <option value="ricorrente">Ricorrente o prevedibile</option>
+            <option value="occasionale">Occasionale</option>
+          </select>
         </div>
 
         <WButton variant="primary" size="lg" :loading="loading" :disabled="!canSave" @click="salva">

@@ -13,6 +13,7 @@ import { useRouter } from 'vue-router';
 import { refreshAfterWrite, VISTA_NON_AGGIORNATA } from '@/utils/afterWrite';
 import { GIORNI_SETTIMANA, MESI_ANNO, normalizzaFrequenza } from '@/utils/ricorrenti';
 import dayjs from 'dayjs';
+import api from '@/utils/axios';
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -37,6 +38,8 @@ const form = ref({
   conto_id: null,
   data: dayjs().format('YYYY-MM-DD'),
   descrizione: '',
+  natura_entrata: 'sconosciuto',
+  periodicita_entrata: 'sconosciuta',
   ricorrente: false,
   ricorrente_frequenza: 'mensile',
   ricorrente_giorno: 1,
@@ -120,6 +123,8 @@ const resetForm = () => {
     conto_id: contiStore.contiAttivi[0]?.id || null,
     data: dayjs().format('YYYY-MM-DD'),
     descrizione: '',
+    natura_entrata: 'sconosciuto',
+    periodicita_entrata: 'sconosciuta',
     ricorrente: false,
     ricorrente_frequenza: 'mensile',
     ricorrente_giorno: 1,
@@ -146,6 +151,8 @@ watch(() => props.open, (val) => {
         conto_id: props.movimento.conto_id,
         data: props.movimento.data,
         descrizione: props.movimento.descrizione || '',
+        natura_entrata: props.movimento.natura_entrata || 'sconosciuto',
+        periodicita_entrata: props.movimento.periodicita_entrata || 'sconosciuta',
         ricorrente: props.movimento.ricorrente,
         ricorrente_frequenza: normalizzaFrequenza(props.movimento.ricorrente_frequenza),
         ricorrente_giorno: props.movimento.ricorrente_giorno || 1,
@@ -198,6 +205,20 @@ const salva = async () => {
     toastStore.success(messaggio);
     if (!vistaAggiornata) toastStore.warning(VISTA_NON_AGGIORNATA);
 
+    emit('saved');
+    emit('close');
+  } catch (err) {
+    toastStore.error(extractErrorMessage(err));
+  } finally {
+    loading.value = false;
+  }
+};
+
+const cambiaRicorrenza = async (stato) => {
+  loading.value = true;
+  try {
+    await api.patch(`/movimenti/${props.movimento.id}/ricorrenza/stato`, { stato });
+    toastStore.success(stato === 'sospesa' ? 'Ricorrenza sospesa' : stato === 'attiva' ? 'Ricorrenza riattivata' : 'Ricorrenza terminata');
     emit('saved');
     emit('close');
   } catch (err) {
@@ -365,6 +386,30 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
           <input v-model="form.descrizione" type="text" class="form-input" placeholder="Descrizione..." />
         </div>
 
+        <div v-if="form.tipo === 'entrata'" class="field">
+          <label>Natura dell'entrata</label>
+          <select v-model="form.natura_entrata" class="form-select">
+            <option value="sconosciuto">Non specificata</option>
+            <option value="stipendio">Stipendio</option>
+            <option value="pensione">Pensione</option>
+            <option value="compenso">Compenso</option>
+            <option value="bonus">Bonus</option>
+            <option value="regalo">Regalo</option>
+            <option value="rimborso">Rimborso</option>
+            <option value="vendita">Vendita</option>
+            <option value="altro">Altro</option>
+          </select>
+        </div>
+
+        <div v-if="form.tipo === 'entrata'" class="field">
+          <label>Periodicità dell'entrata</label>
+          <select v-model="form.periodicita_entrata" class="form-select">
+            <option value="sconosciuta">Non specificata</option>
+            <option value="ricorrente">Ricorrente o prevedibile</option>
+            <option value="occasionale">Occasionale</option>
+          </select>
+        </div>
+
         <div class="field">
           <label class="toggle-label">
             <input v-model="form.ricorrente" type="checkbox" />
@@ -391,6 +436,12 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
             <input v-else v-model.number="form.ricorrente_giorno" type="number" min="1" max="31" class="form-input" placeholder="Giorno del mese (es. 1)" />
           </div>
           <HelpNote topic="movimento-ricorrenza" label="Come funziona la ricorrenza" />
+          <div v-if="isEdit && props.movimento.ricorrente" class="ricorrenza-actions">
+            <span>Stato: {{ props.movimento.stato_ricorrenza || 'attiva' }}</span>
+            <button v-if="props.movimento.stato_ricorrenza === 'sospesa'" type="button" :disabled="loading" @click="cambiaRicorrenza('attiva')">Riprendi</button>
+            <button v-if="!props.movimento.stato_ricorrenza || props.movimento.stato_ricorrenza === 'attiva'" type="button" :disabled="loading" @click="cambiaRicorrenza('sospesa')">Sospendi</button>
+            <button v-if="props.movimento.stato_ricorrenza !== 'terminata'" type="button" :disabled="loading" @click="cambiaRicorrenza('terminata')">Termina definitivamente</button>
+          </div>
         </div>
 
         <WButton variant="primary" size="lg" :loading="loading" :disabled="!canSave" @click="salva">
@@ -402,6 +453,8 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
 </template>
 
 <style scoped>
+.ricorrenza-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-top: 0.75rem; font-size: var(--text-sm); }
+.ricorrenza-actions button { color: var(--text-primary); text-decoration: underline; }
 .form-space { display: flex; flex-direction: column; gap: 1.125rem; }
 .form-intro { font-size: var(--text-xs); line-height: var(--leading-normal); color: var(--text-muted); }
 .prereq {

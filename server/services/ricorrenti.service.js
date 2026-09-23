@@ -5,7 +5,19 @@ const logger = require('../utils/logger');
 
 const ROME_TIME_ZONE = 'Europe/Rome';
 const FREQUENZE_SUPPORTATE = ['mensile', 'settimanale', 'annuale'];
+const STATI_RICORRENZA = ['attiva', 'sospesa', 'terminata'];
 let activeRun = null;
+
+const ricorrenzaAttiva = (movimento) => movimento.ricorrente === true
+  && movimento.stato_ricorrenza === 'attiva';
+
+const cambiaStatoRicorrenza = (attuale, prossimo) => {
+  if (!STATI_RICORRENZA.includes(prossimo)) throw new Error('Stato ricorrenza non valido');
+  if (attuale === 'terminata' && prossimo !== 'terminata') {
+    throw new Error('Una ricorrenza terminata non può essere riattivata');
+  }
+  return prossimo;
+};
 
 /** Settimana ISO-8601 (lun-dom) del giorno UTC dato. */
 const getIsoWeekInfo = (year, month, day) => {
@@ -89,6 +101,7 @@ async function runProcessaRicorrenti(now) {
   const ricorrenti = await Movimento.findAll({
     where: {
       ricorrente: true,
+      stato_ricorrenza: 'attiva',
       ricorrente_frequenza: { [Op.in]: FREQUENZE_SUPPORTATE },
     },
   });
@@ -102,6 +115,10 @@ async function runProcessaRicorrenti(now) {
 
     try {
       const outcome = await sequelize.transaction(async (transaction) => {
+        const origine = await Movimento.findByPk(movimento.id, {
+          transaction, lock: transaction.LOCK.UPDATE,
+        });
+        if (!origine || !ricorrenzaAttiva(origine)) return 'skipped';
         const conto = await Conto.findByPk(movimento.conto_id, {
           transaction,
           lock: transaction.LOCK.UPDATE,
@@ -139,6 +156,8 @@ async function runProcessaRicorrenti(now) {
           descrizione: `${movimento.descrizione} (automatico)`,
           data: current.date,
           ricorrente: false,
+          natura_entrata: movimento.natura_entrata,
+          periodicita_entrata: movimento.periodicita_entrata,
           ricorrenza_origine_id: movimento.id,
           ricorrenza_periodo: periodo,
         }, { transaction });
@@ -189,4 +208,5 @@ function avviaCronRicorrenti() {
 
 module.exports = {
   processaRicorrenti, avviaCronRicorrenti, getRomeDateParts, FREQUENZE_SUPPORTATE, periodoPerFrequenza,
+  STATI_RICORRENZA, ricorrenzaAttiva, cambiaStatoRicorrenza,
 };

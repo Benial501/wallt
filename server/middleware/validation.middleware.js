@@ -1,4 +1,7 @@
 const { assertCategory } = require('../services/categorie.service');
+const { NATURE_ENTRATA, PERIODICITA_ENTRATA } = require('../services/entrate.service');
+const { LIQUIDABILITA } = require('../services/investimentiLiquidabilita.service');
+const { STATI_RICORRENZA } = require('../services/ricorrenti.service');
 const {
   UNITA_VALIDE, QUANTITA_MIN, QUANTITA_MAX, QUANTITA_MAX_PER_UNITA,
 } = require('../services/confrontoPeriodi.service');
@@ -241,6 +244,14 @@ const validateMovimento = [
   body('tipo')
     .isIn(['entrata', 'uscita'])
     .withMessage('Tipo non valido'),
+  body('natura_entrata')
+    .optional()
+    .isIn(NATURE_ENTRATA)
+    .withMessage('Natura entrata non valida'),
+  body('periodicita_entrata')
+    .optional()
+    .isIn(PERIODICITA_ENTRATA)
+    .withMessage('Periodicità entrata non valida'),
   body('categoria')
     .notEmpty()
     .withMessage('Categoria obbligatoria'),
@@ -324,6 +335,14 @@ const validateUpdateMovimento = [
     .optional({ values: 'null' })
     .isIn(['entrata', 'uscita'])
     .withMessage('Tipo non valido'),
+  body('natura_entrata')
+    .optional()
+    .isIn(NATURE_ENTRATA)
+    .withMessage('Natura entrata non valida'),
+  body('periodicita_entrata')
+    .optional()
+    .isIn(PERIODICITA_ENTRATA)
+    .withMessage('Periodicità entrata non valida'),
   body('ricorrente')
     .optional({ values: 'null' })
     .isBoolean()
@@ -351,6 +370,12 @@ const validateUpdateMovimento = [
 ];
 
 const validateDeleteMovimento = validateIdParam;
+
+const validateStatoRicorrenza = [
+  idParam,
+  body('stato').isIn(STATI_RICORRENZA).withMessage('Stato ricorrenza non valido'),
+  validate,
+];
 
 // --- Conti ---
 
@@ -778,6 +803,10 @@ const validateInvestimento = [
   body('tipo')
     .isIn(['azioni', 'etf', 'crypto', 'fondi', 'obbligazioni', 'altro'])
     .withMessage('Tipo non valido'),
+  body('liquidabilita').optional().isIn(LIQUIDABILITA).withMessage('Liquidabilità non valida'),
+  body('giorni_disponibilita').optional({ values: 'null' }).isInt({ min: 0 }).withMessage('Giorni disponibilità non validi'),
+  body('condizioni_disponibilita').optional({ values: 'null' }).isString().trim().escape().isLength({ max: 255 }).withMessage('Condizioni disponibilità non valide'),
+  body('data_apertura').optional({ values: 'null' }).isISO8601({ strict: true }).withMessage('Data apertura non valida'),
   body('saldo_iniziale')
     .optional({ values: 'null' })
     .isDecimal({ decimal_digits: '0,2' })
@@ -810,6 +839,10 @@ const validateUpdateInvestimento = [
     .optional({ values: 'null' })
     .isIn(['azioni', 'etf', 'crypto', 'fondi', 'obbligazioni', 'altro'])
     .withMessage('Tipo non valido'),
+  body('liquidabilita').optional().isIn(LIQUIDABILITA).withMessage('Liquidabilità non valida'),
+  body('giorni_disponibilita').optional({ values: 'null' }).isInt({ min: 0 }).withMessage('Giorni disponibilità non validi'),
+  body('condizioni_disponibilita').optional({ values: 'null' }).isString().trim().escape().isLength({ max: 255 }).withMessage('Condizioni disponibilità non valide'),
+  body('data_apertura').optional({ values: 'null' }).isISO8601({ strict: true }).withMessage('Data apertura non valida'),
   body('colore')
     .optional({ values: 'null' })
     .isString()
@@ -1255,6 +1288,7 @@ module.exports = {
   validateMovimento,
   validateUpdateMovimento,
   validateDeleteMovimento,
+  validateStatoRicorrenza,
   validateConto,
   validateUpdateConto,
   validateDeleteConto,
