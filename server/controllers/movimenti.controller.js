@@ -6,6 +6,7 @@ const CategoryLearningService = require('../services/import/CategoryLearningServ
 // Ogni scrittura di saldo passa da qui: se il conto è di gioco, allinea anche
 // la piattaforma collegata (vedi services/scommesseContoSync.service.js).
 const { aggiornaSaldoConto } = require('../services/scommesseContoSync.service');
+const { calcolaEntrate } = require('../services/entrate.service');
 // Valutazione delle soglie di budget dopo una scrittura. Gira FUORI dalla
 // transazione, non lancia mai e non può alterare saldi o esito
 // dell'operazione (vedi services/notifiche/NotificheGenerator.js).
@@ -170,6 +171,7 @@ const createMovimento = async (req, res, next) => {
     const {
       tipo, importo, categoria, conto_id, data,
       descrizione, ricorrente, ricorrente_frequenza, ricorrente_giorno, ricorrente_mese,
+      natura_entrata, periodicita_entrata,
     } = req.body;
 
     await assertCategory(req.userId, categoria, tipo, { transaction: t });
@@ -216,6 +218,8 @@ const createMovimento = async (req, res, next) => {
       categoria,
       descrizione,
       data,
+      natura_entrata: tipo === 'entrata' ? natura_entrata || 'sconosciuto' : 'sconosciuto',
+      periodicita_entrata: tipo === 'entrata' ? periodicita_entrata || 'sconosciuta' : 'sconosciuta',
       ricorrente: ricorrente || false,
       ricorrente_frequenza: ricorrente ? ricorrente_frequenza : null,
       ricorrente_giorno: ricorrente ? ricorrente_giorno : null,
@@ -277,6 +281,7 @@ const updateMovimento = async (req, res, next) => {
     const {
       tipo, importo, categoria, conto_id, data,
       descrizione, ricorrente, ricorrente_frequenza, ricorrente_giorno, ricorrente_mese,
+      natura_entrata, periodicita_entrata,
     } = req.body;
 
     const nuovoTipo = tipo || movimento.tipo;
@@ -351,6 +356,12 @@ const updateMovimento = async (req, res, next) => {
       categoria: nuovaCategoria,
       conto_id: nuovoContoId,
       data: data ?? movimento.data,
+      natura_entrata: nuovoTipo === 'entrata'
+        ? (natura_entrata ?? (movimento.tipo === 'entrata' ? movimento.natura_entrata : 'sconosciuto'))
+        : 'sconosciuto',
+      periodicita_entrata: nuovoTipo === 'entrata'
+        ? (periodicita_entrata ?? (movimento.tipo === 'entrata' ? movimento.periodicita_entrata : 'sconosciuta'))
+        : 'sconosciuta',
       descrizione: descrizione ?? movimento.descrizione,
       ricorrente: ricorrente ?? movimento.ricorrente,
       ricorrente_frequenza: nuovaFrequenza,
@@ -527,6 +538,18 @@ const getRicorrenti = async (req, res) => {
   }
 };
 
+const getEntrateRiepilogo = async (req, res) => {
+  try {
+    const { da, a } = req.query;
+    const risultato = await calcolaEntrate(req.userId, { da, a });
+    res.json(risultato);
+  } catch (error) {
+    if (/Periodo/.test(error.message)) return res.status(400).json({ message: error.message });
+    logger.error('Errore getEntrateRiepilogo', { err: error });
+    return res.status(500).json({ message: 'Errore nel riepilogo entrate' });
+  }
+};
+
 module.exports = {
   getMovimenti,
   createMovimento,
@@ -534,4 +557,5 @@ module.exports = {
   deleteMovimento,
   getBilancioMese,
   getRicorrenti,
+  getEntrateRiepilogo,
 };

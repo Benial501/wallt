@@ -1,7 +1,7 @@
 const express = require('express');
 const {
   getMovimenti, createMovimento, updateMovimento, deleteMovimento,
-  getBilancioMese, getRicorrenti,
+  getBilancioMese, getRicorrenti, getEntrateRiepilogo,
 } = require('../controllers/movimenti.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 const {
@@ -15,6 +15,7 @@ const router = express.Router();
 
 router.get('/bilancio', authMiddleware, getBilancioMese);
 router.get('/ricorrenti', authMiddleware, getRicorrenti);
+router.get('/entrate/riepilogo', authMiddleware, getEntrateRiepilogo);
 router.get('/', authMiddleware, validateMovimentiQuery, getMovimenti);
 router.post('/', authMiddleware, validateMovimento, createMovimento);
 router.put('/:id', authMiddleware, validateUpdateMovimento, updateMovimento);

@@ -1,4 +1,5 @@
 const { assertCategory } = require('../services/categorie.service');
+const { NATURE_ENTRATA, PERIODICITA_ENTRATA } = require('../services/entrate.service');
 const { LIQUIDABILITA } = require('../services/investimentiLiquidabilita.service');
 const {
   UNITA_VALIDE, QUANTITA_MIN, QUANTITA_MAX, QUANTITA_MAX_PER_UNITA,
@@ -242,6 +243,14 @@ const validateMovimento = [
   body('tipo')
     .isIn(['entrata', 'uscita'])
     .withMessage('Tipo non valido'),
+  body('natura_entrata')
+    .optional()
+    .isIn(NATURE_ENTRATA)
+    .withMessage('Natura entrata non valida'),
+  body('periodicita_entrata')
+    .optional()
+    .isIn(PERIODICITA_ENTRATA)
+    .withMessage('Periodicità entrata non valida'),
   body('categoria')
     .notEmpty()
     .withMessage('Categoria obbligatoria'),
@@ -325,6 +334,14 @@ const validateUpdateMovimento = [
     .optional({ values: 'null' })
     .isIn(['entrata', 'uscita'])
     .withMessage('Tipo non valido'),
+  body('natura_entrata')
+    .optional()
+    .isIn(NATURE_ENTRATA)
+    .withMessage('Natura entrata non valida'),
+  body('periodicita_entrata')
+    .optional()
+    .isIn(PERIODICITA_ENTRATA)
+    .withMessage('Periodicità entrata non valida'),
   body('ricorrente')
     .optional({ values: 'null' })
     .isBoolean()

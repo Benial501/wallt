@@ -43,6 +43,16 @@ const Movimento = sequelize.define('Movimento', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
+  natura_entrata: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'sconosciuto',
+  },
+  periodicita_entrata: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'sconosciuta',
+  },
   ricorrente_frequenza: {
     type: DataTypes.ENUM('giornaliera', 'settimanale', 'mensile', 'annuale'),
     allowNull: true,

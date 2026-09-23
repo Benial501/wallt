@@ -139,6 +139,8 @@ async function runProcessaRicorrenti(now) {
           descrizione: `${movimento.descrizione} (automatico)`,
           data: current.date,
           ricorrente: false,
+          natura_entrata: movimento.natura_entrata,
+          periodicita_entrata: movimento.periodicita_entrata,
           ricorrenza_origine_id: movimento.id,
           ricorrenza_periodo: periodo,
         }, { transaction });
