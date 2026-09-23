@@ -1,4 +1,5 @@
 const { assertCategory } = require('../services/categorie.service');
+const { LIQUIDABILITA } = require('../services/investimentiLiquidabilita.service');
 const {
   UNITA_VALIDE, QUANTITA_MIN, QUANTITA_MAX, QUANTITA_MAX_PER_UNITA,
 } = require('../services/confrontoPeriodi.service');
@@ -778,6 +779,10 @@ const validateInvestimento = [
   body('tipo')
     .isIn(['azioni', 'etf', 'crypto', 'fondi', 'obbligazioni', 'altro'])
     .withMessage('Tipo non valido'),
+  body('liquidabilita').optional().isIn(LIQUIDABILITA).withMessage('Liquidabilità non valida'),
+  body('giorni_disponibilita').optional({ values: 'null' }).isInt({ min: 0 }).withMessage('Giorni disponibilità non validi'),
+  body('condizioni_disponibilita').optional({ values: 'null' }).isString().trim().escape().isLength({ max: 255 }).withMessage('Condizioni disponibilità non valide'),
+  body('data_apertura').optional({ values: 'null' }).isISO8601({ strict: true }).withMessage('Data apertura non valida'),
   body('saldo_iniziale')
     .optional({ values: 'null' })
     .isDecimal({ decimal_digits: '0,2' })
@@ -810,6 +815,10 @@ const validateUpdateInvestimento = [
     .optional({ values: 'null' })
     .isIn(['azioni', 'etf', 'crypto', 'fondi', 'obbligazioni', 'altro'])
     .withMessage('Tipo non valido'),
+  body('liquidabilita').optional().isIn(LIQUIDABILITA).withMessage('Liquidabilità non valida'),
+  body('giorni_disponibilita').optional({ values: 'null' }).isInt({ min: 0 }).withMessage('Giorni disponibilità non validi'),
+  body('condizioni_disponibilita').optional({ values: 'null' }).isString().trim().escape().isLength({ max: 255 }).withMessage('Condizioni disponibilità non valide'),
+  body('data_apertura').optional({ values: 'null' }).isISO8601({ strict: true }).withMessage('Data apertura non valida'),
   body('colore')
     .optional({ values: 'null' })
     .isString()

@@ -24,6 +24,23 @@ const Investimento = sequelize.define('Investimento', {
     type: DataTypes.DECIMAL(12, 2),
     defaultValue: 0,
   },
+  liquidabilita: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'sconosciuto',
+  },
+  giorni_disponibilita: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  condizioni_disponibilita: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  data_apertura: {
+    type: DataTypes.DATEONLY,
+    allowNull: true,
+  },
   colore: {
     type: DataTypes.STRING(7),
     defaultValue: '#6C5CE7',
