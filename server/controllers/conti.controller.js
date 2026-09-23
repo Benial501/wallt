@@ -155,7 +155,7 @@ const updateConto = async (req, res) => {
       return res.status(404).json({ message: 'Conto non trovato' });
     }
 
-    const { nome, icona, colore, ordine } = req.body;
+    const { nome, icona, colore, ordine, saldo } = req.body;
     const updateData = {};
     if (nome !== undefined) updateData.nome = nome;
     if (icona !== undefined) updateData.icona = icona;
@@ -164,6 +164,13 @@ const updateConto = async (req, res) => {
 
     await conto.update(updateData, { transaction: t });
     await syncPiattaformaFromContoMeta(conto, updateData, t);
+
+    // Correzione manuale del saldo: passa da aggiornaSaldoConto (non da
+    // updateData/conto.update sopra) per restare sincronizzata con
+    // un'eventuale piattaforma scommesse collegata al conto.
+    if (saldo !== undefined) {
+      await aggiornaSaldoConto(conto, toNumber(saldo), t);
+    }
 
     await t.commit();
     res.json({ conto });

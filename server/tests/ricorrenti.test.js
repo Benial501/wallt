@@ -1,8 +1,9 @@
 // Test del cron delle spese ricorrenti (server/services/ricorrenti.service.js).
-// Attualmente SOLO la frequenza 'mensile' è processata: verifica idempotenza
-// (nessun doppio movimento se il job gira più volte lo stesso giorno),
-// corretto aggiornamento saldo, gestione saldo insufficiente, e correttezza
-// del calcolo di fine mese/anno bisestile usato per il check "già creato".
+// Sono processate le frequenze 'mensile', 'settimanale' e 'annuale': verifica
+// idempotenza (nessun doppio movimento se il job gira più volte lo stesso
+// giorno/settimana/anno), corretto aggiornamento saldo, gestione saldo
+// insufficiente, e correttezza del calcolo di fine mese/anno bisestile usato
+// per il check "già creato".
 const {
   registerUser, Conto, Movimento, createApp,
 } = require('./setup');
@@ -171,5 +172,83 @@ describe('Spese ricorrenti (cron mensile)', () => {
 
     await ricorrenteOrfano.destroy();
     await ricorrenteValido.destroy();
+  });
+
+  describe('frequenza settimanale', () => {
+    // 5 marzo 2026 è un giovedì (ISO weekday 4).
+    it('crea il movimento quando oggi è il giorno della settimana configurato', async () => {
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'setInterval', 'setTimeout', 'clearImmediate', 'clearInterval', 'clearTimeout'] }).setSystemTime(new Date(2026, 2, 5));
+      await creaRicorrente({ ricorrente_frequenza: 'settimanale', ricorrente_giorno: 4, importo: 30 });
+
+      const result = await processaRicorrenti();
+
+      await conto.reload();
+      expect(Number(conto.saldo)).toBe(970);
+      expect(result).toEqual({ processed: 1, skipped: 0, failed: 0 });
+
+      const automatici = await Movimento.findAll({ where: { user_id: userId, ricorrente: false } });
+      expect(automatici).toHaveLength(1);
+      expect(automatici[0].ricorrenza_periodo).toMatch(/^\d{4}-W\d{2}$/);
+    });
+
+    it('NON crea nulla se oggi non è il giorno della settimana configurato', async () => {
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'setInterval', 'setTimeout', 'clearImmediate', 'clearInterval', 'clearTimeout'] }).setSystemTime(new Date(2026, 2, 5));
+      await creaRicorrente({ ricorrente_frequenza: 'settimanale', ricorrente_giorno: 1 }); // lunedì, oggi è giovedì
+
+      await processaRicorrenti();
+
+      await conto.reload();
+      expect(Number(conto.saldo)).toBe(1000);
+    });
+
+    it('è idempotente nella stessa settimana', async () => {
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'setInterval', 'setTimeout', 'clearImmediate', 'clearInterval', 'clearTimeout'] }).setSystemTime(new Date(2026, 2, 5));
+      await creaRicorrente({ ricorrente_frequenza: 'settimanale', ricorrente_giorno: 4 });
+
+      await processaRicorrenti();
+      await processaRicorrenti();
+
+      const automatici = await Movimento.findAll({ where: { user_id: userId, ricorrente: false } });
+      expect(automatici).toHaveLength(1);
+    });
+  });
+
+  describe('frequenza annuale', () => {
+    it('crea il movimento quando oggi combacia con giorno e mese configurati', async () => {
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'setInterval', 'setTimeout', 'clearImmediate', 'clearInterval', 'clearTimeout'] }).setSystemTime(new Date(2026, 2, 5));
+      await creaRicorrente({
+        ricorrente_frequenza: 'annuale', ricorrente_giorno: 5, ricorrente_mese: 3, importo: 200,
+      });
+
+      const result = await processaRicorrenti();
+
+      await conto.reload();
+      expect(Number(conto.saldo)).toBe(800);
+      expect(result).toEqual({ processed: 1, skipped: 0, failed: 0 });
+
+      const automatici = await Movimento.findAll({ where: { user_id: userId, ricorrente: false } });
+      expect(automatici[0].ricorrenza_periodo).toBe('2026');
+    });
+
+    it('NON crea nulla se il mese non combacia, anche col giorno giusto', async () => {
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'setInterval', 'setTimeout', 'clearImmediate', 'clearInterval', 'clearTimeout'] }).setSystemTime(new Date(2026, 2, 5));
+      await creaRicorrente({ ricorrente_frequenza: 'annuale', ricorrente_giorno: 5, ricorrente_mese: 4 });
+
+      await processaRicorrenti();
+
+      await conto.reload();
+      expect(Number(conto.saldo)).toBe(1000);
+    });
+
+    it('è idempotente nello stesso anno', async () => {
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'setInterval', 'setTimeout', 'clearImmediate', 'clearInterval', 'clearTimeout'] }).setSystemTime(new Date(2026, 2, 5));
+      await creaRicorrente({ ricorrente_frequenza: 'annuale', ricorrente_giorno: 5, ricorrente_mese: 3 });
+
+      await processaRicorrenti();
+      await processaRicorrenti();
+
+      const automatici = await Movimento.findAll({ where: { user_id: userId, ricorrente: false } });
+      expect(automatici).toHaveLength(1);
+    });
   });
 });

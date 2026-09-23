@@ -29,6 +29,20 @@ const router = useRouter();
 const step = ref(1);
 const loading = ref(false);
 
+// Uniche frequenze processate dal cron (ricorrenti.service.js): un valore
+// storico diverso (es. 'giornaliera', mai realmente supportata) va
+// normalizzato a 'mensile' quando si riapre il form.
+const FREQUENZE_VALIDE = ['mensile', 'settimanale', 'annuale'];
+const GIORNI_SETTIMANA = [
+  { id: 1, label: 'Lunedì' }, { id: 2, label: 'Martedì' }, { id: 3, label: 'Mercoledì' },
+  { id: 4, label: 'Giovedì' }, { id: 5, label: 'Venerdì' }, { id: 6, label: 'Sabato' }, { id: 7, label: 'Domenica' },
+];
+const MESI_ANNO = [
+  { id: 1, label: 'Gennaio' }, { id: 2, label: 'Febbraio' }, { id: 3, label: 'Marzo' }, { id: 4, label: 'Aprile' },
+  { id: 5, label: 'Maggio' }, { id: 6, label: 'Giugno' }, { id: 7, label: 'Luglio' }, { id: 8, label: 'Agosto' },
+  { id: 9, label: 'Settembre' }, { id: 10, label: 'Ottobre' }, { id: 11, label: 'Novembre' }, { id: 12, label: 'Dicembre' },
+];
+
 const form = ref({
   tipo: 'entrata',
   importo: null,
@@ -39,6 +53,17 @@ const form = ref({
   ricorrente: false,
   ricorrente_frequenza: 'mensile',
   ricorrente_giorno: 1,
+  ricorrente_mese: 1,
+});
+
+// Il range valido di ricorrente_giorno dipende dalla frequenza (1-7 per
+// settimanale, 1-31 per mensile/annuale): cambiando frequenza un valore
+// fuori range verrebbe respinto dalla validazione al salvataggio.
+watch(() => form.value.ricorrente_frequenza, (freq, prev) => {
+  if (!prev) return;
+  if (freq === 'settimanale' && form.value.ricorrente_giorno > 7) {
+    form.value.ricorrente_giorno = 1;
+  }
 });
 
 const trasferimentoForm = ref({
@@ -68,6 +93,9 @@ const buildUpdatePayload = () => {
   if (!payload.ricorrente) {
     payload.ricorrente_frequenza = null;
     payload.ricorrente_giorno = null;
+    payload.ricorrente_mese = null;
+  } else if (payload.ricorrente_frequenza !== 'annuale') {
+    payload.ricorrente_mese = null;
   }
   return payload;
 };
@@ -108,6 +136,7 @@ const resetForm = () => {
     ricorrente: false,
     ricorrente_frequenza: 'mensile',
     ricorrente_giorno: 1,
+    ricorrente_mese: 1,
   };
   trasferimentoForm.value = {
     conto_origine_id: contiStore.contiAttivi[0]?.id || null,
@@ -131,11 +160,11 @@ watch(() => props.open, (val) => {
         data: props.movimento.data,
         descrizione: props.movimento.descrizione || '',
         ricorrente: props.movimento.ricorrente,
-        // Solo la frequenza mensile è effettivamente processata dal cron
-        // (vedi ricorrenti.service.js): un valore storico diverso viene
-        // normalizzato a 'mensile' al primo salvataggio successivo.
-        ricorrente_frequenza: 'mensile',
+        ricorrente_frequenza: FREQUENZE_VALIDE.includes(props.movimento.ricorrente_frequenza)
+          ? props.movimento.ricorrente_frequenza
+          : 'mensile',
         ricorrente_giorno: props.movimento.ricorrente_giorno || 1,
+        ricorrente_mese: props.movimento.ricorrente_mese || 1,
       };
     } else if (!isTrasferimento.value) {
       form.value.tipo = props.tipo;
@@ -354,10 +383,27 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
         <div class="field">
           <label class="toggle-label">
             <input v-model="form.ricorrente" type="checkbox" />
-            Movimento ricorrente ogni mese
+            Movimento ricorrente
           </label>
           <div v-if="form.ricorrente" class="ricorrente-fields">
-            <input v-model.number="form.ricorrente_giorno" type="number" min="1" max="31" class="form-input" placeholder="Giorno del mese (es. 1)" />
+            <select v-model="form.ricorrente_frequenza" class="form-select ricorrente-fields__frequenza">
+              <option value="mensile">Ogni mese</option>
+              <option value="settimanale">Ogni settimana</option>
+              <option value="annuale">Ogni anno</option>
+            </select>
+
+            <select v-if="form.ricorrente_frequenza === 'settimanale'" v-model.number="form.ricorrente_giorno" class="form-select">
+              <option v-for="g in GIORNI_SETTIMANA" :key="g.id" :value="g.id">{{ g.label }}</option>
+            </select>
+
+            <template v-else-if="form.ricorrente_frequenza === 'annuale'">
+              <select v-model.number="form.ricorrente_mese" class="form-select">
+                <option v-for="m in MESI_ANNO" :key="m.id" :value="m.id">{{ m.label }}</option>
+              </select>
+              <input v-model.number="form.ricorrente_giorno" type="number" min="1" max="31" class="form-input" placeholder="Giorno (es. 1)" />
+            </template>
+
+            <input v-else v-model.number="form.ricorrente_giorno" type="number" min="1" max="31" class="form-input" placeholder="Giorno del mese (es. 1)" />
           </div>
           <HelpNote topic="movimento-ricorrenza" label="Come funziona la ricorrenza" />
         </div>
@@ -527,4 +573,5 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
   margin-bottom: 0;
 }
 .ricorrente-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.625rem; }
+.ricorrente-fields__frequenza { grid-column: 1 / -1; }
 </style>

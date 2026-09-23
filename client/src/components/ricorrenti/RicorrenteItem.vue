@@ -22,6 +22,26 @@ defineEmits(['modifica', 'elimina']);
 
 const presentazione = computed(() => presentaRicorrente(props.movimento));
 const isEntrata = computed(() => props.movimento.tipo === 'entrata');
+
+const GIORNI_SETTIMANA_BREVI = { 1: 'Lun', 2: 'Mar', 3: 'Mer', 4: 'Gio', 5: 'Ven', 6: 'Sab', 7: 'Dom' };
+const MESI_BREVI = {
+  1: 'Gen', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'Mag', 6: 'Giu',
+  7: 'Lug', 8: 'Ago', 9: 'Set', 10: 'Ott', 11: 'Nov', 12: 'Dic',
+};
+
+/** Badge calendario: adatta cifra/etichetta alla frequenza (settimanale mostra il giorno, annuale giorno+mese). */
+const badgeCalendario = computed(() => {
+  const freq = props.movimento.ricorrente_frequenza;
+  if (freq === 'settimanale') {
+    return { cifra: GIORNI_SETTIMANA_BREVI[props.movimento.ricorrente_giorno] || '—', etichetta: 'ogni settimana' };
+  }
+  if (freq === 'annuale') {
+    const giorno = props.movimento.ricorrente_giorno || 1;
+    const mese = MESI_BREVI[props.movimento.ricorrente_mese] || '';
+    return { cifra: `${giorno} ${mese}`, etichetta: 'ogni anno' };
+  }
+  return { cifra: props.movimento.ricorrente_giorno || 1, etichetta: 'ogni mese' };
+});
 const importoFormattato = computed(() => new Intl.NumberFormat('it-IT', {
   style: 'currency',
   currency: props.valuta,
@@ -33,8 +53,8 @@ const importoFormattato = computed(() => new Intl.NumberFormat('it-IT', {
 <template>
   <WCard class="ricorrente-card" padding="0">
     <div class="ricorrente-card__calendario" aria-hidden="true">
-      <span>{{ movimento.ricorrente_giorno || 1 }}</span>
-      <small>ogni mese</small>
+      <span :class="{ 'ricorrente-card__calendario--compatto': movimento.ricorrente_frequenza === 'annuale' }">{{ badgeCalendario.cifra }}</span>
+      <small>{{ badgeCalendario.etichetta }}</small>
     </div>
 
     <div class="ricorrente-card__corpo">
@@ -93,6 +113,7 @@ const importoFormattato = computed(() => new Intl.NumberFormat('it-IT', {
   color: var(--text-primary);
 }
 .ricorrente-card__calendario span { font-size: 2rem; line-height: 1; font-weight: 750; letter-spacing: -0.04em; }
+.ricorrente-card__calendario span.ricorrente-card__calendario--compatto { font-size: 1.25rem; white-space: nowrap; }
 .ricorrente-card__calendario small { font-size: var(--text-xs); color: var(--text-muted); }
 .ricorrente-card__corpo { min-width: 0; padding: 1.25rem; }
 .ricorrente-card__testa { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }

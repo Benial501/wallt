@@ -1,5 +1,6 @@
+const { Op } = require('sequelize');
 const { Conto, Obiettivo, Movimento } = require('../models');
-const { getRomeDateParts } = require('./ricorrenti.service');
+const { getRomeDateParts, FREQUENZE_SUPPORTATE, periodoPerFrequenza } = require('./ricorrenti.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
 const round2 = (val) => Math.round(val * 100) / 100;
@@ -16,15 +17,17 @@ const round2 = (val) => Math.round(val * 100) / 100;
  *   stesso denaro risulterebbe libero due volte: una volta sul conto, una
  *   volta come progresso dell'obiettivo. Un obiettivo completato non blocca
  *   più liquidità: il suo scopo è stato raggiunto.
- * - impegni_pertinenti: somma degli importi dei Movimento ricorrenti mensili
- *   di tipo 'uscita' il cui addebito per il periodo corrente non è ancora
- *   avvenuto (nessun Movimento con ricorrenza_origine_id=<id> e
- *   ricorrenza_periodo=<periodo corrente>). Il saldo del conto non riflette
- *   ancora quell'uscita, quindi non è denaro davvero disponibile.
+ * - impegni_pertinenti: somma degli importi dei Movimento ricorrenti (mensili,
+ *   settimanali o annuali) di tipo 'uscita' il cui addebito per il periodo
+ *   corrente non è ancora avvenuto (nessun Movimento con
+ *   ricorrenza_origine_id=<id> e ricorrenza_periodo=<periodo corrente per
+ *   quella frequenza — vedi periodoPerFrequenza in ricorrenti.service.js,
+ *   stessa chiave usata dal cron per l'idempotenza). Il saldo del conto non
+ *   riflette ancora quell'uscita, quindi non è denaro davvero disponibile.
  */
 async function calcolaLiquidita(userId, { data, transaction } = {}) {
   const riferimento = data ? new Date(data) : new Date();
-  const periodoCorrente = getRomeDateParts(riferimento).period;
+  const current = getRomeDateParts(riferimento);
 
   const conti = await Conto.findAll({ where: { user_id: userId, attivo: true }, transaction });
   const saldo_conti = round2(conti.reduce((sum, c) => sum + toNumber(c.saldo), 0));
@@ -45,13 +48,14 @@ async function calcolaLiquidita(userId, { data, transaction } = {}) {
       user_id: userId,
       tipo: 'uscita',
       ricorrente: true,
-      ricorrente_frequenza: 'mensile',
+      ricorrente_frequenza: { [Op.in]: FREQUENZE_SUPPORTATE },
     },
     transaction,
   });
 
   const impegni = [];
   for (const r of ricorrenti) {
+    const periodoCorrente = periodoPerFrequenza(r.ricorrente_frequenza, current);
     // eslint-disable-next-line no-await-in-loop
     const eseguitoQuestoPeriodo = await Movimento.findOne({
       where: { ricorrenza_origine_id: r.id, ricorrenza_periodo: periodoCorrente },

@@ -57,7 +57,7 @@ const nuovoForm = ref({
   nome: '', tipo: 'banca', saldo_iniziale: 0, icona: '🏦', colore: '#00D4AA',
 });
 
-const editForm = ref({ nome: '', icona: '', colore: '' });
+const editForm = ref({ nome: '', icona: '', colore: '', saldo: 0 });
 
 
 watch(() => nuovoForm.value.tipo, (tipo) => {
@@ -113,18 +113,19 @@ const creaConto = async () => {
 
 const apriModifica = (conto) => {
   contoEdit.value = conto;
-  editForm.value = { nome: conto.nome, icona: conto.icona, colore: conto.colore };
+  editForm.value = { nome: conto.nome, icona: conto.icona, colore: conto.colore, saldo: Number(conto.saldo) || 0 };
   showModifica.value = true;
 };
 
 const salvaModifica = async () => {
   loading.value = true;
   try {
-    await contiStore.updateConto(contoEdit.value.id, editForm.value, { tipo: contoEdit.value.tipo });
+    const { nome, icona, colore, saldo } = editForm.value;
+    await contiStore.updateConto(contoEdit.value.id, { nome, icona, colore, saldo }, { tipo: contoEdit.value.tipo });
     toastStore.success('Conto aggiornato!');
     showModifica.value = false;
-  } catch {
-    toastStore.error('Errore nell\'aggiornamento');
+  } catch (err) {
+    toastStore.error(extractApiError(err, 'Errore nell\'aggiornamento'));
   } finally {
     loading.value = false;
   }
@@ -284,6 +285,14 @@ const confermaElimina = async () => {
             <button v-for="c in COLORI" :key="c" class="color-dot" :style="{ background: c }" :class="{ active: editForm.colore === c }" @click="editForm.colore = c" />
           </div>
         </div>
+        <div class="field">
+          <label>Saldo attuale (€)</label>
+          <input v-model.number="editForm.saldo" type="number" step="0.01" class="form-input" />
+          <p class="field-hint">
+            Correggi qui il saldo solo per sistemare un errore (es. una transazione sbagliata):
+            sovrascrive il saldo direttamente, senza creare un movimento nello storico.
+          </p>
+        </div>
         <WButton variant="primary" size="lg" :loading="loading" @click="salvaModifica">Salva</WButton>
       </div>
     </AppDialog>
@@ -363,6 +372,7 @@ const confermaElimina = async () => {
 .tipo-chip { display: inline-flex; align-items: center; gap: 0.375rem; }
 .form-space { display: flex; flex-direction: column; gap: 1rem; }
 .field label { display: block; font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 0.375rem; }
+.field-hint { font-size: var(--text-xs); color: var(--text-muted); line-height: 1.5; margin: 0.375rem 0 0; }
 /* .form-input: aspetto condiviso in assets/styles/main.css */
 .tipo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 .tipo-chip { padding: 0.625rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-input); color: var(--text-secondary); font-size: var(--text-xs); cursor: pointer; text-align: left; }

@@ -169,7 +169,7 @@ const createMovimento = async (req, res, next) => {
   try {
     const {
       tipo, importo, categoria, conto_id, data,
-      descrizione, ricorrente, ricorrente_frequenza, ricorrente_giorno,
+      descrizione, ricorrente, ricorrente_frequenza, ricorrente_giorno, ricorrente_mese,
     } = req.body;
 
     await assertCategory(req.userId, categoria, tipo, { transaction: t });
@@ -219,6 +219,7 @@ const createMovimento = async (req, res, next) => {
       ricorrente: ricorrente || false,
       ricorrente_frequenza: ricorrente ? ricorrente_frequenza : null,
       ricorrente_giorno: ricorrente ? ricorrente_giorno : null,
+      ricorrente_mese: ricorrente && ricorrente_frequenza === 'annuale' ? ricorrente_mese : null,
     }, { transaction: t });
 
     const nuovoSaldo = tipo === 'entrata'
@@ -275,7 +276,7 @@ const updateMovimento = async (req, res, next) => {
 
     const {
       tipo, importo, categoria, conto_id, data,
-      descrizione, ricorrente, ricorrente_frequenza, ricorrente_giorno,
+      descrizione, ricorrente, ricorrente_frequenza, ricorrente_giorno, ricorrente_mese,
     } = req.body;
 
     const nuovoTipo = tipo || movimento.tipo;
@@ -342,6 +343,8 @@ const updateMovimento = async (req, res, next) => {
       await aggiornaSaldoConto(contoVecchio, toNumber(contoVecchio.saldo) + importoVecchio, t);
     }
 
+    const nuovaFrequenza = ricorrente ? (ricorrente_frequenza ?? movimento.ricorrente_frequenza) : null;
+
     await movimento.update({
       tipo: nuovoTipo,
       importo: nuovoImporto,
@@ -350,8 +353,9 @@ const updateMovimento = async (req, res, next) => {
       data: data ?? movimento.data,
       descrizione: descrizione ?? movimento.descrizione,
       ricorrente: ricorrente ?? movimento.ricorrente,
-      ricorrente_frequenza: ricorrente ? (ricorrente_frequenza ?? movimento.ricorrente_frequenza) : null,
+      ricorrente_frequenza: nuovaFrequenza,
       ricorrente_giorno: ricorrente ? (ricorrente_giorno ?? movimento.ricorrente_giorno) : null,
+      ricorrente_mese: nuovaFrequenza === 'annuale' ? (ricorrente_mese ?? movimento.ricorrente_mese) : null,
       categoria_automatica: categoriaCambiata ? false : (movimento.categoria_automatica ?? oldCategoriaAutomatica),
       categoria_fonte: categoriaCambiata ? 'user' : movimento.categoria_fonte,
       categoria_modificata: categoriaCambiata ? true : (movimento.categoria_modificata ?? false),
@@ -403,12 +407,12 @@ const deleteMovimento = async (req, res) => {
 
     if (movimento.tipo === 'trasferimento') {
       const contoOrigine = await Conto.findOne({
-        where: { id: movimento.conto_id, user_id: req.userId },
+        where: { id: movimento.conto_id, user_id: req.userId, attivo: true },
         transaction: t,
         lock: t.LOCK.UPDATE,
       });
       const contoDest = await Conto.findOne({
-        where: { id: movimento.conto_destinazione_id, user_id: req.userId },
+        where: { id: movimento.conto_destinazione_id, user_id: req.userId, attivo: true },
         transaction: t,
         lock: t.LOCK.UPDATE,
       });
@@ -417,6 +421,10 @@ const deleteMovimento = async (req, res) => {
         const importoNum = toNumber(movimento.importo);
         await aggiornaSaldoConto(contoOrigine, toNumber(contoOrigine.saldo) + importoNum, t);
         await aggiornaSaldoConto(contoDest, toNumber(contoDest.saldo) - importoNum, t);
+      } else {
+        logger.warn('Ripristino saldo saltato per trasferimento eliminato: conto disattivato', {
+          userId: req.userId, movimentoId: movimento.id,
+        });
       }
     } else {
       const conto = await Conto.findOne({
@@ -432,6 +440,10 @@ const deleteMovimento = async (req, res) => {
         } else {
           await aggiornaSaldoConto(conto, toNumber(conto.saldo) + importoNum, t);
         }
+      } else {
+        logger.warn('Ripristino saldo saltato per movimento eliminato: conto disattivato', {
+          userId: req.userId, movimentoId: movimento.id,
+        });
       }
     }
 

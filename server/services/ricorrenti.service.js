@@ -1,9 +1,22 @@
 const cron = require('node-cron');
+const { Op } = require('sequelize');
 const { Movimento, Conto, sequelize } = require('../models');
 const logger = require('../utils/logger');
 
 const ROME_TIME_ZONE = 'Europe/Rome';
+const FREQUENZE_SUPPORTATE = ['mensile', 'settimanale', 'annuale'];
 let activeRun = null;
+
+/** Settimana ISO-8601 (lun-dom) del giorno UTC dato. */
+const getIsoWeekInfo = (year, month, day) => {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const isoWeekday = (date.getUTCDay() + 6) % 7; // 0=lun..6=dom
+  date.setUTCDate(date.getUTCDate() - isoWeekday + 3); // giovedì della settimana ISO
+  const isoYear = date.getUTCFullYear();
+  const firstThursday = new Date(Date.UTC(isoYear, 0, 4));
+  const isoWeek = 1 + Math.round((date - firstThursday) / (7 * 86400000));
+  return { isoYear, isoWeek };
+};
 
 const getRomeDateParts = (date) => {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -13,15 +26,59 @@ const getRomeDateParts = (date) => {
     day: '2-digit',
   }).formatToParts(date);
   const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  const year = Number(values.year);
+  const month = Number(values.month);
+  const day = Number(values.day);
+
+  // Giorno della settimana ISO (1=lunedì..7=domenica), calcolato sulla data
+  // civile di Roma già estratta sopra: usare un Date UTC "flat" evita che il
+  // fuso del processo (UTC su Vercel) faccia slittare il giorno.
+  const jsWeekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  const weekday = jsWeekday === 0 ? 7 : jsWeekday;
+  const { isoYear, isoWeek } = getIsoWeekInfo(year, month, day);
 
   return {
-    day: Number(values.day),
+    day,
+    month,
+    year,
+    weekday,
     date: `${values.year}-${values.month}-${values.day}`,
+    // `period` (YYYY-MM) è il nome storico, già letto da liquidita.service.js
+    // e fondoSicurezza.service.js: non rinominarlo senza aggiornare entrambi.
     period: `${values.year}-${values.month}`,
+    periodoAnnuale: String(year),
+    periodoSettimanale: `${isoYear}-W${String(isoWeek).padStart(2, '0')}`,
   };
 };
 
 const isUniqueConstraintError = (error) => error?.name === 'SequelizeUniqueConstraintError';
+
+/** Chiave di deduplica del periodo corrente per una data frequenza. */
+const periodoPerFrequenza = (frequenza, current) => {
+  if (frequenza === 'mensile') return current.period;
+  if (frequenza === 'annuale') return current.periodoAnnuale;
+  if (frequenza === 'settimanale') return current.periodoSettimanale;
+  return null;
+};
+
+/** Decide se oggi è il giorno giusto per un movimento ricorrente, e la chiave di deduplica del periodo. */
+const valutaOccorrenza = (movimento, current) => {
+  const periodo = periodoPerFrequenza(movimento.ricorrente_frequenza, current);
+  if (movimento.ricorrente_frequenza === 'mensile') {
+    const giornoTarget = movimento.ricorrente_giorno || 1;
+    return { dovuto: current.day === giornoTarget, periodo };
+  }
+  if (movimento.ricorrente_frequenza === 'annuale') {
+    const giornoTarget = movimento.ricorrente_giorno || 1;
+    const meseTarget = movimento.ricorrente_mese || 1;
+    return { dovuto: current.day === giornoTarget && current.month === meseTarget, periodo };
+  }
+  if (movimento.ricorrente_frequenza === 'settimanale') {
+    const giornoTarget = movimento.ricorrente_giorno || 1;
+    return { dovuto: current.weekday === giornoTarget, periodo };
+  }
+  return { dovuto: false, periodo: null };
+};
 
 async function runProcessaRicorrenti(now) {
   const current = getRomeDateParts(now);
@@ -32,13 +89,13 @@ async function runProcessaRicorrenti(now) {
   const ricorrenti = await Movimento.findAll({
     where: {
       ricorrente: true,
-      ricorrente_frequenza: 'mensile',
+      ricorrente_frequenza: { [Op.in]: FREQUENZE_SUPPORTATE },
     },
   });
 
   for (const movimento of ricorrenti) {
-    const giornoTarget = movimento.ricorrente_giorno || 1;
-    if (current.day !== giornoTarget || !['entrata', 'uscita'].includes(movimento.tipo)) {
+    const { dovuto, periodo } = valutaOccorrenza(movimento, current);
+    if (!dovuto || !['entrata', 'uscita'].includes(movimento.tipo)) {
       summary.skipped += 1;
       continue;
     }
@@ -54,7 +111,7 @@ async function runProcessaRicorrenti(now) {
         const existing = await Movimento.findOne({
           where: {
             ricorrenza_origine_id: movimento.id,
-            ricorrenza_periodo: current.period,
+            ricorrenza_periodo: periodo,
           },
           transaction,
         });
@@ -83,7 +140,7 @@ async function runProcessaRicorrenti(now) {
           data: current.date,
           ricorrente: false,
           ricorrenza_origine_id: movimento.id,
-          ricorrenza_periodo: current.period,
+          ricorrenza_periodo: periodo,
         }, { transaction });
 
         return 'processed';
@@ -130,4 +187,6 @@ function avviaCronRicorrenti() {
   logger.info('Recurring transactions cron scheduled (daily 09:00 Europe/Rome)');
 }
 
-module.exports = { processaRicorrenti, avviaCronRicorrenti, getRomeDateParts };
+module.exports = {
+  processaRicorrenti, avviaCronRicorrenti, getRomeDateParts, FREQUENZE_SUPPORTATE, periodoPerFrequenza,
+};
