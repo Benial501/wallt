@@ -24,6 +24,24 @@ const round2 = (val) => Math.round(val * 100) / 100;
  *   quella frequenza — vedi periodoPerFrequenza in ricorrenti.service.js,
  *   stessa chiave usata dal cron per l'idempotenza). Il saldo del conto non
  *   riflette ancora quell'uscita, quindi non è denaro davvero disponibile.
+ *
+ * saldo_conti resta la somma di TUTTI i conti attivi (compresi quelli di
+ * tipo 'scommesse': restano nel patrimonio, CLAUDE.md Regola 12) — significato
+ * invariato per chi già lo consuma. saldo_ordinario e saldo_conti_speciali lo
+ * scompongono senza sostituirlo: campi aggiuntivi, non una ridefinizione.
+ *
+ * liquidita_allocabile è più conservativo di liquidita_libera: sottrae
+ * allocata+impegni dal solo saldo_ordinario, non dal totale. Motivo:
+ * Obiettivo non ha conto_id (nessuna riga viene mai scritta per legarlo a un
+ * conto specifico), quindi non è possibile sapere con certezza se il
+ * progresso di un obiettivo "vive" su un conto ordinario o su un conto
+ * scommesse — un'ambiguità reale, non un dettaglio. Attribuire comunque
+ * l'allocazione al saldo ordinario è la scelta esplicita qui: proporre di
+ * allocare un obiettivo di risparmio usando il saldo di un conto scommesse
+ * non avrebbe senso senza un prelievo di mezzo. Può risultare negativo: non
+ * viene troncato a zero, perché un negativo è il segnale reale che
+ * l'allocato+impegnato supera quanto siede sui conti ordinari (es. il
+ * progresso di un obiettivo è di fatto maturato su un conto scommesse).
  */
 async function calcolaLiquidita(userId, { data, transaction } = {}) {
   const riferimento = data ? new Date(data) : new Date();
@@ -31,6 +49,10 @@ async function calcolaLiquidita(userId, { data, transaction } = {}) {
 
   const conti = await Conto.findAll({ where: { user_id: userId, attivo: true }, transaction });
   const saldo_conti = round2(conti.reduce((sum, c) => sum + toNumber(c.saldo), 0));
+  const saldo_conti_speciali = round2(
+    conti.filter((c) => c.tipo === 'scommesse').reduce((sum, c) => sum + toNumber(c.saldo), 0),
+  );
+  const saldo_ordinario = round2(saldo_conti - saldo_conti_speciali);
 
   const obiettiviAttivi = await Obiettivo.findAll({
     where: { user_id: userId, completato: false },
@@ -73,12 +95,16 @@ async function calcolaLiquidita(userId, { data, transaction } = {}) {
   const impegni_pertinenti = round2(impegni.reduce((sum, i) => sum + i.importo, 0));
 
   const liquidita_libera = round2(saldo_conti - liquidita_allocata - impegni_pertinenti);
+  const liquidita_allocabile = round2(saldo_ordinario - liquidita_allocata - impegni_pertinenti);
 
   return {
     saldo_conti,
+    saldo_ordinario,
+    saldo_conti_speciali,
     liquidita_allocata,
     impegni_pertinenti,
     liquidita_libera,
+    liquidita_allocabile,
     obiettivi_allocati,
     impegni,
   };

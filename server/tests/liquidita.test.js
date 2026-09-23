@@ -128,6 +128,61 @@ describe('LiquiditaService.calcolaLiquidita', () => {
     }
   });
 
+  it('un conto scommesse resta nel saldo complessivo ma si scompone in saldo_conti_speciali', async () => {
+    await Conto.create({
+      user_id: userId, nome: 'Bet365', tipo: 'scommesse', saldo: 250, attivo: true,
+    });
+
+    const result = await calcolaLiquidita(userId, { data: '2026-09-17' });
+    expect(result.saldo_conti).toBe(1250); // 1000 ordinario + 250 speciale: invariato (Regola 12)
+    expect(result.saldo_ordinario).toBe(1000);
+    expect(result.saldo_conti_speciali).toBe(250);
+  });
+
+  it('liquidita_allocabile sottrae allocato+impegni dal solo saldo ordinario, non dal saldo con lo scommesse incluso', async () => {
+    await Conto.create({
+      user_id: userId, nome: 'Bet365', tipo: 'scommesse', saldo: 250, attivo: true,
+    });
+    await Obiettivo.create({
+      user_id: userId, nome: 'Vacanza', importo_target: 500, importo_attuale: 400, completato: false,
+    });
+
+    const result = await calcolaLiquidita(userId, { data: '2026-09-17' });
+    // saldo_conti (1250) - 400 darebbe 850: sbagliato, includerebbe lo
+    // scommesse come se fosse disponibile per l'obiettivo.
+    expect(result.liquidita_libera).toBe(850); // overlay "storica", sul totale
+    expect(result.liquidita_allocabile).toBe(600); // 1000 ordinario - 400 allocato
+  });
+
+  it('liquidita_allocabile può essere negativa senza essere troncata a zero: è un segnale, non un errore', async () => {
+    await Conto.create({
+      user_id: userId, nome: 'Bet365', tipo: 'scommesse', saldo: 500, attivo: true,
+    });
+    await Obiettivo.create({
+      user_id: userId, nome: 'Obiettivo grande', importo_target: 2000, importo_attuale: 1300, completato: false,
+    });
+
+    const result = await calcolaLiquidita(userId, { data: '2026-09-17' });
+    // 1000 ordinario - 1300 allocato = -300: il progresso dell'obiettivo
+    // supera quanto siede sui conti ordinari (verosimilmente maturato in
+    // parte sul conto scommesse).
+    expect(result.liquidita_allocabile).toBe(-300);
+  });
+
+  it('nessun doppio conteggio: saldo_ordinario + saldo_conti_speciali riconcilia sempre con saldo_conti', async () => {
+    await Conto.create({
+      user_id: userId, nome: 'Bet365', tipo: 'scommesse', saldo: 333.33, attivo: true,
+    });
+    await Conto.create({
+      user_id: userId, nome: 'Risparmi', tipo: 'risparmio', saldo: 111.11, attivo: true,
+    });
+
+    const result = await calcolaLiquidita(userId, { data: '2026-09-17' });
+    expect(round2(result.saldo_ordinario + result.saldo_conti_speciali)).toBe(result.saldo_conti);
+
+    function round2(v) { return Math.round(v * 100) / 100; }
+  });
+
   it('GET /api/conti/liquidita espone lo stesso risultato del service', async () => {
     await Obiettivo.create({
       user_id: userId, nome: 'Vacanza', importo_target: 500, importo_attuale: 150, completato: false,
