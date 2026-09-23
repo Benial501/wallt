@@ -1,6 +1,25 @@
 import dayjs from 'dayjs';
 import { creaRisorsa } from './risorsa.js';
 
+// Uniche frequenze processate dal cron (server/services/ricorrenti.service.js):
+// un valore storico diverso (es. 'giornaliera', mai realmente supportata) va
+// normalizzato a 'mensile' quando si riapre un movimento ricorrente esistente.
+export const FREQUENZE_VALIDE = ['mensile', 'settimanale', 'annuale'];
+
+export const GIORNI_SETTIMANA = [
+  { id: 1, label: 'Lunedì' }, { id: 2, label: 'Martedì' }, { id: 3, label: 'Mercoledì' },
+  { id: 4, label: 'Giovedì' }, { id: 5, label: 'Venerdì' }, { id: 6, label: 'Sabato' }, { id: 7, label: 'Domenica' },
+];
+
+export const MESI_ANNO = [
+  { id: 1, label: 'Gennaio' }, { id: 2, label: 'Febbraio' }, { id: 3, label: 'Marzo' }, { id: 4, label: 'Aprile' },
+  { id: 5, label: 'Maggio' }, { id: 6, label: 'Giugno' }, { id: 7, label: 'Luglio' }, { id: 8, label: 'Agosto' },
+  { id: 9, label: 'Settembre' }, { id: 10, label: 'Ottobre' }, { id: 11, label: 'Novembre' }, { id: 12, label: 'Dicembre' },
+];
+
+/** Normalizza una frequenza storica/sconosciuta a 'mensile' (vedi FREQUENZE_VALIDE). */
+export const normalizzaFrequenza = (frequenza) => (FREQUENZE_VALIDE.includes(frequenza) ? frequenza : 'mensile');
+
 export const prossimaEsecuzione = (giorno, oggi = dayjs()) => {
   const giornoValido = Math.min(31, Math.max(1, Number(giorno) || 1));
   const inizioOggi = oggi.startOf('day');

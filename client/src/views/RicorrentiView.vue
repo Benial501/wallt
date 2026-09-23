@@ -7,7 +7,7 @@ import DataState from '@/components/common/DataState.vue';
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import AppDialog from '@/components/common/AppDialog.vue';
-import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
+import RicorrenteForm from '@/components/ricorrenti/RicorrenteForm.vue';
 import RicorrenteItem from '@/components/ricorrenti/RicorrenteItem.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import { AlertTriangle, Repeat2 } from '@/utils/appIcons';
@@ -15,16 +15,21 @@ import { AlertTriangle, Repeat2 } from '@/utils/appIcons';
 const movimentiStore = useMovimentiStore();
 const toastStore = useToastStore();
 const authStore = useAuthStore();
+const showNuova = ref(false);
 const movimentoInModifica = ref(null);
 const movimentoDaEliminare = ref(null);
 const eliminazioneInCorso = ref(false);
 
 onMounted(() => movimentiStore.fetchRicorrenti());
 
+const apriNuova = () => { showNuova.value = true; };
 const modifica = (movimento) => { movimentoInModifica.value = movimento; };
-const chiudiModifica = () => { movimentoInModifica.value = null; };
-const dopoModifica = async () => {
-  chiudiModifica();
+const chiudiForm = () => {
+  showNuova.value = false;
+  movimentoInModifica.value = null;
+};
+const dopoSalvataggio = async () => {
+  chiudiForm();
   await movimentiStore.fetchRicorrenti();
 };
 
@@ -56,8 +61,9 @@ const confermaEliminazione = async () => {
           <h1>Ricorrenti</h1>
           <HelpTrigger topic="ricorrenti-gestione" />
         </div>
-        <p>Entrate e uscite che WALLT registra automaticamente ogni mese.</p>
+        <p>Entrate e uscite che WALLT registra da sola, con la frequenza che scegli.</p>
       </div>
+      <WButton variant="primary" size="sm" @click="apriNuova">+ Nuova ricorrenza</WButton>
     </header>
 
     <DataState
@@ -72,7 +78,8 @@ const confermaEliminazione = async () => {
         <WCard class="ricorrenti-view__vuoto">
           <span class="ricorrenti-view__vuoto-icon"><Repeat2 :size="30" aria-hidden="true" /></span>
           <h2>Nessun movimento ricorrente</h2>
-          <p>Quando rendi mensile un’entrata o un’uscita, la ritrovi qui.</p>
+          <p>Crea una regola per un'entrata o un'uscita che si ripete ogni mese, settimana o anno.</p>
+          <WButton variant="primary" size="md" @click="apriNuova">+ Nuova ricorrenza</WButton>
         </WCard>
       </template>
 
@@ -88,12 +95,11 @@ const confermaEliminazione = async () => {
       </div>
     </DataState>
 
-    <MovimentoForm
-      :open="Boolean(movimentoInModifica)"
-      :tipo="movimentoInModifica?.tipo || 'uscita'"
+    <RicorrenteForm
+      :open="showNuova || Boolean(movimentoInModifica)"
       :movimento="movimentoInModifica"
-      @close="chiudiModifica"
-      @saved="dopoModifica"
+      @close="chiudiForm"
+      @saved="dopoSalvataggio"
     />
 
     <AppDialog :open="Boolean(movimentoDaEliminare)" title="Elimina movimento ricorrente" @close="chiudiEliminazione">
@@ -113,7 +119,7 @@ const confermaEliminazione = async () => {
 
 <style scoped>
 .ricorrenti-view { display: flex; flex-direction: column; gap: 1.25rem; }
-.ricorrenti-view__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.ricorrenti-view__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
 .ricorrenti-view__title-row { display: flex; align-items: center; gap: 0.5rem; }
 .ricorrenti-view__title-row h1 { margin: 0; color: var(--text-primary); font-size: 1.5rem; font-weight: 700; }
 .ricorrenti-view__header p { margin: 0.35rem 0 0; color: var(--text-muted); font-size: var(--text-xs); line-height: 1.5; }
@@ -121,7 +127,7 @@ const confermaEliminazione = async () => {
 .ricorrenti-view__vuoto { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 2.5rem 1.25rem !important; text-align: center; }
 .ricorrenti-view__vuoto-icon { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; color: var(--accent-green); background: color-mix(in srgb, var(--accent-green) 10%, transparent); }
 .ricorrenti-view__vuoto h2 { margin: 0.5rem 0 0; color: var(--text-primary); font-size: 1rem; }
-.ricorrenti-view__vuoto p { margin: 0; color: var(--text-muted); font-size: var(--text-xs); }
+.ricorrenti-view__vuoto p { margin: 0 0 0.5rem; color: var(--text-muted); font-size: var(--text-xs); }
 .ricorrenti-view__dialog { display: flex; flex-direction: column; gap: 1rem; }
 .ricorrenti-view__avviso { display: flex; align-items: flex-start; gap: 0.625rem; padding: 0.875rem 1rem; border: 1px solid color-mix(in srgb, var(--negative) 28%, transparent); border-radius: var(--radius-md); background: color-mix(in srgb, var(--negative) 10%, transparent); color: var(--text-primary); font-size: var(--text-xs); line-height: 1.5; }
 .ricorrenti-view__avviso svg { flex-shrink: 0; color: var(--negative); }

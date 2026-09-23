@@ -7,16 +7,20 @@ import { useMovimentiStore } from '@/stores/movimenti.store';
 import { useToastStore } from '@/stores/toast.store';
 import { CATEGORIE_ENTRATA, CATEGORIE_USCITA, CATEGORIE_ARCHIVIATE } from '@/utils/categorie';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
-import HelpNote from '@/components/help/HelpNote.vue';
-import { ArrowDownCircle, ArrowUpCircle } from '@/utils/appIcons';
+import { ArrowDownCircle, ArrowUpCircle, Repeat2 } from '@/utils/appIcons';
 import { useRouter } from 'vue-router';
 import { refreshAfterWrite, VISTA_NON_AGGIORNATA } from '@/utils/afterWrite';
 import { GIORNI_SETTIMANA, MESI_ANNO, normalizzaFrequenza } from '@/utils/ricorrenti';
 import dayjs from 'dayjs';
 
+// Form dedicata a chi arriva dalla sezione Ricorrenti: qui la ricorrenza non è
+// un'opzione in fondo a un form di movimento, è il motivo per cui si è aperta
+// questa form. Niente checkbox "ricorrente" (è sempre true) e niente campo
+// data: la data del movimento "regola" è oggi, la schedulazione vera è
+// giorno/mese/frequenza. Per un movimento normale resta MovimentoForm.vue.
+
 const props = defineProps({
   open: { type: Boolean, default: false },
-  tipo: { type: String, default: 'entrata' },
   movimento: { type: Object, default: null },
 });
 
@@ -31,17 +35,17 @@ const step = ref(1);
 const loading = ref(false);
 
 const form = ref({
-  tipo: 'entrata',
+  tipo: 'uscita',
   importo: null,
   categoria: null,
   conto_id: null,
-  data: dayjs().format('YYYY-MM-DD'),
   descrizione: '',
-  ricorrente: false,
   ricorrente_frequenza: 'mensile',
   ricorrente_giorno: 1,
   ricorrente_mese: 1,
 });
+
+const isEdit = computed(() => !!props.movimento);
 
 // Il range valido di ricorrente_giorno dipende dalla frequenza (1-7 per
 // settimanale, 1-31 per mensile/annuale): cambiando frequenza un valore
@@ -52,17 +56,6 @@ watch(() => form.value.ricorrente_frequenza, (freq, prev) => {
     form.value.ricorrente_giorno = 1;
   }
 });
-
-const trasferimentoForm = ref({
-  conto_origine_id: null,
-  conto_destinazione_id: null,
-  importo: null,
-  data: dayjs().format('YYYY-MM-DD'),
-  nota: '',
-});
-
-const isTrasferimento = computed(() => props.tipo === 'trasferimento' && !props.movimento);
-const isEdit = computed(() => !!props.movimento);
 
 const contiSelezionabili = computed(() => {
   const attivi = [...contiStore.contiAttivi];
@@ -75,15 +68,10 @@ const contiSelezionabili = computed(() => {
   return attivi;
 });
 
-const buildUpdatePayload = () => {
-  const payload = { ...form.value };
-  if (!payload.ricorrente) {
-    payload.ricorrente_frequenza = null;
-    payload.ricorrente_giorno = null;
-    payload.ricorrente_mese = null;
-  } else if (payload.ricorrente_frequenza !== 'annuale') {
-    payload.ricorrente_mese = null;
-  }
+const buildPayload = () => {
+  const payload = { ...form.value, ricorrente: true };
+  if (payload.ricorrente_frequenza !== 'annuale') payload.ricorrente_mese = null;
+  if (!isEdit.value) payload.data = dayjs().format('YYYY-MM-DD');
   return payload;
 };
 
@@ -102,37 +90,18 @@ const categorie = computed(() => [
   ...CATEGORIE_ARCHIVIATE.filter(c => c.id === props.movimento?.categoria && c.tipo === form.value.tipo),
 ].filter(c => c.nome.toLowerCase().includes(ricercaCategoria.value.toLowerCase())));
 
-
-const contiDestinazione = computed(() =>
-  contiStore.contiAttivi.filter((c) => c.id !== trasferimentoForm.value.conto_origine_id)
-);
-
-const saldoInsufficiente = computed(() => {
-  const origine = contiStore.contiAttivi.find((c) => c.id === trasferimentoForm.value.conto_origine_id);
-  return origine && parseFloat(trasferimentoForm.value.importo) > parseFloat(origine.saldo);
-});
-
 const resetForm = () => {
   form.value = {
-    tipo: props.tipo === 'trasferimento' ? 'entrata' : props.tipo,
+    tipo: 'uscita',
     importo: null,
     categoria: null,
     conto_id: contiStore.contiAttivi[0]?.id || null,
-    data: dayjs().format('YYYY-MM-DD'),
     descrizione: '',
-    ricorrente: false,
     ricorrente_frequenza: 'mensile',
     ricorrente_giorno: 1,
     ricorrente_mese: 1,
   };
-  trasferimentoForm.value = {
-    conto_origine_id: contiStore.contiAttivi[0]?.id || null,
-    conto_destinazione_id: contiStore.contiAttivi[1]?.id || null,
-    importo: null,
-    data: dayjs().format('YYYY-MM-DD'),
-    nota: '',
-  };
-  step.value = isTrasferimento.value || isEdit.value ? 2 : 1;
+  step.value = isEdit.value ? 2 : 1;
 };
 
 watch(() => props.open, (val) => {
@@ -144,15 +113,11 @@ watch(() => props.open, (val) => {
         importo: parseFloat(props.movimento.importo),
         categoria: props.movimento.categoria || 'da_verificare',
         conto_id: props.movimento.conto_id,
-        data: props.movimento.data,
         descrizione: props.movimento.descrizione || '',
-        ricorrente: props.movimento.ricorrente,
         ricorrente_frequenza: normalizzaFrequenza(props.movimento.ricorrente_frequenza),
         ricorrente_giorno: props.movimento.ricorrente_giorno || 1,
         ricorrente_mese: props.movimento.ricorrente_mese || 1,
       };
-    } else if (!isTrasferimento.value) {
-      form.value.tipo = props.tipo;
     }
   }
 });
@@ -170,24 +135,14 @@ const selectTipo = (tipo) => {
 const salva = async () => {
   loading.value = true;
   try {
-    let messaggio;
-
-    if (isTrasferimento.value) {
-      const origine = contiStore.contiAttivi.find((c) => c.id === trasferimentoForm.value.conto_origine_id);
-      const destinazione = contiStore.contiAttivi.find((c) => c.id === trasferimentoForm.value.conto_destinazione_id);
-      const involvesScommesse = origine?.tipo === 'scommesse' || destinazione?.tipo === 'scommesse';
-      await contiStore.trasferimento({ ...trasferimentoForm.value }, { involvesScommesse });
-      messaggio = 'Trasferimento completato!';
-    } else if (isEdit.value) {
-      await movimentiStore.updateMovimento(props.movimento.id, buildUpdatePayload());
-      messaggio = 'Movimento aggiornato!';
+    if (isEdit.value) {
+      await movimentiStore.updateMovimento(props.movimento.id, buildPayload());
     } else {
-      await movimentiStore.createMovimento(form.value);
-      messaggio = 'Movimento salvato!';
+      await movimentiStore.createMovimento(buildPayload());
     }
 
-    // Da qui in poi il movimento è già registrato sul server. Ricaricare saldi
-    // e patrimonio serve solo a ciò che si vede: se fallisce, il salvataggio
+    // Da qui in poi la regola è già registrata sul server. Ricaricare saldi e
+    // patrimonio serve solo a ciò che si vede: se fallisce, il salvataggio
     // resta valido e va comunicato come riuscito, altrimenti l'utente lo
     // ripete credendo che non sia andato a buon fine.
     const vistaAggiornata = await refreshAfterWrite(
@@ -195,7 +150,7 @@ const salva = async () => {
       () => contiStore.fetchPatrimonio(),
     );
 
-    toastStore.success(messaggio);
+    toastStore.success(isEdit.value ? 'Ricorrenza aggiornata!' : 'Ricorrenza creata!');
     if (!vistaAggiornata) toastStore.warning(VISTA_NON_AGGIORNATA);
 
     emit('saved');
@@ -207,36 +162,18 @@ const salva = async () => {
   }
 };
 
-const canSave = computed(() => {
-  if (isTrasferimento.value) {
-    return trasferimentoForm.value.conto_origine_id
-      && trasferimentoForm.value.conto_destinazione_id
-      && trasferimentoForm.value.importo > 0
-      && !saldoInsufficiente.value;
-  }
-  return form.value.importo > 0 && form.value.categoria && form.value.conto_id;
-});
+const canSave = computed(() => form.value.importo > 0 && form.value.categoria && form.value.conto_id);
 
-/** Nessun conto disponibile: il movimento non avrebbe dove essere registrato. */
+/** Nessun conto disponibile: la regola non avrebbe dove essere registrata. */
 const senzaConti = computed(() => contiSelezionabili.value.length === 0);
-/** Il trasferimento richiede due conti distinti. */
-const contiInsufficientiPerTrasferimento = computed(() => contiStore.contiAttivi.length < 2);
 
 const vaiAiConti = () => {
   emit('close');
   router.push('/conti');
 };
 
-const titolo = computed(() => {
-  if (isTrasferimento.value) return 'Sposta soldi';
-  if (isEdit.value) return 'Modifica movimento';
-  return 'Nuovo movimento';
-});
+const titolo = computed(() => (isEdit.value ? 'Modifica ricorrenza' : 'Nuova ricorrenza'));
 
-// Una sola shell per tutti i punti di apertura: il dialog nativo gestisce da
-// solo il layout a bottom sheet sotto i 768px via media query. Prima la scelta
-// dipendeva da un ref JS aggiornato sul resize, che cambiando componente a
-// caldo distruggeva e ricreava il dialog gia' aperto.
 const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
 </script>
 
@@ -246,61 +183,12 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
     v-bind="shellProps"
     @close="$emit('close')"
   >
-    <!-- Trasferimento -->
-    <div v-if="isTrasferimento" class="form-space">
-      <p class="form-intro">
-        Sposta soldi fra due tuoi conti WALLT. Non viene conteggiato come spesa o entrata.
-      </p>
-
-      <div v-if="contiInsufficientiPerTrasferimento" class="prereq">
-        <p class="prereq__text">
-          Per un trasferimento servono due conti diversi. Creane un altro e poi torna qui.
-        </p>
-        <WButton variant="secondary" size="sm" @click="vaiAiConti">Vai a I miei conti</WButton>
-      </div>
-
-      <div class="field">
-        <label>Da</label>
-        <select v-model="trasferimentoForm.conto_origine_id" class="form-select">
-          <option v-for="c in contiStore.contiAttivi" :key="c.id" :value="c.id">
-            {{ c.nome }} (€{{ parseFloat(c.saldo).toFixed(2) }})
-          </option>
-        </select>
-      </div>
-      <div class="transfer-arrow">→</div>
-      <div class="field">
-        <label>A</label>
-        <select v-model="trasferimentoForm.conto_destinazione_id" class="form-select">
-          <option v-for="c in contiDestinazione" :key="c.id" :value="c.id">
-            {{ c.nome }}
-          </option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Importo €</label>
-        <input v-model.number="trasferimentoForm.importo" type="number" min="0" step="0.01" class="form-input form-input--lg" inputmode="decimal" />
-        <p class="error-text error-text--reserved">{{ saldoInsufficiente ? 'Saldo insufficiente' : '' }}</p>
-      </div>
-      <div class="field">
-        <label>Data</label>
-        <input v-model="trasferimentoForm.data" type="date" class="form-input" />
-      </div>
-      <div class="field">
-        <label>Note (opzionale)</label>
-        <input v-model="trasferimentoForm.nota" type="text" class="form-input" placeholder="Descrizione..." />
-      </div>
-      <WButton variant="primary" size="lg" :loading="loading" :disabled="!canSave" @click="salva">
-        Sposta soldi
-      </WButton>
-    </div>
-
-    <!-- Movimento entrata/uscita -->
-    <div v-else class="form-space">
+    <div class="form-space">
       <div v-if="senzaConti" class="prereq">
         <p class="prereq__text">
-          Serve prima un conto: è la “tasca” su cui viene registrato il movimento e di cui
-          viene aggiornato il saldo. Aprendo I miei conti questo form si chiude e
-          quanto hai già scritto qui non viene salvato.
+          Serve prima un conto: è la “tasca” su cui viene registrata la regola e di cui
+          viene aggiornato il saldo a ogni addebito automatico. Aprendo I miei conti
+          questa form si chiude e quanto hai già scritto qui non viene salvato.
         </p>
         <WButton variant="secondary" size="sm" @click="vaiAiConti">Crea un conto</WButton>
       </div>
@@ -317,6 +205,35 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
       </div>
 
       <div v-if="step === 2 || isEdit">
+        <div class="regola-intro">
+          <span class="regola-intro__icon"><Repeat2 :size="18" :stroke-width="1.75" /></span>
+          <p>Crei una regola: WALLT registra da sola il movimento a ogni scadenza.</p>
+        </div>
+
+        <div class="field">
+          <label>Ogni quanto si ripete</label>
+          <div class="ricorrente-fields">
+            <select v-model="form.ricorrente_frequenza" class="form-select ricorrente-fields__frequenza">
+              <option value="mensile">Ogni mese</option>
+              <option value="settimanale">Ogni settimana</option>
+              <option value="annuale">Ogni anno</option>
+            </select>
+
+            <select v-if="form.ricorrente_frequenza === 'settimanale'" v-model.number="form.ricorrente_giorno" class="form-select">
+              <option v-for="g in GIORNI_SETTIMANA" :key="g.id" :value="g.id">{{ g.label }}</option>
+            </select>
+
+            <template v-else-if="form.ricorrente_frequenza === 'annuale'">
+              <select v-model.number="form.ricorrente_mese" class="form-select">
+                <option v-for="m in MESI_ANNO" :key="m.id" :value="m.id">{{ m.label }}</option>
+              </select>
+              <input v-model.number="form.ricorrente_giorno" type="number" min="1" max="31" class="form-input" placeholder="Giorno (es. 1)" />
+            </template>
+
+            <input v-else v-model.number="form.ricorrente_giorno" type="number" min="1" max="31" class="form-input" placeholder="Giorno del mese (es. 1)" />
+          </div>
+        </div>
+
         <div class="field">
           <label>Importo €</label>
           <input v-model.number="form.importo" type="number" min="0" step="0.01" class="form-input form-input--lg" inputmode="decimal" placeholder="0.00" />
@@ -349,15 +266,6 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
               {{ c.nome }} — €{{ parseFloat(c.saldo).toFixed(2) }}
             </option>
           </select>
-          <HelpNote
-            always-open
-            text="Scegli il conto su cui registrare l'entrata o l'uscita. Il salvataggio aggiorna il suo saldo."
-          />
-        </div>
-
-        <div class="field">
-          <label>Data</label>
-          <input v-model="form.data" type="date" class="form-input" />
         </div>
 
         <div class="field">
@@ -365,36 +273,8 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
           <input v-model="form.descrizione" type="text" class="form-input" placeholder="Descrizione..." />
         </div>
 
-        <div class="field">
-          <label class="toggle-label">
-            <input v-model="form.ricorrente" type="checkbox" />
-            Movimento ricorrente
-          </label>
-          <div v-if="form.ricorrente" class="ricorrente-fields">
-            <select v-model="form.ricorrente_frequenza" class="form-select ricorrente-fields__frequenza">
-              <option value="mensile">Ogni mese</option>
-              <option value="settimanale">Ogni settimana</option>
-              <option value="annuale">Ogni anno</option>
-            </select>
-
-            <select v-if="form.ricorrente_frequenza === 'settimanale'" v-model.number="form.ricorrente_giorno" class="form-select">
-              <option v-for="g in GIORNI_SETTIMANA" :key="g.id" :value="g.id">{{ g.label }}</option>
-            </select>
-
-            <template v-else-if="form.ricorrente_frequenza === 'annuale'">
-              <select v-model.number="form.ricorrente_mese" class="form-select">
-                <option v-for="m in MESI_ANNO" :key="m.id" :value="m.id">{{ m.label }}</option>
-              </select>
-              <input v-model.number="form.ricorrente_giorno" type="number" min="1" max="31" class="form-input" placeholder="Giorno (es. 1)" />
-            </template>
-
-            <input v-else v-model.number="form.ricorrente_giorno" type="number" min="1" max="31" class="form-input" placeholder="Giorno del mese (es. 1)" />
-          </div>
-          <HelpNote topic="movimento-ricorrenza" label="Come funziona la ricorrenza" />
-        </div>
-
         <WButton variant="primary" size="lg" :loading="loading" :disabled="!canSave" @click="salva">
-          Salva
+          {{ isEdit ? 'Salva' : 'Crea ricorrenza' }}
         </WButton>
       </div>
     </div>
@@ -403,7 +283,6 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
 
 <style scoped>
 .form-space { display: flex; flex-direction: column; gap: 1.125rem; }
-.form-intro { font-size: var(--text-xs); line-height: var(--leading-normal); color: var(--text-muted); }
 .prereq {
   display: flex;
   flex-direction: column;
@@ -424,7 +303,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
   margin-bottom: 0.4375rem;
 }
 /* .form-input e .form-select: aspetto condiviso in assets/styles/main.css.
-   Qui restano solo le varianti specifiche del form movimento. */
+   Qui restano solo le varianti specifiche di questa form. */
 .form-input--lg {
   font-size: 2rem;
   font-weight: 700;
@@ -433,7 +312,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
   padding: 1rem;
   font-variant-numeric: tabular-nums;
 }
-.tipo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; }
+.tipo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; margin-bottom: 1.125rem; }
 .tipo-btn {
   display: flex;
   flex-direction: column;
@@ -462,6 +341,31 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
 .tipo-btn svg { color: var(--accent-text); stroke: currentColor; }
 .tipo-btn.active { border-color: color-mix(in srgb, var(--accent-green) 55%, transparent); background: var(--accent-light); }
 
+/* Riga di apertura dello step 2: marca subito la form come "regola", non
+   transazione — è l'unico elemento davvero nuovo rispetto al linguaggio
+   condiviso col resto dell'app (stessi input, stessa griglia categorie). */
+.regola-intro {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.75rem 0.875rem;
+  margin-bottom: 1.125rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--accent-green) 22%, var(--border));
+  background: color-mix(in srgb, var(--accent-green) 8%, transparent);
+}
+.regola-intro__icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent-green) 14%, transparent);
+}
+.regola-intro p { margin: 0; font-size: var(--text-xs); line-height: 1.5; color: var(--text-secondary); }
+
 /* --- Selettore categoria -------------------------------------------------
    E' il controllo piu' usato del form: griglia scorrevole con ricerca sopra.
    Lo stato selezionato si legge dal bordo tinto e dalla pastiglia dell'icona,
@@ -477,12 +381,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
   border-radius: var(--radius-lg);
   border: 1px solid var(--glass-secondary-border);
   background: var(--glass-secondary-bg);
-  /* Per le regole CSS sull'overflow, impostare solo overflow-y a un valore
-     diverso da visible porta overflow-x ad "auto": la griglia diventava
-     trascinabile lateralmente. Va dichiarato esplicitamente. */
   overflow-x: hidden;
-  /* Arrivati a fine corsa il gesto non deve proseguire sugli antenati:
-     e' il concatenamento che faceva sembrare trascinato tutto il dialog. */
   overscroll-behavior: contain;
   touch-action: pan-y;
 }
@@ -500,22 +399,13 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
   .cat-btn:hover { background: var(--glass-interactive-bg); }
 }
 .cat-btn:active { transform: scale(0.95); }
-/* outline invece di box-shadow: .cat-grid ha overflow-x: hidden apposta
-   per bloccare il trascinamento laterale, e taglierebbe l'alone. outline
-   non viene ritagliato dall'overflow. */
 .cat-btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
 .cat-btn.active {
   border-color: color-mix(in srgb, var(--cat-color, var(--accent-green)) 45%, transparent);
   background: color-mix(in srgb, var(--cat-color, var(--accent-green)) 12%, transparent);
   color: var(--text-primary);
 }
-/* Un grid item vale di default min-width: auto, quindi una categoria dal
-   nome lungo allargava la colonna oltre 1fr e mandava la griglia in
-   overflow orizzontale. E' la causa vera del trascinamento laterale. */
 .cat-btn { min-width: 0; }
-/* Stesso trattamento del contenitore icona delle card conto: pastiglia
-   squadrata, fondo tinto dal colore dell'elemento, bordo sottile e riflesso
-   interno. Cambiano solo le proporzioni, il linguaggio e' quello. */
 .cat-btn__icon {
   width: 34px;
   height: 34px;
@@ -544,19 +434,6 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
   overflow-wrap: anywhere;
 }
 .cat-btn.active .cat-label { color: var(--text-primary); font-weight: 600; }
-.transfer-arrow { text-align: center; font-size: 1.25rem; color: var(--accent-text); opacity: 0.7; }
-.error-text { color: var(--negative); font-size: var(--text-xs); margin-top: 0.25rem; }
-/* Lo spazio resta occupato anche senza messaggio: comparendo e sparendo
-   spingerebbe in basso i campi sottostanti. */
-.error-text--reserved { min-height: 1.125rem; }
-/* Piu' specifica di `.field label`, altrimenti erediterebbe il maiuscoletto
-   delle etichette di campo: qui l'etichetta e' una frase, non un titolo. */
-.field .toggle-label {
-  display: flex; align-items: center; gap: 0.625rem; cursor: pointer;
-  font-size: 0.875rem; font-weight: 400; color: var(--text-primary);
-  text-transform: none; letter-spacing: var(--tracking-tight);
-  margin-bottom: 0;
-}
-.ricorrente-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.625rem; }
+.ricorrente-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 .ricorrente-fields__frequenza { grid-column: 1 / -1; }
 </style>
