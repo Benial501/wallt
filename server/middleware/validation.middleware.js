@@ -498,7 +498,9 @@ const validateTrasferimento = [
   body('data')
     .optional({ values: 'null' })
     .isISO8601({ strict: false })
-    .withMessage('Data non valida'),
+    .withMessage('Data non valida')
+    .bail()
+    .custom(nonDataFutura),
   validate,
 ];
 
@@ -803,7 +805,9 @@ const validateContributo = [
   body('data')
     .optional({ values: 'null' })
     .isISO8601({ strict: false })
-    .withMessage('Data non valida'),
+    .withMessage('Data non valida')
+    .bail()
+    .custom(nonDataFutura),
   body('nota')
     .optional({ values: 'null' })
     .isString()
@@ -894,7 +898,9 @@ const validateMovimentoInvestimento = [
   body('data')
     .optional({ values: 'null' })
     .isISO8601({ strict: false })
-    .withMessage('Data non valida'),
+    .withMessage('Data non valida')
+    .bail()
+    .custom(nonDataFutura),
   body('nota')
     .optional({ values: 'null' })
     .isString()
@@ -1096,7 +1102,9 @@ const validateMovimentoScommesse = [
   body('data')
     .optional({ values: 'null' })
     .isISO8601({ strict: false })
-    .withMessage('Data non valida'),
+    .withMessage('Data non valida')
+    .bail()
+    .custom(nonDataFutura),
   body('nota')
     .optional({ values: 'null' })
     .isString()
