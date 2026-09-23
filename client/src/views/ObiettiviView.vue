@@ -213,7 +213,7 @@ onMounted(() => obiettiviStore.fetchObiettivi());
           <div class="dettaglio-bar-lg"><div class="obj-bar-fill" :style="{ width: percentuale(obiettivoSelezionato) + '%' }" /></div>
           <p class="dettaglio-importi">{{ formatValuta(obiettivoSelezionato.importo_attuale) }} / {{ formatValuta(obiettivoSelezionato.importo_target) }} ({{ percentuale(obiettivoSelezionato) }}%)</p>
           <p class="obj-mancante">Mancano {{ formatValuta(parseFloat(obiettivoSelezionato.importo_target) - parseFloat(obiettivoSelezionato.importo_attuale)) }}</p>
-          <p v-if="proiezione?.rata_mensile_suggerita" :class="proiezione.on_track ? 'proiezione-ok' : 'proiezione-ko'">
+          <p v-if="proiezione?.rata_mensile_suggerita" :class="proiezione.on_track === null ? 'proiezione-tip' : proiezione.on_track ? 'proiezione-ok' : 'proiezione-ko'">
             <LightbulbIcon :size="16" :stroke-width="1.75" />
             Metti {{ formatValuta(proiezione.rata_mensile_suggerita) }}/mese per farcela
           </p>

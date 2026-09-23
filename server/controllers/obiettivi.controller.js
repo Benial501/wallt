@@ -1,6 +1,7 @@
 const logger = require('../utils/logger');
 const { Obiettivo, ObiettivoContributo } = require('../models');
 const { calcolaMesiCopertura } = require('../services/fondoSicurezza.service');
+const { calcolaProgressoObiettivo } = require('../services/obiettiviStato.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
 
@@ -12,8 +13,11 @@ const getObiettivi = async (req, res) => {
       order: [['createdAt', 'DESC']],
     });
 
-    const attivi = obiettivi.filter((o) => !o.completato);
-    const completati = obiettivi.filter((o) => o.completato);
+    const conProgresso = obiettivi.map((o) => ({
+      ...o.toJSON(), proiezione: calcolaProgressoObiettivo(o),
+    }));
+    const attivi = conProgresso.filter((o) => o.proiezione.stato !== 'completato');
+    const completati = conProgresso.filter((o) => o.proiezione.stato === 'completato');
 
     res.json({ attivi, completati });
   } catch (error) {
@@ -76,6 +80,9 @@ const updateObiettivo = async (req, res) => {
     if (icona !== undefined) updateData.icona = icona;
     if (tipo_obiettivo !== undefined) updateData.tipo_obiettivo = tipo_obiettivo;
 
+    if (importo_target !== undefined) {
+      updateData.completato = calcolaProgressoObiettivo({ ...obiettivo.toJSON(), ...updateData }).stato === 'completato';
+    }
     await obiettivo.update(updateData);
     res.json({ obiettivo });
   } catch (error) {
@@ -158,39 +165,14 @@ const getProiezione = async (req, res) => {
       return res.status(404).json({ message: 'Obiettivo non trovato' });
     }
 
-    const mancante = Math.max(0, toNumber(obiettivo.importo_target) - toNumber(obiettivo.importo_attuale));
-    let mesiRimanenti = null;
-    let rataMensile = null;
-    let onTrack = true;
-
-    if (obiettivo.deadline && mancante > 0) {
-      const now = new Date();
-      const deadline = new Date(obiettivo.deadline);
-      mesiRimanenti = Math.max(1, Math.ceil((deadline - now) / (1000 * 60 * 60 * 24 * 30)));
-      rataMensile = Math.round((mancante / mesiRimanenti) * 100) / 100;
-
-      const contributi = obiettivo.contributi || [];
-      if (contributi.length >= 2) {
-        const sorted = [...contributi].sort((a, b) => new Date(a.data) - new Date(b.data));
-        const first = new Date(sorted[0].data);
-        const last = new Date(sorted[sorted.length - 1].data);
-        const mesiPassati = Math.max(1, (last - first) / (1000 * 60 * 60 * 24 * 30));
-        const mediaMensile = toNumber(obiettivo.importo_attuale) / mesiPassati;
-        onTrack = mediaMensile >= rataMensile * 0.8;
-      }
-    } else if (mancante > 0) {
-      const contributi = obiettivo.contributi || [];
-      if (contributi.length > 0) {
-        const totaleContributi = contributi.reduce((s, c) => s + toNumber(c.importo), 0);
-        rataMensile = Math.round((totaleContributi / contributi.length) * 100) / 100;
-      }
-    }
-
+    const progresso = calcolaProgressoObiettivo(obiettivo);
     res.json({
-      mancante,
-      mesi_rimanenti: mesiRimanenti,
-      rata_mensile_suggerita: rataMensile,
-      on_track: onTrack,
+      ...progresso,
+      // Alias storici per la vista esistente. Nessuna previsione senza una
+      // serie temporale mensile osservata: on_track rimane sconosciuto.
+      mancante: progresso.importo_restante,
+      rata_mensile_suggerita: progresso.contributo_mensile_richiesto,
+      on_track: null,
     });
   } catch (error) {
     logger.error('Errore getProiezione', { err: error });
