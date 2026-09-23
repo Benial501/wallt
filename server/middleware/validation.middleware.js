@@ -2,6 +2,7 @@ const { assertCategory } = require('../services/categorie.service');
 const { NATURE_ENTRATA, PERIODICITA_ENTRATA } = require('../services/entrate.service');
 const { LIQUIDABILITA } = require('../services/investimentiLiquidabilita.service');
 const { STATI_RICORRENZA } = require('../services/ricorrenti.service');
+const { oggiLocale, FUSO_DEFAULT } = require('../utils/dateRome');
 const {
   UNITA_VALIDE, QUANTITA_MIN, QUANTITA_MAX, QUANTITA_MAX_PER_UNITA,
 } = require('../services/confrontoPeriodi.service');
@@ -26,6 +27,22 @@ const validate = (req, res, next) => {
 const idParam = param('id')
   .isInt({ min: 1 })
   .withMessage('ID non valido');
+
+/**
+ * Un movimento rappresenta un'operazione già avvenuta: non ha senso
+ * registrarla nel futuro. Il confronto è per giorno civile nel fuso
+ * applicativo (Europe/Rome), non nel fuso del processo — vicino alla
+ * mezzanotte un confronto in UTC accetterebbe o rifiuterebbe la data
+ * sbagliata. Le ricorrenti restano fuori: la loro programmazione futura è
+ * un concetto distinto (CLAUDE.md § Date e timezone), non un movimento già
+ * avvenuto.
+ */
+const nonDataFutura = (value) => {
+  if (String(value).slice(0, 10) > oggiLocale(FUSO_DEFAULT)) {
+    throw new Error('La data non può essere nel futuro');
+  }
+  return true;
+};
 
 const validateIdParam = [idParam, validate];
 
@@ -260,7 +277,9 @@ const validateMovimento = [
     .withMessage('Conto non valido'),
   body('data')
     .isISO8601({ strict: false })
-    .withMessage('Data non valida'),
+    .withMessage('Data non valida')
+    .bail()
+    .custom(nonDataFutura),
   body('descrizione')
     .optional({ values: 'null' })
     .isString()
@@ -326,7 +345,9 @@ const validateUpdateMovimento = [
   body('data')
     .optional({ values: 'null' })
     .isISO8601({ strict: false })
-    .withMessage('Data non valida'),
+    .withMessage('Data non valida')
+    .bail()
+    .custom(nonDataFutura),
   body('conto_id')
     .optional({ values: 'null' })
     .isInt({ min: 1 })
