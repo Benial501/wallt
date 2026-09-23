@@ -1,13 +1,18 @@
 const logger = require('../utils/logger');
 const { Debito, Conto } = require('../models');
+const { riepilogo } = require('../services/debiti.service');
 
 const getDebiti = async (req, res) => {
   try {
-    const debiti = await Debito.findAll({
-      where: { user_id: req.userId, attivo: true },
-      order: [['createdAt', 'DESC']],
+    const {
+      items, totalOutstanding, totalMonthlyPayments, activeCount,
+    } = await riepilogo(req.userId);
+    res.json({
+      debiti: items,
+      totale_residuo: totalOutstanding,
+      rate_mensili_totali: totalMonthlyPayments,
+      numero_attivi: activeCount,
     });
-    res.json({ debiti });
   } catch (error) {
     logger.error('Errore getDebiti', { err: error });
     res.status(500).json({ message: 'Errore nel recupero dei debiti' });
