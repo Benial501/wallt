@@ -86,6 +86,7 @@ import {
   Coins,
   BookOpen,
   Pencil,
+  Cigarette,
 } from 'lucide-vue-next';
 import { getCategoriaEntrata, getCategoriaUscita } from '@/utils/categorie';
 
@@ -124,6 +125,7 @@ export const CATEGORY_ICON_MAP = {
   abbonamenti: Smartphone,
   regali: Gift,
   acquisti_vari: ShoppingBag,
+  tabacchi: Cigarette,
   trasferimento_denaro: ArrowLeftRight,
   altro_uscita: Upload,
 };

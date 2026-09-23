@@ -13,7 +13,7 @@ const error = ref('');
 const editing = ref(null);
 const confermaElimina = ref(false);
 const icone = ref(['Tag']);
-const iconLabels = { Tag: 'Etichetta', House: 'Casa', ShoppingBasket: 'Spesa', Car: 'Auto', ShoppingBag: 'Shopping', Heart: 'Cuore', Dumbbell: 'Sport', Music: 'Musica', Plane: 'Viaggi', Wallet: 'Portafoglio', BookOpen: 'Libri', Gift: 'Regalo', Briefcase: 'Lavoro', Coffee: 'Caffè', Gamepad2: 'Videogiochi', GraduationCap: 'Istruzione', PawPrint: 'Animali' };
+const iconLabels = { Tag: 'Etichetta', House: 'Casa', ShoppingBasket: 'Spesa', Car: 'Auto', ShoppingBag: 'Shopping', Heart: 'Cuore', Dumbbell: 'Sport', Music: 'Musica', Plane: 'Viaggi', Wallet: 'Portafoglio', BookOpen: 'Libri', Gift: 'Regalo', Briefcase: 'Lavoro', Coffee: 'Caffè', Gamepad2: 'Videogiochi', GraduationCap: 'Istruzione', PawPrint: 'Animali', Siren: 'Multe', Scale: 'Legale', HeartHandshake: 'Beneficenza', SprayCan: 'Pulizie' };
 const form = ref({});
 
 // La selezione è per coppia id+tipo: lo stesso id può esistere su entrambi i versi.

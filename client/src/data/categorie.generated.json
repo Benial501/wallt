@@ -280,6 +280,20 @@
     "sistema": false
   },
   {
+    "id": "tabacchi",
+    "nome": "Tabacchi",
+    "emoji": "🚬",
+    "colore": "#8D6E63",
+    "tipo": "uscita",
+    "gruppo": "Generali",
+    "icona": "Tag",
+    "isDefault": true,
+    "userId": null,
+    "attiva": true,
+    "essenzialita": "discrezionale",
+    "sistema": false
+  },
+  {
     "id": "trasferimento_denaro",
     "nome": "Trasferimento denaro",
     "emoji": "↔️",

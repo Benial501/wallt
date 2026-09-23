@@ -1,8 +1,8 @@
 <script setup>
 import { computed } from 'vue';
-import { Tag, House, ShoppingBasket, Car, ShoppingBag, Heart, Dumbbell, Music, Plane, Wallet, BookOpen, Gift, Briefcase, Coffee, Gamepad2, GraduationCap, PawPrint } from 'lucide-vue-next';
+import { Tag, House, ShoppingBasket, Car, ShoppingBag, Heart, Dumbbell, Music, Plane, Wallet, BookOpen, Gift, Briefcase, Coffee, Gamepad2, GraduationCap, PawPrint, Siren, Scale, HeartHandshake, SprayCan } from 'lucide-vue-next';
 import { getCategoriaEntrata, getCategoriaUscita } from '@/utils/categorie';
-const icons = { Tag, House, ShoppingBasket, Car, ShoppingBag, Heart, Dumbbell, Music, Plane, Wallet, BookOpen, Gift, Briefcase, Coffee, Gamepad2, GraduationCap, PawPrint };
+const icons = { Tag, House, ShoppingBasket, Car, ShoppingBag, Heart, Dumbbell, Music, Plane, Wallet, BookOpen, Gift, Briefcase, Coffee, Gamepad2, GraduationCap, PawPrint, Siren, Scale, HeartHandshake, SprayCan };
 import { getCategoryIconFromMovimento, getCategoryIcon, resolveAppIcon } from '@/utils/appIcons';
 
 const props = defineProps({
