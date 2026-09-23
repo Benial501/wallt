@@ -171,6 +171,21 @@ const bucketMesi = (quantita, oggi) => {
   return periodi;
 };
 
+/**
+ * Ultimi `numMesi` mesi solari (mese corrente incluso, ultimo della lista),
+ * nel calendario di Roma. A differenza di `buildPeriodi({unita:'mese', ...})`
+ * non ha il minimo di 2 imposto da `normalizzaQuantita`: quel minimo è un
+ * vincolo del selettore "confronta almeno 2 periodi" nella UI Analisi, non
+ * ha senso per un'aggregazione dati che può legittimamente chiedere anche
+ * un solo mese (es. il servizio spese). `numMesi` deve essere >= 1.
+ */
+const ultimiNMesi = (numMesi, riferimento = new Date()) => {
+  if (!Number.isInteger(numMesi) || numMesi < 1) {
+    throw Object.assign(new Error('numMesi deve essere un intero >= 1'), { statusCode: 400 });
+  }
+  return bucketMesi(numMesi, riferimentoLocale(riferimento));
+};
+
 const bucketAnni = (quantita, oggi) => {
   const periodi = [];
   for (let i = quantita - 1; i >= 0; i--) {
@@ -237,6 +252,7 @@ const buildPeriodi = ({ unita, quantita, da, a } = {}, oggi = new Date()) => {
 module.exports = {
   buildPeriodi,
   normalizzaQuantita,
+  ultimiNMesi,
   UNITA_VALIDE,
   QUANTITA_MIN,
   QUANTITA_MAX,

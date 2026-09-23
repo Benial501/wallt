@@ -5,7 +5,7 @@ require('./setup');
 const assert = require('assert');
 const {
   buildPeriodi, normalizzaQuantita, QUANTITA_MIN, QUANTITA_MAX,
-  QUANTITA_MAX_PER_UNITA, UNITA_VALIDE,
+  QUANTITA_MAX_PER_UNITA, UNITA_VALIDE, ultimiNMesi,
 } = require('../services/confrontoPeriodi.service');
 
 // Mercoledì 10 settembre 2026.
@@ -204,5 +204,33 @@ describe('normalizzaQuantita — tetto per unità', () => {
   it('il minimo resta 2 per ogni unità', () => {
     assert.equal(normalizzaQuantita(1, 'giorno'), 2);
     assert.equal(normalizzaQuantita(0, 'mese'), 2);
+  });
+});
+
+describe('ultimiNMesi — nessun minimo di 2, a differenza di buildPeriodi', () => {
+  const OGGI = new Date(Date.UTC(2026, 8, 23)); // 23 settembre 2026
+
+  it('numMesi=1 restituisce esattamente un mese, il corrente', () => {
+    const periodi = ultimiNMesi(1, OGGI);
+    expect(periodi).toHaveLength(1);
+    expect(periodi[0].chiave).toBe('2026-09');
+  });
+
+  it('numMesi=3 restituisce gli ultimi 3 mesi, dal più vecchio al più recente', () => {
+    const periodi = ultimiNMesi(3, OGGI);
+    expect(periodi.map((p) => p.chiave)).toEqual(['2026-07', '2026-08', '2026-09']);
+  });
+
+  it('rifiuta numMesi non intero o minore di 1', () => {
+    expect(() => ultimiNMesi(0, OGGI)).toThrow();
+    expect(() => ultimiNMesi(-1, OGGI)).toThrow();
+    expect(() => ultimiNMesi(1.5, OGGI)).toThrow();
+  });
+
+  it('senza riferimento esplicito usa il mese corrente a Roma, non quello UTC del processo', () => {
+    // Stesso confine di mezzanotte già coperto per buildPeriodi: alle 22:30
+    // UTC del 30 settembre, a Roma (CEST, +2h) è già il 1° ottobre.
+    const periodi = ultimiNMesi(1, new Date('2026-09-30T22:30:00Z'));
+    expect(periodi[0].chiave).toBe('2026-10');
   });
 });
