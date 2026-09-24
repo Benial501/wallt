@@ -32,10 +32,6 @@ export const FUNCTIONALITY_ITEMS = Object.freeze([
     id: 'analisi', label: 'Analisi', description: 'Andamento delle finanze', icon: 'analisi',
     route: '/analisi', placements: ['sidebar'], order: { sidebar: 60 }, active: true,
   },
-  {
-    id: 'piano-smart', label: 'Piano Smart', description: 'Organizza una nuova somma', icon: 'piano-smart',
-    route: '/funzionalita/piano-smart', placements: ['sidebar', 'sheet'], order: { sidebar: 70, sheet: 60 }, active: true,
-  },
 ]);
 
 export const getFunctionalityItems = (
