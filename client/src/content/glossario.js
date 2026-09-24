@@ -47,6 +47,46 @@ const CONCETTI = [
     formula: 'entrate − uscite, trasferimenti esclusi',
     origine: 'GET /movimenti/bilancio → saldo',
   },
+
+  // --- Le cinque categorie di Piano Smart --------------------------------
+  // Sono i nomi che l'utente legge sopra gli importi proposti. Le chiavi
+  // dell'API restano in inglese (`needs`, `safety`, …) e la traduzione passa
+  // da `utils/pianoSmart.js`: qui vive il significato, lì la corrispondenza.
+  {
+    id: 'piano_smart_needs',
+    etichetta: 'Necessità',
+    descrizione:
+      'La parte della somma che serve a coprire ciò che devi affrontare adesso: spese fisse, bollette, spesa quotidiana.',
+    origine: 'POST /piano-smart/preview → allocations[category=needs]',
+  },
+  {
+    id: 'piano_smart_safety',
+    etichetta: 'Sicurezza',
+    descrizione:
+      'La riserva per gli imprevisti. Se hai un obiettivo di tipo fondo di sicurezza, questa quota non supera mai quanto ti manca per completarlo.',
+    origine: 'POST /piano-smart/preview → allocations[category=safety]',
+  },
+  {
+    id: 'piano_smart_goals',
+    etichetta: 'Obiettivi',
+    descrizione:
+      'Quanto va ai tuoi obiettivi attivi, divisi per priorità e scadenza. Nessun obiettivo riceve più di quanto gli manchi, e quelli già completati non ricevono nulla.',
+    origine: 'POST /piano-smart/preview → allocations[category=goals]',
+  },
+  {
+    id: 'piano_smart_future',
+    etichetta: 'Futuro',
+    descrizione:
+      'La parte messa da parte per il lungo periodo, oltre gli imprevisti e gli obiettivi che hai già fissato. WALLT non suggerisce dove investirla.',
+    origine: 'POST /piano-smart/preview → allocations[category=future]',
+  },
+  {
+    id: 'piano_smart_freedom',
+    etichetta: 'Libertà',
+    descrizione:
+      'Quello che resta a tua disposizione, senza vincoli. Serve a rendere il piano sostenibile: un piano che non lascia niente viene abbandonato.',
+    origine: 'POST /piano-smart/preview → allocations[category=freedom]',
+  },
 ];
 
 /** Mappa id → concetto, per accessi diretti. */

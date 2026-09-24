@@ -1,5 +1,14 @@
 import api from '@/utils/axios';
 
+/**
+ * Trasporto verso `/api/piano-smart`. Nessuna logica di dominio: il piano lo
+ * decide il backend.
+ *
+ * `unwrap` scarta l'involucro `{ data, total }` che usa SOLO l'elenco dei
+ * piani: nessun'altra risposta del namespace ha una chiave `data` di primo
+ * livello, quindi la stessa funzione va bene per tutte
+ * (vedi docs/piano-smart-api-contract.md).
+ */
 const unwrap = (response) => response?.data?.data ?? response?.data ?? response;
 
 export const pianoSmartApi = {
@@ -11,10 +20,49 @@ export const pianoSmartApi = {
   async updatePlan(id, payload) { return unwrap(await api.patch(`/piano-smart/${id}`, payload)); },
 };
 
+/**
+ * Classifica un errore per la UI e ne estrae il messaggio REALE del backend.
+ *
+ * WALLT risponde `{ error: "..." }`, e i validator aggiungono `errori[]`: non
+ * esiste un campo `message`. Leggerlo (com'era prima dell'integrazione)
+ * significava mostrare sempre il testo generico del client anche quando il
+ * backend aveva già spiegato con precisione cosa non tornava — per esempio che
+ * la somma delle allocazioni non coincide col capitale.
+ *
+ * `errori` arriva in due forme: oggetti `{ campo, messaggio }` dai validator,
+ * stringhe dagli errori di allocazione.
+ */
+const dettagli = (data) => {
+  if (!Array.isArray(data?.errori)) return [];
+  return data.errori
+    .map((voce) => (typeof voce === 'string' ? voce : voce?.messaggio))
+    .filter(Boolean);
+};
+
 export const pianoSmartError = (error) => {
-  if (!error?.response) return { type: 'network', message: 'Non riesco a recuperare i dati. Riprova.' };
-  if (error.response.status === 422 || error.response.status === 400) {
-    return { type: 'missing-data', message: error.response.data?.message || 'Mancano alcune informazioni per creare un piano affidabile.' };
+  if (!error?.response) {
+    return { type: 'network', message: 'Non riesco a recuperare i dati. Riprova.', details: [] };
   }
-  return { type: 'server', message: 'Non è stato possibile creare il piano. Riprova.' };
+  const { status, data } = error.response;
+  const details = dettagli(data);
+  const backendMessage = data?.error || data?.message;
+
+  if (status === 400 || status === 422) {
+    return {
+      type: 'missing-data',
+      message: details[0] || backendMessage || 'Mancano alcune informazioni per creare un piano affidabile.',
+      details,
+    };
+  }
+  if (status === 404) {
+    return { type: 'not-found', message: 'Questo piano non esiste più.', details };
+  }
+  if (status === 429) {
+    return {
+      type: 'rate-limit',
+      message: backendMessage || 'Troppe richieste di seguito. Riprova tra qualche minuto.',
+      details,
+    };
+  }
+  return { type: 'server', message: 'Non è stato possibile creare il piano. Riprova.', details };
 };

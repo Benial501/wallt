@@ -7,5 +7,8 @@ test('Piano Smart è disponibile nelle funzionalità con route dedicata', () => 
   assert.deepEqual({ label: item.label, route: item.route }, {
     label: 'Piano Smart', route: '/funzionalita/piano-smart',
   });
-  assert.ok(item.placements.includes('sheet'));
+  assert.ok(item.placements.includes('sheet'), 'manca dal bottom sheet mobile');
+  // Il bottom sheet "Funzionalità" esiste solo su mobile: senza 'sidebar' la
+  // voce non compare da nessuna parte su desktop.
+  assert.ok(item.placements.includes('sidebar'), 'manca dalla sidebar desktop');
 });
