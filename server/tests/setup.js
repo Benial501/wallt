@@ -49,6 +49,7 @@ if (configuredDatabase !== TEST_DATABASE) {
 }
 
 const TABLES = [
+  'piani_smart_azioni',
   'piani_smart_allocazioni',
   'piani_smart',
   'categorie_default_nascoste',
