@@ -64,5 +64,5 @@ export const pianoSmartError = (error) => {
       details,
     };
   }
-  return { type: 'server', message: 'Non è stato possibile creare il piano. Riprova.', details };
+  return { type: 'server', message: backendMessage || 'Non è stato possibile creare il piano. Riprova.', details };
 };

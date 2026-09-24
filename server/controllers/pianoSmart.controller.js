@@ -238,8 +238,12 @@ const createPiano = async (req, res) => {
       logger.error('Invarianti violati in create piano smart', { err: error, userId: req.userId });
       return res.status(500).json({ error: 'Errore nel calcolo del piano' });
     }
-    logger.error('Errore createPiano piano smart', { err: error });
-    return res.status(500).json({ error: 'Errore nel salvataggio del piano' });
+    logger.error('Errore createPiano piano smart', { err: error, userId: req.userId });
+    const code = error?.original?.code || error?.parent?.code;
+    if (code === '42P01') return res.status(503).json({ error: 'Schema Piano Smart non disponibile: esegui la migration del backend.' });
+    if (code === '42703') return res.status(503).json({ error: 'Schema Piano Smart non aggiornato: applica la migration più recente.' });
+    if (code === '23503' || code === '23514' || code === '23505') return res.status(422).json({ error: 'Il piano non rispetta i vincoli dello schema dati.', code });
+    return res.status(500).json({ error: 'Errore nel salvataggio del piano', code: 'SMART_PLAN_SAVE_FAILED' });
   }
 };
 
