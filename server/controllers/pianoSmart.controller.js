@@ -169,8 +169,13 @@ const previewPiano = async (req, res) => {
       logger.error('Invarianti violati in preview piano smart', { err: error, userId: req.userId });
       return res.status(500).json({ error: 'Errore nel calcolo del piano' });
     }
-    logger.error('Errore preview piano smart', { err: error });
-    return res.status(500).json({ error: 'Errore nella generazione del piano' });
+    logger.error('Errore preview piano smart', { err: error, userId: req.userId });
+    const code = error?.original?.code || error?.parent?.code || error?.code || error?.name;
+    return res.status(500).json({
+      error: 'Errore nella generazione del piano',
+      code: code || 'SMART_PLAN_PREVIEW_FAILED',
+      dettaglio: code === '42P01' ? 'Tabella mancante' : code === '42703' ? 'Colonna mancante' : undefined,
+    });
   }
 };
 
