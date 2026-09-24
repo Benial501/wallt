@@ -102,6 +102,7 @@ export const NAV_ICON_MAP = {
   ricorrenti: Repeat2,
   analisi: TrendingUp,
   aiuto: CircleHelp,
+  pianoSmart: Sparkles,
 };
 
 export const CATEGORY_ICON_MAP = {
