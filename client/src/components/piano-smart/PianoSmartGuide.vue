@@ -101,10 +101,10 @@ const formattaEuro = (value) => new Intl.NumberFormat('it-IT', { style: 'currenc
 .example__total, .example__result { display: flex; justify-content: space-between; gap: 1rem; color: var(--text-secondary); font-size: var(--text-sm); }
 .example__total { align-items: baseline; padding-bottom: .75rem; margin-bottom: .25rem; border-bottom: 1px solid var(--divider); }
 .example__total strong { color: var(--text-primary); font-size: 1.35rem; }
-.example__row { display: grid; grid-template-columns: 1fr 8rem; gap: .75rem; align-items: center; padding: .45rem 0; }
-.example__row label { font-size: var(--text-sm); color: var(--text-primary); }
-.example__input { display: flex; align-items: center; gap: .25rem; color: var(--text-muted); }
-.example__input input { min-height: 40px; padding: .45rem; }
+.example__row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(6.5rem, 8rem); gap: .75rem; align-items: center; padding: .45rem 0; min-width: 0; }
+.example__row label { min-width: 0; overflow-wrap: anywhere; font-size: var(--text-sm); color: var(--text-primary); }
+.example__input { display: flex; align-items: center; gap: .25rem; min-width: 0; color: var(--text-muted); }
+.example__input input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 40px; padding: .45rem; }
 .example__result { flex-wrap: wrap; margin: .75rem 0 0; color: var(--accent-text); }
 .example__result.invalid { color: var(--negative); }
 .guide__steps { display: flex; flex-direction: column; gap: .8rem; margin: 0; padding: 0; list-style: none; }
@@ -120,6 +120,12 @@ const formattaEuro = (value) => new Intl.NumberFormat('it-IT', { style: 'currenc
 .guide__back { min-height: 44px; border: 0; background: transparent; color: var(--text-secondary); cursor: pointer; font: inherit; }
 .guide__back:disabled { opacity: .35; cursor: not-allowed; }
 .guide__back:focus-visible, .example input:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 2px; }
-@media (max-width: 520px) { .example__row { grid-template-columns: 1fr 7rem; } }
+@media (max-width: 520px) {
+  .example__row { grid-template-columns: minmax(0, 1fr) minmax(5.75rem, 7rem); gap: .5rem; }
+}
+@media (max-width: 370px) {
+  .example__row { grid-template-columns: 1fr; gap: .25rem; }
+  .example__input { max-width: 9rem; }
+}
 @media (prefers-reduced-motion: reduce) { .guide__dots i { transition: none; } }
 </style>
