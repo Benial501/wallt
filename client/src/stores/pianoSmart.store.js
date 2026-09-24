@@ -219,6 +219,19 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     }
   }
 
+  async function deletePlan(id) {
+    error.value = null;
+    try {
+      await pianoSmartApi.deletePlan(id);
+      if (selectedPlan.value?.id === id) selectedPlan.value = null;
+      await loadPlans();
+      return true;
+    } catch (err) {
+      setError(err);
+      return false;
+    }
+  }
+
   function resetFinalAllocations() {
     finalAllocations.value = clone(recommendedAllocations.value);
   }
@@ -262,6 +275,7 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     loadPlans,
     loadPlan,
     updateStatus,
+    deletePlan,
     resetFinalAllocations,
     reset,
   };

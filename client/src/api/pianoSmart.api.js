@@ -18,6 +18,7 @@ export const pianoSmartApi = {
   async listPlans() { return unwrap(await api.get('/piano-smart')); },
   async getPlan(id) { return unwrap(await api.get(`/piano-smart/${id}`)); },
   async updatePlan(id, payload) { return unwrap(await api.patch(`/piano-smart/${id}`, payload)); },
+  async deletePlan(id) { return api.delete(`/piano-smart/${id}`); },
 };
 
 /**

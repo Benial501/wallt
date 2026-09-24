@@ -348,6 +348,18 @@ const updatePiano = async (req, res) => {
   }
 };
 
+// DELETE /api/piano-smart/:id — elimina il piano e le sue allocazioni, mai dati finanziari
+const deletePiano = async (req, res) => {
+  try {
+    const deleted = await PianoSmart.destroy({ where: { id: req.params.id, user_id: req.userId } });
+    if (!deleted) return res.status(404).json({ error: 'Piano non trovato' });
+    return res.status(204).end();
+  } catch (error) {
+    logger.error('Errore deletePiano piano smart', { err: error, userId: req.userId });
+    return res.status(500).json({ error: 'Errore nell\'eliminazione del piano' });
+  }
+};
+
 /**
  * Valida le allocazioni finali di un PATCH contro i cap **conservati nello
  * snapshot**, non contro un contesto ricalcolato.
@@ -375,4 +387,5 @@ module.exports = {
   listPiani,
   getPiano,
   updatePiano,
+  deletePiano,
 };

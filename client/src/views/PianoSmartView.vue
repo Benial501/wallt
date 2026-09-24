@@ -180,6 +180,16 @@ const cambiaStato = async (nuovoStato) => {
   if (esito) toast.success(`Piano ${etichettaStato(nuovoStato).toLowerCase()}.`);
 };
 
+const eliminaPiano = async () => {
+  if (!selectedPlan.value?.id) return;
+  if (!window.confirm('Eliminare definitivamente questo Piano Smart?')) return;
+  const eliminato = await store.deletePlan(selectedPlan.value.id);
+  if (eliminato) {
+    dettaglioAperto.value = false;
+    toast.success('Piano Smart eliminato.');
+  }
+};
+
 const ricomincia = () => {
   store.reset();
   step.value = 1;
@@ -537,6 +547,9 @@ onMounted(() => {
           </WButton>
         </div>
         <p v-else class="hint">Questo piano è archiviato: non sono possibili altri cambi di stato.</p>
+        <div class="actions">
+          <WButton variant="danger" @click="eliminaPiano">Elimina piano</WButton>
+        </div>
       </template>
     </AppDialog>
   </div>
