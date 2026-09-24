@@ -29,6 +29,8 @@ const Notifica = require('./Notifica');
 const PreferenzeNotifiche = require('./PreferenzeNotifiche');
 const PushSubscription = require('./PushSubscription');
 const Debito = require('./Debito');
+const PianoSmart = require('./PianoSmart');
+const PianoSmartAllocazione = require('./PianoSmartAllocazione');
 
 // User associations
 User.hasOne(ProfiloUtente, { foreignKey: 'user_id', as: 'profilo' });
@@ -92,6 +94,15 @@ User.hasMany(Debito, { foreignKey: 'user_id', as: 'debiti' });
 Debito.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 Debito.belongsTo(Conto, { foreignKey: 'conto_id', as: 'conto' });
 
+User.hasMany(PianoSmart, { foreignKey: 'user_id', as: 'pianiSmart', onDelete: 'CASCADE' });
+PianoSmart.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+// Le cinque allocazioni vivono e muoiono con il piano: CASCADE lato DB
+// (migration) e lato associazione, così eliminare un utente non lascia
+// allocazioni orfane.
+PianoSmart.hasMany(PianoSmartAllocazione, { foreignKey: 'plan_id', as: 'allocazioni', onDelete: 'CASCADE' });
+PianoSmartAllocazione.belongsTo(PianoSmart, { foreignKey: 'plan_id', as: 'piano' });
+
 module.exports = {
   CategoriaPersonale,
   CategoriaDefaultNascosta,
@@ -117,4 +128,6 @@ module.exports = {
   PreferenzeNotifiche,
   PushSubscription,
   Debito,
+  PianoSmart,
+  PianoSmartAllocazione,
 };
