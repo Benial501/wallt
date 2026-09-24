@@ -22,6 +22,7 @@ import {
   ArrowUpCircle,
   Repeat2,
   CircleHelp,
+  Sparkles,
 } from '@/utils/appIcons';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
 import HelpPanel from '@/components/help/HelpPanel.vue';
@@ -131,9 +132,9 @@ const isDashboard = computed(() => route.path === '/dashboard');
 const mobileNav = [
   { path: '/dashboard', icon: Home, label: 'Home' },
   { path: '/movimenti', icon: ArrowLeftRight, label: 'Transazioni' },
+  { path: '/funzionalita/piano-smart', icon: Sparkles, label: 'Piano Smart' },
   { path: '/analisi', icon: TrendingUp, label: 'Analisi' },
   { path: 'altro', icon: LayoutGrid, label: 'Funzionalità' },
-  { path: '/impostazioni', icon: Settings, label: 'Impostazioni' },
 ];
 
 /**
@@ -234,6 +235,9 @@ const handleLogout = async () => {
         <WalltLogo mark-only :size="30" />
       </router-link>
       <div class="mobile-header__azioni">
+        <router-link to="/aiuto" class="mobile-header__aiuto-link" aria-label="Aiuto">
+          <CircleHelp :size="24" :stroke-width="1.75" />
+        </router-link>
         <NotificheBell variante="compatta" />
         <button
           type="button"
@@ -393,6 +397,17 @@ const handleLogout = async () => {
   border-bottom: 1px solid var(--glass-chrome-border);
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 1rem; z-index: 100;
+}
+.mobile-header__aiuto-link {
+  color: var(--text-secondary);
+  transition: color var(--dur-fast) var(--ease-out);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 0.5rem;
+}
+.mobile-header__aiuto-link:hover {
+  color: var(--text-primary);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .mobile-header { background: var(--glass-chrome-solid); }

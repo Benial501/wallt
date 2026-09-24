@@ -40,7 +40,7 @@ const { formatValuta } = useValuta();
 const { toggle, isDark } = useTheme();
 
 const openSections = ref({
-  account: true, profilo: true, conti: false, finanziario: false, importa: false, aiuto: false, aspetto: true, valuta: false,
+  account: true, profilo: true, conti: false, finanziario: false, importa: false, aspetto: true, valuta: false,
   notifiche: false, funzionalita: true, sicurezza: false, export: false, reset: false, delete: false,
 });
 const loading = ref(false);
@@ -539,39 +539,6 @@ const eliminaAccountOAuth = async () => {
         </p>
         <WButton variant="primary" size="md" @click="router.push('/importa')">
           Vai all'importazione
-        </WButton>
-      </div>
-    </WCard>
-
-    <WCard class="section-card">
-      <button class="section-toggle" @click="toggleSection('aiuto')">
-        <CircleHelp :size="18" :stroke-width="1.75" />
-        <span>Aiuto e guida</span>
-        <component :is="openSections.aiuto ? ChevronDown : ChevronRight" :size="16" />
-      </button>
-      <div v-if="openSections.aiuto" class="section-body">
-        <p class="hint">
-          Come funzionano conti, movimenti, trasferimenti, importazione, budget e obiettivi.
-        </p>
-        <WButton variant="primary" size="md" @click="router.push('/aiuto')">
-          Apri la guida
-        </WButton>
-        <p class="hint hint--inline">
-          <template v-if="helpStore.gettingStartedHidden">
-            Il riquadro «Primi passi» in Home è nascosto.
-          </template>
-          <template v-else>
-            Il riquadro «Primi passi» è mostrato in Home.
-          </template>
-          La preferenza vale solo per questo browser.
-        </p>
-        <WButton
-          v-if="helpStore.gettingStartedHidden"
-          variant="secondary"
-          size="md"
-          @click="helpStore.showGettingStarted()"
-        >
-          Mostra di nuovo Primi passi
         </WButton>
       </div>
     </WCard>
