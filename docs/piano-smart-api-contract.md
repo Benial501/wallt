@@ -23,6 +23,16 @@ il piano resta verificabile.
 
 ---
 
+## Prerequisito: CORS
+
+`PATCH` deve comparire in `Access-Control-Allow-Methods` (vedi `server/app.js`).
+Prima dell'integrazione non c'era — WALLT non aveva rotte PATCH — e il browser
+bloccava il cambio di stato di un piano *dopo* un preflight andato a buon fine:
+`Method PATCH is not allowed by Access-Control-Allow-Methods`. I test con
+supertest non attraversano CORS e non possono accorgersene; lo sorveglia
+`server/tests/corsMetodi.test.js`, che confronta i metodi montati nel router
+con quelli dichiarati.
+
 ## Formato del denaro
 
 **Ogni importo monetario è una stringa decimale con due decimali**:
@@ -320,6 +330,14 @@ Rifiutate con **400** e messaggio in italiano:
 | categoria ripetuta | `Categorie ripetute: ….` |
 | oltre il cap | `La quota di … (…) supera il limite di ….` |
 
+**Il fondo di sicurezza non è un obiettivo eleggibile.** In WALLT il fondo è un
+`Obiettivo` con `tipo_obiettivo: 'fondo_sicurezza'`, ma nel piano ha già la sua
+categoria (`safety`) con il cap sul gap: lasciandolo anche fra gli obiettivi
+riceveva denaro da due categorie, e il totale diretto al fondo poteva superare
+quello che gli manca davvero (verificato: safety al cap di 3.300 € più 1.374 €
+dalla quota obiettivi, verso un fondo che ne chiedeva 3.300). Non compare quindi
+in `metadata.goals` e non entra in `metadata.totalRemaining`.
+
 **I cap valgono anche sulle scelte manuali.** `goals` non può superare la somma
 dei restanti degli obiettivi eleggibili; `safety` non può superare il gap del
 fondo di sicurezza *quando un fondo esiste*. Senza un obiettivo
@@ -467,11 +485,11 @@ Formato di WALLT: `{ "error": "…" }`. I validator aggiungono
 `{ "errori": [{ "campo": …, "messaggio": … }] }`; gli errori di allocazione
 aggiungono `{ "errori": ["…", "…"] }` (stringhe).
 
-⚠️ **Il campo è `error`, non `message`.** `client/src/api/pianoSmart.api.js`
-(branch `feature/piano-smart-frontend`) legge `error.response.data?.message`,
-che è sempre `undefined` su questo namespace: il client ricade sulla propria
-stringa di default. Funziona, ma per mostrare il messaggio del backend va letto
-`data.error` (e `data.errori` per l'elenco).
+**Il campo è `error`, non `message`.** `client/src/api/pianoSmart.api.js` legge
+`data.error` e `data.errori`, e mostra all'utente il messaggio reale del backend
+(per esempio "La somma delle quote non coincide con il capitale da
+distribuire"). Prima dell'integrazione leggeva `data.message`, che su questo
+namespace è sempre `undefined`: ogni errore diventava la stessa frase generica.
 
 | Codice | Quando |
 |---|---|
@@ -549,4 +567,11 @@ server/controllers/pianoSmart.controller.js
 server/routes/pianoSmart.routes.js
 server/models/PianoSmart.js, PianoSmartAllocazione.js
 server/migrations/20260924000031-create-piani-smart.js
+
+client/src/utils/pianoSmart.js               vocabolario gemello del server
+client/src/content/glossario.js              le cinque etichette
+client/src/api/pianoSmart.api.js             trasporto + classificazione errori
+client/src/stores/pianoSmart.store.js        stato UI, confronti in centesimi
+client/src/views/PianoSmartView.vue          wizard, risultato, storico
+client/tests/pianoSmartContratto.test.js     confronto enum client/server
 ```
