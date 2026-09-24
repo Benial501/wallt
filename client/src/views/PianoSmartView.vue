@@ -7,7 +7,7 @@ import AppDialog from '@/components/common/AppDialog.vue';
 import PianoSmartGuide from '@/components/piano-smart/PianoSmartGuide.vue';
 import { usePianoSmartStore } from '@/stores/pianoSmart.store';
 import { useToastStore } from '@/stores/toast.store';
-import { CircleHelp } from '@/utils/appIcons';
+import { CircleHelp, Trash2 } from '@/utils/appIcons';
 import { GLOSSARIO } from '@/content/glossario';
 import {
   ORIGINI_SOMMA,
@@ -43,6 +43,8 @@ const tab = ref('create');
 const step = ref(1);
 const infoAperta = ref(false);
 const dettaglioAperto = ref(false);
+const confermaEliminazione = ref(false);
+const eliminazioneInCorso = ref(false);
 
 const ORIGINI = ORIGINI_SOMMA;
 
@@ -180,13 +182,23 @@ const cambiaStato = async (nuovoStato) => {
   if (esito) toast.success(`Piano ${etichettaStato(nuovoStato).toLowerCase()}.`);
 };
 
-const eliminaPiano = async () => {
+const eliminaPiano = () => {
   if (!selectedPlan.value?.id) return;
-  if (!window.confirm('Eliminare definitivamente questo Piano Smart?')) return;
-  const eliminato = await store.deletePlan(selectedPlan.value.id);
-  if (eliminato) {
-    dettaglioAperto.value = false;
-    toast.success('Piano Smart eliminato.');
+  confermaEliminazione.value = true;
+};
+
+const confermaEdEliminaPiano = async () => {
+  if (!selectedPlan.value?.id) return;
+  eliminazioneInCorso.value = true;
+  try {
+    const eliminato = await store.deletePlan(selectedPlan.value.id);
+    if (eliminato) {
+      confermaEliminazione.value = false;
+      dettaglioAperto.value = false;
+      toast.success('Piano Smart eliminato.');
+    }
+  } finally {
+    eliminazioneInCorso.value = false;
   }
 };
 
@@ -552,6 +564,31 @@ onMounted(() => {
         </div>
       </template>
     </AppDialog>
+
+    <AppDialog
+      :open="confermaEliminazione"
+      title="Eliminare il Piano Smart?"
+      @close="confermaEliminazione = false"
+    >
+      <div class="delete-confirmation">
+        <div class="delete-confirmation__icon" aria-hidden="true">
+          <Trash2 :size="22" :stroke-width="1.8" />
+        </div>
+        <div class="delete-confirmation__copy">
+          <p>Il piano verrà rimosso dalla cronologia.</p>
+          <p class="hint">Saldi, movimenti, obiettivi e altri dati finanziari non verranno modificati.</p>
+        </div>
+        <div class="actions">
+          <WButton variant="secondary" @click="confermaEliminazione = false">Annulla</WButton>
+          <WButton
+            variant="danger" :loading="eliminazioneInCorso"
+            @click="confermaEdEliminaPiano"
+          >
+            Elimina piano
+          </WButton>
+        </div>
+      </div>
+    </AppDialog>
   </div>
 </template>
 
@@ -647,6 +684,21 @@ summary { cursor: pointer; color: var(--text-primary); font-weight: 600; font-si
 .detail-table th, .detail-table td { padding: .5rem .4rem; border-bottom: 1px solid var(--divider); text-align: right; color: var(--text-primary); }
 .detail-table thead th, .detail-table tbody th { text-align: left; color: var(--text-secondary); font-weight: 600; }
 .detail-table td.changed { color: var(--accent-text); font-weight: 700; }
+
+.delete-confirmation { display: flex; flex-direction: column; gap: 1rem; }
+.delete-confirmation__icon {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid color-mix(in srgb, var(--negative) 32%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--negative) 11%, transparent);
+  color: var(--negative);
+}
+.delete-confirmation__copy { display: flex; flex-direction: column; gap: .4rem; }
+.delete-confirmation__copy p { margin: 0; color: var(--text-primary); line-height: 1.5; }
+.delete-confirmation__copy .hint { color: var(--text-secondary); }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 
