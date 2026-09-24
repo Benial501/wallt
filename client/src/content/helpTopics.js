@@ -250,6 +250,17 @@ const TOPICS = [
     ],
     link: { label: 'Vai alle Notifiche', to: '/notifiche' },
   },
+  {
+    id: 'piano-smart',
+    title: 'Piano Smart',
+    summary: 'Una proposta personalizzata per organizzare una nuova somma di denaro.',
+    paragraphs: [
+      'Piano Smart utilizza i dati che hai già inserito in WALLT per proporti una suddivisione tra necessità, sicurezza, obiettivi, futuro e libertà.',
+      'Se mancano informazioni importanti, può chiederti solo il contesto necessario per questo piano. Puoi modificare la proposta prima di salvarla.',
+      'Piano Smart non sposta denaro automaticamente: è uno strumento di organizzazione e le decisioni finali restano sempre all’utente.',
+    ],
+    link: { label: 'Apri Piano Smart', to: '/funzionalita/piano-smart' },
+  },
 ];
 
 /** Mappa id → argomento, per accessi diretti. */
@@ -294,7 +305,7 @@ export const HELP_SECTIONS = [
     id: 'strumenti',
     title: 'Home, budget, obiettivi e analisi',
     description: 'Come leggere i riepiloghi e cosa fanno davvero i pulsanti.',
-    topics: ['patrimonio-come-si-calcola', 'dashboard-riepilogo', 'budget-come-funziona', 'obiettivi-contributi', 'analisi-come-funziona'],
+    topics: ['patrimonio-come-si-calcola', 'dashboard-riepilogo', 'budget-come-funziona', 'obiettivi-contributi', 'analisi-come-funziona', 'piano-smart'],
   },
   {
     id: 'notifiche',

@@ -141,6 +141,11 @@ export const routes = [
         name: 'aiuto',
         component: () => import('@/views/AiutoView.vue'),
       },
+      {
+        path: 'funzionalita/piano-smart',
+        name: 'piano-smart',
+        component: () => import('@/views/PianoSmartView.vue'),
+      },
     ],
   },
   {

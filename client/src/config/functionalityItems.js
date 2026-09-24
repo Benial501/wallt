@@ -33,6 +33,15 @@ export const FUNCTIONALITY_ITEMS = Object.freeze([
     route: '/analisi', placements: ['sidebar'], order: { sidebar: 60 }, active: true,
   },
   {
+    id: 'piano-smart', label: 'Piano Smart',
+    description: 'Organizza una nuova somma di denaro', icon: 'pianoSmart',
+    // Anche in 'sidebar': il bottom sheet "Funzionalità" esiste solo nella
+    // navigazione mobile, quindi con il solo 'sheet' la voce era raggiungibile
+    // su desktop unicamente digitando l'URL.
+    route: '/funzionalita/piano-smart', placements: ['sidebar', 'sheet'],
+    order: { sidebar: 55, sheet: 55 }, active: true,
+  },
+  {
     id: 'aiuto', label: 'Aiuto', description: 'Guida e primi passi', icon: 'aiuto',
     route: '/aiuto', placements: ['sheet'], order: { sheet: 60 }, active: true,
   },

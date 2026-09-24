@@ -12,6 +12,7 @@ import { useAnalisiStore } from '@/stores/analisi.store';
 import { useUiStore } from '@/stores/ui.store';
 import { useHelpStore } from '@/stores/help.store';
 import { useNotificheStore } from '@/stores/notifiche.store';
+import { usePianoSmartStore } from '@/stores/pianoSmart.store';
 
 /**
  * Pulisce tutti gli store Pinia e i dati temporanei di sessione.
@@ -44,6 +45,12 @@ export function resetPiniaStores() {
     useObiettiviStore,
     useInvestimentiStore,
     useScommesseStore,
+    // Un Piano Smart salvato contiene il riepilogo finanziario dell'utente
+    // (medie di entrate e spese, copertura del fondo, pressione debitoria).
+    // Senza questo reset quei dati restavano in memoria dopo il logout e il
+    // login successivo sulla stessa scheda li avrebbe mostrati a un altro
+    // utente: lo stesso difetto del numero 9, su dati più sensibili.
+    usePianoSmartStore,
   ].forEach((useStore) => {
     try { useStore().reset(); } catch { /* ignore */ }
   });

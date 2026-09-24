@@ -5,6 +5,7 @@ const {
   Obiettivo, ObiettivoContributo, Debito, PiattaformaScommesse, MovimentoScommesse,
   Investimento, MovimentoInvestimento, CategorieRegola, RegolaPersonaleMerchant,
   Notifica, PreferenzeNotifiche, CategoriaPersonale,
+  PianoSmart, PianoSmartAllocazione,
   sequelize,
 } = require('../models');
 const { formatUser } = require('./auth.controller');
@@ -200,6 +201,7 @@ const esportaDati = async (req, res) => {
       regoleMerchant,
       notifiche,
       preferenzeNotifiche,
+      pianiSmart,
     ] = await Promise.all([
       safeExportQuery('profilo', () => ProfiloUtente.findOne({ where: { user_id: userId } }), null),
       safeExportQuery('conti', () => Conto.findAll({
@@ -255,6 +257,13 @@ const esportaDati = async (req, res) => {
       safeExportQuery('preferenze_notifiche', () => PreferenzeNotifiche.findOne({
         where: { user_id: userId },
       }), null),
+      // I piani contengono uno snapshot di aggregati finanziari personali:
+      // fuori dall'export la portabilità dei dati sarebbe incompleta.
+      safeExportQuery('piani_smart', () => PianoSmart.findAll({
+        where: { user_id: userId },
+        include: [{ model: PianoSmartAllocazione, as: 'allocazioni' }],
+        order: [['createdAt', 'DESC']],
+      })),
     ]);
 
     const categoriePersonali = await CategoriaPersonale.findAll({ where: { user_id: userId } });
@@ -296,6 +305,7 @@ const esportaDati = async (req, res) => {
         preferenze: preferenzeNotifiche,
         storico: notifiche,
       },
+      piani_smart: pianiSmart,
     };
 
     const dataOggi = new Date().toISOString().split('T')[0];

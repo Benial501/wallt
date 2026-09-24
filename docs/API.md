@@ -484,6 +484,76 @@ tutta la cascata di categorizzazione (`CategoryMatcherService._finalize`).
 
 ---
 
+## Piano Smart
+
+Ripartizione deterministica di una nuova somma fra cinque categorie
+(`needs`, `safety`, `goals`, `future`, `freedom`), a partire dal
+FinancialContext dell'utente. Tutte le rotte richiedono
+`Authorization: Bearer <jwt>` e operano solo sui piani dell'utente autenticato.
+
+> **Contratto completo, esempi, enum, reason code e invarianti:**
+> [piano-smart-api-contract.md](piano-smart-api-contract.md).
+> Quel documento è la fonte per l'integrazione frontend; qui c'è solo
+> l'inventario.
+
+**Due particolarità che distinguono questo namespace dal resto dell'API:**
+
+1. **Gli importi monetari sono stringhe decimali** (`"800.00"`), non numeri —
+   `contextSummary` compreso. Divergenza deliberata: l'invariante
+   `somma(allocazioni) == capitale allocabile` deve essere verificabile dal
+   client senza aritmetica float.
+2. **`GET /api/piano-smart` risponde `{ data, total }`**; nessun'altra risposta
+   del namespace ha una chiave `data` di primo livello.
+
+**Piano Smart non muove denaro**: nessuna rotta qui modifica saldi, movimenti,
+trasferimenti, obiettivi, investimenti o debiti.
+
+### GET /api/piano-smart/readiness
+- **Azione**: calcola cosa WALLT non sa e quindi cosa vale la pena chiedere. Nessuna domanda è obbligatoria (`required` sempre `false`): un utente senza storico può generare un piano
+- **Risposta**: `{ dataConfidence, dataQuality, missingFields[], questions[], warnings[], suggestedMandatoryExpenses, contextSummary }`
+- **Note**: `suggestedMandatoryExpenses.supported` è `true` solo con ricorrenze attive non ancora addebitate; le rate dei debiti non vi entrano (lo schema non le collega a una ricorrenza). `appliedAutomatically` è sempre `false`
+- **File**: `pianoSmart.controller.js` → `services/pianoSmart/readiness.service.js`
+
+### POST /api/piano-smart/preview
+- **Body**: `{ amount, sourceType, recurring, mandatoryExpenses?, manualContextAnswers? }`
+- **Validazione**: `validatePianoSmartInput` — `amount > 0` e al massimo 2 decimali (`100.005` è rifiutato, non arrotondato), `recurring` booleano esplicito, `manualContextAnswers` limitato a 4 chiavi
+- **Rate limit**: `pianoSmartPreviewLimiter` (60 / 15 min per utente) — ogni chiamata espande l'intero FinancialContext
+- **Azione**: calcola il piano. **Non persiste niente**
+- **Risposta**: `{ engineVersion, status, allocatableCapital, financialProfile, allocations[5], reasonCodes[], reasons[], warnings[], contextSummary }`
+- **Errori**: 400 (input non valido), 429 (limite superato), 500 (errore di calcolo)
+- **File**: `pianoSmart.controller.js` → `services/pianoSmart/allocation.service.js`
+
+### POST /api/piano-smart
+- **Body**: come la preview, più `allocations[]` opzionale con le quote finali
+- **Validazione**: `validateCreatePianoSmart` + validazione matematica delle allocazioni finali
+- **Azione**: **ricalcola sempre lato server** e ignora qualunque `recommendedAmount` inviato dal client; del client accetta solo `finalAmount`. Omettendo `allocations`, le finali sono uguali alle raccomandate. Il piano nasce `status: 'draft'`
+- **Risposta**: `201` con il dettaglio del piano
+- **Errori**: 400 (somma diversa dal capitale allocabile, quota negativa, categoria mancante/ripetuta/sconosciuta, cap superato)
+- **File**: `pianoSmart.controller.js`
+
+### GET /api/piano-smart
+- **Risposta**: `{ data[], total }` — solo i piani dell'utente, dal più recente
+- **File**: `pianoSmart.controller.js`
+
+### GET /api/piano-smart/:id
+- **Validazione**: `validatePianoSmartId`
+- **Risposta**: dettaglio con `recommended` e `final` distinti, `reasons`, `contextSummary`, `engineVersion`
+- **Errori**: 404 (piano inesistente **o di un altro utente**: mai 403, che confermerebbe l'esistenza dell'id)
+- **File**: `pianoSmart.controller.js`
+
+### PATCH /api/piano-smart/:id
+- **Body**: `{ status? }` e/o `{ allocations? }` — almeno uno dei due
+- **Validazione**: `validateUpdatePianoSmart`; transizioni ammesse `draft → active|archived`, `active → completed|archived`, `completed → archived`, `archived` terminale
+- **Azione**: aggiorna le quote finali (le `recommended` non sono mai modificabili) e/o lo stato. Le allocazioni sono rivalidate contro i cap **conservati nello snapshot del piano**, non contro un contesto ricalcolato
+- **Risposta**: dettaglio aggiornato
+- **Errori**: 400 (corpo vuoto, transizione non ammessa, allocazioni non valide), 404
+- **File**: `pianoSmart.controller.js`
+
+Non esiste un `DELETE`: l'archiviazione è `PATCH { status: 'archived' }`, così il
+piano resta verificabile.
+
+---
+
 ## Debiti
 
 Passività dell'utente (prestiti, mutui, finanziamenti, ecc.), usate per calcolare `patrimonio_netto` su `GET /api/conti/patrimonio`. Tutte le rotte richiedono `Authorization: Bearer <jwt>` e operano solo sui debiti dell'utente autenticato.
