@@ -126,7 +126,21 @@ const assertTestDatabase = () => {
 const cleanDatabase = async () => {
   assertTestDatabase();
   const tables = TABLES.map((table) => `"${table}"`).join(', ');
-  await sequelize.query(`TRUNCATE TABLE ${tables} RESTART IDENTITY CASCADE`);
+  let ultimoErrore;
+  for (let tentativo = 0; tentativo < 5; tentativo += 1) {
+    try {
+      await sequelize.query(`TRUNCATE TABLE ${tables} RESTART IDENTITY CASCADE`);
+      return;
+    } catch (error) {
+      ultimoErrore = error;
+      // Un job asincrono della suite precedente può ancora avere una transazione
+      // aperta. Ritentare solo i codici PostgreSQL di deadlock/lock timeout;
+      // gli altri errori devono restare visibili immediatamente.
+      if (!['40P01', '55P03'].includes(error.original?.code || error.parent?.code)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 100 * (tentativo + 1)));
+    }
+  }
+  throw ultimoErrore;
 };
 
 const uniqueEmail = (prefix = 'user') => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@test.local`;
