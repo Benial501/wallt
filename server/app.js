@@ -66,7 +66,10 @@ const createApp = (options = {}) => {
   app.use(cors({
     origin: corsOrigins,
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    // PATCH serve a Piano Smart (allocazioni finali e stato). Senza di esso il
+    // preflight passa ma la richiesta vera viene bloccata dal browser: i test
+    // con supertest non attraversano CORS e non possono accorgersene.
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Step-Up-Token'],
   }));
 
