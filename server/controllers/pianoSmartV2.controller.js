@@ -102,4 +102,27 @@ const updateAction = async (req, res) => {
   return res.json({ id: action.id, status: action.status });
 };
 
-module.exports = { preview, save, listActions, updateAction, generate };
+const getSnapshot = async (req, res) => {
+  const plan = await PianoSmart.findOne({ where: { id: req.params.id, user_id: req.userId } });
+  if (!plan || plan.engine_version !== 'smart-v2') return res.status(404).json({ error: 'Piano V2 non trovato.' });
+  return res.json(plan.context_snapshot);
+};
+
+const getScenarios = async (req, res) => {
+  const snapshot = await getOwnedSnapshot(req);
+  if (!snapshot) return res.status(404).json({ error: 'Piano V2 non trovato.' });
+  return res.json(snapshot.scenarios || []);
+};
+
+const getProjection = async (req, res) => {
+  const snapshot = await getOwnedSnapshot(req);
+  if (!snapshot) return res.status(404).json({ error: 'Piano V2 non trovato.' });
+  return res.json(snapshot.projections || {});
+};
+
+const getOwnedSnapshot = async (req) => {
+  const plan = await PianoSmart.findOne({ where: { id: req.params.id, user_id: req.userId, engine_version: 'smart-v2' } });
+  return plan?.context_snapshot || null;
+};
+
+module.exports = { preview, save, listActions, updateAction, getSnapshot, getScenarios, getProjection, generate };

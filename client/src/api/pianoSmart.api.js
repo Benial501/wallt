@@ -20,6 +20,9 @@ export const pianoSmartApi = {
   async updatePlan(id, payload) { return unwrap(await api.patch(`/piano-smart/${id}`, payload)); },
   async createV2Preview(payload) { return unwrap(await api.post('/piano-smart/v2/preview', payload)); },
   async createV2Plan(payload) { return unwrap(await api.post('/piano-smart/v2', payload)); },
+  async getV2Plan(id) { return unwrap(await api.get(`/piano-smart/v2/${id}`)); },
+  async getV2Scenarios(id) { return unwrap(await api.get(`/piano-smart/v2/${id}/scenarios`)); },
+  async getV2Projection(id) { return unwrap(await api.get(`/piano-smart/v2/${id}/projection`)); },
   async listV2Actions(id) { return unwrap(await api.get(`/piano-smart/v2/${id}/actions`)); },
   async updateV2Action(id, actionId, status) { return unwrap(await api.patch(`/piano-smart/v2/${id}/actions/${actionId}`, { status })); },
 };
