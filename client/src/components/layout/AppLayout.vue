@@ -416,7 +416,7 @@ const handleLogout = async () => {
 .mobile-header__logo-link:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 .avatar-btn:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 .mobile-header__azioni { display: flex; align-items: center; gap: 0.25rem; }
-.main-content { min-height: 100vh; padding: 76px 1rem calc(96px + env(safe-area-inset-bottom, 0px)); overflow-x: hidden; background: transparent; }
+.main-content { min-height: 100vh; padding: 76px 1rem calc(104px + env(safe-area-inset-bottom, 0px)); overflow-x: hidden; background: transparent; }
 .main-content--dashboard { padding-top: 1rem; }
 .route-view { min-height: 1px; width: 100%; }
 @media (min-width: 768px) {
@@ -440,7 +440,7 @@ const handleLogout = async () => {
 /* --- Bottom nav: isola in vetro sospesa --------------------------------- */
 .bottom-nav {
   position: fixed;
-  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
   left: 12px;
   right: 12px;
   height: auto;
@@ -499,8 +499,8 @@ const handleLogout = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 46px;
-  height: 32px;
+  width: 48px;
+  height: 34px;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   transition:
@@ -512,8 +512,8 @@ const handleLogout = async () => {
 .bottom-nav__item:focus-visible { outline: none; }
 .bottom-nav__item:focus-visible .bottom-nav__icon-wrap { box-shadow: var(--focus-ring-tight); }
 .bottom-nav__icon-svg {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   stroke: currentColor;
 }
 .bottom-nav__label {
