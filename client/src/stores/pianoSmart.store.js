@@ -80,10 +80,8 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     () => Boolean(preview.value) && capitalToAllocateCents.value === 0,
   );
 
-  const canSave = computed(() => finalAllocations.value.length === 5
-    && allocationDifferenceCents.value === 0
-    && !hasNegativeAllocation.value
-    && state.value !== 'saving');
+  const canSave = computed(() => allocationDifferenceCents.value === 0
+    && !hasNegativeAllocation.value);
 
   const questions = computed(() => readiness.value?.questions ?? []);
   const warnings = computed(() => preview.value?.warnings ?? readiness.value?.warnings ?? []);
