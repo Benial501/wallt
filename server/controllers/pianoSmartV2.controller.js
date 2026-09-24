@@ -81,4 +81,25 @@ const save = async (req, res) => {
   }
 };
 
-module.exports = { preview, save, generate };
+const listActions = async (req, res) => {
+  const actions = await PianoSmartAzione.findAll({ where: { plan_id: req.params.id, user_id: req.userId }, order: [['priority', 'ASC']] });
+  return res.json(actions.map((action) => ({
+    id: action.id, actionKey: action.action_key, title: action.title,
+    amount: action.amount === null ? null : String(action.amount), destinationType: action.destination_type,
+    destinationId: action.destination_id, reason: action.reason, riskIfIgnored: action.risk_if_ignored,
+    priority: action.priority, status: action.status,
+  })));
+};
+
+const updateAction = async (req, res) => {
+  const action = await PianoSmartAzione.findOne({ where: { id: req.params.actionId, plan_id: req.params.id, user_id: req.userId } });
+  if (!action) return res.status(404).json({ error: 'Azione non trovata.' });
+  const next = req.body.status;
+  if (!['completata', 'ignorata'].includes(next) || action.status !== 'da_fare') {
+    return res.status(400).json({ error: 'Stato azione non valido.' });
+  }
+  await action.update({ status: next });
+  return res.json({ id: action.id, status: action.status });
+};
+
+module.exports = { preview, save, listActions, updateAction, generate };
