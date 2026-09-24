@@ -323,6 +323,62 @@ describe('obiettivi', () => {
     expect(alta.amountCents).toBeGreaterThan(bassa.amountCents);
   });
 
+  test('il fondo di sicurezza non riceve anche dalla quota obiettivi', () => {
+    // Il fondo È un obiettivo nel modello dati di WALLT, ma nel piano ha già
+    // la sua categoria (`safety`) con il cap sul gap. Se restasse eleggibile
+    // anche fra gli obiettivi riceverebbe da due categorie, e il totale
+    // diretto al fondo potrebbe superare quello che gli manca davvero.
+    const esito = piano({
+      incomingCents: 1000000,
+      context: contestoFinto({
+        emergencyFund: {
+          coverageMonths: 1, current: 900, target: 3300, targetMonths: 4, missingAmount: 2400,
+        },
+        goals: [
+          obiettivoFinto({
+            id: 1, nome: 'Fondo di sicurezza', tipo_obiettivo: 'fondo_sicurezza', importo_restante: 2400,
+          }),
+          obiettivoFinto({ id: 2, nome: 'Viaggio', importo_restante: 1500 }),
+        ],
+      }),
+    });
+    const dettaglio = esito.allocations.find((a) => a.category === 'goals').metadata.goals;
+    expect(dettaglio.map((g) => g.id)).toEqual([2]);
+    expect(dettaglio.some((g) => g.nome === 'Fondo di sicurezza')).toBe(false);
+  });
+
+  test('con il solo fondo di sicurezza la quota obiettivi è zero', () => {
+    const esito = piano({
+      context: contestoFinto({
+        goals: [obiettivoFinto({ tipo_obiettivo: 'fondo_sicurezza', importo_restante: 2400 })],
+      }),
+    });
+    expect(quote(esito).goals).toBe(0);
+    expect(esito.reasonCodes).toContain('NO_ACTIVE_GOALS');
+    expect(somma(esito)).toBe(esito.allocatableCents);
+  });
+
+  test('il totale diretto al fondo non supera mai il suo gap', () => {
+    const esito = piano({
+      incomingCents: 1000000,
+      context: contestoFinto({
+        emergencyFund: {
+          coverageMonths: 1, current: 900, target: 3300, targetMonths: 4, missingAmount: 2400,
+        },
+        goals: [
+          obiettivoFinto({ id: 1, nome: 'Fondo', tipo_obiettivo: 'fondo_sicurezza', importo_restante: 2400 }),
+          obiettivoFinto({ id: 2, nome: 'Viaggio', importo_restante: 1500 }),
+        ],
+      }),
+    });
+    const safety = quote(esito).safety;
+    const dettaglio = esito.allocations.find((a) => a.category === 'goals').metadata.goals;
+    const alFondoDaiGoals = dettaglio
+      .filter((g) => g.nome === 'Fondo')
+      .reduce((s, g) => s + g.amountCents, 0);
+    expect(safety + alFondoDaiGoals).toBeLessThanOrEqual(240000);
+  });
+
   test('obiettivo con dati mancanti non è eleggibile', () => {
     const esito = piano({
       context: contestoFinto({
