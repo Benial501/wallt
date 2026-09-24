@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia';
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import AppDialog from '@/components/common/AppDialog.vue';
+import PianoSmartGuide from '@/components/piano-smart/PianoSmartGuide.vue';
 import { usePianoSmartStore } from '@/stores/pianoSmart.store';
 import { useToastStore } from '@/stores/toast.store';
 import { GLOSSARIO } from '@/content/glossario';
@@ -485,22 +486,7 @@ onMounted(() => {
     </section>
 
     <!-- ================= DIALOG ================= -->
-    <AppDialog :open="infoAperta" title="Come funziona Piano Smart" @close="infoAperta = false">
-      <p>
-        WALLT parte dai dati che hai già inserito — entrate, spese, obiettivi, debiti —
-        e propone come dividere una nuova somma fra Necessità, Sicurezza, Obiettivi,
-        Futuro e Libertà.
-      </p>
-      <p>
-        La proposta non è una percentuale fissa: cambia con la tua situazione. Puoi
-        modificarla prima di salvarla, e ogni modifica resta accanto al suggerimento
-        originale.
-      </p>
-      <p>
-        <strong>Piano Smart non sposta denaro.</strong> Non crea movimenti, non tocca
-        i saldi e non versa sugli obiettivi: è solo una pianificazione.
-      </p>
-    </AppDialog>
+    <PianoSmartGuide :open="infoAperta" @close="infoAperta = false" @start="infoAperta = false" />
 
     <AppDialog
       :open="dettaglioAperto && Boolean(selectedPlan)" title="Dettaglio Piano Smart"
