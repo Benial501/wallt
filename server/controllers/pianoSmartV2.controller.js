@@ -5,6 +5,7 @@ const { projectScenario } = require('../services/pianoSmartV2/projection.service
 const { createActions } = require('../services/pianoSmartV2/action.service');
 const { toCents } = require('../services/pianoSmart/money');
 const { serializePreview } = require('../services/pianoSmartV2/serializer');
+const { sequelize, PianoSmart, PianoSmartAllocazione, PianoSmartAzione } = require('../models');
 
 const inputFromBody = (body) => ({
   amountCents: toCents(body.amount),
@@ -37,4 +38,47 @@ const preview = async (req, res) => {
   }
 };
 
-module.exports = { preview, generate };
+const save = async (req, res) => {
+  try {
+    const result = await generate(req.userId, req.body);
+    const selected = result.scenarios.find((scenario) => scenario.id === (req.body.selectedScenario || 'bilanciato'))
+      || result.scenarios.find((scenario) => scenario.id === 'bilanciato');
+    const input = inputFromBody(req.body);
+    const created = await sequelize.transaction(async (transaction) => {
+      const plan = await PianoSmart.create({
+        user_id: req.userId,
+        incoming_amount: (input.amountCents / 100).toFixed(2),
+        mandatory_expenses: (input.mandatoryCents / 100).toFixed(2),
+        allocatable_capital: (result.capital.distributableCents / 100).toFixed(2),
+        recommended_total: (result.capital.distributableCents / 100).toFixed(2),
+        source_type: req.body.sourceType || 'altro',
+        source_recurring: input.recurring,
+        engine_version: 'smart-v2',
+        context_snapshot: result,
+        reason_codes: [],
+        status: 'draft',
+      }, { transaction });
+      await PianoSmartAllocazione.bulkCreate(selected.allocations.map((item) => ({
+        plan_id: plan.id,
+        category: item.category,
+        recommended_amount: item.amount,
+        final_amount: item.amount,
+        recommended_percentage: item.percentage,
+        final_percentage: item.percentage,
+        metadata: { destinationType: item.destinationType, destinationId: item.destinationId },
+        reason_codes: [],
+      })), { transaction });
+      await PianoSmartAzione.bulkCreate(result.actions.map((action) => ({
+        plan_id: plan.id, user_id: req.userId, action_key: action.actionKey, title: action.title,
+        amount: action.amount, destination_type: action.destinationType, destination_id: action.destinationId,
+        reason: action.reason, risk_if_ignored: action.riskIfIgnored, priority: action.priority, status: action.status,
+      })), { transaction });
+      return plan;
+    });
+    return res.status(201).json({ id: created.id, engineVersion: 'smart-v2', ...result, selectedScenario: selected.id });
+  } catch (error) {
+    return res.status(error.status || 500).json({ error: error.status ? error.message : 'Errore nel salvataggio del piano V2.' });
+  }
+};
+
+module.exports = { preview, save, generate };
