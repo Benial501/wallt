@@ -115,8 +115,8 @@ const createApp = (options = {}) => {
   app.use('/api/categorie', require('./routes/categorie.routes'));
   app.use('/api/investimenti', investimentiRoutes);
   app.use('/api/debiti', debitiRoutes);
-  app.use('/api/piano-smart', pianoSmartRoutes);
   app.use('/api/piano-smart/v2', pianoSmartV2Routes);
+  app.use('/api/piano-smart', pianoSmartRoutes);
   app.use('/api/importazioni', importazioniRoutes);
   app.use('/api/notifiche', notificheRoutes);
   app.use('/api/support', require('./routes/support.routes'));

@@ -1380,6 +1380,11 @@ const validateUpdatePianoSmart = [
 ];
 
 const validatePianoSmartId = [idParam, validate];
+const validatePianoSmartActionId = [
+  param('id').isInt({ min: 1 }).withMessage('ID non valido'),
+  param('actionId').isInt({ min: 1 }).withMessage('ID azione non valido'),
+  validate,
+];
 
 module.exports = {
   validate,
@@ -1438,4 +1443,5 @@ module.exports = {
   validateCreatePianoSmart,
   validateUpdatePianoSmart,
   validatePianoSmartId,
+  validatePianoSmartActionId,
 };
