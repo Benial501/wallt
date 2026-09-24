@@ -30,6 +30,7 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
   });
   const readiness = ref(null);
   const preview = ref(null);
+  const v2Preview = ref(null);
   const recommendedAllocations = ref([]);
   const finalAllocations = ref([]);
   const plans = ref([]);
@@ -162,6 +163,19 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     }
   }
 
+  async function generateV2Preview() {
+    state.value = 'generating';
+    error.value = null;
+    try {
+      v2Preview.value = await pianoSmartApi.createV2Preview(buildPayload());
+      state.value = 'previewReady';
+      return v2Preview.value;
+    } catch (err) {
+      setError(err);
+      return null;
+    }
+  }
+
   async function savePlan() {
     if (!canSave.value) return null;
     state.value = 'saving';
@@ -232,6 +246,7 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     };
     readiness.value = null;
     preview.value = null;
+    v2Preview.value = null;
     recommendedAllocations.value = [];
     finalAllocations.value = [];
     plans.value = [];
@@ -244,6 +259,7 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     input,
     readiness,
     preview,
+    v2Preview,
     recommendedAllocations,
     finalAllocations,
     plans,
@@ -260,6 +276,7 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     canSave,
     loadReadiness,
     generatePreview,
+    generateV2Preview,
     savePlan,
     loadPlans,
     loadPlan,

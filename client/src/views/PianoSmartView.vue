@@ -31,7 +31,7 @@ import {
 const store = usePianoSmartStore();
 const toast = useToastStore();
 const {
-  state, input, readiness, preview, recommendedAllocations, finalAllocations,
+  state, input, readiness, preview, v2Preview, recommendedAllocations, finalAllocations,
   plans, selectedPlan, error, questions, warnings,
   capitalToAllocate, allocationDifferenceCents, hasNegativeAllocation,
   isZeroCapital, canSave,
@@ -148,6 +148,12 @@ const continua = async () => {
 const generaPiano = async () => {
   step.value = 3;
   await store.generatePreview();
+};
+
+const generaAnalisiEvoluta = async () => {
+  if (!puoContinuare.value) return;
+  step.value = 3;
+  await store.generateV2Preview();
 };
 
 const salva = async () => {
@@ -413,6 +419,9 @@ onMounted(() => {
             </p>
 
             <div class="actions">
+              <WButton variant="secondary" @click="generaAnalisiEvoluta">
+                Analisi evoluta
+              </WButton>
               <WButton variant="secondary" @click="store.resetFinalAllocations">
                 Ripristina suggerimento WALLT
               </WButton>
@@ -456,6 +465,34 @@ onMounted(() => {
                 che tu abbia registrato tutto: conosce solo ciò che hai inserito.
               </p>
             </details>
+          </WCard>
+
+          <WCard v-if="v2Preview" class="text-card piano-v2-result">
+            <h2>Analisi evoluta</h2>
+            <p class="muted">Tre strategie, proiezioni e azioni preparatorie. Nessun movimento viene creato.</p>
+            <p><strong>Capitale distribuibile: {{ formattaEuro(v2Preview.capital?.distributable) }}</strong></p>
+            <p class="muted">{{ v2Preview.capital?.formula }} · Riserva {{ formattaEuro(v2Preview.capital?.minimumReserve) }} ({{ v2Preview.capital?.reserveSource }})</p>
+            <div class="smart-v2-scenarios">
+              <article v-for="scenario in v2Preview.scenarios" :key="scenario.id">
+                <h3>{{ scenario.label }} <small v-if="scenario.recommended">consigliato</small></h3>
+                <ul>
+                  <li v-for="allocation in scenario.allocations" :key="allocation.category">
+                    {{ etichettaCategoria(allocation.category) }}: {{ formattaEuro(allocation.amount) }}
+                  </li>
+                </ul>
+              </article>
+            </div>
+            <h3>Proiezione bilanciata</h3>
+            <ul>
+              <li v-for="(periodo, mesi) in (v2Preview.projections?.bilanciato || {})" :key="mesi">
+                {{ mesi }} mesi:
+                <span v-if="periodo.status === 'stimabile'">liquidità {{ formattaEuro(periodo.liquidityCents / 100) }}</span>
+                <span v-else>non stimabile — {{ periodo.reason }}</span>
+              </li>
+            </ul>
+            <h3>Cosa fare ora</h3>
+            <ol><li v-for="azione in v2Preview.actions" :key="azione.actionKey">{{ azione.title }} — {{ azione.reason }}</li></ol>
+            <p v-for="avviso in v2Preview.warnings" :key="avviso" class="muted">{{ avviso }}</p>
           </WCard>
         </template>
       </section>

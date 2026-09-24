@@ -486,6 +486,8 @@ tutta la cascata di categorizzazione (`CategoryMatcherService._finalize`).
 
 ## Piano Smart
 
+La versione estesa `smart-v2` è documentata in [piano-smart-v2-api-contract.md](piano-smart-v2-api-contract.md). V1 resta compatibile e continua a usare le proprie rotte.
+
 Ripartizione deterministica di una nuova somma fra cinque categorie
 (`needs`, `safety`, `goals`, `future`, `freedom`), a partire dal
 FinancialContext dell'utente. Tutte le rotte richiedono
