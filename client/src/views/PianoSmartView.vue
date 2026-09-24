@@ -4,8 +4,10 @@ import { storeToRefs } from 'pinia';
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import AppDialog from '@/components/common/AppDialog.vue';
+import PianoSmartGuide from '@/components/piano-smart/PianoSmartGuide.vue';
 import { usePianoSmartStore } from '@/stores/pianoSmart.store';
 import { useToastStore } from '@/stores/toast.store';
+import { CircleHelp, Trash2 } from '@/utils/appIcons';
 import { GLOSSARIO } from '@/content/glossario';
 import {
   ORIGINI_SOMMA,
@@ -41,6 +43,8 @@ const tab = ref('create');
 const step = ref(1);
 const infoAperta = ref(false);
 const dettaglioAperto = ref(false);
+const confermaEliminazione = ref(false);
+const eliminazioneInCorso = ref(false);
 
 const ORIGINI = ORIGINI_SOMMA;
 
@@ -184,6 +188,26 @@ const cambiaStato = async (nuovoStato) => {
   if (esito) toast.success(`Piano ${etichettaStato(nuovoStato).toLowerCase()}.`);
 };
 
+const eliminaPiano = () => {
+  if (!selectedPlan.value?.id) return;
+  confermaEliminazione.value = true;
+};
+
+const confermaEdEliminaPiano = async () => {
+  if (!selectedPlan.value?.id) return;
+  eliminazioneInCorso.value = true;
+  try {
+    const eliminato = await store.deletePlan(selectedPlan.value.id);
+    if (eliminato) {
+      confermaEliminazione.value = false;
+      dettaglioAperto.value = false;
+      toast.success('Piano Smart eliminato.');
+    }
+  } finally {
+    eliminazioneInCorso.value = false;
+  }
+};
+
 const ricomincia = () => {
   store.reset();
   step.value = 1;
@@ -201,12 +225,19 @@ onMounted(() => {
   <div class="piano-view">
     <header class="page-header">
       <div>
-        <h1 class="page-title">Piano Smart</h1>
+        <div class="page-title-row">
+          <h1 class="page-title">Piano Smart</h1>
+          <button
+            class="info-button" type="button" aria-label="Apri la guida di Piano Smart"
+            title="Come funziona Piano Smart" @click="infoAperta = true"
+          >
+            <CircleHelp :size="18" :stroke-width="1.8" aria-hidden="true" />
+          </button>
+        </div>
         <p class="page-sub">
           Trasforma una nuova entrata in un piano costruito sulla tua situazione finanziaria.
         </p>
       </div>
-      <button class="info-link" type="button" @click="infoAperta = true">Come funziona?</button>
     </header>
 
     <div class="tabs" role="tablist">
@@ -522,22 +553,7 @@ onMounted(() => {
     </section>
 
     <!-- ================= DIALOG ================= -->
-    <AppDialog :open="infoAperta" title="Come funziona Piano Smart" @close="infoAperta = false">
-      <p>
-        WALLT parte dai dati che hai già inserito — entrate, spese, obiettivi, debiti —
-        e propone come dividere una nuova somma fra Necessità, Sicurezza, Obiettivi,
-        Futuro e Libertà.
-      </p>
-      <p>
-        La proposta non è una percentuale fissa: cambia con la tua situazione. Puoi
-        modificarla prima di salvarla, e ogni modifica resta accanto al suggerimento
-        originale.
-      </p>
-      <p>
-        <strong>Piano Smart non sposta denaro.</strong> Non crea movimenti, non tocca
-        i saldi e non versa sugli obiettivi: è solo una pianificazione.
-      </p>
-    </AppDialog>
+    <PianoSmartGuide :open="infoAperta" @close="infoAperta = false" @start="infoAperta = false" />
 
     <AppDialog
       :open="dettaglioAperto && Boolean(selectedPlan)" title="Dettaglio Piano Smart"
@@ -580,7 +596,35 @@ onMounted(() => {
           </WButton>
         </div>
         <p v-else class="hint">Questo piano è archiviato: non sono possibili altri cambi di stato.</p>
+        <div class="actions">
+          <WButton variant="danger" @click="eliminaPiano">Elimina piano</WButton>
+        </div>
       </template>
+    </AppDialog>
+
+    <AppDialog
+      :open="confermaEliminazione"
+      title="Eliminare il Piano Smart?"
+      @close="confermaEliminazione = false"
+    >
+      <div class="delete-confirmation">
+        <div class="delete-confirmation__icon" aria-hidden="true">
+          <Trash2 :size="22" :stroke-width="1.8" />
+        </div>
+        <div class="delete-confirmation__copy">
+          <p>Il piano verrà rimosso dalla cronologia.</p>
+          <p class="hint">Saldi, movimenti, obiettivi e altri dati finanziari non verranno modificati.</p>
+        </div>
+        <div class="actions">
+          <WButton variant="secondary" @click="confermaEliminazione = false">Annulla</WButton>
+          <WButton
+            variant="danger" :loading="eliminazioneInCorso"
+            @click="confermaEdEliminaPiano"
+          >
+            Elimina piano
+          </WButton>
+        </div>
+      </div>
     </AppDialog>
   </div>
 </template>
@@ -599,10 +643,12 @@ onMounted(() => {
 }
 
 .page-header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1.25rem; }
+.page-title-row { display: flex; align-items: center; gap: .5rem; }
 .page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
 .page-sub, .muted { color: var(--text-secondary); line-height: 1.55; font-size: var(--text-sm); }
 .hint { color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.5; margin: 0; }
-.info-link { color: var(--accent-text); background: none; border: 0; padding: .5rem 0; cursor: pointer; font: inherit; font-weight: 600; min-height: 44px; }
+.info-button { display: inline-grid; place-items: center; width: 36px; height: 36px; border: 1px solid var(--glass-interactive-border); border-radius: 50%; background: var(--glass-interactive-bg); color: var(--accent-text); cursor: pointer; }
+.info-button:hover { background: var(--glass-interactive-bg-hover); color: var(--text-primary); }
 
 .tabs { display: flex; gap: .4rem; border-bottom: 1px solid var(--divider); margin-bottom: 1.25rem; }
 .tabs button { border: 0; background: none; padding: .75rem 1rem; min-height: 44px; color: var(--text-muted); font: inherit; cursor: pointer; border-bottom: 2px solid transparent; }
@@ -617,7 +663,7 @@ h2 { color: var(--text-primary); font-size: 1.1rem; }
 .field { display: flex; flex-direction: column; gap: .35rem; border: 0; padding: 0; margin: 0; }
 label, legend { color: var(--text-primary); font-size: var(--text-sm); font-weight: 600; padding: 0; }
 input, select { width: 100%; min-height: 44px; border: 1px solid var(--border); border-radius: var(--radius-md); padding: .65rem .75rem; background: var(--surface-subtle); color: var(--text-primary); font: inherit; }
-input:focus-visible, select:focus-visible, .tabs button:focus-visible, .info-link:focus-visible, .history-item:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 2px; }
+input:focus-visible, select:focus-visible, .tabs button:focus-visible, .info-button:focus-visible, .history-item:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 2px; }
 .amount-input { display: flex; align-items: center; gap: .35rem; font-size: 1.5rem; font-weight: 700; }
 .amount-input input { font-size: 1.5rem; font-weight: 700; }
 .choice-row { display: flex; flex-wrap: wrap; gap: 1rem; }
@@ -676,11 +722,25 @@ summary { cursor: pointer; color: var(--text-primary); font-weight: 600; font-si
 .detail-table thead th, .detail-table tbody th { text-align: left; color: var(--text-secondary); font-weight: 600; }
 .detail-table td.changed { color: var(--accent-text); font-weight: 700; }
 
+.delete-confirmation { display: flex; flex-direction: column; gap: 1rem; }
+.delete-confirmation__icon {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid color-mix(in srgb, var(--negative) 32%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--negative) 11%, transparent);
+  color: var(--negative);
+}
+.delete-confirmation__copy { display: flex; flex-direction: column; gap: .4rem; }
+.delete-confirmation__copy p { margin: 0; color: var(--text-primary); line-height: 1.5; }
+.delete-confirmation__copy .hint { color: var(--text-secondary); }
+
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 
 @media (max-width: 600px) {
   .page-header { display: block; }
-  .info-link { padding-left: 0; }
   .allocation { grid-template-columns: 1fr; }
   .allocation__input input { max-width: 12rem; }
   .actions { flex-direction: column; }

@@ -1,8 +1,9 @@
 const DEFAULT_API_URL = 'http://localhost:3000/api';
+const DEFAULT_PRODUCTION_API_URL = 'https://wallt-api.vercel.app/api';
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 export const normalizeApiUrl = (rawValue, { isProduction = false } = {}) => {
-  const value = String(rawValue || '').trim() || DEFAULT_API_URL;
+  const value = String(rawValue || '').trim() || (isProduction ? DEFAULT_PRODUCTION_API_URL : DEFAULT_API_URL);
   let parsed;
 
   try {
@@ -28,4 +29,4 @@ export const normalizeApiUrl = (rawValue, { isProduction = false } = {}) => {
   return `${parsed.origin}${normalizedPath}`;
 };
 
-export { DEFAULT_API_URL };
+export { DEFAULT_API_URL, DEFAULT_PRODUCTION_API_URL };

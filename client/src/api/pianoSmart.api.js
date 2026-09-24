@@ -25,6 +25,7 @@ export const pianoSmartApi = {
   async getV2Projection(id) { return unwrap(await api.get(`/piano-smart/v2/${id}/projection`)); },
   async listV2Actions(id) { return unwrap(await api.get(`/piano-smart/v2/${id}/actions`)); },
   async updateV2Action(id, actionId, status) { return unwrap(await api.patch(`/piano-smart/v2/${id}/actions/${actionId}`, { status })); },
+  async deletePlan(id) { return api.delete(`/piano-smart/${id}`); },
 };
 
 /**
@@ -52,7 +53,9 @@ export const pianoSmartError = (error) => {
   }
   const { status, data } = error.response;
   const details = dettagli(data);
+  if (data?.dettaglio && !details.includes(data.dettaglio)) details.push(data.dettaglio);
   const backendMessage = data?.error || data?.message;
+  const backendCode = data?.code ? ` (${data.code})` : '';
 
   if (status === 400 || status === 422) {
     return {
@@ -71,5 +74,5 @@ export const pianoSmartError = (error) => {
       details,
     };
   }
-  return { type: 'server', message: 'Non è stato possibile creare il piano. Riprova.', details };
+  return { type: 'server', message: `${backendMessage || 'Non è stato possibile creare il piano. Riprova.'}${backendCode}`, details };
 };

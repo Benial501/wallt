@@ -169,8 +169,13 @@ const previewPiano = async (req, res) => {
       logger.error('Invarianti violati in preview piano smart', { err: error, userId: req.userId });
       return res.status(500).json({ error: 'Errore nel calcolo del piano' });
     }
-    logger.error('Errore preview piano smart', { err: error });
-    return res.status(500).json({ error: 'Errore nella generazione del piano' });
+    logger.error('Errore preview piano smart', { err: error, userId: req.userId });
+    const code = error?.original?.code || error?.parent?.code || error?.code || error?.name;
+    return res.status(500).json({
+      error: 'Errore nella generazione del piano',
+      code: code || 'SMART_PLAN_PREVIEW_FAILED',
+      dettaglio: code === '42P01' ? 'Tabella mancante' : code === '42703' ? 'Colonna mancante' : undefined,
+    });
   }
 };
 
@@ -238,8 +243,12 @@ const createPiano = async (req, res) => {
       logger.error('Invarianti violati in create piano smart', { err: error, userId: req.userId });
       return res.status(500).json({ error: 'Errore nel calcolo del piano' });
     }
-    logger.error('Errore createPiano piano smart', { err: error });
-    return res.status(500).json({ error: 'Errore nel salvataggio del piano' });
+    logger.error('Errore createPiano piano smart', { err: error, userId: req.userId });
+    const code = error?.original?.code || error?.parent?.code;
+    if (code === '42P01') return res.status(503).json({ error: 'Schema Piano Smart non disponibile: esegui la migration del backend.' });
+    if (code === '42703') return res.status(503).json({ error: 'Schema Piano Smart non aggiornato: applica la migration più recente.' });
+    if (code === '23503' || code === '23514' || code === '23505') return res.status(422).json({ error: 'Il piano non rispetta i vincoli dello schema dati.', code });
+    return res.status(500).json({ error: 'Errore nel salvataggio del piano', code: 'SMART_PLAN_SAVE_FAILED' });
   }
 };
 
@@ -339,6 +348,18 @@ const updatePiano = async (req, res) => {
   }
 };
 
+// DELETE /api/piano-smart/:id — elimina il piano e le sue allocazioni, mai dati finanziari
+const deletePiano = async (req, res) => {
+  try {
+    const deleted = await PianoSmart.destroy({ where: { id: req.params.id, user_id: req.userId } });
+    if (!deleted) return res.status(404).json({ error: 'Piano non trovato' });
+    return res.status(204).end();
+  } catch (error) {
+    logger.error('Errore deletePiano piano smart', { err: error, userId: req.userId });
+    return res.status(500).json({ error: 'Errore nell\'eliminazione del piano' });
+  }
+};
+
 /**
  * Valida le allocazioni finali di un PATCH contro i cap **conservati nello
  * snapshot**, non contro un contesto ricalcolato.
@@ -366,4 +387,5 @@ module.exports = {
   listPiani,
   getPiano,
   updatePiano,
+  deletePiano,
 };

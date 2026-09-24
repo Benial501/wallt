@@ -13,6 +13,10 @@ test('usa il server locale quando la variabile non è impostata', () => {
   assert.equal(normalizeApiUrl(), 'http://localhost:3000/api');
 });
 
+test('usa il backend pubblicato quando la variabile di produzione non è impostata', () => {
+  assert.equal(normalizeApiUrl('', { isProduction: true }), 'https://wallt-api.vercel.app/api');
+});
+
 test('in produzione rifiuta HTTP per host non locali', () => {
   assert.throws(
     () => normalizeApiUrl('http://wallt-api.example/api', { isProduction: true }),

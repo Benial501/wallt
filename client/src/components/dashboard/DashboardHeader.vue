@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
+import { CircleHelp } from '@/utils/appIcons';
 import WalltLogo from '@/components/common/WalltLogo.vue';
 import NotificheBell from '@/components/notifiche/NotificheBell.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
@@ -60,11 +61,26 @@ const primoNome = computed(() => authStore.user?.nome?.split(' ')[0] || 'Utente'
 .dashboard-header__greeting {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
   text-align: right;
   font-size: 0.9375rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.dashboard-header__aiuto-link {
+  color: var(--text-secondary);
+  transition: color var(--dur-fast) var(--ease-out);
+  display: flex;
+  align-items: center;
+}
+
+.dashboard-header__aiuto-link:hover {
+  color: var(--text-primary);
 }
 
 .dashboard-header__hello {

@@ -81,10 +81,8 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     () => Boolean(preview.value) && capitalToAllocateCents.value === 0,
   );
 
-  const canSave = computed(() => Boolean(preview.value)
-    && allocationDifferenceCents.value === 0
-    && !hasNegativeAllocation.value
-    && state.value !== 'saving');
+  const canSave = computed(() => allocationDifferenceCents.value === 0
+    && !hasNegativeAllocation.value);
 
   const questions = computed(() => readiness.value?.questions ?? []);
   const warnings = computed(() => preview.value?.warnings ?? readiness.value?.warnings ?? []);
@@ -235,6 +233,19 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     }
   }
 
+  async function deletePlan(id) {
+    error.value = null;
+    try {
+      await pianoSmartApi.deletePlan(id);
+      if (selectedPlan.value?.id === id) selectedPlan.value = null;
+      await loadPlans();
+      return true;
+    } catch (err) {
+      setError(err);
+      return false;
+    }
+  }
+
   function resetFinalAllocations() {
     finalAllocations.value = clone(recommendedAllocations.value);
   }
@@ -281,6 +292,7 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     loadPlans,
     loadPlan,
     updateStatus,
+    deletePlan,
     resetFinalAllocations,
     reset,
   };

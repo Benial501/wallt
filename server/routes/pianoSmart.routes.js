@@ -6,6 +6,7 @@ const {
   listPiani,
   getPiano,
   updatePiano,
+  deletePiano,
 } = require('../controllers/pianoSmart.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 const { pianoSmartPreviewLimiter } = require('../middleware/rateLimit.middleware');
@@ -36,5 +37,6 @@ router.get('/:id', authMiddleware, validatePianoSmartId, getPiano);
 // docs/piano-smart-api-contract.md). Nessun DELETE: l'archiviazione è una
 // transizione di stato, così il piano resta verificabile.
 router.patch('/:id', authMiddleware, validateUpdatePianoSmart, updatePiano);
+router.delete('/:id', authMiddleware, validatePianoSmartId, deletePiano);
 
 module.exports = router;
