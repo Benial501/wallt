@@ -17,6 +17,7 @@ const notificheRoutes = require('./routes/notifiche.routes');
 const cronRoutes = require('./routes/cron.routes');
 const debitiRoutes = require('./routes/debiti.routes');
 const pianoSmartRoutes = require('./routes/pianoSmart.routes');
+const pianoSmartV2Routes = require('./routes/pianoSmartV2.routes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler.middleware');
 const {
   apiLimiter,
@@ -115,6 +116,7 @@ const createApp = (options = {}) => {
   app.use('/api/investimenti', investimentiRoutes);
   app.use('/api/debiti', debitiRoutes);
   app.use('/api/piano-smart', pianoSmartRoutes);
+  app.use('/api/piano-smart/v2', pianoSmartV2Routes);
   app.use('/api/importazioni', importazioniRoutes);
   app.use('/api/notifiche', notificheRoutes);
   app.use('/api/support', require('./routes/support.routes'));
