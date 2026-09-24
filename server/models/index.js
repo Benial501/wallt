@@ -31,6 +31,7 @@ const PushSubscription = require('./PushSubscription');
 const Debito = require('./Debito');
 const PianoSmart = require('./PianoSmart');
 const PianoSmartAllocazione = require('./PianoSmartAllocazione');
+const PianoSmartAzione = require('./PianoSmartAzione');
 
 // User associations
 User.hasOne(ProfiloUtente, { foreignKey: 'user_id', as: 'profilo' });
@@ -102,6 +103,10 @@ PianoSmart.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 // allocazioni orfane.
 PianoSmart.hasMany(PianoSmartAllocazione, { foreignKey: 'plan_id', as: 'allocazioni', onDelete: 'CASCADE' });
 PianoSmartAllocazione.belongsTo(PianoSmart, { foreignKey: 'plan_id', as: 'piano' });
+PianoSmart.hasMany(PianoSmartAzione, { foreignKey: 'plan_id', as: 'azioni', onDelete: 'CASCADE' });
+PianoSmartAzione.belongsTo(PianoSmart, { foreignKey: 'plan_id', as: 'piano' });
+User.hasMany(PianoSmartAzione, { foreignKey: 'user_id', as: 'azioniPianiSmart', onDelete: 'CASCADE' });
+PianoSmartAzione.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
 module.exports = {
   CategoriaPersonale,
@@ -130,4 +135,5 @@ module.exports = {
   Debito,
   PianoSmart,
   PianoSmartAllocazione,
+  PianoSmartAzione,
 };
