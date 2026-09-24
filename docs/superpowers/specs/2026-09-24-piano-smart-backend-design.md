@@ -251,9 +251,9 @@ Sette endpoint sotto `/api/piano-smart`, tutti dietro `authMiddleware`.
 
 ### Allineamento col client già committato
 
-Il frontend ha già in `main` `client/src/api/pianoSmart.api.js` e
-`pianoSmart.store.js`. Il contratto si adegua a quel codice invece di
-costringerlo a cambiare:
+Il frontend ha già scritto `client/src/api/pianoSmart.api.js` e
+`pianoSmart.store.js` sul branch `feature/piano-smart-frontend` (non ancora in
+`main`). Il contratto si adegua a quel codice invece di costringerlo a cambiare:
 
 - chiavi di richiesta `amount`, `sourceType`, `recurring`,
   `mandatoryExpenses`, `manualContextAnswers`, `allocations`;

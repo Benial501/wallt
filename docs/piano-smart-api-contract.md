@@ -468,10 +468,10 @@ Formato di WALLT: `{ "error": "…" }`. I validator aggiungono
 aggiungono `{ "errori": ["…", "…"] }` (stringhe).
 
 ⚠️ **Il campo è `error`, non `message`.** `client/src/api/pianoSmart.api.js`
-legge `error.response.data?.message`, che è sempre `undefined` su questo
-namespace: il client ricade sulla propria stringa di default. Funziona, ma per
-mostrare il messaggio del backend va letto `data.error` (e `data.errori` per
-l'elenco).
+(branch `feature/piano-smart-frontend`) legge `error.response.data?.message`,
+che è sempre `undefined` su questo namespace: il client ricade sulla propria
+stringa di default. Funziona, ma per mostrare il messaggio del backend va letto
+`data.error` (e `data.errori` per l'elenco).
 
 | Codice | Quando |
 |---|---|
