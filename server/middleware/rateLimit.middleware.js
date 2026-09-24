@@ -116,6 +116,20 @@ const avatarLimiter = createLimiter({
   message: { error: 'Troppe modifiche all\'immagine profilo. Riprova tra qualche minuto.' },
 });
 
+/**
+ * 60 anteprime / 15 min per utente — preview di Piano Smart.
+ *
+ * Ha un limite proprio perché ogni preview espande l'intero FinancialContext:
+ * conti, movimenti su tutta la finestra, obiettivi, debiti, investimenti,
+ * ricorrenti. È la richiesta più costosa dell'API per singola chiamata, e il
+ * limite globale di 1200/15min non protegge da un ciclo di preview.
+ */
+const pianoSmartPreviewLimiter = createLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: { error: 'Troppe anteprime di piano richieste. Riprova tra qualche minuto.' },
+});
+
 /** @deprecated usa importUploadLimiter / importConfirmLimiter */
 const importLimiter = importUploadLimiter;
 
@@ -129,6 +143,7 @@ module.exports = {
   importLimiter,
   importUploadLimiter,
   importConfirmLimiter,
+  pianoSmartPreviewLimiter,
   createPersistentAuthLimiter,
   PostgresRateLimitStore,
 };

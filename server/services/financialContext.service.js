@@ -76,6 +76,11 @@ async function elencoObiettivi(userId, referenceDate) {
     const progresso = calcolaProgressoObiettivo(o, referenceDate);
     return {
       id: o.id,
+      // `nome` serve a chi deve mostrare o spiegare una ripartizione per
+      // obiettivo (Piano Smart): senza di esso il breakdown parlerebbe di
+      // identificativi numerici. È l'etichetta scelta dall'utente, non un
+      // dato calcolato, e non entra in nessuna metrica.
+      nome: o.nome,
       ...progresso,
     };
   });

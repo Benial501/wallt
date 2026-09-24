@@ -48,7 +48,7 @@ Architettura: **SPA Vue 3** (`client/`) + **API REST Node.js/Express** (`server/
 ### Database
 - **PostgreSQL Supabase** con Sequelize ORM
 - Runtime Vercel sul Transaction Pooler (porta 6543); migrazioni sul Session Pooler (porta 5432)
-- Migrazioni via `sequelize-cli` (32 file in `server/migrations/`)
+- Migrazioni via `sequelize-cli` (39 file in `server/migrations/`)
 - Auto-migrate all'avvio in `server.js`
 
 ### Authentication
@@ -95,12 +95,12 @@ wallt/
 │   ├── server.js           # Entry point (DB, cron, listen)
 │   ├── config/             # database, sequelize, passport
 │   ├── constants/          # categorie.js (whitelist categorie)
-│   ├── controllers/        # 18 controller
+│   ├── controllers/        # 19 controller
 │   ├── middleware/         # auth, validation, rateLimit, stepUp, featureAccess, errorHandler
-│   ├── models/             # 22 modelli Sequelize + index.js (associazioni)
-│   ├── migrations/         # 32 migrazioni
-│   ├── routes/             # 18 route modules
-│   ├── services/           # Business logic (import, merchant, email, reset, sync, cron, notifiche)
+│   ├── models/             # 25 modelli Sequelize + index.js (associazioni)
+│   ├── migrations/         # 39 migrazioni
+│   ├── routes/             # 19 route modules
+│   ├── services/           # Business logic (import, merchant, email, reset, sync, cron, notifiche, pianoSmart)
 │   ├── tests/              # Jest (auth, security, gdpr, profilo, import, categorization, isolation, googleStepUp, financialConsistency, ricorrenti, excelParser, validateEnv)
 │   └── utils/              # logger, AppError, ageRestriction, featureAccess, oauthPopup
 ├── docs/                   # Documentazione tecnica (questa cartella)
@@ -151,6 +151,8 @@ Express API (/api/*)
 19. **Categorie di sistema**: `CATEGORIE_SISTEMA_IDS` (`da_verificare`, `altro_entrata`, `investimento`, `rendimento_investimenti`, `deposito_scommesse`, `prelievo_scommesse`) non sono eliminabili, perché WALLT le scrive da sé (fallback import, saldo iniziale conto, movimenti investimenti e scommesse). Chi aggiunge un punto in cui il codice crea un movimento con una categoria fissa deve aggiungerla a quell'elenco. `trasferimento_denaro` non è di sistema: nessuno la scrive in automatico.
 20. **Patrimonio, liquidità, essenzialità, fondo di sicurezza e debiti**: ogni calcolo ha un unico punto sorgente, sul modello della Regola 18 per le categorie. `services/financialSummary.service.js` è l'unico calcolo di patrimonio (conti attivi + investimenti attivi, Regola 12) e di patrimonio netto (patrimonio − `passivita_totale`, somma dei `Debito.saldo_residuo` attivi) — prima di questa introduzione il patrimonio era duplicato in 4 file e uno di questi era divergiuto. `services/liquidita.service.js` calcola la liquidità libera come overlay di sola lettura (saldo conti − liquidità allocata su obiettivi non completati − impegni ricorrenti mensili non ancora addebitati nel periodo corrente): non sposta né crea nulla, serve solo a non contare due volte lo stesso euro. `services/essenzialita.service.js` gestisce il campo `essenzialita` (`essenziale`/`semi_essenziale`/`discrezionale`) sulle categorie personali. `services/fondoSicurezza.service.js` calcola i mesi di copertura di un obiettivo `tipo_obiettivo: 'fondo_sicurezza'` rispetto alla media delle spese essenziali mensili. Chi tocca uno di questi concetti aggiorna il service centrale, non i punti che lo consumano.
 
+21. **Piano Smart**: il motore di ripartizione è deterministico e **non calcola nessuna metrica finanziaria propria**. `services/pianoSmart/profile.service.js` traduce `getFinancialContext` in otto fasce, `allocation.service.js` le trasforma in pesi e centesimi. Tre vincoli che non vanno erosi: (a) tutti i numeri del motore stanno in `services/pianoSmart/config.js`, versionato `smart-v1` — una costante numerica di dominio fuori da lì rende un piano salvato non più riproducibile; (b) il motore lavora in **centesimi interi** e l'invariante è `somma(allocazioni) == capitale allocabile` ESATTA, verificata da `validation.service.js` su ogni piano prodotto (una violazione lancia, non viene corretta); (c) una fascia `null` (metrica assente) **non applica** il suo modificatore, mentre una fascia che dichiara di non poter concludere (`income.stability === 'insufficiente'`) ne applica uno prudente — non sapere quanto si spende non autorizza a dire che si spende il giusto. **Piano Smart non muove denaro**: creare o modificare un piano non tocca saldi, movimenti, obiettivi, investimenti o debiti. Vedi `docs/piano-smart-api-contract.md`.
+
 ## Authentication
 
 - **Registrazione**: email/password + consenso privacy/termini obbligatorio. Crea `User` + `ProfiloUtente`.
@@ -166,13 +168,13 @@ Express API (/api/*)
 
 ## Database
 
-14 tabelle principali + 2 tabelle regole (categorie, merchant) + `categorie_personali` e `categorie_default_nascoste`. Vedi `docs/DATABASE.md`.
+14 tabelle principali + 2 tabelle regole (categorie, merchant) + `categorie_personali`, `categorie_default_nascoste` e le due di Piano Smart (`piani_smart`, `piani_smart_allocazioni`). Vedi `docs/DATABASE.md`.
 
 Entità core: `users` → `conti` → `movimenti`. Entità satellite: budget, obiettivi, scommesse, investimenti, regole categorizzazione.
 
 ## API
 
-98 endpoint REST sotto `/api/*` (incluse le 7 rotte `/api/categorie` e le due dello step-up Google, `POST /api/auth/google/challenge` e `POST /api/auth/verify-google`). Vedi `docs/API.md` per inventario completo.
+104 endpoint REST sotto `/api/*` (incluse le 7 rotte `/api/categorie`, le due dello step-up Google — `POST /api/auth/google/challenge` e `POST /api/auth/verify-google` — e le 6 di Piano Smart). Vedi `docs/API.md` per inventario completo e `docs/piano-smart-api-contract.md` per il contratto di Piano Smart.
 
 Comunicazione: Axios con `baseURL = VITE_API_URL` normalizzato da `client/src/config/api.js` (default `http://localhost:3000/api`), header `Authorization: Bearer <token>`.
 
@@ -213,12 +215,13 @@ Configurazione DB: `server/config/database.js` accetta `DATABASE_URL` **oppure**
 | **Scommesse ↔ Conti sync** | Bidirezionale, può creare/eliminare conti | `scommesseContoSync.service.js` |
 | **Categorizzazione** | Whitelist in 6+ file server + frontend. `categorie.service.list()` è l'unico filtro che tiene fuori dalla cascata le categorie eliminate dall'utente: cambiarne la semantica le fa riapparire ovunque | `constants/categorie.js`, `categorie.service.js`, `CategoryMatcherService.js` |
 | **Cron ricorrenti** | Crea movimenti automaticamente ogni giorno | `ricorrenti.service.js` |
-| **Migrazioni DB** | Auto-run all'avvio SOLO fuori produzione (disabilitato quando `NODE_ENV=production`, vedi `RUN_MIGRATIONS_ON_BOOT`); 32 file con possibili duplicati. Su Supabase si lanciano a mano con `npm run migrate:production` (`NODE_ENV=migration` + `DATABASE_MIGRATION_URL`) | `server.js`, `migrations/` |
+| **Migrazioni DB** | Auto-run all'avvio SOLO fuori produzione (disabilitato quando `NODE_ENV=production`, vedi `RUN_MIGRATIONS_ON_BOOT`); 39 file con possibili duplicati. Su Supabase si lanciano a mano con `npm run migrate:production` (`NODE_ENV=migration` + `DATABASE_MIGRATION_URL`) | `server.js`, `migrations/` |
 | **Feature access minori** | Logica duplicata frontend/backend | `featureAccess.js` (client + server), `ageRestriction.js` |
 | **Notifiche** | Regole anti-spam, deduplica e fuso orario: una modifica sbagliata trasforma il sistema in spam. Il calcolo del budget è condiviso con l'API budget | `services/notifiche/`, `services/budgetStato.service.js` |
 | **Hook budget post-movimento** | `valutaBudgetDopoMovimento` è chiamata (awaited) dopo il commit in `createMovimento`/`updateMovimento` e dopo l'import: deve restare fuori dalla transazione e non lanciare mai | `movimenti.controller.js`, `importazioni.controller.js`, `NotificheGenerator.js` |
 | **Stato delle letture** | `creaRisorsa` garantisce che un errore non azzeri i dati e che una risposta sorpassata non sovrascriva una più recente. Cambiarne la semantica rimette in circolo il difetto per cui un errore di rete sembrava una perdita di dati | `utils/risorsa.js`, `components/common/DataState.vue` |
 | **Filtri dei movimenti** | Un filtro che perde l'isolamento per utente è un difetto di sicurezza. `where.user_id` resta la prima condizione e i filtri si aggiungono | `movimenti.controller.js`, `validation.middleware.js`, `server/tests/movimentiFiltri.test.js` |
+| **Piano Smart** | Motore deterministico: i numeri stanno tutti in `config.js` (versionato), gli importi in centesimi interi, l'invariante della somma è verificato a ogni piano. Spostare una costante fuori dalla config, o usare i float, rompe la riproducibilità di piani già salvati. Nessuna scrittura finanziaria: le sole tabelle scritte sono `piani_smart` e `piani_smart_allocazioni` | `services/pianoSmart/`, `controllers/pianoSmart.controller.js`, `docs/piano-smart-api-contract.md` |
 | **Patrimonio/liquidità/essenzialità/fondo sicurezza** | Calcolo unico e condiviso da più endpoint (patrimonio, andamento, liquidità, copertura fondo sicurezza): duplicarlo in un controller lo fa divergere silenziosamente, come già successo prima di centralizzarlo | `services/financialSummary.service.js`, `services/liquidita.service.js`, `services/essenzialita.service.js`, `services/fondoSicurezza.service.js` |
 
 ## Known Issues
@@ -229,7 +232,7 @@ Configurazione DB: `server/config/database.js` accetta `DATABASE_URL` **oppure**
 4. ~~**Codice morto**: componenti dashboard non usati, `PlaceholderView.vue`~~ — **Risolto** (`9655ac4`): nessuno dei cinque file era importato; rimossi anche perché `GlassBalanceCard.vue` conteneva "Patrimonio Totale", un'etichetta concorrente per lo stesso numero ora centralizzato nel glossario (Coding Rule 18). Resta `minorRestriction.middleware.js`, fuori dal perimetro di questo sotto-progetto (server, non toccato): vedi Coding Rule 12.
 5. ~~**`.env.test` non in `.gitignore`**~~ — **Risolto**: aggiunto a `.gitignore` e rimosso dal tracking git. Era stato committato in 2 commit con una password DB reale (locale/dev): quella password va considerata compromessa e ruotata prima del lancio (MANUAL ACTION, vedi `docs/SECURITY.md`).
 6. **Operazioni distruttive senza riverifica di identità per gli account Google** (rischio accettato esplicitamente, iterazione 4): `reset-account`, `delete-account` ed `esporta` richiedono lo step-up solo agli utenti con password locale. Per gli account Google bastano JWT + stringa pubblica. Da richiudere prima della produzione: registrare l'origin JavaScript in Google Cloud e rimettere `requireStepUp` sulle tre rotte in `impostazioni.routes.js`. Vedi Authentication, `docs/SECURITY.md` e `docs/DECISIONS.md`.
-7. **Test coverage**: 44 suite — 542 test (fra cui `categorieDefault` per l'eliminazione per-utente delle predefinite, `confrontoPeriodi` per gli intervalli delle Analisi, `analisiConfronto` per gli endpoint che li usano, `movimentiFiltri` per ricerca, ordinamento e isolamento dei nuovi filtri, e `debitiCrud` per CRUD e isolamento dei debiti). Isolamento cross-user, coerenza saldi/movimenti/trasferimenti (incluse race condition), step-up Google, cron ricorrenti e config produzione coperti. Non coperti: budget/obiettivi/investimenti/scommesse a livello di logica di business (solo isolamento).
+7. **Test coverage**: 66 suite — 977 test. Fra cui `categorieDefault` (eliminazione per-utente delle predefinite), `confrontoPeriodi`/`analisiConfronto` (intervalli delle Analisi), `movimentiFiltri` (ricerca, ordinamento, isolamento), `debitiCrud`, e le sette di Piano Smart: `pianoSmartMoney`, `pianoSmartProfile`, `pianoSmartEngine`, `pianoSmartInvarianti` (241 contesti generati × 9 importi), `pianoSmartScenari`, `pianoSmartApi`, `pianoSmartSecurity`. Le prime cinque sono pure e girano anche in `npm run test:unit`. Isolamento cross-user, coerenza saldi/movimenti/trasferimenti (incluse race condition), step-up Google, cron ricorrenti e config produzione coperti. Non coperti: budget/obiettivi/investimenti/scommesse a livello di logica di business (solo isolamento).
 8. **Migrazioni duplicate**: `add-social-auth` e `add_auth_provider` fanno cose simili.
 9. ~~**Session reset incompleto**~~ — **Risolto**: logout non puliva `recentiHome` nello store `movimenti` né i campi `panoramica`/`analisi` interni allo store `scommesse` (lo store `analisi` principale era già a posto). Da quando i sette store che alimentano la dashboard leggono da `creaRisorsa`, `resetPiniaStores()` (`utils/session.js`) richiama il `reset()` di ciascuno invece di elencarne i campi a mano, e quel `reset()` azzera anche le risorse interne: il sintomo sparisce insieme alla causa (`f565764`).
 10. ~~**Nessuna CI/CD**~~ — **Risolto**: `.github/workflows/ci.yml` esegue test backend con un service container PostgreSQL + test/build frontend su ogni push/PR su `main`.

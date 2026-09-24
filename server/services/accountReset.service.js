@@ -16,6 +16,7 @@ const {
   Notifica,
   PreferenzeNotifiche,
   PushSubscription,
+  PianoSmart,
 } = require('../models');
 
 const isOAuthProvider = (authProvider) => !!authProvider && authProvider !== 'local';
@@ -74,6 +75,13 @@ const deleteAllUserData = async (userId, transaction) => {
   // eliminati: tenerle vorrebbe dire mostrare avvisi su dati che non
   // esistono più. Le preferenze restano (sono impostazioni, non dati).
   await Notifica.destroy({ where: { user_id: userId }, transaction });
+
+  // Un Piano Smart non muove denaro, ma il suo context_snapshot contiene
+  // aggregati finanziari personali (medie di entrate e spese, copertura del
+  // fondo, pressione debitoria): è dato finanziario a tutti gli effetti, e
+  // una cancellazione "di tutti i dati finanziari" che lo lasciasse indietro
+  // sarebbe incompleta. Le allocazioni cadono per CASCADE (FK plan_id).
+  await PianoSmart.destroy({ where: { user_id: userId }, transaction });
 };
 
 /**

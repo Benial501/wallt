@@ -315,6 +315,59 @@ prima esecuzione del cron.
 
 Nessuna FK verso `users`: rate limit persistente lato auth, usato prima/indipendentemente dall'identificazione dell'utente.
 
+### `piani_smart`
+| Campo | Tipo | Note |
+|---|---|---|
+| `id` | INTEGER PK AI | |
+| `user_id` | INTEGER FK users | CASCADE |
+| `incoming_amount` | DECIMAL(12,2) | Somma da ripartire, dichiarata dall'utente |
+| `source_type` | STRING(30) | CHECK: `stipendio`/`pensione`/`compenso`/`bonus`/`regalo`/`rimborso`/`vendita`/`altro` |
+| `source_recurring` | BOOLEAN | Se la somma si ripete: cambia la ripartizione |
+| `mandatory_expenses` | DECIMAL(12,2) | Spese già dovute, confermate dall'utente |
+| `allocatable_capital` | DECIMAL(12,2) | `max(incoming − mandatory, 0)` |
+| `recommended_total` | DECIMAL(12,2) | Uguale a `allocatable_capital`: ciò che il motore ha ripartito |
+| `engine_version` | STRING(20) | `smart-v1` — riferimento a `services/pianoSmart/config.js` |
+| `context_snapshot` | JSONB | Aggregati con cui il piano è stato deciso + `capsCents` + pesi |
+| `reason_codes` | JSONB | Elenco completo dei codici emessi |
+| `status` | STRING(20) | CHECK: `draft`/`active`/`completed`/`archived`, default `draft` |
+
+CHECK aggiuntivo `piani_smart_importi_non_negativi`: nessuno dei quattro importi
+può essere negativo, nemmeno per un bug applicativo. Indici su
+`(user_id, created_at)` e `(user_id, status)`.
+
+`context_snapshot` contiene **solo aggregati** (medie, coperture, pressioni,
+finestre temporali, risposte manuali), mai una copia dei movimenti: serve a poter
+rispondere "perché questo piano", non a duplicare lo storico. Conserva anche i
+**cap in centesimi**, perché un PATCH successivo sulle allocazioni va rivalidato
+contro i limiti validi quando il piano è stato creato — fra creazione e modifica
+l'utente può aver versato sul fondo, e i cap di oggi rifiuterebbero una scelta
+legittima allora.
+
+Nessuna colonna qui muove denaro: Piano Smart V1 è pianificazione.
+`piani_smart` non ha FK verso `movimenti`, `conti` o `obiettivi`.
+
+### `piani_smart_allocazioni`
+| Campo | Tipo | Note |
+|---|---|---|
+| `id` | INTEGER PK AI | |
+| `plan_id` | INTEGER FK piani_smart | CASCADE |
+| `category` | STRING(20) | CHECK: `needs`/`safety`/`goals`/`future`/`freedom` |
+| `recommended_amount` | DECIMAL(12,2) | Quota proposta dal motore, mai modificabile |
+| `final_amount` | DECIMAL(12,2) | Quota confermata o modificata dall'utente |
+| `recommended_percentage` | DECIMAL(5,2) NULL | `null` a capitale allocabile zero |
+| `final_percentage` | DECIMAL(5,2) NULL | `null` a capitale allocabile zero |
+| `metadata` | JSONB NULL | `goals`: breakdown per obiettivo; `safety`: gap e cap applicato |
+| `reason_codes` | JSONB | Sottoinsieme pertinente alla categoria |
+
+**UNIQUE `(plan_id, category)`**: è la ragione per cui le cinque categorie sono
+righe e non un JSON. Rende "esattamente cinque, senza duplicati" una garanzia del
+database invece di una convenzione applicativa, permette di aggiornare una
+categoria con una UPDATE (senza perdere le `recommended`) e lascia
+`sum(final_amount)` verificabile in SQL.
+
+Le percentuali sono nullable per progetto: a capitale allocabile zero una
+percentuale non esiste (0/0), e scrivere `0.00` dichiarerebbe un dato che non c'è.
+
 ## Relazioni testuali
 
 ```
@@ -327,6 +380,8 @@ User
 ├── Movimento (1:N)
 ├── BudgetMensile (1:N)
 │   └── BudgetCategoria (1:N)
+├── PianoSmart (1:N)
+│   └── PianoSmartAllocazione (1:N) — esattamente 5, UNIQUE (plan_id, category)
 ├── Obiettivo (1:N)
 │   └── ObiettivoContributo (1:N)
 ├── PiattaformaScommesse (1:N)

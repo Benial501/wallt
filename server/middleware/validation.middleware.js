@@ -2,6 +2,8 @@ const { assertCategory } = require('../services/categorie.service');
 const { NATURE_ENTRATA, PERIODICITA_ENTRATA } = require('../services/entrate.service');
 const { LIQUIDABILITA } = require('../services/investimentiLiquidabilita.service');
 const { STATI_RICORRENZA } = require('../services/ricorrenti.service');
+const { SOURCE_TYPES, STATI_PIANO, CHIAVI_CONTESTO_MANUALE } = require('../constants/pianoSmart');
+const { isImportoValido, toCents } = require('../services/pianoSmart/money');
 const { oggiLocale, FUSO_DEFAULT } = require('../utils/dateRome');
 const {
   UNITA_VALIDE, QUANTITA_MIN, QUANTITA_MAX, QUANTITA_MAX_PER_UNITA,
@@ -1305,6 +1307,80 @@ const validateRimuoviPushSubscription = [
   validate,
 ];
 
+// ---------------------------------------------------------------------------
+// Piano Smart
+// ---------------------------------------------------------------------------
+
+/**
+ * Importo monetario di Piano Smart.
+ *
+ * Non riusa `nonNegativeDecimal` perché il criterio è più severo: qui `isDecimal`
+ * accetterebbe la notazione esponenziale e i numeri JS con più di due decimali,
+ * mentre Piano Smart deve rifiutare qualunque valore che non sia convertibile in
+ * centesimi interi senza ambiguità. `1.005` non va arrotondato a `1.01`: va
+ * rifiutato, perché arrotondare significherebbe decidere al posto dell'utente
+ * su una cifra di denaro (vedi services/pianoSmart/money.js).
+ */
+const importoPianoSmart = (field, message, { optional = false } = {}) => {
+  let chain = body(field);
+  if (optional) chain = chain.optional({ values: 'null' });
+  return chain.custom((value) => isImportoValido(value)).withMessage(message);
+};
+
+const validatePianoSmartInput = [
+  importoPianoSmart('amount', 'Importo non valido: usa un numero con al massimo due decimali')
+    .bail()
+    .custom((value) => toCents(value) > 0)
+    .withMessage('L\'importo deve essere maggiore di zero'),
+  importoPianoSmart('mandatoryExpenses', 'Spese obbligatorie non valide', { optional: true }),
+  body('sourceType')
+    .isIn(SOURCE_TYPES)
+    .withMessage('Origine della somma non valida'),
+  // `recurring` è obbligatorio ed esplicito: il tipo di origine suggerisce un
+  // default nell'interfaccia, ma il motore non deve indovinare se una somma si
+  // ripete — cambia la ripartizione.
+  body('recurring')
+    .isBoolean({ strict: true })
+    .withMessage('Indica se la somma si ripete'),
+  body('manualContextAnswers')
+    .optional({ values: 'null' })
+    .isObject()
+    .withMessage('Le risposte di contesto devono essere un oggetto'),
+  body('manualContextAnswers')
+    .optional({ values: 'null' })
+    .custom((valore) => Object.keys(valore || {})
+      .every((chiave) => CHIAVI_CONTESTO_MANUALE.includes(chiave)))
+    .withMessage('Risposta di contesto non riconosciuta'),
+  validate,
+];
+
+/** Le allocazioni finali: forma e importi. La somma, i cap e la completezza
+ * delle cinque categorie NON si validano qui — dipendono dal capitale
+ * allocabile, che il controller conosce solo dopo aver ricalcolato il piano
+ * (vedi pianoSmart.controller.js e services/pianoSmart/validation.service.js). */
+const allocazioniFinali = body('allocations')
+  .optional({ values: 'null' })
+  .isArray({ min: 1, max: 5 })
+  .withMessage('Le allocazioni devono essere un elenco di massimo cinque categorie');
+
+const validateCreatePianoSmart = [
+  ...validatePianoSmartInput.slice(0, -1),
+  allocazioniFinali,
+  validate,
+];
+
+const validateUpdatePianoSmart = [
+  idParam,
+  body('status')
+    .optional({ values: 'null' })
+    .isIn(STATI_PIANO)
+    .withMessage('Stato del piano non valido'),
+  allocazioniFinali,
+  validate,
+];
+
+const validatePianoSmartId = [idParam, validate];
+
 module.exports = {
   validate,
   handleValidation: validate,
@@ -1358,4 +1434,8 @@ module.exports = {
   validateDeletePiattaformaScommesse,
   validateMovimentoScommesse,
   validateUpdateProfiloFinanziario,
+  validatePianoSmartInput,
+  validateCreatePianoSmart,
+  validateUpdatePianoSmart,
+  validatePianoSmartId,
 };
