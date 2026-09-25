@@ -39,6 +39,11 @@ const Conto = sequelize.define('Conto', {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
   },
+  nascosto: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
 }, {
   tableName: 'conti',
 });

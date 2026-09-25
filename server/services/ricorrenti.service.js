@@ -4,7 +4,7 @@ const { Movimento, Conto, sequelize } = require('../models');
 const logger = require('../utils/logger');
 
 const ROME_TIME_ZONE = 'Europe/Rome';
-const FREQUENZE_SUPPORTATE = ['mensile', 'settimanale', 'annuale'];
+const FREQUENZE_SUPPORTATE = ['mensile', 'settimanale', 'annuale', 'una_tantum'];
 const STATI_RICORRENZA = ['attiva', 'sospesa', 'terminata'];
 let activeRun = null;
 
@@ -25,6 +25,23 @@ const ricorrenzaAttiva = (movimento) => movimento.ricorrente === true
  * contenere.
  */
 const whereRicorrenzaAttiva = () => ({ ricorrente: true, stato_ricorrenza: 'attiva' });
+
+/**
+ * Se una riga di movimento muove davvero denaro sul conto.
+ *
+ * Una spesa programmata (ricorrente + frequenza 'una_tantum') è una PROMESSA,
+ * non un movimento avvenuto: il denaro resta sul conto finché il cron non
+ * crea la sua occorrenza alla data prevista. Sta qui, accanto alle altre
+ * definizioni della semantica 'una_tantum', perché la leggono sia chi scrive
+ * i saldi (movimenti.controller.js: create, update e delete) sia chi li
+ * riepiloga (conti.controller.js, per la variazione del mese): se divergessero,
+ * il patrimonio e la sua variazione racconterebbero due storie diverse dello
+ * stesso euro. Il saldo effettivo la conta già una volta come impegno non
+ * ancora addebitato (liquidita.service.js).
+ */
+const muoveSaldo = (movimento) => !(
+  movimento.ricorrente && movimento.ricorrente_frequenza === 'una_tantum'
+);
 
 /**
  * Stato di una ricorrenza letta da un record: qualunque valore fuori da
@@ -96,9 +113,35 @@ const periodoPerFrequenza = (frequenza, current) => {
   return null;
 };
 
+/**
+ * Chiave di deduplica di una singola ricorrenza. Per le frequenze
+ * periodiche è il periodo corrente; per una spesa programmata è la sua
+ * data, che è già una chiave unica di per sé (si addebita una volta sola).
+ * Sta qui e non in liquidita.service.js perché il cron e la liquidità
+ * devono usare la stessa chiave per costruzione: se divergessero, la
+ * liquidità sottrarrebbe uscite già addebitate.
+ */
+const periodoPerRicorrenza = (movimento, current) => (
+  movimento.ricorrente_frequenza === 'una_tantum'
+    ? (movimento.ricorrente_data || null)
+    : periodoPerFrequenza(movimento.ricorrente_frequenza, current)
+);
+
 /** Decide se oggi è il giorno giusto per un movimento ricorrente, e la chiave di deduplica del periodo. */
 const valutaOccorrenza = (movimento, current) => {
-  const periodo = periodoPerFrequenza(movimento.ricorrente_frequenza, current);
+  // La chiave di periodo viene da periodoPerRicorrenza: è l'unica
+  // definizione condivisa con liquidita.service.js (vedi il suo commento),
+  // così cron e liquidità non possono divergere su cosa identifica
+  // un'occorrenza.
+  const periodo = periodoPerRicorrenza(movimento, current);
+  // Una spesa programmata è dovuta dal suo giorno in poi, non solo quel
+  // giorno: se il cron non gira (deploy, downtime) viene recuperata al
+  // passaggio successivo invece di sparire in silenzio. L'indice unico
+  // (ricorrenza_origine_id, ricorrenza_periodo) garantisce che avvenga una
+  // volta sola.
+  if (movimento.ricorrente_frequenza === 'una_tantum') {
+    return { dovuto: Boolean(periodo) && current.date >= periodo, periodo };
+  }
   if (movimento.ricorrente_frequenza === 'mensile') {
     const giornoTarget = movimento.ricorrente_giorno || 1;
     return { dovuto: current.day === giornoTarget, periodo };
@@ -184,6 +227,15 @@ async function runProcessaRicorrenti(now) {
           ricorrenza_periodo: periodo,
         }, { transaction });
 
+        // Una spesa programmata si esegue una volta sola: chiuderla qui,
+        // nella stessa transazione del movimento, la toglie dagli impegni
+        // della liquidità (whereRicorrenzaAttiva la esclude) senza lasciare
+        // una riga che continua a bloccare denaro già speso.
+        if (origine.ricorrente_frequenza === 'una_tantum') {
+          origine.stato_ricorrenza = 'terminata';
+          await origine.save({ transaction });
+        }
+
         return 'processed';
       });
 
@@ -230,6 +282,7 @@ function avviaCronRicorrenti() {
 
 module.exports = {
   processaRicorrenti, avviaCronRicorrenti, getRomeDateParts, FREQUENZE_SUPPORTATE, periodoPerFrequenza,
+  periodoPerRicorrenza,
   STATI_RICORRENZA, ricorrenzaAttiva, cambiaStatoRicorrenza,
-  whereRicorrenzaAttiva, normalizzaStatoRicorrenza,
+  whereRicorrenzaAttiva, normalizzaStatoRicorrenza, muoveSaldo,
 };

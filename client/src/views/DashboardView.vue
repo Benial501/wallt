@@ -7,6 +7,7 @@ import GettingStartedCard from '@/components/help/GettingStartedCard.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import WOverviewCarousel from '@/components/custom/WOverviewCarousel.vue';
 import RecentTransactions from '@/components/dashboard/RecentTransactions.vue';
+import ProssimeSpese from '@/components/dashboard/ProssimeSpese.vue';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
 import { useAuthStore } from '@/stores/auth.store';
 import { useContiStore } from '@/stores/conti.store';
@@ -32,7 +33,7 @@ const obiettiviStore = useObiettiviStore();
 const helpStore = useHelpStore();
 const router = useRouter();
 const { canAccessScommesseFeature, canAccessInvestimentiFeature } = storeToRefs(authStore);
-const { recentiHome } = storeToRefs(movimentiStore);
+const { recentiHome, ricorrenti } = storeToRefs(movimentiStore);
 const { gettingStartedVisible } = storeToRefs(helpStore);
 
 const oggi = dayjs();
@@ -167,6 +168,7 @@ const checkHaMovimenti = async () => {
 const loadDashboardMovimenti = () => Promise.all([
   movimentiStore.fetchRecentiHome({ limit: 6 }),
   movimentiStore.fetchOggi(meseStart, oggiStr, oggiStr),
+  movimentiStore.fetchRicorrenti(),
 ]);
 
 const loadBudget = async () => {
@@ -278,6 +280,8 @@ onMounted(async () => {
       :conti="contiStore.contiAttivi"
       :patrimonio="contiStore.patrimonioTotale"
       :composizione="contiStore.composizionePatrimonio"
+      :saldo-effettivo="contiStore.saldoEffettivo"
+      :saldo-effettivo-dettaglio="contiStore.saldoEffettivoDettaglio"
       :entrate-mese="entrateMese"
       :uscite-mese="usciteMese"
       :entrate-oggi="movimentiStore.entrateOggi"
@@ -322,6 +326,13 @@ onMounted(async () => {
     <button type="button" class="dashboard-view__cta" @click="openForm('uscita')">
       + Aggiungi transazione
     </button>
+
+    <ProssimeSpese
+      :movimenti="ricorrenti"
+      :stato="movimentiStore.risorsaRicorrenti.stato"
+      :last-updated="movimentiStore.risorsaRicorrenti.lastUpdated"
+      @riprova="movimentiStore.risorsaRicorrenti.riprova()"
+    />
 
     <RecentTransactions
       :movimenti="recentiHome"

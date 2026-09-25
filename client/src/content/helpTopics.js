@@ -163,7 +163,19 @@ const TOPICS = [
       'Un conto eliminato non entra più nel totale: i suoi movimenti restano però nello storico.',
       'Il "Risultato del mese" è entrate meno uscite, senza i trasferimenti.',
     ],
-    related: ['trasferimenti', 'dashboard-riepilogo'],
+    related: ['trasferimenti', 'dashboard-riepilogo', 'saldo-effettivo-come-si-calcola'],
+  },
+  {
+    id: 'saldo-effettivo-come-si-calcola',
+    title: 'Come si calcola il saldo effettivo',
+    summary: 'Saldo effettivo = conti non nascosti − soldi già su obiettivi − spese in arrivo.',
+    paragraphs: [
+      'Il "Patrimonio totale" dice quanto possiedi. Il "Saldo effettivo", mostrato subito sotto, dice quanto puoi spendere davvero: di solito è più basso, ed è normale che lo sia.',
+      'Un conto che hai nascosto resta nel patrimonio, ma esce dal saldo effettivo: se non lo vedi in giro non lo consideri disponibile, quindi WALLT non te lo conta come spendibile.',
+      'I soldi che hai già messo su un obiettivo non completato sono tolti anche loro: sono destinati a quello scopo, non sono liberi per altro.',
+      'Vengono scalate anche le spese che sai già arrivare: le ricorrenti di questo mese non ancora addebitate e le spese programmate entro i prossimi 30 giorni, anche se il pagamento non è ancora avvenuto.',
+    ],
+    related: ['patrimonio-come-si-calcola'],
   },
   {
     id: 'budget-come-funziona',
@@ -305,7 +317,7 @@ export const HELP_SECTIONS = [
     id: 'strumenti',
     title: 'Home, budget, obiettivi e analisi',
     description: 'Come leggere i riepiloghi e cosa fanno davvero i pulsanti.',
-    topics: ['patrimonio-come-si-calcola', 'dashboard-riepilogo', 'budget-come-funziona', 'obiettivi-contributi', 'analisi-come-funziona', 'piano-smart'],
+    topics: ['patrimonio-come-si-calcola', 'saldo-effettivo-come-si-calcola', 'dashboard-riepilogo', 'budget-come-funziona', 'obiettivi-contributi', 'analisi-come-funziona', 'piano-smart'],
   },
   {
     id: 'notifiche',

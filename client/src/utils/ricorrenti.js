@@ -1,10 +1,11 @@
 import dayjs from 'dayjs';
 import { creaRisorsa } from './risorsa.js';
 
-// Uniche frequenze processate dal cron (server/services/ricorrenti.service.js):
+// Frequenze processate dal cron (server/services/ricorrenti.service.js) più
+// 'una_tantum' (spesa programmata con data fissa, addebitata una sola volta):
 // un valore storico diverso (es. 'giornaliera', mai realmente supportata) va
 // normalizzato a 'mensile' quando si riapre un movimento ricorrente esistente.
-export const FREQUENZE_VALIDE = ['mensile', 'settimanale', 'annuale'];
+export const FREQUENZE_VALIDE = ['mensile', 'settimanale', 'annuale', 'una_tantum'];
 
 export const GIORNI_SETTIMANA = [
   { id: 1, label: 'Lunedì' }, { id: 2, label: 'Martedì' }, { id: 3, label: 'Mercoledì' },
@@ -55,9 +56,16 @@ export const prossimaEsecuzioneAnnuale = (giorno, mese, oggi = dayjs()) => {
   return questAnno.isBefore(inizioOggi) ? perAnno(inizioOggi.year() + 1) : questAnno;
 };
 
-const FREQUENZA_LABELS = { mensile: 'Ogni mese', settimanale: 'Ogni settimana', annuale: 'Ogni anno' };
+const FREQUENZA_LABELS = {
+  mensile: 'Ogni mese', settimanale: 'Ogni settimana', annuale: 'Ogni anno', una_tantum: 'Una tantum',
+};
 
 const calcolaProssimaEsecuzione = (movimento, oggi) => {
+  // Una spesa programmata non ha una cadenza da proiettare: la sua data è
+  // già scritta.
+  if (movimento.ricorrente_frequenza === 'una_tantum') {
+    return movimento.ricorrente_data ? dayjs(movimento.ricorrente_data) : oggi;
+  }
   if (movimento.ricorrente_frequenza === 'settimanale') {
     return prossimaEsecuzioneSettimanale(movimento.ricorrente_giorno, oggi);
   }
@@ -80,3 +88,24 @@ export const presentaRicorrente = (movimento, oggi = dayjs()) => ({
 });
 
 export const creaRisorsaRicorrenti = (fetcher) => creaRisorsa(fetcher, { iniziale: [] });
+
+/**
+ * Le prossime spese come le vuole la home: prima quelle programmate (sono
+ * eventi singoli e datati, l'utente le ha appuntate proprio per non
+ * dimenticarle), poi le periodiche per imminenza. Entrate, sospese e
+ * terminate restano fuori: non sono soldi in uscita nei prossimi giorni.
+ *
+ * Restituisce le voci originali arricchite con `presentazione`, così la
+ * card non ricalcola nulla e resta una vista.
+ */
+export const ordinaProssimeSpese = (movimenti = [], oggi = dayjs()) => (movimenti || [])
+  .filter((m) => m.tipo === 'uscita'
+    && m.ricorrente
+    && (m.stato_ricorrenza || 'attiva') === 'attiva')
+  .map((m) => ({ ...m, presentazione: presentaRicorrente(m, oggi) }))
+  .sort((a, b) => {
+    const gruppo = (m) => (m.ricorrente_frequenza === 'una_tantum' ? 0 : 1);
+    if (gruppo(a) !== gruppo(b)) return gruppo(a) - gruppo(b);
+    const data = (m) => m.presentazione.prossimaEsecuzione || '9999-12-31';
+    return data(a).localeCompare(data(b)) || (a.id - b.id);
+  });

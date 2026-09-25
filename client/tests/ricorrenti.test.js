@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import dayjs from 'dayjs';
 import {
   creaRisorsaRicorrenti,
+  ordinaProssimeSpese,
   presentaRicorrente,
   prossimaEsecuzione,
 } from '../src/utils/ricorrenti.js';
@@ -61,6 +62,22 @@ test('mostra sospesa e terminata senza una prossima esecuzione inventata', () =>
   }
 });
 
+test('una spesa programmata si presenta con la sua data, non con una cadenza', () => {
+  const item = presentaRicorrente({
+    tipo: 'uscita',
+    importo: '300.00',
+    descrizione: 'Concerto',
+    ricorrente: true,
+    stato_ricorrenza: 'attiva',
+    ricorrente_frequenza: 'una_tantum',
+    ricorrente_data: '2026-10-10',
+    conto: { nome: 'Conto' },
+  }, dayjs('2026-09-25'));
+
+  assert.equal(item.frequenzaLabel, 'Una tantum');
+  assert.equal(item.prossimaEsecuzione, '2026-10-10');
+});
+
 test('un fallimento produce errore e retry recupera i dati', async () => {
   let tentativi = 0;
   const risorsa = creaRisorsaRicorrenti(async () => {
@@ -74,4 +91,49 @@ test('un fallimento produce errore e retry recupera i dati', async () => {
   await risorsa.riprova();
   assert.equal(risorsa.stato.value, 'pronto');
   assert.deepEqual(risorsa.data.value, [{ id: 7 }]);
+});
+
+const spesa = (extra) => ({
+  id: extra.id,
+  tipo: 'uscita',
+  importo: '50.00',
+  descrizione: extra.descrizione || 'Spesa',
+  ricorrente: true,
+  stato_ricorrenza: 'attiva',
+  conto: { nome: 'Conto' },
+  ...extra,
+});
+
+test('le spese programmate vengono prima delle periodiche, anche se più lontane', () => {
+  const oggi = dayjs('2026-09-25');
+  const ordinate = ordinaProssimeSpese([
+    spesa({ id: 1, ricorrente_frequenza: 'mensile', ricorrente_giorno: 26 }),
+    spesa({ id: 2, ricorrente_frequenza: 'una_tantum', ricorrente_data: '2026-10-20' }),
+  ], oggi);
+
+  assert.deepEqual(ordinate.map((s) => s.id), [2, 1]);
+});
+
+test('fra spese dello stesso gruppo vince la più imminente', () => {
+  const oggi = dayjs('2026-09-25');
+  const ordinate = ordinaProssimeSpese([
+    spesa({ id: 1, ricorrente_frequenza: 'annuale', ricorrente_giorno: 1, ricorrente_mese: 12 }),
+    spesa({ id: 2, ricorrente_frequenza: 'settimanale', ricorrente_giorno: 6 }),
+    spesa({ id: 3, ricorrente_frequenza: 'una_tantum', ricorrente_data: '2026-11-01' }),
+    spesa({ id: 4, ricorrente_frequenza: 'una_tantum', ricorrente_data: '2026-09-30' }),
+  ], oggi);
+
+  assert.deepEqual(ordinate.map((s) => s.id), [4, 3, 2, 1]);
+});
+
+test('entrate, sospese e terminate restano fuori dalle prossime spese', () => {
+  const oggi = dayjs('2026-09-25');
+  const ordinate = ordinaProssimeSpese([
+    spesa({ id: 1, tipo: 'entrata', ricorrente_frequenza: 'mensile', ricorrente_giorno: 27 }),
+    spesa({ id: 2, stato_ricorrenza: 'sospesa', ricorrente_frequenza: 'mensile', ricorrente_giorno: 27 }),
+    spesa({ id: 3, stato_ricorrenza: 'terminata', ricorrente_frequenza: 'una_tantum', ricorrente_data: '2026-09-26' }),
+    spesa({ id: 4, ricorrente_frequenza: 'mensile', ricorrente_giorno: 28 }),
+  ], oggi);
+
+  assert.deepEqual(ordinate.map((s) => s.id), [4]);
 });

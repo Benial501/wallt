@@ -10,6 +10,7 @@ const {
 } = require('../services/scommesseContoSync.service');
 const { calcolaPatrimonio, calcolaPatrimonioNetto } = require('../services/financialSummary.service');
 const { calcolaLiquidita } = require('../services/liquidita.service');
+const { muoveSaldo } = require('../services/ricorrenti.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
 
@@ -54,7 +55,9 @@ const getConti = async (req, res) => {
 const createConto = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
-    const { nome, tipo: tipoRaw, saldo_iniziale = 0, icona, colore } = req.body;
+    const {
+      nome, tipo: tipoRaw, saldo_iniziale = 0, icona, colore, nascosto = false,
+    } = req.body;
     const nomeNorm = normalizeContoNome(nome);
     const tipo = normalizeContoTipo(tipoRaw);
 
@@ -81,6 +84,7 @@ const createConto = async (req, res, next) => {
         icona: icona || inattivo.icona || '💳',
         colore: colore || inattivo.colore || '#00D4AA',
         ordine: (maxOrdine || 0) + 1,
+        nascosto,
         ...(saldo > 0 && saldoPrecedente === 0 ? { saldo } : {}),
       }, { transaction: t });
 
@@ -114,6 +118,7 @@ const createConto = async (req, res, next) => {
       colore: colore || '#00D4AA',
       ordine: (maxOrdine || 0) + 1,
       attivo: true,
+      nascosto,
     }, { transaction: t });
 
     if (saldo > 0) {
@@ -155,12 +160,15 @@ const updateConto = async (req, res) => {
       return res.status(404).json({ message: 'Conto non trovato' });
     }
 
-    const { nome, icona, colore, ordine, saldo } = req.body;
+    const {
+      nome, icona, colore, ordine, saldo, nascosto,
+    } = req.body;
     const updateData = {};
     if (nome !== undefined) updateData.nome = nome;
     if (icona !== undefined) updateData.icona = icona;
     if (colore !== undefined) updateData.colore = colore;
     if (ordine !== undefined) updateData.ordine = ordine;
+    if (nascosto !== undefined) updateData.nascosto = nascosto;
 
     await conto.update(updateData, { transaction: t });
     await syncPiattaformaFromContoMeta(conto, updateData, t);
@@ -209,10 +217,13 @@ const deleteConto = async (req, res) => {
 
 const getPatrimonioTotale = async (req, res) => {
   try {
-    const {
+    const [{
       patrimonio_conti: totaleConti, patrimonio_investimenti: totaleInvestimenti,
       patrimonio_totale: totale, passivita_totale, patrimonio_netto,
-    } = await calcolaPatrimonioNetto(req.userId);
+    }, liquidita] = await Promise.all([
+      calcolaPatrimonioNetto(req.userId),
+      calcolaLiquidita(req.userId),
+    ]);
 
     const now = new Date();
     const primoGiorno = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -226,8 +237,14 @@ const getPatrimonioTotale = async (req, res) => {
       },
     });
 
+    // La variazione del mese è una differenza di patrimonio, quindi conta solo
+    // il denaro che si è davvero mosso: una spesa programmata non ancora
+    // addebitata non ha cambiato il patrimonio (vedi muoveSaldo), e sommarla
+    // qui farebbe dire alla dashboard "sei in calo di 300 €" per un'uscita che
+    // non è ancora avvenuta. Quando il cron la addebita crea la sua occorrenza,
+    // che invece viene contata.
     let deltaMese = 0;
-    movimentiMese.forEach((m) => {
+    movimentiMese.filter(muoveSaldo).forEach((m) => {
       if (m.tipo === 'entrata') deltaMese += toNumber(m.importo);
       else if (m.tipo === 'uscita') deltaMese -= toNumber(m.importo);
     });
@@ -246,6 +263,18 @@ const getPatrimonioTotale = async (req, res) => {
       variazione_percentuale,
       passivita_totale,
       patrimonio_netto,
+      // Il saldo effettivo NON viene ricalcolato qui: arriva da
+      // liquidita.service.js, unico punto in cui si decide cosa è
+      // spendibile (Regola 20). Viaggia insieme al patrimonio perché la
+      // home li mostra uno sotto l'altro: due chiamate separate potrebbero
+      // arrivare disallineate.
+      saldo_effettivo: liquidita.saldo_effettivo,
+      saldo_effettivo_dettaglio: {
+        conti_visibili: liquidita.saldo_conti_visibili,
+        conti_nascosti: liquidita.saldo_conti_nascosti,
+        obiettivi: liquidita.liquidita_allocata,
+        impegni: liquidita.impegni_pertinenti,
+      },
     });
   } catch (error) {
     logger.error('Errore getPatrimonioTotale', { err: error });
