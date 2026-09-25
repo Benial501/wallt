@@ -59,7 +59,7 @@ const Movimento = sequelize.define('Movimento', {
     defaultValue: 'sconosciuta',
   },
   ricorrente_frequenza: {
-    type: DataTypes.ENUM('giornaliera', 'settimanale', 'mensile', 'annuale'),
+    type: DataTypes.ENUM('giornaliera', 'settimanale', 'mensile', 'annuale', 'una_tantum'),
     allowNull: true,
   },
   ricorrente_giorno: {
@@ -68,6 +68,13 @@ const Movimento = sequelize.define('Movimento', {
   },
   ricorrente_mese: {
     type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  // Data dell'addebito per le spese programmate (ricorrente_frequenza =
+  // 'una_tantum'). Per le altre frequenze resta null: la schedulazione
+  // vive in ricorrente_giorno/ricorrente_mese.
+  ricorrente_data: {
+    type: DataTypes.DATEONLY,
     allowNull: true,
   },
   ricorrenza_origine_id: {
