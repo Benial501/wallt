@@ -27,6 +27,23 @@ const ricorrenzaAttiva = (movimento) => movimento.ricorrente === true
 const whereRicorrenzaAttiva = () => ({ ricorrente: true, stato_ricorrenza: 'attiva' });
 
 /**
+ * Se una riga di movimento muove davvero denaro sul conto.
+ *
+ * Una spesa programmata (ricorrente + frequenza 'una_tantum') è una PROMESSA,
+ * non un movimento avvenuto: il denaro resta sul conto finché il cron non
+ * crea la sua occorrenza alla data prevista. Sta qui, accanto alle altre
+ * definizioni della semantica 'una_tantum', perché la leggono sia chi scrive
+ * i saldi (movimenti.controller.js: create, update e delete) sia chi li
+ * riepiloga (conti.controller.js, per la variazione del mese): se divergessero,
+ * il patrimonio e la sua variazione racconterebbero due storie diverse dello
+ * stesso euro. Il saldo effettivo la conta già una volta come impegno non
+ * ancora addebitato (liquidita.service.js).
+ */
+const muoveSaldo = (movimento) => !(
+  movimento.ricorrente && movimento.ricorrente_frequenza === 'una_tantum'
+);
+
+/**
  * Stato di una ricorrenza letta da un record: qualunque valore fuori da
  * STATI_RICORRENZA viene ricondotto ad 'attiva', lo stesso default dello
  * schema. Serve ai conteggi che partono da una riga già letta, dove non c'è
@@ -267,5 +284,5 @@ module.exports = {
   processaRicorrenti, avviaCronRicorrenti, getRomeDateParts, FREQUENZE_SUPPORTATE, periodoPerFrequenza,
   periodoPerRicorrenza,
   STATI_RICORRENZA, ricorrenzaAttiva, cambiaStatoRicorrenza,
-  whereRicorrenzaAttiva, normalizzaStatoRicorrenza,
+  whereRicorrenzaAttiva, normalizzaStatoRicorrenza, muoveSaldo,
 };

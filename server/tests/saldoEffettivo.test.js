@@ -7,6 +7,7 @@ const {
 } = require('./setup');
 const { Obiettivo } = require('../models');
 const { calcolaLiquidita } = require('../services/liquidita.service');
+const { processaRicorrenti } = require('../services/ricorrenti.service');
 
 describe('Colonne del saldo effettivo', () => {
   let userId;
@@ -329,5 +330,141 @@ describe('GET /conti/patrimonio: saldo effettivo', () => {
       obiettivi: 200,
       impegni: 0,
     });
+  });
+});
+
+// Una spesa programmata (ricorrente + frequenza 'una_tantum') è una PROMESSA,
+// non un movimento avvenuto: il denaro esce dal conto solo quando il cron la
+// materializza alla sua data. Queste prove guardano il saldo attraverso
+// l'API reale (POST/PUT/DELETE /api/movimenti), che è il punto in cui il
+// difetto viveva: i test del cron in ricorrenti.test.js creano l'origine con
+// Movimento.create e quindi scavalcavano il controller.
+describe('Il saldo di una spesa programmata si muove una volta sola', () => {
+  let app;
+  let token;
+  let conto;
+
+  const fraGiorni = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+
+  const corpo = (extra) => ({
+    conto_id: conto.id,
+    tipo: 'uscita',
+    importo: 300,
+    categoria: 'altro_uscita',
+    descrizione: 'Concerto',
+    data: fraGiorni(0),
+    ricorrente: true,
+    ...extra,
+  });
+
+  const creaProgrammata = (data) => request(app).post('/api/movimenti').set(authHeader(token))
+    .send(corpo({ ricorrente_frequenza: 'una_tantum', ricorrente_data: data }));
+
+  const saldo = async () => {
+    await conto.reload();
+    return Number(conto.saldo);
+  };
+
+  beforeEach(async () => {
+    app = createApp({ enableRateLimit: false });
+    const { res } = await registerUser(app);
+    token = res.body.token;
+    conto = await Conto.create({
+      user_id: res.body.user.id, nome: 'Conto', tipo: 'banca', saldo: 1000, attivo: true,
+    });
+  });
+
+  it('creare una spesa programmata non tocca il saldo del conto', async () => {
+    const res = await creaProgrammata(fraGiorni(15));
+
+    expect(res.status).toBe(201);
+    expect(await saldo()).toBe(1000);
+  });
+
+  it('il saldo effettivo la conta una volta sola, non due', async () => {
+    await creaProgrammata(fraGiorni(15));
+
+    // 1000 sul conto, 300 promessi: 700 spendibili. Se la creazione avesse
+    // già scalato il conto, qui si leggerebbe 400.
+    const r = await calcolaLiquidita(conto.user_id);
+    expect(r.saldo_conti).toBe(1000);
+    expect(r.impegni_pertinenti).toBe(300);
+    expect(r.saldo_effettivo).toBe(700);
+  });
+
+  it('il cron addebita alla data, una volta sola, e il saldo effettivo non cambia', async () => {
+    const data = fraGiorni(15);
+    await creaProgrammata(data);
+
+    await processaRicorrenti(new Date(`${data}T12:00:00Z`));
+    expect(await saldo()).toBe(700);
+
+    // Il denaro è uscito davvero: l'impegno sparisce e lo spendibile resta 700.
+    const dopo = await calcolaLiquidita(conto.user_id);
+    expect(dopo.impegni_pertinenti).toBe(0);
+    expect(dopo.saldo_effettivo).toBe(700);
+
+    // Secondo passaggio dello stesso giorno: nessun doppio addebito.
+    await processaRicorrenti(new Date(`${data}T12:00:00Z`));
+    expect(await saldo()).toBe(700);
+  });
+
+  it('il patrimonio non cala e non inventa una variazione del mese', async () => {
+    const prima = await request(app).get('/api/conti/patrimonio').set(authHeader(token));
+    expect(prima.body.totale_conti).toBe(1000);
+    expect(prima.body.variazione_importo).toBe(0);
+
+    await creaProgrammata(fraGiorni(15));
+
+    // È la lettura da cui il difetto era stato visto in browser: il conto
+    // scendeva a 700 nel momento stesso in cui si programmava la spesa.
+    const dopo = await request(app).get('/api/conti/patrimonio').set(authHeader(token));
+    expect(dopo.body.totale_conti).toBe(1000);
+    expect(dopo.body.totale).toBe(1000);
+    // Solo lo spendibile scende: il patrimonio no, e il mese non registra
+    // un calo per un'uscita che non è ancora avvenuta.
+    expect(dopo.body.saldo_effettivo).toBe(700);
+    expect(dopo.body.variazione_importo).toBe(0);
+  });
+
+  it('eliminare una spesa programmata non ancora addebitata non inventa denaro', async () => {
+    const creato = await creaProgrammata(fraGiorni(15));
+
+    const res = await request(app)
+      .delete(`/api/movimenti/${creato.body.movimento.id}`)
+      .set(authHeader(token));
+
+    expect(res.status).toBe(200);
+    // Il conto non era mai stato scalato: restituirgli 300 sarebbe denaro dal nulla.
+    expect(await saldo()).toBe(1000);
+  });
+
+  it('portare una spesa programmata a mensile addebita il conto', async () => {
+    const creato = await creaProgrammata(fraGiorni(15));
+    expect(await saldo()).toBe(1000);
+
+    const res = await request(app)
+      .put(`/api/movimenti/${creato.body.movimento.id}`)
+      .set(authHeader(token))
+      .send({ ricorrente: true, ricorrente_frequenza: 'mensile', ricorrente_giorno: 5 });
+
+    expect(res.status).toBe(200);
+    // Da promessa a movimento avvenuto: ora il denaro si muove.
+    expect(await saldo()).toBe(700);
+  });
+
+  it('portare una mensile a spesa programmata restituisce il denaro al conto', async () => {
+    const creato = await request(app).post('/api/movimenti').set(authHeader(token))
+      .send(corpo({ ricorrente_frequenza: 'mensile', ricorrente_giorno: 5 }));
+    expect(await saldo()).toBe(700);
+
+    const res = await request(app)
+      .put(`/api/movimenti/${creato.body.movimento.id}`)
+      .set(authHeader(token))
+      .send({ ricorrente: true, ricorrente_frequenza: 'una_tantum', ricorrente_data: fraGiorni(15) });
+
+    expect(res.status).toBe(200);
+    // Da movimento avvenuto a promessa: l'uscita non è ancora accaduta.
+    expect(await saldo()).toBe(1000);
   });
 });

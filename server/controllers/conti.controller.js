@@ -10,6 +10,7 @@ const {
 } = require('../services/scommesseContoSync.service');
 const { calcolaPatrimonio, calcolaPatrimonioNetto } = require('../services/financialSummary.service');
 const { calcolaLiquidita } = require('../services/liquidita.service');
+const { muoveSaldo } = require('../services/ricorrenti.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
 
@@ -236,8 +237,14 @@ const getPatrimonioTotale = async (req, res) => {
       },
     });
 
+    // La variazione del mese è una differenza di patrimonio, quindi conta solo
+    // il denaro che si è davvero mosso: una spesa programmata non ancora
+    // addebitata non ha cambiato il patrimonio (vedi muoveSaldo), e sommarla
+    // qui farebbe dire alla dashboard "sei in calo di 300 €" per un'uscita che
+    // non è ancora avvenuta. Quando il cron la addebita crea la sua occorrenza,
+    // che invece viene contata.
     let deltaMese = 0;
-    movimentiMese.forEach((m) => {
+    movimentiMese.filter(muoveSaldo).forEach((m) => {
       if (m.tipo === 'entrata') deltaMese += toNumber(m.importo);
       else if (m.tipo === 'uscita') deltaMese -= toNumber(m.importo);
     });

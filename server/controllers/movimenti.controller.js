@@ -7,7 +7,7 @@ const CategoryLearningService = require('../services/import/CategoryLearningServ
 // la piattaforma collegata (vedi services/scommesseContoSync.service.js).
 const { aggiornaSaldoConto } = require('../services/scommesseContoSync.service');
 const { calcolaEntrate } = require('../services/entrate.service');
-const { cambiaStatoRicorrenza } = require('../services/ricorrenti.service');
+const { cambiaStatoRicorrenza, muoveSaldo } = require('../services/ricorrenti.service');
 // Valutazione delle soglie di budget dopo una scrittura. Gira FUORI dalla
 // transazione, non lancia mai e non può alterare saldi o esito
 // dell'operazione (vedi services/notifiche/NotificheGenerator.js).
@@ -228,11 +228,12 @@ const createMovimento = async (req, res, next) => {
       ricorrente_data: ricorrente && ricorrente_frequenza === 'una_tantum' ? ricorrente_data : null,
     }, { transaction: t });
 
-    const nuovoSaldo = tipo === 'entrata'
-      ? toNumber(conto.saldo) + importoNum
-      : toNumber(conto.saldo) - importoNum;
-
-    await aggiornaSaldoConto(conto, nuovoSaldo, t);
+    // Una spesa programmata non tocca il saldo adesso: lo farà il cron alla
+    // sua data (vedi muoveSaldo).
+    if (muoveSaldo(movimento)) {
+      const nuovoSaldo = toNumber(conto.saldo) + deltaSaldo(tipo, importoNum);
+      await aggiornaSaldoConto(conto, nuovoSaldo, t);
+    }
     await t.commit();
 
     // Solo le uscite consumano budget.
@@ -312,8 +313,20 @@ const updateMovimento = async (req, res, next) => {
     }
 
     const stessoConto = contoNuovo.id === contoVecchio.id;
-    const impattoVecchio = deltaSaldo(movimento.tipo, importoVecchio);
-    const impattoNuovo = deltaSaldo(nuovoTipo, nuovoImporto);
+    const nuovaFrequenza = ricorrente ? (ricorrente_frequenza ?? movimento.ricorrente_frequenza) : null;
+    const nuovoRicorrente = ricorrente ?? movimento.ricorrente;
+
+    // Un impatto nullo significa "questa riga non muove denaro": vale sia per
+    // annullare lo stato vecchio sia per applicare il nuovo, così una
+    // conversione da/verso spesa programmata resta bilanciata (vedi muoveSaldo).
+    // I controlli di saldo qui sotto leggono gli stessi due valori: una
+    // promessa non può far fallire un aggiornamento per saldo insufficiente.
+    const impattoVecchio = muoveSaldo(movimento)
+      ? deltaSaldo(movimento.tipo, importoVecchio)
+      : 0;
+    const impattoNuovo = muoveSaldo({ ricorrente: nuovoRicorrente, ricorrente_frequenza: nuovaFrequenza })
+      ? deltaSaldo(nuovoTipo, nuovoImporto)
+      : 0;
     const erroreSaldoInsufficiente = {
       error: 'Saldo insufficiente',
       messaggio: 'Operazione annullata: saldo insufficiente sul conto.',
@@ -344,13 +357,9 @@ const updateMovimento = async (req, res, next) => {
       }
     }
 
-    if (movimento.tipo === 'entrata') {
-      await aggiornaSaldoConto(contoVecchio, toNumber(contoVecchio.saldo) - importoVecchio, t);
-    } else {
-      await aggiornaSaldoConto(contoVecchio, toNumber(contoVecchio.saldo) + importoVecchio, t);
+    if (impattoVecchio !== 0) {
+      await aggiornaSaldoConto(contoVecchio, toNumber(contoVecchio.saldo) - impattoVecchio, t);
     }
-
-    const nuovaFrequenza = ricorrente ? (ricorrente_frequenza ?? movimento.ricorrente_frequenza) : null;
 
     await movimento.update({
       tipo: nuovoTipo,
@@ -385,10 +394,8 @@ const updateMovimento = async (req, res, next) => {
       await learningService.learnRule({ userId: req.userId, descrizione: descrizioneFinale, categoria: nuovaCategoria, tipo: nuovoTipo, transaction: t });
     }
 
-    if (nuovoTipo === 'entrata') {
-      await aggiornaSaldoConto(contoNuovo, toNumber(contoNuovo.saldo) + nuovoImporto, t);
-    } else {
-      await aggiornaSaldoConto(contoNuovo, toNumber(contoNuovo.saldo) - nuovoImporto, t);
+    if (impattoNuovo !== 0) {
+      await aggiornaSaldoConto(contoNuovo, toNumber(contoNuovo.saldo) + impattoNuovo, t);
     }
 
     await t.commit();
@@ -440,7 +447,7 @@ const deleteMovimento = async (req, res) => {
           userId: req.userId, movimentoId: movimento.id,
         });
       }
-    } else {
+    } else if (muoveSaldo(movimento)) {
       const conto = await Conto.findOne({
         where: { id: movimento.conto_id, user_id: req.userId, attivo: true },
         transaction: t,
@@ -448,12 +455,11 @@ const deleteMovimento = async (req, res) => {
       });
 
       if (conto) {
-        const importoNum = toNumber(movimento.importo);
-        if (movimento.tipo === 'entrata') {
-          await aggiornaSaldoConto(conto, toNumber(conto.saldo) - importoNum, t);
-        } else {
-          await aggiornaSaldoConto(conto, toNumber(conto.saldo) + importoNum, t);
-        }
+        await aggiornaSaldoConto(
+          conto,
+          toNumber(conto.saldo) - deltaSaldo(movimento.tipo, movimento.importo),
+          t,
+        );
       } else {
         logger.warn('Ripristino saldo saltato per movimento eliminato: conto disattivato', {
           userId: req.userId, movimentoId: movimento.id,
