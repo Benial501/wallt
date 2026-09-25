@@ -85,3 +85,78 @@ describe('Saldo effettivo: conti nascosti', () => {
     expect(r.liquidita_libera).toBe(6000);
   });
 });
+
+describe('Saldo effettivo: spese programmate', () => {
+  let userId;
+  let conto;
+
+  const programmata = (data, importo = 300) => Movimento.create({
+    user_id: userId,
+    conto_id: conto.id,
+    tipo: 'uscita',
+    importo,
+    categoria: 'altro_uscita',
+    descrizione: 'Concerto',
+    data: '2026-09-25',
+    ricorrente: true,
+    stato_ricorrenza: 'attiva',
+    ricorrente_frequenza: 'una_tantum',
+    ricorrente_data: data,
+  });
+
+  beforeEach(async () => {
+    const app = createApp({ enableRateLimit: false });
+    const { res } = await registerUser(app);
+    userId = res.body.user.id;
+    conto = await Conto.create({
+      user_id: userId, nome: 'Conto', tipo: 'banca', saldo: 1000, attivo: true,
+    });
+  });
+
+  it('una spesa programmata entro 30 giorni abbassa il saldo effettivo', async () => {
+    await programmata('2026-10-10');
+    const r = await calcolaLiquidita(userId, { data: '2026-09-25' });
+    expect(r.impegni_pertinenti).toBe(300);
+    expect(r.saldo_effettivo).toBe(700);
+    expect(r.impegni[0].tipo).toBe('programmata');
+    expect(r.impegni[0].data).toBe('2026-10-10');
+  });
+
+  it('una spesa programmata oltre 30 giorni non pesa ancora', async () => {
+    await programmata('2026-12-01');
+    const r = await calcolaLiquidita(userId, { data: '2026-09-25' });
+    expect(r.impegni_pertinenti).toBe(0);
+    expect(r.saldo_effettivo).toBe(1000);
+  });
+
+  it('una spesa programmata con data passata e mai addebitata pesa comunque', async () => {
+    await programmata('2026-09-20');
+    const r = await calcolaLiquidita(userId, { data: '2026-09-25' });
+    expect(r.saldo_effettivo).toBe(700);
+  });
+
+  it('una spesa programmata già addebitata non pesa due volte', async () => {
+    const spesa = await programmata('2026-10-10');
+    await Movimento.create({
+      user_id: userId,
+      conto_id: conto.id,
+      tipo: 'uscita',
+      importo: 300,
+      categoria: 'altro_uscita',
+      descrizione: 'Concerto (automatico)',
+      data: '2026-10-10',
+      ricorrente: false,
+      ricorrenza_origine_id: spesa.id,
+      ricorrenza_periodo: '2026-10-10',
+    });
+    const r = await calcolaLiquidita(userId, { data: '2026-09-25' });
+    expect(r.impegni_pertinenti).toBe(0);
+  });
+
+  it('una spesa programmata terminata non blocca più denaro', async () => {
+    const spesa = await programmata('2026-10-10');
+    await spesa.update({ stato_ricorrenza: 'terminata' });
+    const r = await calcolaLiquidita(userId, { data: '2026-09-25' });
+    expect(r.saldo_effettivo).toBe(1000);
+  });
+});

@@ -1,11 +1,17 @@
 const { Op } = require('sequelize');
 const { Conto, Obiettivo, Movimento } = require('../models');
 const {
-  getRomeDateParts, FREQUENZE_SUPPORTATE, periodoPerFrequenza, whereRicorrenzaAttiva,
+  getRomeDateParts, FREQUENZE_SUPPORTATE, periodoPerRicorrenza, whereRicorrenzaAttiva,
 } = require('./ricorrenti.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
 const round2 = (val) => Math.round(val * 100) / 100;
+
+// Orizzonte delle spese programmate (frequenza 'una_tantum'): quanto avanti
+// nel tempo una data futura comincia già a pesare sul saldo effettivo. Non
+// c'è un limite simmetrico all'indietro: una data già passata e mai
+// addebitata è l'impegno più certo che esista (vedi calcolaLiquidita).
+const GIORNI_ORIZZONTE_PROGRAMMATE = 30;
 
 /**
  * Overlay di sola lettura: nessun euro viene spostato, nessun sottoconto
@@ -20,17 +26,20 @@ const round2 = (val) => Math.round(val * 100) / 100;
  *   volta come progresso dell'obiettivo. Un obiettivo completato non blocca
  *   più liquidità: il suo scopo è stato raggiunto.
  * - impegni_pertinenti: somma degli importi dei Movimento ricorrenti ATTIVI
- *   (mensili, settimanali o annuali) di tipo 'uscita' il cui addebito per il
- *   periodo corrente non è ancora avvenuto (nessun Movimento con
- *   ricorrenza_origine_id=<id> e ricorrenza_periodo=<periodo corrente per
- *   quella frequenza — vedi periodoPerFrequenza in ricorrenti.service.js,
+ *   (mensili, settimanali, annuali o una_tantum) di tipo 'uscita' il cui
+ *   addebito non è ancora avvenuto (nessun Movimento con
+ *   ricorrenza_origine_id=<id> e ricorrenza_periodo=<chiave di deduplica per
+ *   quella frequenza — vedi periodoPerRicorrenza in ricorrenti.service.js,
  *   stessa chiave usata dal cron per l'idempotenza). Il saldo del conto non
  *   riflette ancora quell'uscita, quindi non è denaro davvero disponibile.
- *   Il filtro sullo stato viene da whereRicorrenzaAttiva() — la stessa
- *   clausola con cui il cron sceglie cosa addebitare: una ricorrenza sospesa
- *   o terminata non produrrà nessun movimento, quindi sottrarla dalla
- *   liquidità significherebbe bloccare denaro per un'uscita che non arriverà
- *   mai.
+ *   Per 'una_tantum' (una spesa programmata con data fissa) la chiave è la
+ *   data stessa e conta solo entro GIORNI_ORIZZONTE_PROGRAMMATE giorni da
+ *   oggi (o già passata: una data scaduta e mai addebitata è l'impegno più
+ *   certo che esista). Il filtro sullo stato viene da whereRicorrenzaAttiva()
+ *   — la stessa clausola con cui il cron sceglie cosa addebitare: una
+ *   ricorrenza sospesa o terminata non produrrà nessun movimento, quindi
+ *   sottrarla dalla liquidità significherebbe bloccare denaro per un'uscita
+ *   che non arriverà mai.
  *
  * saldo_conti resta la somma di TUTTI i conti attivi (compresi quelli di
  * tipo 'scommesse': restano nel patrimonio, CLAUDE.md Regola 12) e
@@ -106,23 +115,49 @@ async function calcolaLiquidita(userId, { data, transaction } = {}) {
     transaction,
   });
 
-  const impegni = [];
-  for (const r of ricorrenti) {
-    const periodoCorrente = periodoPerFrequenza(r.ricorrente_frequenza, current);
-    // eslint-disable-next-line no-await-in-loop
-    const eseguitoQuestoPeriodo = await Movimento.findOne({
-      where: { ricorrenza_origine_id: r.id, ricorrenza_periodo: periodoCorrente },
-      transaction,
+  // Orizzonte delle spese programmate: 30 giorni avanti, nessun limite
+  // indietro. Una data già passata e mai addebitata è l'impegno più certo
+  // che esista, ed è il caso per cui il saldo effettivo è stato scritto.
+  const limiteProgrammate = new Date(`${current.date}T00:00:00Z`);
+  limiteProgrammate.setUTCDate(limiteProgrammate.getUTCDate() + GIORNI_ORIZZONTE_PROGRAMMATE);
+  const limiteProgrammateISO = limiteProgrammate.toISOString().slice(0, 10);
+
+  const candidati = ricorrenti
+    .map((r) => ({ movimento: r, periodo: periodoPerRicorrenza(r, current) }))
+    .filter(({ movimento, periodo }) => {
+      if (!periodo) return false;
+      if (movimento.ricorrente_frequenza !== 'una_tantum') return true;
+      return movimento.ricorrente_data <= limiteProgrammateISO;
     });
-    if (!eseguitoQuestoPeriodo) {
-      impegni.push({
-        movimento_id: r.id,
-        categoria: r.categoria,
-        importo: round2(toNumber(r.importo)),
-        giorno: r.ricorrente_giorno || 1,
-      });
-    }
-  }
+
+  // Una sola query invece di una per ricorrenza: questo servizio entra in
+  // GET /conti/patrimonio, che si apre a ogni visita della dashboard.
+  // La coppia (origine, periodo) viene poi verificata esattamente sul Set:
+  // il prodotto incrociato della IN non può produrre falsi positivi.
+  const eseguiti = candidati.length
+    ? await Movimento.findAll({
+      where: {
+        ricorrenza_origine_id: { [Op.in]: candidati.map((c) => c.movimento.id) },
+        ricorrenza_periodo: { [Op.in]: candidati.map((c) => c.periodo) },
+      },
+      attributes: ['ricorrenza_origine_id', 'ricorrenza_periodo'],
+      transaction,
+    })
+    : [];
+  const giaEseguiti = new Set(
+    eseguiti.map((e) => `${e.ricorrenza_origine_id}|${e.ricorrenza_periodo}`),
+  );
+
+  const impegni = candidati
+    .filter(({ movimento, periodo }) => !giaEseguiti.has(`${movimento.id}|${periodo}`))
+    .map(({ movimento }) => ({
+      movimento_id: movimento.id,
+      categoria: movimento.categoria,
+      importo: round2(toNumber(movimento.importo)),
+      giorno: movimento.ricorrente_giorno || 1,
+      tipo: movimento.ricorrente_frequenza === 'una_tantum' ? 'programmata' : 'ricorrente',
+      data: movimento.ricorrente_frequenza === 'una_tantum' ? movimento.ricorrente_data : null,
+    }));
   const impegni_pertinenti = round2(impegni.reduce((sum, i) => sum + i.importo, 0));
 
   const liquidita_libera = round2(saldo_conti - liquidita_allocata - impegni_pertinenti);

@@ -4,7 +4,7 @@ const { Movimento, Conto, sequelize } = require('../models');
 const logger = require('../utils/logger');
 
 const ROME_TIME_ZONE = 'Europe/Rome';
-const FREQUENZE_SUPPORTATE = ['mensile', 'settimanale', 'annuale'];
+const FREQUENZE_SUPPORTATE = ['mensile', 'settimanale', 'annuale', 'una_tantum'];
 const STATI_RICORRENZA = ['attiva', 'sospesa', 'terminata'];
 let activeRun = null;
 
@@ -95,6 +95,20 @@ const periodoPerFrequenza = (frequenza, current) => {
   if (frequenza === 'settimanale') return current.periodoSettimanale;
   return null;
 };
+
+/**
+ * Chiave di deduplica di una singola ricorrenza. Per le frequenze
+ * periodiche è il periodo corrente; per una spesa programmata è la sua
+ * data, che è già una chiave unica di per sé (si addebita una volta sola).
+ * Sta qui e non in liquidita.service.js perché il cron e la liquidità
+ * devono usare la stessa chiave per costruzione: se divergessero, la
+ * liquidità sottrarrebbe uscite già addebitate.
+ */
+const periodoPerRicorrenza = (movimento, current) => (
+  movimento.ricorrente_frequenza === 'una_tantum'
+    ? (movimento.ricorrente_data || null)
+    : periodoPerFrequenza(movimento.ricorrente_frequenza, current)
+);
 
 /** Decide se oggi è il giorno giusto per un movimento ricorrente, e la chiave di deduplica del periodo. */
 const valutaOccorrenza = (movimento, current) => {
@@ -230,6 +244,7 @@ function avviaCronRicorrenti() {
 
 module.exports = {
   processaRicorrenti, avviaCronRicorrenti, getRomeDateParts, FREQUENZE_SUPPORTATE, periodoPerFrequenza,
+  periodoPerRicorrenza,
   STATI_RICORRENZA, ricorrenzaAttiva, cambiaStatoRicorrenza,
   whereRicorrenzaAttiva, normalizzaStatoRicorrenza,
 };
