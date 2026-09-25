@@ -29,19 +29,26 @@ const whereRicorrenzaAttiva = () => ({ ricorrente: true, stato_ricorrenza: 'atti
 /**
  * Se una riga di movimento muove davvero denaro sul conto.
  *
- * Una spesa programmata (ricorrente + frequenza 'una_tantum') è una PROMESSA,
- * non un movimento avvenuto: il denaro resta sul conto finché il cron non
- * crea la sua occorrenza alla data prevista. Sta qui, accanto alle altre
- * definizioni della semantica 'una_tantum', perché la leggono sia chi scrive
- * i saldi (movimenti.controller.js: create, update e delete) sia chi li
- * riepiloga (conti.controller.js, per la variazione del mese): se divergessero,
- * il patrimonio e la sua variazione racconterebbero due storie diverse dello
- * stesso euro. Il saldo effettivo la conta già una volta come impegno non
- * ancora addebitato (liquidita.service.js).
+ * Una ricorrenza è una REGOLA, non un movimento avvenuto: il denaro resta sul
+ * conto finché il cron non crea la sua occorrenza. Vale per ogni frequenza —
+ * una spesa programmata ('una_tantum') è una promessa per la sua data, una
+ * mensile lo è per ogni mese — ed è esattamente ciò che la UI dichiara:
+ * «Crei una regola: WALLT registra da sola il movimento a ogni scadenza»
+ * (client/src/components/ricorrenti/RicorrenteForm.vue).
+ *
+ * Sta qui, accanto alle altre definizioni della semantica delle ricorrenze,
+ * perché la leggono sia chi scrive i saldi (movimenti.controller.js: create,
+ * update e delete) sia chi li riepiloga (conti.controller.js, per la
+ * variazione del mese): se divergessero, il patrimonio e la sua variazione
+ * racconterebbero due storie diverse dello stesso euro. Il saldo effettivo
+ * conta già ogni ricorrenza attiva una volta, come impegno non ancora
+ * addebitato (liquidita.service.js): addebitarla anche al salvataggio
+ * significava pagarla due volte e mostrarla tre.
+ *
+ * Le occorrenze che il cron genera hanno ricorrente: false, quindi muovono
+ * denaro: sono loro il movimento vero.
  */
-const muoveSaldo = (movimento) => !(
-  movimento.ricorrente && movimento.ricorrente_frequenza === 'una_tantum'
-);
+const muoveSaldo = (movimento) => !movimento.ricorrente;
 
 /**
  * Stato di una ricorrenza letta da un record: qualunque valore fuori da
@@ -142,9 +149,17 @@ const valutaOccorrenza = (movimento, current) => {
   if (movimento.ricorrente_frequenza === 'una_tantum') {
     return { dovuto: Boolean(periodo) && current.date >= periodo, periodo };
   }
+  // Come una spesa programmata, una mensile è dovuta dal suo giorno in poi e
+  // non solo quel giorno: il cron gira alle 09:00, quindi una regola creata
+  // dopo (o un mese saltato per deploy, downtime o saldo insufficiente) non
+  // avrebbe mai l'addebito del mese in corso. Il periodo (YYYY-MM) resta la
+  // chiave che lo limita a uno: l'indice unico
+  // (ricorrenza_origine_id, ricorrenza_periodo) non può lasciarne passare due.
+  // Settimanale e annuale restano sull'uguaglianza: lì una finestra "dal
+  // giorno in poi" non ha un significato altrettanto definito.
   if (movimento.ricorrente_frequenza === 'mensile') {
     const giornoTarget = movimento.ricorrente_giorno || 1;
-    return { dovuto: current.day === giornoTarget, periodo };
+    return { dovuto: current.day >= giornoTarget, periodo };
   }
   if (movimento.ricorrente_frequenza === 'annuale') {
     const giornoTarget = movimento.ricorrente_giorno || 1;

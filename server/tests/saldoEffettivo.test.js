@@ -439,7 +439,12 @@ describe('Il saldo di una spesa programmata si muove una volta sola', () => {
     expect(await saldo()).toBe(1000);
   });
 
-  it('portare una spesa programmata a mensile addebita il conto', async () => {
+  // Le tre conversioni sotto sono l'altra faccia di muoveSaldo: quello che
+  // conta non è la frequenza ma se la riga è una regola o un movimento
+  // avvenuto. Se impattoVecchio e impattoNuovo non restassero bilanciati in
+  // updateMovimento, una di queste inventerebbe o brucerebbe denaro.
+
+  it('cambiare frequenza fra due ricorrenze non muove denaro', async () => {
     const creato = await creaProgrammata(fraGiorni(15));
     expect(await saldo()).toBe(1000);
 
@@ -449,22 +454,39 @@ describe('Il saldo di una spesa programmata si muove una volta sola', () => {
       .send({ ricorrente: true, ricorrente_frequenza: 'mensile', ricorrente_giorno: 5 });
 
     expect(res.status).toBe(200);
-    // Da promessa a movimento avvenuto: ora il denaro si muove.
+    // Da promessa per una data a promessa per ogni mese: resta una regola, e
+    // una regola non ha ancora pagato niente.
+    expect(await saldo()).toBe(1000);
+  });
+
+  it('togliere la ricorrenza addebita il conto: da regola a movimento avvenuto', async () => {
+    const creato = await request(app).post('/api/movimenti').set(authHeader(token))
+      .send(corpo({ ricorrente_frequenza: 'mensile', ricorrente_giorno: 5 }));
+    expect(await saldo()).toBe(1000);
+
+    const res = await request(app)
+      .put(`/api/movimenti/${creato.body.movimento.id}`)
+      .set(authHeader(token))
+      .send({ ricorrente: false });
+
+    expect(res.status).toBe(200);
+    // Ora la riga dice "questa uscita è avvenuta": il denaro si muove.
     expect(await saldo()).toBe(700);
   });
 
-  it('portare una mensile a spesa programmata restituisce il denaro al conto', async () => {
+  it('rendere ricorrente un movimento già registrato restituisce il denaro al conto', async () => {
     const creato = await request(app).post('/api/movimenti').set(authHeader(token))
-      .send(corpo({ ricorrente_frequenza: 'mensile', ricorrente_giorno: 5 }));
+      .send(corpo({ ricorrente: false }));
     expect(await saldo()).toBe(700);
 
     const res = await request(app)
       .put(`/api/movimenti/${creato.body.movimento.id}`)
       .set(authHeader(token))
-      .send({ ricorrente: true, ricorrente_frequenza: 'una_tantum', ricorrente_data: fraGiorni(15) });
+      .send({ ricorrente: true, ricorrente_frequenza: 'mensile', ricorrente_giorno: 5 });
 
     expect(res.status).toBe(200);
-    // Da movimento avvenuto a promessa: l'uscita non è ancora accaduta.
+    // Da movimento avvenuto a regola: l'uscita non è più registrata come
+    // accaduta, quindi il conto torna intero e sarà il cron ad addebitarla.
     expect(await saldo()).toBe(1000);
   });
 });

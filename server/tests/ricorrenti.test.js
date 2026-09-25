@@ -6,7 +6,7 @@
 // corretto aggiornamento saldo, gestione saldo insufficiente, e correttezza
 // del calcolo di fine mese/anno bisestile usato per il check "già creato".
 const {
-  registerUser, Conto, Movimento, createApp,
+  request, registerUser, authHeader, Conto, Movimento, createApp,
 } = require('./setup');
 const { processaRicorrenti } = require('../services/ricorrenti.service');
 
@@ -59,8 +59,12 @@ describe('Spese ricorrenti (cron mensile)', () => {
     expect(result).toEqual({ processed: 1, skipped: 0, failed: 0 });
   });
 
-  it('NON crea nulla se oggi non corrisponde al giorno configurato', async () => {
-    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'setInterval', 'setTimeout', 'clearImmediate', 'clearInterval', 'clearTimeout'] }).setSystemTime(new Date(2026, 2, 10)); // giorno 10, target è 5
+  it('NON crea nulla prima del giorno configurato', async () => {
+    // Prima del suo giorno la mensile non è ancora dovuta. Dal giorno in poi
+    // invece lo è, anche a giorno passato: vedi il commento su valutaOccorrenza
+    // (una regola creata dopo le 09:00 non deve perdere il mese) e il test
+    // «il cron recupera il mese di una regola nata dopo il suo giorno».
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'setInterval', 'setTimeout', 'clearImmediate', 'clearInterval', 'clearTimeout'] }).setSystemTime(new Date(2026, 2, 3)); // giorno 3, target è 5
     await creaRicorrente();
 
     await processaRicorrenti();
@@ -332,5 +336,88 @@ describe('Spese ricorrenti (cron mensile)', () => {
     expect(generati).toHaveLength(1);
     await conto.reload();
     expect(Number(conto.saldo)).toBe(700);
+  });
+});
+
+// Una ricorrenza periodica creata dall'API reale: il difetto viveva nel
+// controller (createMovimento scalava subito il conto) mentre i test qui sopra
+// costruiscono l'origine con Movimento.create, quindi lo scavalcavano. Vedi
+// muoveSaldo in ricorrenti.service.js: una ricorrenza è una regola, e solo le
+// occorrenze che genera muovono denaro.
+describe('Il saldo di una ricorrenza mensile si muove una volta sola', () => {
+  let app;
+  let token;
+  let conto;
+
+  const oggi = () => new Date().toISOString().slice(0, 10);
+
+  const creaMensile = (giorno) => request(app).post('/api/movimenti').set(authHeader(token))
+    .send({
+      conto_id: conto.id,
+      tipo: 'uscita',
+      importo: 50,
+      categoria: 'bollette',
+      descrizione: 'Abbonamento',
+      data: oggi(),
+      ricorrente: true,
+      ricorrente_frequenza: 'mensile',
+      ricorrente_giorno: giorno,
+    });
+
+  const saldo = async () => {
+    await conto.reload();
+    return Number(conto.saldo);
+  };
+
+  beforeEach(async () => {
+    app = createApp({ enableRateLimit: false });
+    const { res } = await registerUser(app);
+    token = res.body.token;
+    conto = await Conto.create({
+      user_id: res.body.user.id, nome: 'Conto', tipo: 'banca', saldo: 1000, attivo: true,
+    });
+  });
+
+  it('il salvataggio non addebita: lo fa il cron, una volta sola', async () => {
+    const creato = await creaMensile(5);
+    expect(creato.status).toBe(201);
+
+    // Salvare la regola non muove denaro: il conto è ancora intero. Prima di
+    // questa correzione qui si leggeva 950, e la passata del cron sotto
+    // portava a 900 — la stessa uscita pagata due volte nello stesso mese.
+    expect(await saldo()).toBe(1000);
+
+    await processaRicorrenti(new Date('2026-03-05T12:00:00Z'));
+    expect(await saldo()).toBe(950);
+
+    // Il cron può girare più volte nello stesso giorno (Vercel Cron, il
+    // workflow GitHub Actions ogni ora, il server locale): l'indice unico
+    // (ricorrenza_origine_id, ricorrenza_periodo) tiene.
+    await processaRicorrenti(new Date('2026-03-05T12:00:00Z'));
+    expect(await saldo()).toBe(950);
+
+    const generati = await Movimento.findAll({
+      where: { ricorrenza_origine_id: creato.body.movimento.id },
+    });
+    expect(generati).toHaveLength(1);
+    expect(generati[0].ricorrenza_periodo).toBe('2026-03');
+  });
+
+  it('il cron recupera il mese di una regola nata dopo il suo giorno', async () => {
+    // Il cron gira alle 09:00: una regola creata dopo, in un giorno che
+    // corrisponde già al suo ricorrente_giorno, non avrebbe mai l'addebito del
+    // mese in corso. È dovuta dal suo giorno in poi, come una spesa
+    // programmata, e il periodo (YYYY-MM) resta la chiave che la limita a uno.
+    const creato = await creaMensile(5);
+    expect(await saldo()).toBe(1000);
+
+    await processaRicorrenti(new Date('2026-03-20T12:00:00Z'));
+
+    expect(await saldo()).toBe(950);
+    const generati = await Movimento.findAll({
+      where: { ricorrenza_origine_id: creato.body.movimento.id },
+    });
+    expect(generati).toHaveLength(1);
+    expect(generati[0].ricorrenza_periodo).toBe('2026-03');
   });
 });
