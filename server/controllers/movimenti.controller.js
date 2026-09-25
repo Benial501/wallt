@@ -223,7 +223,7 @@ const createMovimento = async (req, res, next) => {
       periodicita_entrata: tipo === 'entrata' ? periodicita_entrata || 'sconosciuta' : 'sconosciuta',
       ricorrente: ricorrente || false,
       ricorrente_frequenza: ricorrente ? ricorrente_frequenza : null,
-      ricorrente_giorno: ricorrente ? ricorrente_giorno : null,
+      ricorrente_giorno: ricorrente && ricorrente_frequenza !== 'una_tantum' ? ricorrente_giorno : null,
       ricorrente_mese: ricorrente && ricorrente_frequenza === 'annuale' ? ricorrente_mese : null,
       ricorrente_data: ricorrente && ricorrente_frequenza === 'una_tantum' ? ricorrente_data : null,
     }, { transaction: t });
@@ -367,7 +367,7 @@ const updateMovimento = async (req, res, next) => {
       descrizione: descrizione ?? movimento.descrizione,
       ricorrente: ricorrente ?? movimento.ricorrente,
       ricorrente_frequenza: nuovaFrequenza,
-      ricorrente_giorno: ricorrente ? (ricorrente_giorno ?? movimento.ricorrente_giorno) : null,
+      ricorrente_giorno: ricorrente && nuovaFrequenza !== 'una_tantum' ? (ricorrente_giorno ?? movimento.ricorrente_giorno) : null,
       ricorrente_mese: nuovaFrequenza === 'annuale' ? (ricorrente_mese ?? movimento.ricorrente_mese) : null,
       ricorrente_data: nuovaFrequenza === 'una_tantum' ? (ricorrente_data ?? movimento.ricorrente_data) : null,
       categoria_automatica: categoriaCambiata ? false : (movimento.categoria_automatica ?? oldCategoriaAutomatica),

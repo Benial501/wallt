@@ -213,4 +213,45 @@ describe('Validazione delle spese programmate', () => {
       .send(corpo({ ricorrente_frequenza: 'una_tantum', ricorrente_data: '2020-01-01' }));
     expect(res.status).toBe(400);
   });
+
+  it('PUT accetta di spostare una spesa programmata a una data passata (corregge un promemoria non ancora chiuso)', async () => {
+    const creato = await request(app).post('/api/movimenti').set(authHeader(token))
+      .send(corpo({ ricorrente_frequenza: 'una_tantum', ricorrente_data: '2026-10-10' }));
+    const res = await request(app)
+      .put(`/api/movimenti/${creato.body.movimento.id}`)
+      .set(authHeader(token))
+      .send({ ricorrente: true, ricorrente_frequenza: 'una_tantum', ricorrente_data: '2020-01-01' });
+    expect(res.status).toBe(200);
+    expect(res.body.movimento.ricorrente_data).toBe('2020-01-01');
+  });
+
+  it('PUT rifiuta di portare la frequenza a una_tantum senza ricorrente_data', async () => {
+    const creato = await request(app).post('/api/movimenti').set(authHeader(token))
+      .send(corpo({ ricorrente_frequenza: 'mensile', ricorrente_giorno: 5 }));
+    const res = await request(app)
+      .put(`/api/movimenti/${creato.body.movimento.id}`)
+      .set(authHeader(token))
+      .send({ ricorrente: true, ricorrente_frequenza: 'una_tantum' });
+    expect(res.status).toBe(400);
+  });
+
+  it('PUT pulisce il campo della frequenza abbandonata in entrambe le direzioni', async () => {
+    const programmata = await request(app).post('/api/movimenti').set(authHeader(token))
+      .send(corpo({ ricorrente_frequenza: 'una_tantum', ricorrente_data: '2026-10-10' }));
+    const resAMensile = await request(app)
+      .put(`/api/movimenti/${programmata.body.movimento.id}`)
+      .set(authHeader(token))
+      .send({ ricorrente: true, ricorrente_frequenza: 'mensile', ricorrente_giorno: 5 });
+    expect(resAMensile.status).toBe(200);
+    expect(resAMensile.body.movimento.ricorrente_data).toBeNull();
+
+    const periodica = await request(app).post('/api/movimenti').set(authHeader(token))
+      .send(corpo({ ricorrente_frequenza: 'mensile', ricorrente_giorno: 5 }));
+    const resAUnaTantum = await request(app)
+      .put(`/api/movimenti/${periodica.body.movimento.id}`)
+      .set(authHeader(token))
+      .send({ ricorrente: true, ricorrente_frequenza: 'una_tantum', ricorrente_data: '2026-10-10' });
+    expect(resAUnaTantum.status).toBe(200);
+    expect(resAUnaTantum.body.movimento.ricorrente_giorno).toBeNull();
+  });
 });
