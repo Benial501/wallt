@@ -1,9 +1,10 @@
 // Test del cron delle spese ricorrenti (server/services/ricorrenti.service.js).
-// Sono processate le frequenze 'mensile', 'settimanale' e 'annuale': verifica
-// idempotenza (nessun doppio movimento se il job gira più volte lo stesso
-// giorno/settimana/anno), corretto aggiornamento saldo, gestione saldo
-// insufficiente, e correttezza del calcolo di fine mese/anno bisestile usato
-// per il check "già creato".
+// Sono processate le frequenze 'mensile', 'settimanale', 'annuale' e
+// 'una_tantum' (spesa programmata, si esegue una volta sola e chiude il
+// promemoria portandolo a 'terminata'): verifica idempotenza (nessun doppio
+// movimento se il job gira più volte lo stesso giorno/settimana/anno/data),
+// corretto aggiornamento saldo, gestione saldo insufficiente, e correttezza
+// del calcolo di fine mese/anno bisestile usato per il check "già creato".
 const {
   registerUser, Conto, Movimento, createApp,
 } = require('./setup');
@@ -315,6 +316,15 @@ describe('Spese ricorrenti (cron mensile)', () => {
 
     await conOggi(2026, 2, 15, async () => {
       await processaRicorrenti();
+      // La prima passata ha già chiuso il promemoria ('terminata'), quindi
+      // la seconda lo scarterebbe comunque per quel motivo, senza mai
+      // arrivare alla deduplica sul periodo. Per esercitare davvero
+      // l'indice unico (ricorrenza_origine_id, ricorrenza_periodo) — quello
+      // che deve impedire il doppio addebito se il job gira due volte
+      // insieme, prima che la chiusura sia visibile — riportiamo lo stato
+      // ad 'attiva' con un update diretto sul record, bypassando l'istanza
+      // in memoria.
+      await Movimento.update({ stato_ricorrenza: 'attiva' }, { where: { id: spesa.id } });
       await processaRicorrenti();
     });
 

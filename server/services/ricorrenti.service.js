@@ -112,16 +112,19 @@ const periodoPerRicorrenza = (movimento, current) => (
 
 /** Decide se oggi è il giorno giusto per un movimento ricorrente, e la chiave di deduplica del periodo. */
 const valutaOccorrenza = (movimento, current) => {
+  // La chiave di periodo viene da periodoPerRicorrenza: è l'unica
+  // definizione condivisa con liquidita.service.js (vedi il suo commento),
+  // così cron e liquidità non possono divergere su cosa identifica
+  // un'occorrenza.
+  const periodo = periodoPerRicorrenza(movimento, current);
   // Una spesa programmata è dovuta dal suo giorno in poi, non solo quel
   // giorno: se il cron non gira (deploy, downtime) viene recuperata al
   // passaggio successivo invece di sparire in silenzio. L'indice unico
   // (ricorrenza_origine_id, ricorrenza_periodo) garantisce che avvenga una
   // volta sola.
   if (movimento.ricorrente_frequenza === 'una_tantum') {
-    const data = movimento.ricorrente_data;
-    return { dovuto: Boolean(data) && current.date >= data, periodo: data || null };
+    return { dovuto: Boolean(periodo) && current.date >= periodo, periodo };
   }
-  const periodo = periodoPerFrequenza(movimento.ricorrente_frequenza, current);
   if (movimento.ricorrente_frequenza === 'mensile') {
     const giornoTarget = movimento.ricorrente_giorno || 1;
     return { dovuto: current.day === giornoTarget, periodo };
