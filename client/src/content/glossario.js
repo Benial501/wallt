@@ -25,6 +25,15 @@ const CONCETTI = [
     topic: 'patrimonio-come-si-calcola',
   },
   {
+    id: 'saldo_effettivo',
+    etichetta: 'Saldo effettivo',
+    descrizione:
+      'Quanto puoi spendere davvero: i saldi dei conti che non hai nascosto, meno il denaro già destinato agli obiettivi e le spese che hai in arrivo.',
+    formula: 'conti non nascosti − obiettivi non completati − impegni in arrivo',
+    origine: 'GET /conti/patrimonio → saldo_effettivo',
+    topic: 'saldo-effettivo-come-si-calcola',
+  },
+  {
     id: 'componente_conti',
     etichetta: 'Conti',
     descrizione:

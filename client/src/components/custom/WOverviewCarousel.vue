@@ -25,6 +25,8 @@ const props = defineProps({
   conti: { type: Array, default: () => [] },
   patrimonio: { type: Number, default: 0 },
   composizione: { type: Object, default: null },
+  saldoEffettivo: { type: Number, default: null },
+  saldoEffettivoDettaglio: { type: Object, default: null },
   entrateMese: { type: Number, default: 0 },
   usciteMese: { type: Number, default: 0 },
   entrateOggi: { type: Number, default: 0 },
@@ -239,6 +241,26 @@ defineExpose({
               ·
               {{ etichetta('componente_investimenti') }} <span class="tabular-nums">{{ formatValuta(composizione.investimenti) }}</span>
             </p>
+            <div v-if="saldoEffettivo !== null" class="w-overview__effettivo">
+              <p class="w-overview__effettivo-label">
+                {{ etichetta('saldo_effettivo') }}
+                <HelpTrigger topic="saldo-effettivo-come-si-calcola" variant="quiet" />
+              </p>
+              <p class="w-overview__effettivo-amount tabular-nums">{{ formatValuta(saldoEffettivo) }}</p>
+              <p v-if="saldoEffettivoDettaglio" class="w-overview__effettivo-detail">
+                <!-- Il perché della differenza col patrimonio: senza, il
+                     numero più basso sembra un errore. -->
+                <span v-if="saldoEffettivoDettaglio.conti_nascosti">
+                  − {{ formatValuta(saldoEffettivoDettaglio.conti_nascosti) }} nascosti
+                </span>
+                <span v-if="saldoEffettivoDettaglio.obiettivi">
+                  − {{ formatValuta(saldoEffettivoDettaglio.obiettivi) }} su obiettivi
+                </span>
+                <span v-if="saldoEffettivoDettaglio.impegni">
+                  − {{ formatValuta(saldoEffettivoDettaglio.impegni) }} impegni
+                </span>
+              </p>
+            </div>
             <!-- La variazione "questo mese" del carosello è stata tolta: il
                  grafico appena sotto ne mostra già una, su un periodo
                  diverso (3 mesi di default), ed è quella che segue la
@@ -1085,5 +1107,40 @@ defineExpose({
   font-size: 0.875rem;
   line-height: var(--leading-snug);
   color: var(--text-secondary);
+}
+
+/* Il saldo effettivo, sotto il patrimonio: un numero più basso, con la
+   sua etichetta e il dettaglio del perché è più basso. */
+.w-overview__effettivo {
+  margin-top: 0.625rem;
+  padding-top: 0.625rem;
+  border-top: 1px solid var(--border);
+}
+
+.w-overview__effettivo-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.125rem;
+}
+
+.w-overview__effettivo-amount {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.w-overview__effettivo-detail {
+  margin-top: 0.125rem;
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  color: var(--text-secondary);
+}
+
+.w-overview__effettivo-detail span + span::before {
+  content: ' · ';
 }
 </style>

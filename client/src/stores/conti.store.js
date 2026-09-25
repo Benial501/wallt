@@ -68,6 +68,18 @@ export const useContiStore = defineStore('conti', () => {
     };
   });
 
+  /**
+   * Quanto è davvero spendibile. Arriva dallo stesso endpoint del
+   * patrimonio, quindi i due numeri che la home mostra uno sotto l'altro
+   * non possono riferirsi a momenti diversi. `null` finché la risposta non
+   * c'è: non esiste un fallback sensato: dire "0" sarebbe un'informazione
+   * falsa, dire il patrimonio sarebbe peggio.
+   */
+  const saldoEffettivo = computed(() => risorsaPatrimonio.data.value?.saldo_effettivo ?? null);
+  const saldoEffettivoDettaglio = computed(
+    () => risorsaPatrimonio.data.value?.saldo_effettivo_dettaglio ?? null,
+  );
+
   const fetchConti = () => risorsaConti.carica();
   const fetchPatrimonio = () => risorsaPatrimonio.carica();
 
@@ -133,6 +145,8 @@ export const useContiStore = defineStore('conti', () => {
     contiAttivi,
     patrimonioFormattato,
     composizionePatrimonio,
+    saldoEffettivo,
+    saldoEffettivoDettaglio,
     fetchConti,
     fetchPatrimonio,
     createConto,
