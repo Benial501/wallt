@@ -1,10 +1,11 @@
 import dayjs from 'dayjs';
 import { creaRisorsa } from './risorsa.js';
 
-// Uniche frequenze processate dal cron (server/services/ricorrenti.service.js):
+// Frequenze processate dal cron (server/services/ricorrenti.service.js) più
+// 'una_tantum' (spesa programmata con data fissa, addebitata una sola volta):
 // un valore storico diverso (es. 'giornaliera', mai realmente supportata) va
 // normalizzato a 'mensile' quando si riapre un movimento ricorrente esistente.
-export const FREQUENZE_VALIDE = ['mensile', 'settimanale', 'annuale'];
+export const FREQUENZE_VALIDE = ['mensile', 'settimanale', 'annuale', 'una_tantum'];
 
 export const GIORNI_SETTIMANA = [
   { id: 1, label: 'Lunedì' }, { id: 2, label: 'Martedì' }, { id: 3, label: 'Mercoledì' },
@@ -55,9 +56,16 @@ export const prossimaEsecuzioneAnnuale = (giorno, mese, oggi = dayjs()) => {
   return questAnno.isBefore(inizioOggi) ? perAnno(inizioOggi.year() + 1) : questAnno;
 };
 
-const FREQUENZA_LABELS = { mensile: 'Ogni mese', settimanale: 'Ogni settimana', annuale: 'Ogni anno' };
+const FREQUENZA_LABELS = {
+  mensile: 'Ogni mese', settimanale: 'Ogni settimana', annuale: 'Ogni anno', una_tantum: 'Una tantum',
+};
 
 const calcolaProssimaEsecuzione = (movimento, oggi) => {
+  // Una spesa programmata non ha una cadenza da proiettare: la sua data è
+  // già scritta.
+  if (movimento.ricorrente_frequenza === 'una_tantum') {
+    return movimento.ricorrente_data ? dayjs(movimento.ricorrente_data) : oggi;
+  }
   if (movimento.ricorrente_frequenza === 'settimanale') {
     return prossimaEsecuzioneSettimanale(movimento.ricorrente_giorno, oggi);
   }

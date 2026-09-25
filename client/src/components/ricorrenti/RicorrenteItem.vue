@@ -29,9 +29,15 @@ const MESI_BREVI = {
   7: 'Lug', 8: 'Ago', 9: 'Set', 10: 'Ott', 11: 'Nov', 12: 'Dic',
 };
 
-/** Badge calendario: adatta cifra/etichetta alla frequenza (settimanale mostra il giorno, annuale giorno+mese). */
+/** Badge calendario: adatta cifra/etichetta alla frequenza (settimanale mostra il giorno, annuale giorno+mese, una tantum la data fissa). */
 const badgeCalendario = computed(() => {
   const freq = props.movimento.ricorrente_frequenza;
+  if (freq === 'una_tantum') {
+    const iso = props.movimento.ricorrente_data;
+    if (!iso) return { cifra: '—', etichetta: 'una tantum' };
+    const [, mese, giorno] = iso.split('-').map(Number);
+    return { cifra: `${giorno} ${MESI_BREVI[mese] || ''}`, etichetta: 'una tantum' };
+  }
   if (freq === 'settimanale') {
     return { cifra: GIORNI_SETTIMANA_BREVI[props.movimento.ricorrente_giorno] || '—', etichetta: 'ogni settimana' };
   }
@@ -53,7 +59,7 @@ const importoFormattato = computed(() => new Intl.NumberFormat('it-IT', {
 <template>
   <WCard class="ricorrente-card" padding="0">
     <div class="ricorrente-card__calendario" aria-hidden="true">
-      <span :class="{ 'ricorrente-card__calendario--compatto': movimento.ricorrente_frequenza === 'annuale' }">{{ badgeCalendario.cifra }}</span>
+      <span :class="{ 'ricorrente-card__calendario--compatto': movimento.ricorrente_frequenza === 'annuale' || movimento.ricorrente_frequenza === 'una_tantum' }">{{ badgeCalendario.cifra }}</span>
       <small>{{ badgeCalendario.etichetta }}</small>
     </div>
 
@@ -74,9 +80,13 @@ const importoFormattato = computed(() => new Intl.NumberFormat('it-IT', {
       <dl class="ricorrente-card__dati">
         <div>
           <dt><Calendar :size="15" aria-hidden="true" /> Frequenza</dt>
-          <dd>{{ presentazione.frequenzaLabel }}</dd>
+          <dd>
+            {{ movimento.ricorrente_frequenza === 'una_tantum' && presentazione.prossimaEsecuzione
+              ? formatData(presentazione.prossimaEsecuzione, 'medio')
+              : presentazione.frequenzaLabel }}
+          </dd>
         </div>
-        <div v-if="presentazione.prossimaEsecuzione">
+        <div v-if="presentazione.prossimaEsecuzione && movimento.ricorrente_frequenza !== 'una_tantum'">
           <dt><Calendar :size="15" aria-hidden="true" /> Prossima esecuzione</dt>
           <dd>{{ formatData(presentazione.prossimaEsecuzione, 'medio') }}</dd>
         </div>

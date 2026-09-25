@@ -61,6 +61,22 @@ test('mostra sospesa e terminata senza una prossima esecuzione inventata', () =>
   }
 });
 
+test('una spesa programmata si presenta con la sua data, non con una cadenza', () => {
+  const item = presentaRicorrente({
+    tipo: 'uscita',
+    importo: '300.00',
+    descrizione: 'Concerto',
+    ricorrente: true,
+    stato_ricorrenza: 'attiva',
+    ricorrente_frequenza: 'una_tantum',
+    ricorrente_data: '2026-10-10',
+    conto: { nome: 'Conto' },
+  }, dayjs('2026-09-25'));
+
+  assert.equal(item.frequenzaLabel, 'Una tantum');
+  assert.equal(item.prossimaEsecuzione, '2026-10-10');
+});
+
 test('un fallimento produce errore e retry recupera i dati', async () => {
   let tentativi = 0;
   const risorsa = creaRisorsaRicorrenti(async () => {

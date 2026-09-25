@@ -45,7 +45,10 @@ const form = ref({
   ricorrente_frequenza: 'mensile',
   ricorrente_giorno: 1,
   ricorrente_mese: 1,
+  ricorrente_data: null,
 });
+
+const oggiISO = dayjs().format('YYYY-MM-DD');
 
 const isEdit = computed(() => !!props.movimento);
 
@@ -73,6 +76,11 @@ const contiSelezionabili = computed(() => {
 const buildPayload = () => {
   const payload = { ...form.value, ricorrente: true };
   if (payload.ricorrente_frequenza !== 'annuale') payload.ricorrente_mese = null;
+  if (payload.ricorrente_frequenza === 'una_tantum') {
+    payload.ricorrente_giorno = null;
+  } else {
+    payload.ricorrente_data = null;
+  }
   if (!isEdit.value) payload.data = dayjs().format('YYYY-MM-DD');
   return payload;
 };
@@ -104,6 +112,7 @@ const resetForm = () => {
     ricorrente_frequenza: 'mensile',
     ricorrente_giorno: 1,
     ricorrente_mese: 1,
+    ricorrente_data: null,
   };
   step.value = isEdit.value ? 2 : 1;
 };
@@ -123,6 +132,7 @@ watch(() => props.open, (val) => {
         ricorrente_frequenza: normalizzaFrequenza(props.movimento.ricorrente_frequenza),
         ricorrente_giorno: props.movimento.ricorrente_giorno || 1,
         ricorrente_mese: props.movimento.ricorrente_mese || 1,
+        ricorrente_data: props.movimento.ricorrente_data || null,
       };
     }
   }
@@ -168,7 +178,8 @@ const salva = async () => {
   }
 };
 
-const canSave = computed(() => form.value.importo > 0 && form.value.categoria && form.value.conto_id);
+const canSave = computed(() => form.value.importo > 0 && form.value.categoria && form.value.conto_id
+  && (form.value.ricorrente_frequenza !== 'una_tantum' || Boolean(form.value.ricorrente_data)));
 
 /** Nessun conto disponibile: la regola non avrebbe dove essere registrata. */
 const senzaConti = computed(() => contiSelezionabili.value.length === 0);
@@ -223,6 +234,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
               <option value="mensile">Ogni mese</option>
               <option value="settimanale">Ogni settimana</option>
               <option value="annuale">Ogni anno</option>
+              <option value="una_tantum">Una tantum (data precisa)</option>
             </select>
 
             <select v-if="form.ricorrente_frequenza === 'settimanale'" v-model.number="form.ricorrente_giorno" class="form-select">
@@ -235,6 +247,12 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
               </select>
               <input v-model.number="form.ricorrente_giorno" type="number" min="1" max="31" class="form-input" placeholder="Giorno (es. 1)" />
             </template>
+
+            <input
+              v-else-if="form.ricorrente_frequenza === 'una_tantum'"
+              v-model="form.ricorrente_data" type="date" class="form-input"
+              :min="isEdit ? undefined : oggiISO"
+            >
 
             <input v-else v-model.number="form.ricorrente_giorno" type="number" min="1" max="31" class="form-input" placeholder="Giorno del mese (es. 1)" />
           </div>
