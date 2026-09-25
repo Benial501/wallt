@@ -105,6 +105,26 @@ const slideCount = computed(() => slides.value.length);
 const patrimonioTarget = computed(() => props.patrimonio || 0);
 const { displayValue: animatedPatrimonio } = useNumberCounter(patrimonioTarget, { duration: 900 });
 
+/** Le voci che spiegano la differenza col patrimonio, senza quelle a zero:
+ * una riga "− 0 € nascosti" fa sembrare rotto un caso normale. Il segno si
+ * decide qui e non nel template, perché un conto nascosto può avere saldo
+ * negativo (una carta di credito) e "− -100 €" non si legge. */
+const vociSaldoEffettivo = computed(() => {
+  const d = props.saldoEffettivoDettaglio;
+  if (!d) return [];
+  return [
+    { id: 'nascosti', valore: d.conti_nascosti, testo: 'nascosti' },
+    { id: 'obiettivi', valore: d.obiettivi, testo: 'su obiettivi' },
+    { id: 'impegni', valore: d.impegni, testo: 'impegni' },
+  ]
+    .filter((voce) => Number(voce.valore))
+    .map((voce) => ({
+      ...voce,
+      segno: Number(voce.valore) > 0 ? '−' : '+',
+      importo: formatValuta(Math.abs(Number(voce.valore))),
+    }));
+});
+
 const budgetChartItems = computed(() =>
   props.budgetStato
     .filter((c) => parseFloat(c.budget_importo) > 0)
@@ -247,17 +267,12 @@ defineExpose({
                 <HelpTrigger topic="saldo-effettivo-come-si-calcola" variant="quiet" />
               </p>
               <p class="w-overview__effettivo-amount tabular-nums">{{ formatValuta(saldoEffettivo) }}</p>
-              <p v-if="saldoEffettivoDettaglio" class="w-overview__effettivo-detail">
+              <p v-if="vociSaldoEffettivo.length" class="w-overview__effettivo-detail">
                 <!-- Il perché della differenza col patrimonio: senza, il
-                     numero più basso sembra un errore. -->
-                <span v-if="saldoEffettivoDettaglio.conti_nascosti">
-                  − {{ formatValuta(saldoEffettivoDettaglio.conti_nascosti) }} nascosti
-                </span>
-                <span v-if="saldoEffettivoDettaglio.obiettivi">
-                  − {{ formatValuta(saldoEffettivoDettaglio.obiettivi) }} su obiettivi
-                </span>
-                <span v-if="saldoEffettivoDettaglio.impegni">
-                  − {{ formatValuta(saldoEffettivoDettaglio.impegni) }} impegni
+                     numero più basso sembra un errore. Niente riga quando
+                     tutte le voci sono a zero (il caso più comune). -->
+                <span v-for="voce in vociSaldoEffettivo" :key="voce.id">
+                  {{ voce.segno }} <span class="tabular-nums">{{ voce.importo }}</span> {{ voce.testo }}
                 </span>
               </p>
             </div>
