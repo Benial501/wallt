@@ -112,6 +112,15 @@ const periodoPerRicorrenza = (movimento, current) => (
 
 /** Decide se oggi è il giorno giusto per un movimento ricorrente, e la chiave di deduplica del periodo. */
 const valutaOccorrenza = (movimento, current) => {
+  // Una spesa programmata è dovuta dal suo giorno in poi, non solo quel
+  // giorno: se il cron non gira (deploy, downtime) viene recuperata al
+  // passaggio successivo invece di sparire in silenzio. L'indice unico
+  // (ricorrenza_origine_id, ricorrenza_periodo) garantisce che avvenga una
+  // volta sola.
+  if (movimento.ricorrente_frequenza === 'una_tantum') {
+    const data = movimento.ricorrente_data;
+    return { dovuto: Boolean(data) && current.date >= data, periodo: data || null };
+  }
   const periodo = periodoPerFrequenza(movimento.ricorrente_frequenza, current);
   if (movimento.ricorrente_frequenza === 'mensile') {
     const giornoTarget = movimento.ricorrente_giorno || 1;
@@ -197,6 +206,15 @@ async function runProcessaRicorrenti(now) {
           ricorrenza_origine_id: movimento.id,
           ricorrenza_periodo: periodo,
         }, { transaction });
+
+        // Una spesa programmata si esegue una volta sola: chiuderla qui,
+        // nella stessa transazione del movimento, la toglie dagli impegni
+        // della liquidità (whereRicorrenzaAttiva la esclude) senza lasciare
+        // una riga che continua a bloccare denaro già speso.
+        if (origine.ricorrente_frequenza === 'una_tantum') {
+          origine.stato_ricorrenza = 'terminata';
+          await origine.save({ transaction });
+        }
 
         return 'processed';
       });

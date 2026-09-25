@@ -251,4 +251,76 @@ describe('Spese ricorrenti (cron mensile)', () => {
       expect(automatici).toHaveLength(1);
     });
   });
+
+  const creaProgrammata = (overrides = {}) => Movimento.create({
+    user_id: userId,
+    conto_id: conto.id,
+    tipo: 'uscita',
+    importo: 300,
+    categoria: 'altro_uscita',
+    descrizione: 'Concerto',
+    data: '2026-03-01',
+    ricorrente: true,
+    ricorrente_frequenza: 'una_tantum',
+    ricorrente_data: '2026-03-15',
+    ...overrides,
+  });
+
+  const conOggi = async (anno, meseZeroBased, giorno, fn) => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'setInterval', 'setTimeout', 'clearImmediate', 'clearInterval', 'clearTimeout'] })
+      .setSystemTime(new Date(anno, meseZeroBased, giorno));
+    try { return await fn(); } finally { jest.useRealTimers(); }
+  };
+
+  it('addebita la spesa programmata alla sua data e chiude il promemoria', async () => {
+    const spesa = await creaProgrammata();
+
+    await conOggi(2026, 2, 15, () => processaRicorrenti());
+
+    const generato = await Movimento.findOne({ where: { ricorrenza_origine_id: spesa.id } });
+    expect(generato).not.toBeNull();
+    expect(generato.ricorrenza_periodo).toBe('2026-03-15');
+    expect(Number(generato.importo)).toBe(300);
+
+    await conto.reload();
+    expect(Number(conto.saldo)).toBe(700);
+
+    await spesa.reload();
+    expect(spesa.stato_ricorrenza).toBe('terminata');
+  });
+
+  it('non addebita prima della data programmata', async () => {
+    const spesa = await creaProgrammata();
+
+    await conOggi(2026, 2, 14, () => processaRicorrenti());
+
+    const generato = await Movimento.findOne({ where: { ricorrenza_origine_id: spesa.id } });
+    expect(generato).toBeNull();
+    await conto.reload();
+    expect(Number(conto.saldo)).toBe(1000);
+  });
+
+  it('recupera una data saltata invece di perderla', async () => {
+    const spesa = await creaProgrammata();
+
+    await conOggi(2026, 2, 20, () => processaRicorrenti());
+
+    const generati = await Movimento.findAll({ where: { ricorrenza_origine_id: spesa.id } });
+    expect(generati).toHaveLength(1);
+    expect(generati[0].ricorrenza_periodo).toBe('2026-03-15');
+  });
+
+  it('non addebita due volte se il job gira di nuovo', async () => {
+    const spesa = await creaProgrammata();
+
+    await conOggi(2026, 2, 15, async () => {
+      await processaRicorrenti();
+      await processaRicorrenti();
+    });
+
+    const generati = await Movimento.findAll({ where: { ricorrenza_origine_id: spesa.id } });
+    expect(generati).toHaveLength(1);
+    await conto.reload();
+    expect(Number(conto.saldo)).toBe(700);
+  });
 });
