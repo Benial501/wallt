@@ -33,9 +33,14 @@ const round2 = (val) => Math.round(val * 100) / 100;
  *   mai.
  *
  * saldo_conti resta la somma di TUTTI i conti attivi (compresi quelli di
- * tipo 'scommesse': restano nel patrimonio, CLAUDE.md Regola 12) — significato
- * invariato per chi già lo consuma. saldo_ordinario e saldo_conti_speciali lo
- * scompongono senza sostituirlo: campi aggiuntivi, non una ridefinizione.
+ * tipo 'scommesse': restano nel patrimonio, CLAUDE.md Regola 12) e
+ * liquidita_libera resta calcolata su quel totale — significato invariato per
+ * chi già li consuma. saldo_ordinario, liquidita_allocabile e saldo_effettivo
+ * invece partono dai soli conti visibili (saldo_conti_visibili): un conto
+ * nascosto (Conto.nascosto) resta nel patrimonio ma esce da tutto ciò che
+ * significa "spendibile". Nota: liquidita_allocabile alimenta
+ * liquidity.allocatable in financialContext.service.js, quindi da qui in poi
+ * Piano Smart non propone più di distribuire il denaro di un conto nascosto.
  *
  * liquidita_allocabile è più conservativo di liquidita_libera: sottrae
  * allocata+impegni dal solo saldo_ordinario, non dal totale. Motivo:
@@ -49,6 +54,12 @@ const round2 = (val) => Math.round(val * 100) / 100;
  * viene troncato a zero, perché un negativo è il segnale reale che
  * l'allocato+impegnato supera quanto siede sui conti ordinari (es. il
  * progresso di un obiettivo è di fatto maturato su un conto scommesse).
+ *
+ * saldo_effettivo è la stessa idea di liquidita_allocabile ma senza la
+ * scomposizione ordinario/scommesse: parte da saldo_conti_visibili (tutti i
+ * conti visibili, scommesse incluse) e sottrae lo stesso allocata+impegni.
+ * È la risposta a "quanto posso davvero spendere", pensata per essere
+ * mostrata in home accanto al patrimonio totale.
  */
 async function calcolaLiquidita(userId, { data, transaction } = {}) {
   const riferimento = data ? new Date(data) : new Date();
@@ -56,10 +67,23 @@ async function calcolaLiquidita(userId, { data, transaction } = {}) {
 
   const conti = await Conto.findAll({ where: { user_id: userId, attivo: true }, transaction });
   const saldo_conti = round2(conti.reduce((sum, c) => sum + toNumber(c.saldo), 0));
-  const saldo_conti_speciali = round2(
-    conti.filter((c) => c.tipo === 'scommesse').reduce((sum, c) => sum + toNumber(c.saldo), 0),
+
+  // Un conto nascosto resta nel patrimonio (è denaro dell'utente) ma esce da
+  // tutto ciò che significa "spendibile": è la sola differenza fra
+  // saldo_conti e saldo_conti_visibili.
+  const contiVisibili = conti.filter((c) => !c.nascosto);
+  const saldo_conti_nascosti = round2(
+    conti.filter((c) => c.nascosto).reduce((sum, c) => sum + toNumber(c.saldo), 0),
   );
-  const saldo_ordinario = round2(saldo_conti - saldo_conti_speciali);
+  const saldo_conti_visibili = round2(saldo_conti - saldo_conti_nascosti);
+
+  // I conti speciali si contano solo fra i visibili: un conto scommesse
+  // nascosto è già stato tolto sopra, sottrarlo due volte falserebbe
+  // saldo_ordinario.
+  const saldo_conti_speciali = round2(
+    contiVisibili.filter((c) => c.tipo === 'scommesse').reduce((sum, c) => sum + toNumber(c.saldo), 0),
+  );
+  const saldo_ordinario = round2(saldo_conti_visibili - saldo_conti_speciali);
 
   const obiettiviAttivi = await Obiettivo.findAll({
     where: { user_id: userId, completato: false },
@@ -103,15 +127,21 @@ async function calcolaLiquidita(userId, { data, transaction } = {}) {
 
   const liquidita_libera = round2(saldo_conti - liquidita_allocata - impegni_pertinenti);
   const liquidita_allocabile = round2(saldo_ordinario - liquidita_allocata - impegni_pertinenti);
+  // Quanto l'utente può spendere davvero: i conti che considera spendibili,
+  // meno il denaro già promesso a un obiettivo e le uscite già note.
+  const saldo_effettivo = round2(saldo_conti_visibili - liquidita_allocata - impegni_pertinenti);
 
   return {
     saldo_conti,
+    saldo_conti_nascosti,
+    saldo_conti_visibili,
     saldo_ordinario,
     saldo_conti_speciali,
     liquidita_allocata,
     impegni_pertinenti,
     liquidita_libera,
     liquidita_allocabile,
+    saldo_effettivo,
     obiettivi_allocati,
     impegni,
   };
