@@ -171,7 +171,7 @@ const createMovimento = async (req, res, next) => {
   try {
     const {
       tipo, importo, categoria, conto_id, data,
-      descrizione, ricorrente, ricorrente_frequenza, ricorrente_giorno, ricorrente_mese,
+      descrizione, ricorrente, ricorrente_frequenza, ricorrente_giorno, ricorrente_mese, ricorrente_data,
       natura_entrata, periodicita_entrata,
     } = req.body;
 
@@ -225,6 +225,7 @@ const createMovimento = async (req, res, next) => {
       ricorrente_frequenza: ricorrente ? ricorrente_frequenza : null,
       ricorrente_giorno: ricorrente ? ricorrente_giorno : null,
       ricorrente_mese: ricorrente && ricorrente_frequenza === 'annuale' ? ricorrente_mese : null,
+      ricorrente_data: ricorrente && ricorrente_frequenza === 'una_tantum' ? ricorrente_data : null,
     }, { transaction: t });
 
     const nuovoSaldo = tipo === 'entrata'
@@ -281,7 +282,7 @@ const updateMovimento = async (req, res, next) => {
 
     const {
       tipo, importo, categoria, conto_id, data,
-      descrizione, ricorrente, ricorrente_frequenza, ricorrente_giorno, ricorrente_mese,
+      descrizione, ricorrente, ricorrente_frequenza, ricorrente_giorno, ricorrente_mese, ricorrente_data,
       natura_entrata, periodicita_entrata,
     } = req.body;
 
@@ -368,6 +369,7 @@ const updateMovimento = async (req, res, next) => {
       ricorrente_frequenza: nuovaFrequenza,
       ricorrente_giorno: ricorrente ? (ricorrente_giorno ?? movimento.ricorrente_giorno) : null,
       ricorrente_mese: nuovaFrequenza === 'annuale' ? (ricorrente_mese ?? movimento.ricorrente_mese) : null,
+      ricorrente_data: nuovaFrequenza === 'una_tantum' ? (ricorrente_data ?? movimento.ricorrente_data) : null,
       categoria_automatica: categoriaCambiata ? false : (movimento.categoria_automatica ?? oldCategoriaAutomatica),
       categoria_fonte: categoriaCambiata ? 'user' : movimento.categoria_fonte,
       categoria_modificata: categoriaCambiata ? true : (movimento.categoria_modificata ?? false),

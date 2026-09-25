@@ -295,8 +295,14 @@ const validateMovimento = [
     .withMessage('Ricorrente non valido'),
   body('ricorrente_frequenza')
     .optional({ values: 'null' })
-    .isIn(['mensile', 'settimanale', 'annuale'])
-    .withMessage('Frequenza ricorrente non valida'),
+    .isIn(['mensile', 'settimanale', 'annuale', 'una_tantum'])
+    .withMessage('Frequenza ricorrente non valida')
+    .custom((value, { req }) => {
+      if (value === 'una_tantum' && !req.body.ricorrente_data) {
+        throw new Error('Una spesa programmata deve avere una data');
+      }
+      return true;
+    }),
   // Il significato di ricorrente_giorno dipende dalla frequenza: giorno del
   // mese (1-31) per mensile/annuale, giorno della settimana ISO (1=lun..7=dom)
   // per settimanale. ricorrenti.service.js legge questi stessi campi.
@@ -315,6 +321,23 @@ const validateMovimento = [
     .optional({ values: 'null' })
     .isInt({ min: 1, max: 12 })
     .withMessage('Mese ricorrente non valido'),
+  // La data vale solo per le spese programmate: accettarla su una frequenza
+  // periodica significherebbe salvare un campo che nessuno leggerà mai.
+  body('ricorrente_data')
+    .optional({ values: 'null' })
+    .isISO8601({ strict: true })
+    .withMessage('Data della spesa programmata non valida')
+    .custom((value, { req }) => {
+      if (req.body.ricorrente_frequenza !== 'una_tantum') {
+        throw new Error('La data si usa solo con una spesa programmata');
+      }
+      return true;
+    })
+    .custom((value) => {
+      const oggi = new Date().toISOString().slice(0, 10);
+      if (value < oggi) throw new Error('La data della spesa programmata è già passata');
+      return true;
+    }),
   validate,
 ];
 
@@ -372,8 +395,14 @@ const validateUpdateMovimento = [
     .withMessage('Ricorrente non valido'),
   body('ricorrente_frequenza')
     .optional({ values: 'null' })
-    .isIn(['mensile', 'settimanale', 'annuale'])
-    .withMessage('Frequenza ricorrente non valida'),
+    .isIn(['mensile', 'settimanale', 'annuale', 'una_tantum'])
+    .withMessage('Frequenza ricorrente non valida')
+    .custom((value, { req }) => {
+      if (value === 'una_tantum' && !req.body.ricorrente_data) {
+        throw new Error('Una spesa programmata deve avere una data');
+      }
+      return true;
+    }),
   body('ricorrente_giorno')
     .optional({ values: 'null' })
     .isInt({ min: 1, max: 31 })
@@ -389,6 +418,20 @@ const validateUpdateMovimento = [
     .optional({ values: 'null' })
     .isInt({ min: 1, max: 12 })
     .withMessage('Mese ricorrente non valido'),
+  // La data vale solo per le spese programmate: accettarla su una frequenza
+  // periodica significherebbe salvare un campo che nessuno leggerà mai.
+  // In modifica una data passata resta ammessa: serve a correggere un
+  // promemoria che il cron non ha ancora chiuso.
+  body('ricorrente_data')
+    .optional({ values: 'null' })
+    .isISO8601({ strict: true })
+    .withMessage('Data della spesa programmata non valida')
+    .custom((value, { req }) => {
+      if (req.body.ricorrente_frequenza !== 'una_tantum') {
+        throw new Error('La data si usa solo con una spesa programmata');
+      }
+      return true;
+    }),
   validate,
 ];
 

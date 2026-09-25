@@ -2,7 +2,9 @@
 // conti.nascosto (un conto che resta nel patrimonio ma non fra i soldi
 // spendibili) e movimenti.ricorrente_data (la data di una spesa programmata
 // una tantum).
-const { registerUser, createApp, Conto, Movimento } = require('./setup');
+const {
+  registerUser, createApp, Conto, Movimento, request, authHeader,
+} = require('./setup');
 const { Obiettivo } = require('../models');
 const { calcolaLiquidita } = require('../services/liquidita.service');
 
@@ -158,5 +160,57 @@ describe('Saldo effettivo: spese programmate', () => {
     await spesa.update({ stato_ricorrenza: 'terminata' });
     const r = await calcolaLiquidita(userId, { data: '2026-09-25' });
     expect(r.saldo_effettivo).toBe(1000);
+  });
+});
+
+describe('Validazione delle spese programmate', () => {
+  let app;
+  let token;
+  let conto;
+
+  const corpo = (extra) => ({
+    conto_id: conto.id,
+    tipo: 'uscita',
+    importo: 300,
+    categoria: 'altro_uscita',
+    descrizione: 'Concerto',
+    data: '2026-09-25',
+    ricorrente: true,
+    ...extra,
+  });
+
+  beforeEach(async () => {
+    app = createApp({ enableRateLimit: false });
+    const { res } = await registerUser(app);
+    token = res.body.token;
+    conto = await Conto.create({
+      user_id: res.body.user.id, nome: 'Conto', tipo: 'banca', saldo: 1000, attivo: true,
+    });
+  });
+
+  it('accetta una spesa programmata con la sua data', async () => {
+    const domani = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const res = await request(app).post('/api/movimenti').set(authHeader(token))
+      .send(corpo({ ricorrente_frequenza: 'una_tantum', ricorrente_data: domani }));
+    expect(res.status).toBe(201);
+    expect(res.body.movimento.ricorrente_data).toBe(domani);
+  });
+
+  it('rifiuta una spesa programmata senza data', async () => {
+    const res = await request(app).post('/api/movimenti').set(authHeader(token))
+      .send(corpo({ ricorrente_frequenza: 'una_tantum' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('rifiuta una data programmata su una frequenza periodica', async () => {
+    const res = await request(app).post('/api/movimenti').set(authHeader(token))
+      .send(corpo({ ricorrente_frequenza: 'mensile', ricorrente_giorno: 5, ricorrente_data: '2026-10-10' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('rifiuta una spesa programmata nel passato', async () => {
+    const res = await request(app).post('/api/movimenti').set(authHeader(token))
+      .send(corpo({ ricorrente_frequenza: 'una_tantum', ricorrente_data: '2020-01-01' }));
+    expect(res.status).toBe(400);
   });
 });
