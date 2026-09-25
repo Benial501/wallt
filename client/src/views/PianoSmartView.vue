@@ -154,6 +154,21 @@ const generaPiano = async () => {
   await store.generatePreview();
 };
 
+/** Passo precedente. Da 3 si torna alle domande solo se ce n'erano davvero:
+ * senza domande lo step 2 non è mai stato mostrato e sarebbe una schermata
+ * vuota. Tornare indietro non azzera nulla — importo, risposte e piano già
+ * calcolato restano in memoria finché l'utente non li rigenera. */
+const passoPrecedente = computed(() => {
+  if (step.value === 3) return questions.value.length ? 2 : 1;
+  if (step.value === 2) return 1;
+  return null;
+});
+const inCorso = computed(() => state.value === 'generating'
+  || state.value === 'contextLoading' || state.value === 'saving');
+const indietro = () => {
+  if (passoPrecedente.value && !inCorso.value) step.value = passoPrecedente.value;
+};
+
 const generaAnalisiEvoluta = async () => {
   if (!puoContinuare.value) return;
   step.value = 3;
@@ -258,9 +273,25 @@ onMounted(() => {
     <!-- ================= CREA PIANO ================= -->
     <template v-if="tab === 'create'">
       <ol class="steps" aria-label="Avanzamento del piano">
-        <li :class="{ active: step >= 1 }"><span aria-hidden="true">1</span> Importo</li>
-        <li :class="{ active: step >= 2 }"><span aria-hidden="true">2</span> Contesto</li>
-        <li :class="{ active: step >= 3 }"><span aria-hidden="true">3</span> Il tuo piano</li>
+        <li
+          v-for="passo in [
+            { n: 1, label: 'Importo' },
+            { n: 2, label: 'Contesto' },
+            { n: 3, label: 'Il tuo piano' },
+          ]"
+          :key="passo.n" :class="{ active: step >= passo.n }"
+        >
+          <!-- Solo all'indietro: tornare avanti richiede il pulsante che
+               rigenera il piano, altrimenti si mostrerebbe un piano vecchio
+               calcolato su importi nel frattempo cambiati. -->
+          <button
+            v-if="passo.n < step" type="button" class="steps__link"
+            :disabled="inCorso" @click="step = passo.n"
+          >
+            <span aria-hidden="true">{{ passo.n }}</span> {{ passo.label }}
+          </button>
+          <span v-else><span aria-hidden="true">{{ passo.n }}</span> {{ passo.label }}</span>
+        </li>
       </ol>
 
       <!-- ---------- Step 1: importo e origine ---------- -->
@@ -352,12 +383,17 @@ onMounted(() => {
             >
           </div>
           <p class="hint">Puoi anche proseguire senza rispondere: il piano sarà più prudente.</p>
-          <WButton
-            variant="primary" size="lg" :loading="state === 'generating'"
-            @click="generaPiano"
-          >
-            Crea il mio piano
-          </WButton>
+          <div class="actions">
+            <WButton variant="secondary" size="lg" :disabled="inCorso" @click="indietro">
+              Indietro
+            </WButton>
+            <WButton
+              variant="primary" size="lg" :loading="state === 'generating'"
+              @click="generaPiano"
+            >
+              Crea il mio piano
+            </WButton>
+          </div>
         </template>
       </WCard>
 
@@ -372,7 +408,10 @@ onMounted(() => {
           <ul v-if="error.details?.length" class="error-details">
             <li v-for="dettaglio in error.details" :key="dettaglio">{{ dettaglio }}</li>
           </ul>
-          <WButton variant="secondary" size="sm" @click="ricomincia">Ricomincia</WButton>
+          <div class="actions">
+            <WButton variant="secondary" size="sm" @click="indietro">Indietro</WButton>
+            <WButton variant="secondary" size="sm" @click="ricomincia">Ricomincia</WButton>
+          </div>
         </WCard>
 
         <template v-else-if="preview">
@@ -450,6 +489,9 @@ onMounted(() => {
             </p>
 
             <div class="actions">
+              <WButton variant="secondary" :disabled="inCorso" @click="indietro">
+                Indietro
+              </WButton>
               <WButton variant="secondary" @click="generaAnalisiEvoluta">
                 Analisi evoluta
               </WButton>
@@ -657,6 +699,8 @@ onMounted(() => {
 .steps { display: flex; gap: .5rem; margin: 0 0 1rem; padding: 0; list-style: none; color: var(--text-muted); font-size: var(--text-xs); }
 .steps li { flex: 1; padding: .5rem; text-align: center; border-bottom: 2px solid var(--border); }
 .steps li.active { color: var(--text-primary); border-color: var(--accent-green); }
+.steps__link { width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.steps__link:disabled { cursor: default; text-decoration: none; opacity: .6; }
 
 .flow-card, .allocations, .hero, .text-card, .empty, .zero-capital { display: flex; flex-direction: column; gap: .9rem; margin-bottom: 1rem; }
 h2 { color: var(--text-primary); font-size: 1.1rem; }
