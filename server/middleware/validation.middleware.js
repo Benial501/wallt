@@ -484,6 +484,10 @@ const validateConto = [
     .trim()
     .isLength({ max: 20 })
     .withMessage('Colore non valido'),
+  body('nascosto')
+    .optional({ values: 'null' })
+    .isBoolean()
+    .withMessage('Valore non valido per il conto nascosto'),
   validate,
 ];
 
@@ -525,6 +529,10 @@ const validateUpdateConto = [
     .optional({ values: 'null' })
     .isInt({ min: 0 })
     .withMessage('Ordine non valido'),
+  body('nascosto')
+    .optional({ values: 'null' })
+    .isBoolean()
+    .withMessage('Valore non valido per il conto nascosto'),
   validate,
 ];
 

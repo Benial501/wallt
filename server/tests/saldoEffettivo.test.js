@@ -255,3 +255,46 @@ describe('Validazione delle spese programmate', () => {
     expect(resAUnaTantum.body.movimento.ricorrente_giorno).toBeNull();
   });
 });
+
+describe('API conti: nascondi conto', () => {
+  let app;
+  let token;
+
+  beforeEach(async () => {
+    app = createApp({ enableRateLimit: false });
+    const { res } = await registerUser(app);
+    token = res.body.token;
+  });
+
+  it('crea un conto nascosto e lo restituisce come tale', async () => {
+    const creato = await request(app).post('/api/conti').set(authHeader(token))
+      .send({ nome: 'Risparmi', tipo: 'risparmio', saldo_iniziale: 500, nascosto: true });
+    expect(creato.status).toBe(201);
+    expect(creato.body.conto.nascosto).toBe(true);
+
+    const elenco = await request(app).get('/api/conti').set(authHeader(token));
+    expect(elenco.body.conti.find((c) => c.nome === 'Risparmi').nascosto).toBe(true);
+  });
+
+  it('nasconde e riespone un conto esistente', async () => {
+    const creato = await request(app).post('/api/conti').set(authHeader(token))
+      .send({ nome: 'Quotidiano', tipo: 'banca', saldo_iniziale: 100 });
+    const id = creato.body.conto.id;
+    expect(creato.body.conto.nascosto).toBe(false);
+
+    const nascosto = await request(app).put(`/api/conti/${id}`).set(authHeader(token))
+      .send({ nascosto: true });
+    expect(nascosto.status).toBe(200);
+    expect(nascosto.body.conto.nascosto).toBe(true);
+
+    const riesposto = await request(app).put(`/api/conti/${id}`).set(authHeader(token))
+      .send({ nascosto: false });
+    expect(riesposto.body.conto.nascosto).toBe(false);
+  });
+
+  it('rifiuta un valore non booleano', async () => {
+    const res = await request(app).post('/api/conti').set(authHeader(token))
+      .send({ nome: 'Strano', tipo: 'banca', nascosto: 'forse' });
+    expect(res.status).toBe(400);
+  });
+});

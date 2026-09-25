@@ -54,7 +54,9 @@ const getConti = async (req, res) => {
 const createConto = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
-    const { nome, tipo: tipoRaw, saldo_iniziale = 0, icona, colore } = req.body;
+    const {
+      nome, tipo: tipoRaw, saldo_iniziale = 0, icona, colore, nascosto = false,
+    } = req.body;
     const nomeNorm = normalizeContoNome(nome);
     const tipo = normalizeContoTipo(tipoRaw);
 
@@ -81,6 +83,7 @@ const createConto = async (req, res, next) => {
         icona: icona || inattivo.icona || '💳',
         colore: colore || inattivo.colore || '#00D4AA',
         ordine: (maxOrdine || 0) + 1,
+        nascosto,
         ...(saldo > 0 && saldoPrecedente === 0 ? { saldo } : {}),
       }, { transaction: t });
 
@@ -114,6 +117,7 @@ const createConto = async (req, res, next) => {
       colore: colore || '#00D4AA',
       ordine: (maxOrdine || 0) + 1,
       attivo: true,
+      nascosto,
     }, { transaction: t });
 
     if (saldo > 0) {
@@ -155,12 +159,15 @@ const updateConto = async (req, res) => {
       return res.status(404).json({ message: 'Conto non trovato' });
     }
 
-    const { nome, icona, colore, ordine, saldo } = req.body;
+    const {
+      nome, icona, colore, ordine, saldo, nascosto,
+    } = req.body;
     const updateData = {};
     if (nome !== undefined) updateData.nome = nome;
     if (icona !== undefined) updateData.icona = icona;
     if (colore !== undefined) updateData.colore = colore;
     if (ordine !== undefined) updateData.ordine = ordine;
+    if (nascosto !== undefined) updateData.nascosto = nascosto;
 
     await conto.update(updateData, { transaction: t });
     await syncPiattaformaFromContoMeta(conto, updateData, t);
