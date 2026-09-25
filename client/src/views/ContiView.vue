@@ -57,7 +57,9 @@ const nuovoForm = ref({
   nome: '', tipo: 'banca', saldo_iniziale: 0, icona: '🏦', colore: '#00D4AA',
 });
 
-const editForm = ref({ nome: '', icona: '', colore: '', saldo: 0 });
+const editForm = ref({
+  nome: '', icona: '', colore: '', saldo: 0, nascosto: false,
+});
 
 
 watch(() => nuovoForm.value.tipo, (tipo) => {
@@ -113,15 +115,26 @@ const creaConto = async () => {
 
 const apriModifica = (conto) => {
   contoEdit.value = conto;
-  editForm.value = { nome: conto.nome, icona: conto.icona, colore: conto.colore, saldo: Number(conto.saldo) || 0 };
+  editForm.value = {
+    nome: conto.nome, icona: conto.icona, colore: conto.colore,
+    saldo: Number(conto.saldo) || 0, nascosto: Boolean(conto.nascosto),
+  };
   showModifica.value = true;
 };
 
 const salvaModifica = async () => {
   loading.value = true;
   try {
-    const { nome, icona, colore, saldo } = editForm.value;
-    await contiStore.updateConto(contoEdit.value.id, { nome, icona, colore, saldo }, { tipo: contoEdit.value.tipo });
+    const {
+      nome, icona, colore, saldo, nascosto,
+    } = editForm.value;
+    await contiStore.updateConto(
+      contoEdit.value.id,
+      {
+        nome, icona, colore, saldo, nascosto,
+      },
+      { tipo: contoEdit.value.tipo },
+    );
     toastStore.success('Conto aggiornato!');
     showModifica.value = false;
   } catch (err) {
@@ -202,6 +215,7 @@ const confermaElimina = async () => {
           <div class="conto-card__body">
             <div class="conto-card__top">
               <h3>{{ conto.nome }}</h3>
+              <span v-if="conto.nascosto" class="conto-badge-nascosto">Fuori dal saldo effettivo</span>
             </div>
             <p class="conto-card__balance-label">Saldo disponibile</p>
             <p class="conto-card__saldo">{{ formatValuta(conto.saldo) }}</p>
@@ -285,6 +299,16 @@ const confermaElimina = async () => {
             <button v-for="c in COLORI" :key="c" class="color-dot" :style="{ background: c }" :class="{ active: editForm.colore === c }" @click="editForm.colore = c" />
           </div>
         </div>
+        <label class="conto-nascondi">
+          <input v-model="editForm.nascosto" type="checkbox">
+          <span>
+            <strong>Nascondi dal {{ etichetta('saldo_effettivo') }}</strong>
+            <small>
+              Il conto resta nel patrimonio totale, ma i suoi soldi non contano
+              fra quelli che puoi spendere. Utile per un conto di risparmio.
+            </small>
+          </span>
+        </label>
         <div class="field">
           <label>Saldo attuale (€)</label>
           <input v-model.number="editForm.saldo" type="number" step="0.01" class="form-input" />
@@ -355,9 +379,15 @@ const confermaElimina = async () => {
 .conto-card__body { padding: 1rem 1.25rem 1.25rem; }
 /* deroga: didascalia sopra il saldo in .conto-card__saldo, già leggibile a clamp(1.5rem, 4vw, 2rem) */
 .conto-card__balance-label { margin-top: 1rem; margin-bottom: .15rem; color: var(--text-muted); font-size: var(--text-micro); }
-.conto-card__top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+.conto-card__top { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
 .conto-card__top h3 { font-size: 1.0625rem; font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
 .badge { font-size: var(--text-xs); padding: 0.25rem 0.5rem; border-radius: 999px; background: var(--bg-input); color: var(--text-muted); }
+.conto-badge-nascosto { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
+.conto-nascondi { display: flex; align-items: flex-start; gap: 0.625rem; padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-input); cursor: pointer; }
+.conto-nascondi input[type="checkbox"] { margin-top: 0.125rem; flex-shrink: 0; }
+.conto-nascondi span { display: flex; flex-direction: column; gap: 0.25rem; }
+.conto-nascondi strong { font-size: 0.875rem; color: var(--text-primary); }
+.conto-nascondi small { font-size: var(--text-xs); color: var(--text-muted); line-height: 1.5; }
 .conto-card__saldo { font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 650; letter-spacing: -.045em; font-variant-numeric: tabular-nums; color: var(--text-primary); margin-bottom: 1.25rem; overflow-wrap: anywhere; }
 .conto-card__actions { display: flex; gap: 0.5rem; }
 .conto-card__actions button { flex: 1; min-height: 44px; padding: 0.5rem; border-radius: 12px; border: 1px solid var(--border); background: color-mix(in srgb, var(--bg-input) 60%, transparent); color: var(--text-secondary); cursor: pointer; font-size: var(--text-xs); transition: background-color 150ms ease; }
