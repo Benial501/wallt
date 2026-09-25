@@ -298,3 +298,36 @@ describe('API conti: nascondi conto', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('GET /conti/patrimonio: saldo effettivo', () => {
+  let app;
+  let token;
+  let userId;
+
+  beforeEach(async () => {
+    app = createApp({ enableRateLimit: false });
+    const { res } = await registerUser(app);
+    token = res.body.token;
+    userId = res.body.user.id;
+  });
+
+  it('espone il saldo effettivo accanto al patrimonio, con il suo dettaglio', async () => {
+    await Conto.create({ user_id: userId, nome: 'Quotidiano', tipo: 'banca', saldo: 1000, attivo: true });
+    await Conto.create({ user_id: userId, nome: 'Risparmi', tipo: 'risparmio', saldo: 5000, attivo: true, nascosto: true });
+    await Obiettivo.create({
+      user_id: userId, nome: 'Vacanza', importo_target: 800, importo_attuale: 200, completato: false,
+    });
+
+    const res = await request(app).get('/api/conti/patrimonio').set(authHeader(token));
+
+    expect(res.status).toBe(200);
+    expect(res.body.totale).toBe(6000);
+    expect(res.body.saldo_effettivo).toBe(800);
+    expect(res.body.saldo_effettivo_dettaglio).toEqual({
+      conti_visibili: 1000,
+      conti_nascosti: 5000,
+      obiettivi: 200,
+      impegni: 0,
+    });
+  });
+});

@@ -277,8 +277,8 @@ notifiche dell'utente autenticato.
 
 ### GET /api/conti/patrimonio
 - **Auth**: Sì
-- **Risposta**: `{ totale, totale_conti, totale_investimenti, variazione_importo, variazione_percentuale, passivita_totale, patrimonio_netto }` — `passivita_totale` è la somma di `Debito.saldo_residuo` attivi, `patrimonio_netto = totale - passivita_totale`
-- **File**: `conti.controller.js` → `services/financialSummary.service.js`
+- **Risposta**: `{ totale, totale_conti, totale_investimenti, variazione_importo, variazione_percentuale, passivita_totale, patrimonio_netto, saldo_effettivo, saldo_effettivo_dettaglio: { conti_visibili, conti_nascosti, obiettivi, impegni } }` — `passivita_totale` è la somma di `Debito.saldo_residuo` attivi, `patrimonio_netto = totale - passivita_totale`; `saldo_effettivo` (e il suo dettaglio) arriva da `services/liquidita.service.js`, calcolato in parallelo al patrimonio
+- **File**: `conti.controller.js` → `services/financialSummary.service.js`, `services/liquidita.service.js`
 - **Frontend**: `conti.store.js` → `DashboardView.vue`
 
 ### GET /api/conti/liquidita

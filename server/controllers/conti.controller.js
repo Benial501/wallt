@@ -216,10 +216,13 @@ const deleteConto = async (req, res) => {
 
 const getPatrimonioTotale = async (req, res) => {
   try {
-    const {
+    const [{
       patrimonio_conti: totaleConti, patrimonio_investimenti: totaleInvestimenti,
       patrimonio_totale: totale, passivita_totale, patrimonio_netto,
-    } = await calcolaPatrimonioNetto(req.userId);
+    }, liquidita] = await Promise.all([
+      calcolaPatrimonioNetto(req.userId),
+      calcolaLiquidita(req.userId),
+    ]);
 
     const now = new Date();
     const primoGiorno = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -253,6 +256,18 @@ const getPatrimonioTotale = async (req, res) => {
       variazione_percentuale,
       passivita_totale,
       patrimonio_netto,
+      // Il saldo effettivo NON viene ricalcolato qui: arriva da
+      // liquidita.service.js, unico punto in cui si decide cosa è
+      // spendibile (Regola 20). Viaggia insieme al patrimonio perché la
+      // home li mostra uno sotto l'altro: due chiamate separate potrebbero
+      // arrivare disallineate.
+      saldo_effettivo: liquidita.saldo_effettivo,
+      saldo_effettivo_dettaglio: {
+        conti_visibili: liquidita.saldo_conti_visibili,
+        conti_nascosti: liquidita.saldo_conti_nascosti,
+        obiettivi: liquidita.liquidita_allocata,
+        impegni: liquidita.impegni_pertinenti,
+      },
     });
   } catch (error) {
     logger.error('Errore getPatrimonioTotale', { err: error });
