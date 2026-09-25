@@ -38,6 +38,9 @@ Funzionalità realmente implementate e collegate end-to-end (frontend + backend)
 | Privacy/Termini statici | PrivacyPolicy, TermsView | — | — |
 | Transazioni recenti home | RecentTransactions | movimenti.controller (ordine=caricamento) | — |
 | Categoria trasferimento_denaro | categorie.js | constants/categorie.js | — |
+| Saldo effettivo (quanto è davvero spendibile) | WOverviewCarousel.vue (slide patrimonio in DashboardView) | conti.controller (`getPatrimonioTotale`, delega) → `services/liquidita.service.js` | `saldoEffettivo.test.js` |
+| Conti nascosti (fuori dallo spendibile, dentro il patrimonio) | ContiView | conti.controller, `services/liquidita.service.js` | `saldoEffettivo.test.js` |
+| Spese programmate (`una_tantum`: addebito unico a data fissa, con recupero e chiusura automatica del promemoria) | RicorrenteForm.vue (non in MovimentoForm.vue, che offre solo mensile/settimanale/annuale) | `services/ricorrenti.service.js` (cron), `muoveSaldo` | `ricorrenti.test.js`, `saldoEffettivo.test.js` |
 
 ## Partially Implemented Features
 

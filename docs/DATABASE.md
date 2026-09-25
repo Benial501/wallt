@@ -82,6 +82,7 @@ Migrazioni: `npm run migrate` o auto-run all'avvio (`server.js`, disabilitato in
 | `colore` | STRING(20) | Hex |
 | `ordine` | INTEGER | |
 | `attivo` | BOOLEAN | Soft-delete |
+| `nascosto` | BOOLEAN | Default `false`. Fuori da tutto ciò che è "spendibile" (saldo effettivo, capitale allocabile di Piano Smart): resta comunque nel patrimonio totale. Vedi `services/liquidita.service.js`, CLAUDE.md Regola 20 |
 
 ### `movimenti`
 | Campo | Tipo | Note |
@@ -96,8 +97,9 @@ Migrazioni: `npm run migrate` o auto-run all'avvio (`server.js`, disabilitato in
 | `descrizione` | STRING(500) | |
 | `data` | DATEONLY | Data transazione |
 | `ricorrente` | BOOLEAN | |
-| `ricorrente_frequenza` | ENUM | giornaliera/settimanale/mensile/annuale |
-| `ricorrente_giorno` | INTEGER | Giorno del mese |
+| `ricorrente_frequenza` | ENUM | giornaliera/settimanale/mensile/annuale/una_tantum |
+| `ricorrente_giorno` | INTEGER | Giorno del mese (non usato per `una_tantum`) |
+| `ricorrente_data` | DATEONLY | Solo con `ricorrente_frequenza: 'una_tantum'` (spesa programmata): data fissa dell'addebito unico. `null` per le altre frequenze — nessuna riga la legge se non è `una_tantum`. Vedi CLAUDE.md Regola 11 |
 | `categoria_automatica` | BOOLEAN | |
 | `categoria_confidenza` | INTEGER | 0-100 |
 | `categoria_modificata` | BOOLEAN | Utente ha corretto |
@@ -400,6 +402,8 @@ CategorieRegola (globali, user_id = NULL) — nessuna FK
 
 ## Migrazioni
 
+41 file in `server/migrations/` (verificare con `ls server/migrations | wc -l`: il conteggio cambia a ogni feature che tocca lo schema). La tabella sotto non è esaustiva — si ferma alle migrazioni rilevanti per le tabelle sopra documentate, più l'ultima arrivata:
+
 | File | Contenuto |
 |---|---|
 | `20250101000001-create-all-tables.js` | Tutte le tabelle core |
@@ -434,6 +438,7 @@ CategorieRegola (globali, user_id = NULL) — nessuna FK
 | `20260917000023-add-tipo-obiettivo.js` | obiettivi.tipo_obiettivo (generico/fondo_sicurezza) |
 | `20260917000024-create-debiti.js` | Tabella debiti |
 | `20260917000025-harden-debiti-access.js` | RLS + revoca privilegi ruoli pubblici su debiti (follow-up hardening, additiva) |
+| `20260925000033-add-nascosto-e-spese-programmate.js` | conti.nascosto (BOOLEAN, default false) + movimenti.ricorrente_data (DATEONLY) |
 
 ## Query importanti
 

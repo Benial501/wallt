@@ -254,7 +254,7 @@ notifiche dell'utente autenticato.
 
 ### POST /api/conti
 - **Auth**: Sì
-- **Body**: `{ nome, tipo, saldo_iniziale?, icona?, colore? }`
+- **Body**: `{ nome, tipo, saldo_iniziale?, icona?, colore?, nascosto? }` — `nascosto` (default `false`) esclude il conto dal saldo effettivo e dal capitale allocabile di Piano Smart; resta comunque nel patrimonio totale (CLAUDE.md Regola 20)
 - **Validazione**: `validateConto`
 - **Risposta**: `{ conto }` (o riattivazione conto inattivo con stesso nome)
 - **File**: `conti.controller.js`
@@ -262,7 +262,7 @@ notifiche dell'utente autenticato.
 
 ### PUT /api/conti/:id
 - **Auth**: Sì
-- **Body**: `{ nome?, tipo?, icona?, colore?, saldo? }`
+- **Body**: `{ nome?, tipo?, icona?, colore?, saldo?, nascosto? }`
 - **Validazione**: `validateUpdateConto`
 - **Risposta**: `{ conto }`
 - **File**: `conti.controller.js`
@@ -283,8 +283,8 @@ notifiche dell'utente autenticato.
 
 ### GET /api/conti/liquidita
 - **Auth**: Sì
-- **Azione**: Overlay di sola lettura — nessun euro viene spostato: calcola quanto del saldo conti è davvero libero, sottraendo la liquidità già allocata su obiettivi non completati e le uscite ricorrenti mensili non ancora addebitate nel periodo corrente.
-- **Risposta**: `{ saldo_conti, liquidita_allocata, impegni_pertinenti, liquidita_libera, obiettivi_allocati[], impegni[] }`
+- **Azione**: Overlay di sola lettura — nessun euro viene spostato: calcola quanto del saldo conti è davvero libero, sottraendo la liquidità già allocata su obiettivi non completati e le uscite ricorrenti (mensili/settimanali/annuali) non ancora addebitate nel periodo corrente, più le spese programmate (`una_tantum`) non ancora addebitate entro 30 giorni (o già scadute).
+- **Risposta**: `{ saldo_conti, saldo_conti_nascosti, saldo_conti_visibili, saldo_ordinario, saldo_conti_speciali, liquidita_allocata, impegni_pertinenti, liquidita_libera, liquidita_allocabile, saldo_effettivo, obiettivi_allocati[], impegni[] }` — `saldo_conti_visibili` esclude i conti `nascosto`; `saldo_effettivo` è la stessa idea di `liquidita_allocabile` ma senza la scomposizione ordinario/scommesse (vedi `services/liquidita.service.js` e CLAUDE.md Regola 20); ogni voce di `impegni[]` ha `tipo: 'ricorrente' | 'programmata'` e, per le programmate, `data`
 - **File**: `conti.controller.js` → `services/liquidita.service.js`
 
 ### POST /api/conti/trasferimento
@@ -315,18 +315,19 @@ notifiche dell'utente autenticato.
 
 ### POST /api/movimenti
 - **Auth**: Sì
-- **Body**: `{ tipo, importo, categoria, conto_id, data, descrizione?, ricorrente?, ricorrente_frequenza?, ricorrente_giorno? }`
+- **Body**: `{ tipo, importo, categoria, conto_id, data, descrizione?, ricorrente?, ricorrente_frequenza?, ricorrente_giorno?, ricorrente_mese?, ricorrente_data? }` — `ricorrente_frequenza: 'una_tantum'` è una **spesa programmata**: richiede `ricorrente_data` (non nel passato, verificato da `validateMovimento`) e ignora `ricorrente_giorno`/`ricorrente_mese`
 - **Validazione**: `validateMovimento`
 - **Risposta**: `{ movimento }`
+- **Azione**: Una spesa programmata (`una_tantum`) **non** scala subito il conto: è una promessa, non un movimento avvenuto. Il saldo si muove solo quando il cron la addebita alla sua data (`muoveSaldo`, CLAUDE.md Regola 11). Il controllo di saldo insufficiente su un'uscita si applica comunque in fase di creazione, indipendentemente dalla frequenza.
 - **Errori**: 400 (saldo insufficiente per uscita)
 - **File**: `movimenti.controller.js`
 - **Frontend**: `MovimentoForm.vue`
 
 ### PUT /api/movimenti/:id
 - **Auth**: Sì
-- **Body**: Campi opzionali (importo, categoria, data, descrizione, conto_id, tipo)
+- **Body**: Campi opzionali (importo, categoria, data, descrizione, conto_id, tipo, ricorrente, ricorrente_frequenza, ricorrente_giorno, ricorrente_mese, ricorrente_data)
 - **Validazione**: `validateUpdateMovimento`
-- **Azione**: Ricalcola saldo conto (vecchio e nuovo se conto cambia)
+- **Azione**: Ricalcola saldo conto (vecchio e nuovo se conto cambia), ma solo per la parte che `muoveSaldo` considera denaro realmente mosso: convertire una spesa programmata (`una_tantum`) in una ricorrenza normale (o viceversa) sposta il saldo di conseguenza nella stessa richiesta
 - **File**: `movimenti.controller.js`
 - **Frontend**: `MovimentoForm.vue` (edit mode)
 
