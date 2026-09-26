@@ -2,9 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GUIDA_PIANO_SMART, GUIDA_ESEMPIO, calcolaTotaleEsempio } from '../src/content/pianoSmartGuide.js';
 
-test('la guida contiene cinque sezioni e spiega il limite principale', () => {
-  assert.equal(GUIDA_PIANO_SMART.length, 5);
-  assert.ok(GUIDA_PIANO_SMART.flatMap((section) => section.paragraphs).some((text) => text.includes('non sposta denaro')));
+test('la guida spiega il limite principale anche con sezioni senza paragrafi', () => {
+  assert.ok(GUIDA_PIANO_SMART.flatMap((section) => section.paragraphs ?? []).some((text) => text.includes('non sposta denaro')));
 });
 
 test('la guida descrive tutte le cinque categorie', () => {

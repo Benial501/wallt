@@ -231,5 +231,5 @@ function avviaCronRicorrenti() {
 module.exports = {
   processaRicorrenti, avviaCronRicorrenti, getRomeDateParts, FREQUENZE_SUPPORTATE, periodoPerFrequenza,
   STATI_RICORRENZA, ricorrenzaAttiva, cambiaStatoRicorrenza,
-  whereRicorrenzaAttiva, normalizzaStatoRicorrenza,
+  whereRicorrenzaAttiva, normalizzaStatoRicorrenza, valutaOccorrenza,
 };

@@ -42,6 +42,7 @@ const oggiStr = oggi.format('YYYY-MM-DD');
 const formOpen = ref(false);
 const formTipo = ref('uscita');
 const movimentoEdit = ref(null);
+const pianoSmartHome = ref(null);
 
 // Per far rileggere AndamentoPatrimonio da onSaved: DataState tiene lo slot
 // montato per progetto, quindi solo `onMounted` non basta, e una `key` che
@@ -169,6 +170,18 @@ const loadDashboardMovimenti = () => Promise.all([
   movimentiStore.fetchOggi(meseStart, oggiStr, oggiStr),
 ]);
 
+const loadPianoSmartHome = async () => {
+  try {
+    const { data } = await api.get('/piano-smart/v2/current-situation');
+    pianoSmartHome.value = data;
+  } catch {
+    pianoSmartHome.value = null;
+  }
+};
+
+const formatoEuro = (value) => value === null || value === undefined
+  ? '—' : new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(Number(value));
+
 const loadBudget = async () => {
   await budgetStore.fetchBudget(oggi.month() + 1, oggi.year());
   // `hasBudget`, non `esiste`: dopo una scrittura riuscita ma una rilettura
@@ -233,6 +246,7 @@ const onSaved = async () => {
     loadScommesse(),
     loadInvestimenti(),
     loadObiettivi(),
+    loadPianoSmartHome(),
     // Senza, il numero in cima allo slide si aggiorna e la linea/variazione
     // due centimetri sotto restano sul valore vecchio finché non si ricarica
     // la pagina: due numeri della stessa schermata in contraddizione.
@@ -272,6 +286,20 @@ onMounted(async () => {
     <div class="dashboard-view__help">
       <HelpTrigger topic="dashboard-riepilogo" label="Come leggere il riepilogo" />
     </div>
+
+    <button
+      v-if="pianoSmartHome"
+      type="button"
+      class="dashboard-view__smart-summary"
+      @click="router.push('/piano-smart')"
+    >
+      <span class="dashboard-view__smart-label">Quanto puoi spendere oggi?</span>
+      <strong>{{ formatoEuro(pianoSmartHome.current.availableToSpend) }}</strong>
+      <small v-if="pianoSmartHome.current.dailyLimit !== null">
+        Circa {{ formatoEuro(pianoSmartHome.current.dailyLimit) }} al giorno
+      </small>
+      <span class="dashboard-view__smart-link">Apri Piano Smart →</span>
+    </button>
 
     <WOverviewCarousel
       ref="overviewRef"
@@ -353,6 +381,26 @@ onMounted(async () => {
   justify-content: flex-end;
   margin-bottom: 0.625rem;
 }
+
+.dashboard-view__smart-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  gap: .25rem;
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--glass-interactive-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-interactive-bg);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.dashboard-view__smart-summary strong { font-size: 1.7rem; }
+.dashboard-view__smart-label, .dashboard-view__smart-summary small { color: var(--text-secondary); font-size: var(--text-sm); }
+.dashboard-view__smart-link { margin-top: .35rem; color: var(--accent-text); font-size: var(--text-xs); font-weight: 700; }
 
 /* L'azione principale della dashboard: pastiglia ad alto contrasto, chiara
    sul tema scuro e scura sul chiaro. La gerarchia arriva dal contrasto, non

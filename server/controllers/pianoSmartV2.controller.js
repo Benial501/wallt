@@ -6,6 +6,8 @@ const { createActions } = require('../services/pianoSmartV2/action.service');
 const { toCents } = require('../services/pianoSmart/money');
 const { serializePreview } = require('../services/pianoSmartV2/serializer');
 const { sequelize, PianoSmart, PianoSmartAllocazione, PianoSmartAzione } = require('../models');
+const { buildCurrentSituation } = require('../services/pianoSmartV2/currentSituation.service');
+const logger = require('../utils/logger');
 
 const inputFromBody = (body) => ({
   amountCents: toCents(body.amount),
@@ -35,6 +37,16 @@ const generate = async (userId, body) => {
 const preview = async (req, res) => {
   try { return res.json(await generate(req.userId, req.body)); } catch (error) {
     return res.status(error.status || 500).json({ error: error.status ? error.message : 'Errore nella generazione del piano V2.' });
+  }
+};
+
+const currentSituation = async (req, res) => {
+  try {
+    const financialContext = await getFinancialContext(req.userId);
+    return res.json(buildCurrentSituation({ context: financialContext }));
+  } catch (error) {
+    logger.error('Current situation calculation failed', { err: error, userId: req.userId });
+    return res.status(error.status || 500).json({ error: error.status ? error.message : 'Errore nel riepilogo della situazione.' });
   }
 };
 
@@ -125,4 +137,4 @@ const getOwnedSnapshot = async (req) => {
   return plan?.context_snapshot || null;
 };
 
-module.exports = { preview, save, listActions, updateAction, getSnapshot, getScenarios, getProjection, generate };
+module.exports = { preview, currentSituation, save, listActions, updateAction, getSnapshot, getScenarios, getProjection, generate };

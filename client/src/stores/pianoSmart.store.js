@@ -31,6 +31,8 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
   const readiness = ref(null);
   const preview = ref(null);
   const v2Preview = ref(null);
+  const currentSituation = ref(null);
+  const currentSituationState = ref('idle');
   const recommendedAllocations = ref([]);
   const finalAllocations = ref([]);
   const plans = ref([]);
@@ -174,6 +176,20 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     }
   }
 
+  async function loadCurrentSituation() {
+    currentSituationState.value = 'loading';
+    error.value = null;
+    try {
+      currentSituation.value = await pianoSmartApi.getCurrentSituation();
+      currentSituationState.value = 'ready';
+      return currentSituation.value;
+    } catch (err) {
+      setError(err);
+      currentSituationState.value = 'error';
+      return null;
+    }
+  }
+
   async function savePlan() {
     if (!canSave.value) return null;
     state.value = 'saving';
@@ -258,6 +274,8 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     readiness.value = null;
     preview.value = null;
     v2Preview.value = null;
+    currentSituation.value = null;
+    currentSituationState.value = 'idle';
     recommendedAllocations.value = [];
     finalAllocations.value = [];
     plans.value = [];
@@ -271,6 +289,8 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     readiness,
     preview,
     v2Preview,
+    currentSituation,
+    currentSituationState,
     recommendedAllocations,
     finalAllocations,
     plans,
@@ -288,6 +308,7 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     loadReadiness,
     generatePreview,
     generateV2Preview,
+    loadCurrentSituation,
     savePlan,
     loadPlans,
     loadPlan,
