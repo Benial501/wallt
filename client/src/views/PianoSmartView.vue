@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router';
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
+import CategoryIcon from '@/components/common/CategoryIcon.vue';
 import AppDialog from '@/components/common/AppDialog.vue';
 import PianoSmartGuide from '@/components/piano-smart/PianoSmartGuide.vue';
 import PianoSmartChangeTimeline from '@/components/piano-smart/PianoSmartChangeTimeline.vue';
@@ -78,6 +79,27 @@ const descrizioneCategoria = (categoria) => GLOSSARIO[CATEGORIA_CONCETTO[categor
 const etichettaOrigine = (value) => ORIGINI.find((o) => o.value === value)?.label ?? value ?? 'Entrata';
 const etichettaStato = (value) => STATI_PIANO[value] ?? value;
 const simulazione = computed(() => simulatePurchase(currentSituation.value, simulatoreImporto.value));
+const speseFrequenti = computed(() => {
+  const weekly = currentSituation.value?.frequentExpenses?.weekly;
+  const monthly = currentSituation.value?.frequentExpenses?.monthly;
+  const weeklyByCategory = new Map((weekly?.items ?? []).map((item) => [item.category, item]));
+  const monthlyByCategory = new Map((monthly?.items ?? []).map((item) => [item.category, item]));
+  const categorie = new Set([...weeklyByCategory.keys(), ...monthlyByCategory.keys()]);
+  return [...categorie].map((category) => {
+    const item = weeklyByCategory.get(category) ?? monthlyByCategory.get(category);
+    return {
+      ...item,
+      category,
+      weeklyAverage: weeklyByCategory.get(category)?.average ?? (weekly?.periodCount ? 0 : null),
+      monthlyAverage: monthlyByCategory.get(category)?.average ?? (monthly?.periodCount ? 0 : null),
+    };
+  }).sort((first, second) => {
+    const differenzaMensile = (second.monthlyAverage ?? 0) - (first.monthlyAverage ?? 0);
+    if (differenzaMensile) return differenzaMensile;
+    const differenzaSettimanale = (second.weeklyAverage ?? 0) - (first.weeklyAverage ?? 0);
+    return differenzaSettimanale || first.name.localeCompare(second.name, 'it');
+  });
+});
 const simulatoreErrore = computed(() => simulatoreImporto.value !== '' && purchaseAmountCents(simulatoreImporto.value) === null);
 const formattaCentesimi = (value) => formattaEuro(value === null ? null : value / 100);
 const formattaScadenza = (value) => new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`));
@@ -394,6 +416,43 @@ onMounted(() => {
           <div class="progress-line"><span>Risparmio medio storico / mese</span><strong>{{ formattaEuro(currentSituation.forecast.monthlySavings) }}</strong></div>
           <p class="hint">Limite giornaliero: {{ formattaEuro(currentSituation.current.dailyLimit) }} · {{ currentSituation.current.remainingDays }} giorni rimanenti</p>
         </section>
+
+        <WCard class="text-card frequent-expenses" aria-labelledby="spese-frequenti-title">
+          <div>
+            <h2 id="spese-frequenti-title">Medie delle spese frequenti</h2>
+            <p class="muted">Le uscite registrate, raggruppate per categoria.</p>
+          </div>
+          <p v-if="speseFrequenti.length" class="frequent-expenses__periods">
+            Media su {{ currentSituation.frequentExpenses.weekly.periodCount }} {{ currentSituation.frequentExpenses.weekly.periodCount === 1 ? 'settimana completa' : 'settimane complete' }}
+            e {{ currentSituation.frequentExpenses.monthly.periodCount }} {{ currentSituation.frequentExpenses.monthly.periodCount === 1 ? 'mese completo' : 'mesi completi' }}.
+          </p>
+          <div v-if="speseFrequenti.length" class="frequent-table-wrap">
+            <table class="frequent-table">
+              <caption class="sr-only">Medie settimanali e mensili delle uscite registrate per categoria</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Categoria</th>
+                  <th scope="col">A settimana</th>
+                  <th scope="col">Al mese</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in speseFrequenti" :key="item.category">
+                  <th scope="row">
+                    <span class="frequent-category" :style="{ '--category-color': item.color || 'var(--text-secondary)' }">
+                      <span class="frequent-category__icon"><CategoryIcon :categoria="item.category" tipo="uscita" :size="17" /></span>
+                      <span>{{ item.name }}</span>
+                    </span>
+                  </th>
+                  <td>{{ formattaEuro(item.weeklyAverage) }}</td>
+                  <td>{{ formattaEuro(item.monthlyAverage) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-else class="frequent-expenses__empty">Non ci sono ancora spese registrate in periodi completi sufficienti per calcolare queste medie.</p>
+          <p class="hint">I periodi in corso sono esclusi. Le settimane e i mesi senza uscite valgono zero; i pagamenti ricorrenti non ancora addebitati non vengono conteggiati.</p>
+        </WCard>
 
         <WCard class="text-card">
           <h2>Cosa fare adesso</h2>
@@ -929,6 +988,19 @@ onMounted(() => {
 .progress-track i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .35s ease; }
 .progress-track--expenses { background: color-mix(in srgb, #f0a35b 14%, transparent); }
 .progress-track--expenses i { background: #f0a35b; }
+.frequent-expenses { align-items: stretch; }
+.frequent-expenses h2 { margin: 0 0 .25rem; }
+.frequent-expenses__periods, .frequent-expenses__empty { margin: 0; color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.5; }
+.frequent-table-wrap { width: 100%; overflow-x: auto; }
+.frequent-table { width: 100%; min-width: 300px; border-collapse: collapse; font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.frequent-table th, .frequent-table td { padding: .7rem .35rem; border-bottom: 1px solid var(--divider); }
+.frequent-table thead th { color: var(--text-secondary); font-size: var(--text-xs); font-weight: 600; text-align: right; white-space: nowrap; }
+.frequent-table thead th:first-child, .frequent-table tbody th { text-align: left; }
+.frequent-table tbody th { color: var(--text-primary); font-weight: 500; }
+.frequent-table tbody td { color: var(--text-primary); text-align: right; white-space: nowrap; }
+.frequent-table tbody tr:last-child th, .frequent-table tbody tr:last-child td { border-bottom: 0; }
+.frequent-category { display: inline-flex; align-items: center; gap: .55rem; min-height: 2rem; }
+.frequent-category__icon { display: grid; place-items: center; width: 2rem; height: 2rem; flex: 0 0 2rem; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--category-color) 12%, transparent); color: var(--category-color); }
 .simulator { border-top: 1px solid var(--divider); padding-top: 1.25rem; }
 .simulator-form { display: flex; flex-direction: column; gap: .35rem; margin-top: .75rem; }
 .simulator-form input { width: 100%; min-height: 44px; padding: .7rem .8rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--text-primary); font: inherit; }

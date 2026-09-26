@@ -16,6 +16,7 @@ const { ultimiNMesi } = require('./confrontoPeriodi.service');
 const { classificaFinestra } = require('./finestraMesi.service');
 const { finestraGiorni, oggiLocale, FUSO_DEFAULT } = require('../utils/dateRome');
 const { muoveSaldo } = require('./ricorrenti.service');
+const { costruisciPeriodiMedia, calcolaMediePerCategoria } = require('./speseMedie.service');
 
 const round2 = (v) => Math.round(v * 100) / 100;
 const toNumber = (v) => parseFloat(v) || 0;
@@ -205,4 +206,44 @@ async function aggregaSpeseMesi(userId, numMesi, riferimento = new Date(), opzio
   };
 }
 
-module.exports = { aggregaSpeseGiorni, aggregaSpeseMesi, finestraGiorniStandard };
+/**
+ * Medie per categoria sulle ultime 12 settimane e sugli ultimi 3 mesi
+ * completi. Le settimane e i mesi senza spese valgono zero; il primo periodo
+ * viene escluso se lo storico dell'utente inizia a periodo già avviato.
+ */
+async function aggregaMedieSpeseFrequenti(userId, riferimento = new Date(), primoMovimento = null) {
+  const periodi = costruisciPeriodiMedia({ riferimento, primoMovimento });
+  const tuttiPeriodi = [...periodi.weekly.periods, ...periodi.monthly.periods];
+  if (!tuttiPeriodi.length) {
+    return calcolaMediePerCategoria({
+      periodiSettimanali: periodi.weekly.periods,
+      periodiMensili: periodi.monthly.periods,
+      movimenti: [],
+      categorie: [],
+    });
+  }
+
+  const da = tuttiPeriodi.map((periodo) => periodo.from).sort()[0];
+  const a = tuttiPeriodi.map((periodo) => periodo.to).sort().at(-1);
+  const [movimenti, categorie] = await Promise.all([
+    Movimento.findAll({
+      where: { user_id: userId, tipo: 'uscita', data: { [Op.between]: [da, a] } },
+      attributes: ['data', 'categoria', 'importo', 'ricorrente'],
+    }),
+    listCategories(userId, { includeArchived: true }),
+  ]);
+
+  return calcolaMediePerCategoria({
+    periodiSettimanali: periodi.weekly.periods,
+    periodiMensili: periodi.monthly.periods,
+    movimenti: movimenti.filter(muoveSaldo),
+    categorie: categorie.filter((categoria) => categoria.tipo === 'uscita'),
+  });
+}
+
+module.exports = {
+  aggregaSpeseGiorni,
+  aggregaSpeseMesi,
+  aggregaMedieSpeseFrequenti,
+  finestraGiorniStandard,
+};

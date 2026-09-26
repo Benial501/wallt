@@ -18,7 +18,7 @@ const { FUSO_DEFAULT, oggiLocale, fineMese, sommaGiorni } = require('../utils/da
 const { elencoMesi, classificaFinestra } = require('./finestraMesi.service');
 const { calcolaPatrimonioNetto } = require('./financialSummary.service');
 const { calcolaLiquidita } = require('./liquidita.service');
-const { aggregaSpeseMesi } = require('./spese.service');
+const { aggregaSpeseMesi, aggregaMedieSpeseFrequenti } = require('./spese.service');
 const { calcolaEntrate } = require('./entrate.service');
 const { calcolaMesiCopertura } = require('./fondoSicurezza.service');
 const { riepilogo: riepilogoDebiti, calcolaPressioneDebitoria } = require('./debiti.service');
@@ -273,6 +273,7 @@ async function getFinancialContext(userId, options = {}) {
     patrimonioNetto,
     liquidita,
     spese,
+    medieSpeseFrequenti,
     entrate,
     debiti,
     obiettivi,
@@ -283,6 +284,7 @@ async function getFinancialContext(userId, options = {}) {
     calcolaPatrimonioNetto(userId),
     calcolaLiquidita(userId, { data: oggi }),
     aggregaSpeseMesi(userId, historyMonths, referenceDate, { primoMovimento }),
+    aggregaMedieSpeseFrequenti(userId, referenceDate, primoMovimento),
     calcolaEntrate(userId, {
       da: finestraEntrate.da, a: finestraEntrate.a, now: referenceDate, primoMovimento,
     }),
@@ -421,6 +423,7 @@ async function getFinancialContext(userId, options = {}) {
         },
         total: perNecessita.totale,
       },
+      frequentAverages: medieSpeseFrequenti,
       history: spese.storico,
     },
 

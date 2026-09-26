@@ -36,6 +36,15 @@ describe('Piano Smart: situazione corrente', () => {
     expect(result.insights.some((i) => i.key === 'forecast')).toBe(false);
     expect(build({ liquidity: {} }).current.availableToSpend).toBeNull();
   });
+  test('espone le medie recenti per categoria nella situazione corrente', () => {
+    const frequentAverages = {
+      weekly: { from: '2026-09-14', to: '2026-09-20', periodCount: 1, items: [{ category: 'cibo_spesa', total: 42, average: 42 }] },
+      monthly: { from: '2026-08-01', to: '2026-08-31', periodCount: 1, items: [{ category: 'cibo_spesa', total: 180, average: 180 }] },
+    };
+    const result = build({ expenses: { frequentAverages } });
+    expect(result.frequentExpenses.weekly.items[0]).toMatchObject({ total: '42.00', average: '42.00' });
+    expect(result.frequentExpenses.monthly.items[0]).toMatchObject({ total: '180.00', average: '180.00' });
+  });
   test('zero osservato con storico è diverso da dato mancante', () => {
     const result = build({ expenses: { currentMonth: 0, variableCurrentMonth: 0 }, dataQuality: { completeMonths: 3, firstMovementDate: '2026-06-01', missingExpenseData: false } });
     expect(result.current.actualDailySpend).toBe('0.00');

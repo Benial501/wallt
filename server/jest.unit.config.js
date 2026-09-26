@@ -29,6 +29,8 @@ module.exports = {
     '<rootDir>/tests/pianoSmartCurrentSituation.test.js',
     '<rootDir>/tests/pianoSmartChangeTimeline.test.js',
     '<rootDir>/tests/pianoSmartRecurringCashFlow.test.js',
+    '<rootDir>/tests/aggregaMedieSpeseFrequenti.test.js',
+    '<rootDir>/tests/speseMedie.test.js',
   ],
   testTimeout: 20000,
   verbose: true,

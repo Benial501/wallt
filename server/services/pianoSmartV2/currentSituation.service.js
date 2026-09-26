@@ -193,6 +193,17 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
   if (recurringItems.length) insights.push({ key: 'upcoming', text: `Hai ${recurringItems.length} uscite ricorrenti previste entro fine mese, già considerate nello spendibile.`, priority: 2 });
   if (!insights.length) insights.push({ key: 'learning', text: 'Continua a registrare le tue spese: WALLT costruirà una previsione più precisa.', priority: 3 });
   const progressBase = monthlyIncome !== null && monthlyIncome > 0 ? monthlyIncome : (currentExpenses + Math.max(available || 0, 0));
+  const averageGroup = (group = {}) => ({
+    from: group.from ?? null,
+    to: group.to ?? null,
+    periodCount: group.periodCount ?? 0,
+    items: (group.items || []).map((item) => ({
+      ...item,
+      total: money(cents(item.total)),
+      average: money(cents(item.average)),
+    })),
+  });
+  const frequentAverages = context.expenses?.frequentAverages || {};
   return {
     current: {
       liquidity: signedMoney(liquidity),
@@ -239,6 +250,10 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
       remaining: money(available),
       incomeShare: progressBase > 0 ? Math.min(Math.round((cents(context.income?.currentMonth) || 0) / progressBase * 100), 100) : 0,
       expenseShare: progressBase > 0 ? Math.min(Math.round(currentExpenses / progressBase * 100), 100) : 0,
+    },
+    frequentExpenses: {
+      weekly: averageGroup(frequentAverages.weekly),
+      monthly: averageGroup(frequentAverages.monthly),
     },
     financialDirection: {
       netWorth: signedMoney(cents(netWorth.total)),
