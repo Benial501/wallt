@@ -17,8 +17,16 @@
       "schedule": "0 7 * * *"
     },
     {
+      "path": "/api/cron/ricorrenti",
+      "schedule": "0 8 * * *"
+    },
+    {
       "path": "/api/cron/notifiche",
       "schedule": "0 19 * * *"
+    },
+    {
+      "path": "/api/cron/notifiche",
+      "schedule": "0 20 * * *"
     }
   ]
 }
