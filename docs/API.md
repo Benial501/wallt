@@ -327,7 +327,7 @@ notifiche dell'utente autenticato.
 - **Auth**: Sì
 - **Body**: Campi opzionali (importo, categoria, data, descrizione, conto_id, tipo, ricorrente, ricorrente_frequenza, ricorrente_giorno, ricorrente_mese, ricorrente_data)
 - **Validazione**: `validateUpdateMovimento`
-- **Azione**: Ricalcola saldo conto (vecchio e nuovo se conto cambia), ma solo per la parte che `muoveSaldo` considera denaro realmente mosso: convertire una spesa programmata (`una_tantum`) in una ricorrenza normale (o viceversa) sposta il saldo di conseguenza nella stessa richiesta
+- **Azione**: Ricalcola saldo conto (vecchio e nuovo se conto cambia), ma solo per la parte che `muoveSaldo` considera denaro realmente mosso: convertire una spesa programmata (`una_tantum`) in una ricorrenza normale (o viceversa) NON sposta il saldo, perché `muoveSaldo` vale `false` per entrambe (sono entrambe `ricorrente: true`) — resta una regola, non un movimento avvenuto, in entrambi i casi
 - **File**: `movimenti.controller.js`
 - **Frontend**: `MovimentoForm.vue` (edit mode)
 
