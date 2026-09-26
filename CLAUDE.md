@@ -3,6 +3,16 @@
 > Manuale operativo per agenti AI che lavorano su questo repository.
 > Ultimo aggiornamento: audit repository, agosto 2026.
 
+## Lingua di lavoro
+
+**Tutto in italiano, sempre.** Vale per le risposte in chat, il ragionamento mostrato,
+i piani e le todo list, i messaggi di commit, le descrizioni di PR, la documentazione in
+`docs/`, i commenti nel codice, i messaggi d'errore e i testi di UI.
+
+Unica eccezione, per non rompere il codice esistente: **gli identificatori restano in
+inglese** (nomi di variabili, funzioni, file, chiavi API, enum), come già previsto dalla
+Coding Rule 7. Italiano tutto ciò che sta attorno al codice, inglese solo il codice stesso.
+
 ## Project Overview
 
 **WALLT** è un'applicazione web di gestione finanziaria personale in italiano. Permette di tracciare conti, movimenti, budget, obiettivi, investimenti e scommesse senza collegamento bancario automatico. L'utente inserisce o importa manualmente le transazioni.

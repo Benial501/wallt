@@ -63,3 +63,4 @@ coverage/
 tmp/
 temp/
 .worktrees/
+.vercel
