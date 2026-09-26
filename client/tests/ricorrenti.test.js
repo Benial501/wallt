@@ -74,7 +74,7 @@ test('una spesa programmata si presenta con la sua data, non con una cadenza', (
     conto: { nome: 'Conto' },
   }, dayjs('2026-09-25'));
 
-  assert.equal(item.frequenzaLabel, 'Una tantum');
+  assert.equal(item.frequenzaLabel, 'Spesa programmata');
   assert.equal(item.prossimaEsecuzione, '2026-10-10');
 });
 

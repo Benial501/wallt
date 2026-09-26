@@ -57,7 +57,7 @@ export const prossimaEsecuzioneAnnuale = (giorno, mese, oggi = dayjs()) => {
 };
 
 const FREQUENZA_LABELS = {
-  mensile: 'Ogni mese', settimanale: 'Ogni settimana', annuale: 'Ogni anno', una_tantum: 'Una tantum',
+  mensile: 'Ogni mese', settimanale: 'Ogni settimana', annuale: 'Ogni anno', una_tantum: 'Spesa programmata',
 };
 
 const calcolaProssimaEsecuzione = (movimento, oggi) => {

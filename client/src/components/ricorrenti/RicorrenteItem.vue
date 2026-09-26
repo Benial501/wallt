@@ -29,14 +29,14 @@ const MESI_BREVI = {
   7: 'Lug', 8: 'Ago', 9: 'Set', 10: 'Ott', 11: 'Nov', 12: 'Dic',
 };
 
-/** Badge calendario: adatta cifra/etichetta alla frequenza (settimanale mostra il giorno, annuale giorno+mese, una tantum la data fissa). */
+/** Badge calendario: adatta cifra/etichetta alla frequenza (settimanale mostra il giorno, annuale giorno+mese, spesa programmata la data fissa). */
 const badgeCalendario = computed(() => {
   const freq = props.movimento.ricorrente_frequenza;
   if (freq === 'una_tantum') {
     const iso = props.movimento.ricorrente_data;
-    if (!iso) return { cifra: '—', etichetta: 'una tantum' };
+    if (!iso) return { cifra: '—', etichetta: 'programmata' };
     const [, mese, giorno] = iso.split('-').map(Number);
-    return { cifra: `${giorno} ${MESI_BREVI[mese] || ''}`, etichetta: 'una tantum' };
+    return { cifra: `${giorno} ${MESI_BREVI[mese] || ''}`, etichetta: 'programmata' };
   }
   if (freq === 'settimanale') {
     return { cifra: GIORNI_SETTIMANA_BREVI[props.movimento.ricorrente_giorno] || '—', etichetta: 'ogni settimana' };

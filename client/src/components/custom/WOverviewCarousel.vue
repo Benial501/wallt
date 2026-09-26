@@ -9,6 +9,7 @@ import {
 import DataState from '@/components/common/DataState.vue';
 import AndamentoPatrimonio from '@/components/analisi/AndamentoPatrimonio.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
+import ProssimeSpese from '@/components/dashboard/ProssimeSpese.vue';
 import { etichetta } from '@/content/glossario';
 import { useNumberCounter } from '@/composables/useNumberCounter';
 import { useValuta } from '@/composables/useValuta';
@@ -43,6 +44,7 @@ const props = defineProps({
   patrimonioInvestimenti: { type: Number, default: 0 },
   rendimentoInvestimenti: { type: Number, default: 0 },
   rendimentoInvestimentiPct: { type: Number, default: 0 },
+  ricorrenti: { type: Array, default: () => [] },
   obiettiviAttivi: { type: Array, default: () => [] },
   obiettiviCompletatiCount: { type: Number, default: 0 },
   statoSaldo: { type: String, default: 'pronto' },
@@ -59,9 +61,11 @@ const props = defineProps({
   lastUpdatedInvestimenti: { type: Number, default: null },
   statoObiettivi: { type: String, default: 'pronto' },
   lastUpdatedObiettivi: { type: Number, default: null },
+  statoRicorrenti: { type: String, default: 'pronto' },
+  lastUpdatedRicorrenti: { type: Number, default: null },
 });
 
-const emit = defineEmits(['riprova-saldo', 'riprova-conti', 'riprova-oggi', 'riprova-budget', 'riprova-scommesse', 'riprova-investimenti', 'riprova-obiettivi']);
+const emit = defineEmits(['riprova-saldo', 'riprova-conti', 'riprova-oggi', 'riprova-budget', 'riprova-scommesse', 'riprova-investimenti', 'riprova-obiettivi', 'riprova-ricorrenti']);
 
 const router = useRouter();
 const { formatValuta } = useValuta();
@@ -74,7 +78,9 @@ const activeIndex = ref(0);
 const andamentoRef = ref(null);
 
 const slides = computed(() => {
-  const list = ['saldo', 'conti', 'budget', 'uscite-oggi', 'entrate-oggi', 'obiettivi'];
+  // 'prossime-spese' sta subito dopo 'conti': quanto sta per uscire si legge
+  // accanto a quanto c'è, non in fondo alla home sotto tutte le altre schede.
+  const list = ['saldo', 'conti', 'prossime-spese', 'budget', 'uscite-oggi', 'entrate-oggi', 'obiettivi'];
   if (props.mostraScommesse && props.scommesseAttivo) list.push('scommesse');
   if (props.mostraInvestimenti && props.investimentiAttivo) list.push('investimenti');
   return list;
@@ -328,6 +334,16 @@ defineExpose({
             </div>
             <button type="button" class="w-overview__link-btn" @click="router.push('/conti')">Gestisci conti →</button>
           </DataState>
+        </div>
+
+        <!-- Prossime spese: terza scheda, appena dopo i conti -->
+        <div v-if="slides.includes('prossime-spese')" class="w-overview__slide w-full shrink-0 snap-center">
+          <ProssimeSpese
+            :movimenti="ricorrenti"
+            :stato="statoRicorrenti"
+            :last-updated="lastUpdatedRicorrenti"
+            @riprova="emit('riprova-ricorrenti')"
+          />
         </div>
 
         <!-- Budget -->

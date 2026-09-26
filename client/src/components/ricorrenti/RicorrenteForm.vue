@@ -234,7 +234,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
               <option value="mensile">Ogni mese</option>
               <option value="settimanale">Ogni settimana</option>
               <option value="annuale">Ogni anno</option>
-              <option value="una_tantum">Una tantum (data precisa)</option>
+              <option value="una_tantum">Spesa programmata (data precisa)</option>
             </select>
 
             <select v-if="form.ricorrente_frequenza === 'settimanale'" v-model.number="form.ricorrente_giorno" class="form-select">

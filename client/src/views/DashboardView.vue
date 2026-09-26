@@ -7,7 +7,6 @@ import GettingStartedCard from '@/components/help/GettingStartedCard.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import WOverviewCarousel from '@/components/custom/WOverviewCarousel.vue';
 import RecentTransactions from '@/components/dashboard/RecentTransactions.vue';
-import ProssimeSpese from '@/components/dashboard/ProssimeSpese.vue';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
 import { useAuthStore } from '@/stores/auth.store';
 import { useContiStore } from '@/stores/conti.store';
@@ -322,6 +321,7 @@ onMounted(async () => {
       :patrimonio-investimenti="investimentiStore.patrimonioInvestitoTotale"
       :rendimento-investimenti="investimentiStore.rendimentoTotale"
       :rendimento-investimenti-pct="investimentiStore.rendimentoTotalePercentuale"
+      :ricorrenti="ricorrenti"
       :obiettivi-attivi="obiettiviStore.obiettivi.attivi"
       :obiettivi-completati-count="obiettiviStore.obiettivi.completati.length"
       :stato-saldo="statoSaldo"
@@ -338,6 +338,8 @@ onMounted(async () => {
       :last-updated-investimenti="investimentiStore.risorsaInvestimenti.lastUpdated"
       :stato-obiettivi="obiettiviStore.risorsaObiettivi.stato"
       :last-updated-obiettivi="obiettiviStore.risorsaObiettivi.lastUpdated"
+      :stato-ricorrenti="movimentiStore.risorsaRicorrenti.stato"
+      :last-updated-ricorrenti="movimentiStore.risorsaRicorrenti.lastUpdated"
       @riprova-saldo="riprovaSaldo()"
       @riprova-conti="contiStore.risorsaConti.riprova()"
       @riprova-oggi="movimentiStore.risorsaOggi.riprova()"
@@ -345,18 +347,12 @@ onMounted(async () => {
       @riprova-scommesse="riprovaScommesse()"
       @riprova-investimenti="investimentiStore.risorsaInvestimenti.riprova()"
       @riprova-obiettivi="obiettiviStore.risorsaObiettivi.riprova()"
+      @riprova-ricorrenti="movimentiStore.risorsaRicorrenti.riprova()"
     />
 
     <button type="button" class="dashboard-view__cta" @click="openForm('uscita')">
       + Aggiungi transazione
     </button>
-
-    <ProssimeSpese
-      :movimenti="ricorrenti"
-      :stato="movimentiStore.risorsaRicorrenti.stato"
-      :last-updated="movimentiStore.risorsaRicorrenti.lastUpdated"
-      @riprova="movimentiStore.risorsaRicorrenti.riprova()"
-    />
 
     <RecentTransactions
       :movimenti="recentiHome"
