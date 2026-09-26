@@ -469,13 +469,6 @@ tutta la cascata di categorizzazione (`CategoryMatcherService._finalize`).
 - **File**: `obiettivi.controller.js`
 - **Frontend**: `obiettivi.store.js`
 
-### GET /api/obiettivi/:id/copertura
-- **Auth**: Sì
-- **Azione**: Solo per obiettivi con `tipo_obiettivo: 'fondo_sicurezza'` — calcola i mesi di copertura del fondo rispetto alla media delle spese essenziali mensili (categorie con `essenzialita: 'essenziale'`)
-- **Risposta**: `{ stato, mesi_copertura, spese_essenziali_mensili, importo_fondo, motivo }` — `stato` è `disponibile` | `dati_insufficienti` | `non_calcolabile`; `mesi_copertura` è `null` quando `stato` non è `disponibile`
-- **Errori**: 404 (obiettivo non trovato/di un altro utente), 400 (obiettivo non è un fondo di sicurezza)
-- **File**: `obiettivi.controller.js` → `services/fondoSicurezza.service.js`
-
 ### POST /api/obiettivi/:id/contributi
 - **Auth**: Sì
 - **Body**: `{ importo, data, nota? }`
@@ -484,6 +477,34 @@ tutta la cascata di categorizzazione (`CategoryMatcherService._finalize`).
 - **Frontend**: `ObiettiviView.vue`
 
 ---
+
+
+## Fondo di emergenza
+
+Il fondo di emergenza è un **conto** (`tipo: 'emergenza'`, `nascosto: true`), non un
+obiettivo — vedi CLAUDE.md Regola 22. Nessuna di queste rotte muove denaro: per
+versare o prelevare si usa `POST /api/conti/trasferimento`.
+
+### GET /api/fondo-emergenza
+- **Auth**: Sì
+- **Azione**: Stato completo del fondo. Risponde 200 anche quando il fondo non esiste (`esiste: false`), con la copertura calcolata su importo zero: "non ce l'hai" è un dato, non un errore
+- **Risposta**: `{ esiste, conto: { id, nome, saldo, nascosto, icona, colore } | null, importo, mesi_target, soglia_euro, mancante, copertura }` — `soglia_euro` è `mesi_target × spese essenziali mensili`, mai un dato salvato, e resta `null` (con `mancante`) quando le spese essenziali non sono calcolabili; `copertura.stato` è `disponibile` | `dati_insufficienti` | `non_calcolabile`
+- **File**: `fondoEmergenza.controller.js` → `services/fondoEmergenza.service.js` → `services/fondoSicurezza.service.js`
+- **Frontend**: `fondoEmergenza.store.js`, `FondoEmergenzaCard.vue`, `FondoEmergenzaView.vue`
+
+### POST /api/fondo-emergenza
+- **Auth**: Sì
+- **Body**: `{ nome?, mesi_target? }` — `mesi_target` in `[3, 6, 12]`, default 3
+- **Azione**: Crea il conto del fondo, vuoto. `nascosto: true` e `saldo: 0` non sono negoziabili dal chiamante
+- **Risposta**: 201 con lo stesso corpo della GET
+- **Errori**: 409 (esiste già, con `conto_id`), 400 (soglia non ammessa)
+
+### PATCH /api/fondo-emergenza
+- **Auth**: Sì
+- **Body**: `{ mesi_target?, nome? }`
+- **Azione**: Cambia la soglia in mesi (e il nome). Il saldo non si tocca da qui
+- **Risposta**: Lo stesso corpo della GET
+- **Errori**: 404 (nessun fondo), 400 (soglia non ammessa)
 
 ## Piano Smart
 

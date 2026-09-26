@@ -82,6 +82,7 @@ Migrazioni: `npm run migrate` o auto-run all'avvio (`server.js`, disabilitato in
 | `colore` | STRING(20) | Hex |
 | `ordine` | INTEGER | |
 | `attivo` | BOOLEAN | Soft-delete |
+| `mesi_sicurezza_target` | INTEGER NULL | Solo sul conto del fondo di emergenza (`tipo: 'emergenza'`): la soglia in mesi di spese essenziali (3/6/12). La soglia in euro non è mai salvata. Indice parziale `conti_un_solo_fondo_emergenza` su `user_id` where `tipo='emergenza' and attivo`: un solo fondo per utente. Vedi CLAUDE.md Regola 22 |
 | `nascosto` | BOOLEAN | Default `false`. Fuori da tutto ciò che è "spendibile" (saldo effettivo, capitale allocabile di Piano Smart): resta comunque nel patrimonio totale. Vedi `services/liquidita.service.js`, CLAUDE.md Regola 20 |
 
 ### `movimenti`
@@ -435,10 +436,11 @@ CategorieRegola (globali, user_id = NULL) — nessuna FK
 | `20260914000020-scommesse-movimenti-come-trasferimenti.js` | Converte depositi/prelievi scommesse in trasferimenti |
 | `20260914000021-riallinea-conti-di-gioco.js` | Riallinea saldo conti di gioco alla piattaforma collegata |
 | `20260917000022-add-essenzialita-categorie-personali.js` | categorie_personali.essenzialita (essenziale/semi_essenziale/discrezionale) |
-| `20260917000023-add-tipo-obiettivo.js` | obiettivi.tipo_obiettivo (generico/fondo_sicurezza) |
+| `20260917000023-add-tipo-obiettivo.js` | obiettivi.tipo_obiettivo (generico/fondo_sicurezza — dal settembre 2026 l'API accetta solo `generico`: il fondo è un conto, Regola 22) |
 | `20260917000024-create-debiti.js` | Tabella debiti |
 | `20260917000025-harden-debiti-access.js` | RLS + revoca privilegi ruoli pubblici su debiti (follow-up hardening, additiva) |
 | `20260925000033-add-nascosto-e-spese-programmate.js` | conti.nascosto (BOOLEAN, default false) + movimenti.ricorrente_data (DATEONLY) |
+| `20260926000034-add-mesi-sicurezza-target.js` | conti.mesi_sicurezza_target (INTEGER NULL) + indice parziale conti_un_solo_fondo_emergenza |
 
 ## Query importanti
 
