@@ -13,7 +13,7 @@
  * non ricalcola.
  */
 const { Op } = require('sequelize');
-const { Obiettivo, Investimento, Movimento } = require('../models');
+const { Obiettivo, Investimento, Movimento, ProfiloUtente } = require('../models');
 const { FUSO_DEFAULT, oggiLocale, fineMese, sommaGiorni } = require('../utils/dateRome');
 const { elencoMesi, classificaFinestra } = require('./finestraMesi.service');
 const { calcolaPatrimonioNetto } = require('./financialSummary.service');
@@ -286,6 +286,7 @@ async function getFinancialContext(userId, options = {}) {
     investimenti,
     ricorrenti,
     fondoSicurezza,
+    profilo,
   ] = await Promise.all([
     calcolaPatrimonioNetto(userId),
     calcolaLiquidita(userId, { data: oggi }),
@@ -299,6 +300,7 @@ async function getFinancialContext(userId, options = {}) {
     riepilogoInvestimenti(userId),
     riepilogoRicorrenti(userId, referenceDate),
     riepilogoFondoSicurezza(userId, referenceDate),
+    ProfiloUtente.findOne({ where: { user_id: userId }, attributes: ['mesi_riserva_piano_smart'] }),
   ]);
 
   // Un solo insieme di mesi per TUTTE le medie confrontabili: quello che
@@ -452,6 +454,10 @@ async function getFinancialContext(userId, options = {}) {
     },
 
     emergencyFund: fondoSicurezza,
+
+    preferences: {
+      mesiRiservaPianoSmart: Number(profilo?.mesi_riserva_piano_smart) || 1,
+    },
 
     goals: obiettivi,
 

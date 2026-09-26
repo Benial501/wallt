@@ -129,7 +129,7 @@ const calcolaBudgetSuggerito = (profilo) => {
 };
 
 const ALLOWED_FIELDS = [
-  'fascia_eta', 'situazione_lavorativa', 'entrata_fissa', 'entrata_mensile',
+  'fascia_eta', 'situazione_lavorativa', 'entrata_fissa', 'entrata_mensile', 'mesi_riserva_piano_smart',
   'situazione_abitativa', 'costo_abitazione', 'paga_bollette', 'stima_bollette',
   'ha_auto', 'ha_moto', 'usa_mezzi_pubblici', 'spesa_benzina', 'spesa_mezzi',
   'spese_fisse_extra', 'risparmia', 'ha_investimenti', 'fa_scommesse',

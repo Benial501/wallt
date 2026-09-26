@@ -35,13 +35,17 @@ function simulatePurchase(situation, rawAmount) {
   const available = cents(situation.current?.availableToSpend);
   const shortfall = cents(situation.current?.shortfall);
   const dailyLimit = cents(situation.current?.dailyLimit);
+  const averageDailyExpenses = cents(situation.current?.averageDailyExpenses);
+  const dailyLimitBasis = situation.current?.dailyLimitBasis;
   const forecast = cents(situation.forecast?.endOfMonthAvailable);
   const remainingDays = Number(situation.current?.remainingDays);
   if (available === null || shortfall === null || !Number.isInteger(remainingDays) || remainingDays <= 0) return null;
 
   const availableAfter = available - shortfall - amount;
-  const dailyLimitAfter = dailyLimit === null
-    ? null : Math.floor(Math.max(availableAfter, 0) / remainingDays);
+  const marginLimitAfter = Math.floor(Math.max(availableAfter, 0) / remainingDays);
+  const dailyLimitAfter = marginLimitAfter === null ? null
+    : dailyLimitBasis === 'spesa_media' && averageDailyExpenses !== null
+      ? Math.min(marginLimitAfter, averageDailyExpenses) : marginLimitAfter;
   const forecastAfter = forecast === null ? null : forecast - amount;
   const status = availableAfter < 0 || (forecastAfter !== null && forecastAfter < 0) ? 'rischio'
     : dailyLimitAfter === null || forecastAfter === null ? 'non_stimabile'
@@ -82,9 +86,31 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
   const commitmentsAlreadyRemoved = new Set(recurringItems
     .filter((item) => item.reserved === false)
     .map((item) => item.occurrenceKey));
-  const protectedAmount = allocated === null || recurringCommitments === null
-    ? null : allocated + recurringCommitments + additionalCommitments;
-  const netAvailable = netLiquidity === null ? null : netLiquidity - additionalCommitments;
+  const monthlyIncome = cents(context.income?.monthlyAverage);
+  const monthlyExpenses = cents(context.expenses?.monthlyAverage);
+  const reliableRecurringIncome = context.income?.stability === 'stabile'
+    && (cents(context.income?.recurringMonthlyAverage) || 0) > 0;
+  const incomeMode = reliableRecurringIncome ? 'ricorrente' : 'irregolare';
+  const reserveMonths = Math.min(6, Math.max(1, Number(context.preferences?.mesiRiservaPianoSmart) || 1));
+  const essentialAverage = cents(context.expenses?.byNecessity?.essential?.monthlyAverage);
+  const reserveExpenseBasis = essentialAverage !== null ? 'essenziale'
+    : monthlyExpenses !== null ? 'totale' : null;
+  const monthlyExpenseBasis = essentialAverage !== null ? essentialAverage : monthlyExpenses;
+  const averageExpenseMonths = Number(context.expenses?.averageMonths) || 0;
+  const reserveCanBeEstimated = incomeMode === 'ricorrente'
+    || (monthlyExpenseBasis !== null && averageExpenseMonths > 0);
+  const reserveTarget = incomeMode === 'irregolare' && reserveCanBeEstimated
+    ? monthlyExpenseBasis * reserveMonths : incomeMode === 'ricorrente' ? 0 : null;
+  const emergencyFundBalance = context.emergencyFund?.status === 'assente'
+    ? 0 : cents(context.emergencyFund?.current);
+  const reserveFromLiquidity = incomeMode === 'ricorrente' ? 0
+    : reserveTarget === null || emergencyFundBalance === null ? null
+      : Math.max(reserveTarget - emergencyFundBalance, 0);
+  const baseNetAvailable = netLiquidity === null ? null : netLiquidity - additionalCommitments;
+  const netAvailable = baseNetAvailable === null || reserveFromLiquidity === null
+    ? null : baseNetAvailable - reserveFromLiquidity;
+  const protectedAmount = allocated === null || recurringCommitments === null || reserveFromLiquidity === null
+    ? null : allocated + recurringCommitments + additionalCommitments + reserveFromLiquidity;
   const available = netAvailable === null ? null : Math.max(netAvailable, 0);
   const shortfall = netAvailable === null ? null : Math.max(-netAvailable, 0);
   let progressiveMargin = available;
@@ -107,11 +133,14 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
         marginAfter: signedMoney(progressiveMargin),
       };
     });
-  const dailyLimit = available === null ? null : Math.floor(available / remainingDays);
+  const marginDailyLimit = available === null ? null : Math.floor(available / remainingDays);
+  const averageDailyExpenses = incomeMode === 'irregolare' && monthlyExpenses !== null
+    ? Math.floor(monthlyExpenses / 30.4375) : null;
+  const dailyLimit = marginDailyLimit === null ? null
+    : incomeMode === 'irregolare' && averageDailyExpenses !== null
+      ? Math.min(marginDailyLimit, averageDailyExpenses) : marginDailyLimit;
   const currentExpenses = cents(context.expenses?.currentMonth);
   const variableExpenses = cents(context.expenses?.variableCurrentMonth);
-  const monthlyIncome = cents(context.income?.monthlyAverage);
-  const monthlyExpenses = cents(context.expenses?.monthlyAverage);
   const monthlySavings = monthlyIncome !== null && monthlyExpenses !== null
     ? monthlyIncome - monthlyExpenses : null;
   const dataQuality = context.dataQuality || {};
@@ -165,6 +194,9 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
     warnings.push('Alcuni movimenti non sono classificati: le variazioni per categoria possono essere incomplete.');
   }
   if (liquidity === null) warnings.push('La liquidità disponibile non è stimabile.');
+  if (incomeMode === 'irregolare' && !reserveCanBeEstimated) {
+    warnings.push('Per stimare lo spendibile con la riserva scelta servono medie di spesa e dati disponibili sul fondo di sicurezza.');
+  }
   if (!canEstimate) {
     warnings.push('Registra ancora qualche spesa per costruire una previsione affidabile.');
   }
@@ -186,12 +218,21 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
       action: { type: 'open-analysis' },
     }));
   }
-  if (context.emergencyFund?.status === 'assente' && available > 0) {
+  const fondoAssente = context.emergencyFund?.status === 'assente';
+  const fondoDaCompletare = !fondoAssente
+    && (cents(context.emergencyFund?.missingAmount) ?? 0) > 0;
+  if (fondoAssente || (fondoDaCompletare && available > 0)) {
     suggestions.push(buildSuggestion({
       key: 'start-emergency-fund', priority: 2, title: 'Inizia una riserva di sicurezza',
-      reason: 'Non hai ancora un fondo di sicurezza configurato.',
-      effect: 'Una piccola quota protetta aumenta il margine per gli imprevisti.',
-      action: { type: 'create-plan', mode: 'goal' },
+      reason: fondoAssente
+        ? 'Non hai ancora un fondo di sicurezza configurato.'
+        : 'Hai già un fondo di sicurezza: puoi farlo crescere con un trasferimento da un altro conto.',
+      effect: fondoAssente
+        ? 'Una piccola quota protetta aumenta il margine per gli imprevisti.'
+        : 'Crea un Piano Smart per decidere quale quota di una nuova entrata destinare alla riserva.',
+      action: fondoAssente
+        ? { type: 'open-emergency-fund' }
+        : { type: 'create-plan', mode: 'emergency-fund' },
     }));
   }
   if (monthlySavings !== null && monthlySavings > 0 && available > 0) {
@@ -239,6 +280,13 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
     })),
   });
   const frequentAverages = context.expenses?.frequentAverages || {};
+  const orderedSuggestions = suggestions.sort((a, b) => a.priority - b.priority);
+  const visibleSuggestions = orderedSuggestions.slice(0, 3);
+  const emergencyFundSuggestion = orderedSuggestions.find((suggestion) => suggestion.key === 'start-emergency-fund');
+  if (fondoAssente && emergencyFundSuggestion && !visibleSuggestions.includes(emergencyFundSuggestion)) {
+    visibleSuggestions[visibleSuggestions.length - 1] = emergencyFundSuggestion;
+    visibleSuggestions.sort((a, b) => a.priority - b.priority);
+  }
   return {
     current: {
       liquidity: signedMoney(liquidity),
@@ -250,6 +298,16 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
       shortfall: money(shortfall),
       availableToSpend: money(available),
       dailyLimit: money(dailyLimit),
+      incomeMode,
+      reserveMonths: incomeMode === 'irregolare' ? reserveMonths : null,
+      reserveTarget: money(reserveTarget),
+      reserveFromLiquidity: money(reserveFromLiquidity),
+      reserveExpenseBasis: incomeMode === 'irregolare' ? reserveExpenseBasis : null,
+      averageExpenseMonths: incomeMode === 'irregolare' ? averageExpenseMonths : null,
+      averageDailyExpenses: money(averageDailyExpenses),
+      dailyLimitBasis: incomeMode === 'irregolare' && averageDailyExpenses !== null
+        && marginDailyLimit !== null && averageDailyExpenses < marginDailyLimit
+        ? 'spesa_media' : 'margine_mese',
       actualDailySpend: money(actualDailySpend),
       dailyMargin: dailyLimit === null || actualDailySpend === null
         ? null : signedMoney(dailyLimit - actualDailySpend),
@@ -301,7 +359,7 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
       goals,
       activeGoals: goals.filter(obiettivoAttivo).length,
     },
-    suggestions: suggestions.sort((a, b) => a.priority - b.priority).slice(0, 3),
+    suggestions: visibleSuggestions,
     dataQuality,
     warnings,
   };

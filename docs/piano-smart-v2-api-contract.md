@@ -17,13 +17,29 @@ a fine mese. Non scrive dati finanziari.
 
 - `current.liquidity`: saldo dei conti ordinari; `allocatedToGoals`: importi
   già accantonati negli obiettivi attivi, incluso il fondo di sicurezza.
-- `protectedAmount`: obiettivi accantonati + impegni del servizio liquidità +
-  ulteriori occorrenze settimanali entro fine mese (`additionalCommitments`).
-  L’importo ancora mancante al target del fondo **non** viene bloccato.
+- `protectedAmount`: importi accantonati + impegni del servizio liquidità +
+  ulteriori occorrenze entro fine mese (`additionalCommitments`) + l'eventuale
+  quota di riserva prudenziale ancora da coprire.
 - `availableToSpend`: liquidità allocabile centrale meno gli ulteriori
-  impegni, limitata a zero; `shortfall` conserva l’eventuale deficit.
+  impegni e la riserva ancora da coprire, limitata a zero; `shortfall` conserva
+  l’eventuale deficit. Con entrate irregolari resta `null` se non esiste una
+  media di spesa su mesi completi.
   Vale `liquidity - protectedAmount = availableToSpend - shortfall`.
-- `dailyLimit`: spendibile diviso per i giorni rimanenti, troncato al centesimo.
+- `incomeMode`: `ricorrente` quando la stabilità osservata è `stabile` e la
+  media del reddito ricorrente è positiva; altrimenti `irregolare`.
+- `reserveMonths`: copertura scelta dall'utente (da 1 a 6, default 1), presente
+  quando `incomeMode` è `irregolare`.
+- `reserveTarget`, `reserveFromLiquidity`, `reserveExpenseBasis` e
+  `averageExpenseMonths`: obiettivo della riserva, quota da coprire con la
+  liquidità ordinaria, base spese (`essenziale` o `totale`) e mesi completi
+  usati. Il saldo del fondo di sicurezza esistente riduce la quota da coprire.
+- `dailyLimit`: con entrate ricorrenti stabili è lo spendibile diviso per i
+  giorni rimanenti, troncato al centesimo. Con entrate irregolari è il minore
+  fra tale margine giornaliero e la spesa media giornaliera osservata; la base
+  mensile è quella essenziale, con ripiego sulla media totale. `dailyLimitBasis`
+  dichiara quale dei due valori determina il limite.
+- `averageDailyExpenses`: media giornaliera derivata dalla spesa mensile usata
+  totale osservata; `null` quando non serve o non è stimabile.
 - `actualDailySpend`: uscite non ricorrenti registrate nel mese fino a oggi,
   divise per i giorni dall’inizio del mese o dal primo movimento reale,
   se successivo. Origini ricorrenti e addebiti generati restano fuori dal ritmo.

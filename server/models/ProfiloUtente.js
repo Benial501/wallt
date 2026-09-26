@@ -28,6 +28,11 @@ const ProfiloUtente = sequelize.define('ProfiloUtente', {
     type: DataTypes.DECIMAL(12, 2),
     allowNull: true,
   },
+  mesi_riserva_piano_smart: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 1,
+  },
   situazione_abitativa: {
     type: DataTypes.STRING(100),
     allowNull: true,

@@ -224,7 +224,7 @@ notifiche dell'utente autenticato.
 
 ### PUT /api/profilo
 - **Auth**: Sì
-- **Body**: Campi profilo finanziario (onboarding)
+- **Body**: Campi profilo finanziario (onboarding); `mesi_riserva_piano_smart` accetta un intero da 1 a 6 e salva la copertura scelta per la riserva di Piano Smart (default 1)
 - **Validazione**: `validateUpdateProfiloFinanziario`
 - **Risposta**: `{ profilo }`
 - **File**: `profilo.controller.js`

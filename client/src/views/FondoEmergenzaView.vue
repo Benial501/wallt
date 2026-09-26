@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import DataState from '@/components/common/DataState.vue';
+import CreaFondoEmergenzaModal from '@/components/dashboard/CreaFondoEmergenzaModal.vue';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
 import { useFondoEmergenzaStore } from '@/stores/fondoEmergenza.store';
 import { useContiStore } from '@/stores/conti.store';
@@ -33,6 +34,8 @@ const { formatValuta } = useValuta();
 
 const trasferimentoAperto = ref(false);
 const salvataggioMesi = ref(false);
+const creazioneAperta = ref(false);
+const creazioneInCorso = ref(false);
 
 const fondo = computed(() => store.fondo);
 const copertura = computed(() => fondo.value?.copertura || null);
@@ -56,6 +59,21 @@ const periodoOsservato = computed(() => {
 });
 
 const statoDati = computed(() => copertura.value?.stato || null);
+
+const creaFondo = async (mesiTarget) => {
+  if (creazioneInCorso.value) return;
+  creazioneInCorso.value = true;
+  try {
+    await store.creaFondo({ mesiTarget });
+    creazioneAperta.value = false;
+    await Promise.all([contiStore.fetchConti(), contiStore.fetchPatrimonio()]);
+    toast.success('Fondo di emergenza creato. Puoi alimentarlo con un trasferimento.');
+  } catch (error) {
+    toast.error(error.response?.data?.message || 'Non riesco a creare il fondo di emergenza');
+  } finally {
+    creazioneInCorso.value = false;
+  }
+};
 
 const cambiaMesi = async (mesi) => {
   if (mesi === mesiTarget.value) return;
@@ -104,9 +122,10 @@ onMounted(() => {
         <WCard class="fondo-view__vuoto">
           <p class="fondo-view__vuoto-title">Non hai ancora un fondo di emergenza</p>
           <p class="fondo-view__vuoto-testo">
-            Puoi crearlo dalla home, in fondo alla pagina.
+            Crea qui un conto separato per gli imprevisti. Nasce vuoto e potrai alimentarlo
+            in seguito con un trasferimento da un altro conto.
           </p>
-          <WButton variant="primary" @click="router.push('/dashboard')">Torna alla home</WButton>
+          <WButton variant="primary" @click="creazioneAperta = true">Crea il conto di emergenza</WButton>
         </WCard>
       </template>
 
@@ -223,6 +242,13 @@ onMounted(() => {
         </section>
       </template>
     </DataState>
+
+    <CreaFondoEmergenzaModal
+      :open="creazioneAperta"
+      :loading="creazioneInCorso"
+      @close="creazioneAperta = false"
+      @crea="creaFondo"
+    />
 
     <MovimentoForm
       :open="trasferimentoAperto"

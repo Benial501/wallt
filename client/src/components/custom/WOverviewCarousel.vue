@@ -10,6 +10,7 @@ import DataState from '@/components/common/DataState.vue';
 import AndamentoPatrimonio from '@/components/analisi/AndamentoPatrimonio.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import ProssimeSpese from '@/components/dashboard/ProssimeSpese.vue';
+import FondoEmergenzaCard from '@/components/dashboard/FondoEmergenzaCard.vue';
 import { etichetta } from '@/content/glossario';
 import { useNumberCounter } from '@/composables/useNumberCounter';
 import { useValuta } from '@/composables/useValuta';
@@ -47,6 +48,12 @@ const props = defineProps({
   ricorrenti: { type: Array, default: () => [] },
   obiettiviAttivi: { type: Array, default: () => [] },
   obiettiviCompletatiCount: { type: Number, default: 0 },
+  fondo: { type: Object, default: null },
+  fondoEmergenzaEsiste: { type: Boolean, default: null },
+  fondoEmergenzaNascosto: { type: Boolean, default: false },
+  statoFondo: { type: String, default: 'pronto' },
+  lastUpdatedFondo: { type: Number, default: null },
+  creazioneFondoInCorso: { type: Boolean, default: false },
   statoSaldo: { type: String, default: 'pronto' },
   lastUpdatedSaldo: { type: Number, default: null },
   statoConti: { type: String, default: 'pronto' },
@@ -65,7 +72,7 @@ const props = defineProps({
   lastUpdatedRicorrenti: { type: Number, default: null },
 });
 
-const emit = defineEmits(['riprova-saldo', 'riprova-conti', 'riprova-oggi', 'riprova-budget', 'riprova-scommesse', 'riprova-investimenti', 'riprova-obiettivi', 'riprova-ricorrenti']);
+const emit = defineEmits(['riprova-saldo', 'riprova-conti', 'riprova-fondo', 'crea-fondo', 'nascondi-fondo', 'riprova-oggi', 'riprova-budget', 'riprova-scommesse', 'riprova-investimenti', 'riprova-obiettivi', 'riprova-ricorrenti']);
 
 const router = useRouter();
 const { formatValuta } = useValuta();
@@ -78,9 +85,10 @@ const activeIndex = ref(0);
 const andamentoRef = ref(null);
 
 const slides = computed(() => {
-  // 'prossime-spese' sta subito dopo 'conti': quanto sta per uscire si legge
-  // accanto a quanto c'è, non in fondo alla home sotto tutte le altre schede.
-  const list = ['saldo', 'conti', 'prossime-spese', 'budget', 'uscite-oggi', 'entrate-oggi', 'obiettivi'];
+  // Il fondo si trova accanto ai conti e resta nel carosello della home.
+  const list = ['saldo', 'conti'];
+  if (!props.fondoEmergenzaNascosto) list.push('fondo-emergenza');
+  list.push('prossime-spese', 'budget', 'uscite-oggi', 'entrate-oggi', 'obiettivi');
   if (props.mostraScommesse && props.scommesseAttivo) list.push('scommesse');
   if (props.mostraInvestimenti && props.investimentiAttivo) list.push('investimenti');
   return list;
@@ -319,6 +327,12 @@ defineExpose({
                 <p class="w-overview__cta-title">I tuoi conti, a colpo d’occhio</p>
                 <p class="w-overview__cta-desc">Aggiungi un conto per visualizzare qui il suo saldo.</p>
                 <button type="button" class="w-overview__cta-btn" @click="router.push('/conti')">Aggiungi un conto</button>
+                <button
+                  v-if="fondoEmergenzaEsiste === false"
+                  type="button"
+                  class="w-overview__link-btn w-overview__fund-link"
+                  @click="router.push('/fondo-emergenza')"
+                >Configura il fondo di emergenza</button>
               </div>
             </template>
 
@@ -332,11 +346,30 @@ defineExpose({
                 </li>
               </ul>
             </div>
+            <button
+              v-if="fondoEmergenzaEsiste === false"
+              type="button"
+              class="w-overview__link-btn w-overview__fund-link"
+              @click="router.push('/fondo-emergenza')"
+            >Crea il fondo di emergenza</button>
             <button type="button" class="w-overview__link-btn" @click="router.push('/conti')">Gestisci conti →</button>
           </DataState>
         </div>
 
-        <!-- Prossime spese: terza scheda, appena dopo i conti -->
+        <!-- Fondo di emergenza: scheda dedicata subito dopo i conti -->
+        <div v-if="slides.includes('fondo-emergenza')" class="w-overview__slide w-full shrink-0 snap-center">
+          <FondoEmergenzaCard
+            :fondo="fondo"
+            :stato="statoFondo"
+            :last-updated="lastUpdatedFondo"
+            :creazione-in-corso="creazioneFondoInCorso"
+            @crea="emit('crea-fondo', $event)"
+            @nascondi="emit('nascondi-fondo')"
+            @riprova="emit('riprova-fondo')"
+          />
+        </div>
+
+        <!-- Prossime spese: quarta scheda, subito dopo il fondo -->
         <div v-if="slides.includes('prossime-spese')" class="w-overview__slide w-full shrink-0 snap-center">
           <ProssimeSpese
             :movimenti="ricorrenti"
@@ -1039,6 +1072,7 @@ defineExpose({
 
 .w-overview__link-btn:hover { text-decoration: underline; }
 .w-overview__link-btn:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
+.w-overview__fund-link { margin-top: 0; }
 
 .w-overview__cta-empty {
   display: flex;

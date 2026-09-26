@@ -62,11 +62,16 @@ const chiudiGuidaPiano = () => router.replace({ path: '/aiuto' });
 <template>
   <div class="aiuto-view animate-fade-in">
     <header class="page-header">
-      <h1 class="page-title">Aiuto</h1>
-      <p class="page-sub">
-        Come funziona WALLT, spiegato per attività. I dati li inserisci tu:
-        non c'è nessun collegamento automatico con la banca.
-      </p>
+      <div>
+        <h1 class="page-title">Aiuto</h1>
+        <p class="page-sub">
+          Come funziona WALLT, spiegato per attività. I dati li inserisci tu:
+          non c'è nessun collegamento automatico con la banca.
+        </p>
+      </div>
+      <WButton variant="secondary" size="md" @click="router.push('/dashboard')">
+        Torna alla home
+      </WButton>
     </header>
 
     <SupportContact />
@@ -185,13 +190,17 @@ const chiudiGuidaPiano = () => router.replace({ path: '/aiuto' });
 <style scoped>
 .aiuto-view { max-width: 760px; margin: 0 auto; }
 
-.page-header { margin-bottom: 1.25rem; }
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
 .page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
 .page-sub {
   margin-top: 0.375rem;
   font-size: 0.875rem;
   line-height: 1.55;
   color: var(--text-secondary);
+}
+
+@media (max-width: 520px) {
+  .page-header { flex-wrap: wrap; }
 }
 
 .indice { margin-bottom: 1.5rem; }

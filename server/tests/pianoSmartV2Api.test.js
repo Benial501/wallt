@@ -15,6 +15,24 @@ describe('Piano Smart V2 API', () => {
     expect(response.status).toBe(401);
   });
 
+  test('genera e salva un piano V2', async () => {
+    const { res: registration } = await registerUser(app);
+    const response = await request(app)
+      .post('/api/piano-smart/v2')
+      .set(authHeader(registration.body.token))
+      .send({ amount: '1000.00', mandatoryExpenses: '0.00', recurring: false, sourceType: 'regalo' });
+
+    expect(response.status).toBe(201);
+    expect(response.body.id).toBeTruthy();
+    expect(response.body.engineVersion).toBe('smart-v2');
+
+    const saved = await request(app)
+      .get(`/api/piano-smart/v2/${response.body.id}`)
+      .set(authHeader(registration.body.token));
+    expect(saved.status).toBe(200);
+    expect(saved.body.selectedScenario).toBe('bilanciato');
+  });
+
   test('le rotte GET V2 non vengono catturate dal router V1', async () => {
     const { res: registration } = await registerUser(app);
     const response = await request(app)

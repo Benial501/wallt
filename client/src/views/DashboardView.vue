@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router';
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue';
@@ -7,7 +7,6 @@ import GettingStartedCard from '@/components/help/GettingStartedCard.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import WOverviewCarousel from '@/components/custom/WOverviewCarousel.vue';
 import RecentTransactions from '@/components/dashboard/RecentTransactions.vue';
-import FondoEmergenzaCard from '@/components/dashboard/FondoEmergenzaCard.vue';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
 import { useAuthStore } from '@/stores/auth.store';
 import { useContiStore } from '@/stores/conti.store';
@@ -37,6 +36,33 @@ const router = useRouter();
 const { canAccessScommesseFeature, canAccessInvestimentiFeature } = storeToRefs(authStore);
 const { recentiHome, ricorrenti } = storeToRefs(movimentiStore);
 const { gettingStartedVisible } = storeToRefs(helpStore);
+
+const fondoEmergenzaNascosto = ref(false);
+const chiaveFondoEmergenzaNascosto = computed(() => (
+  authStore.user?.id ? `wallt_home_fondo_emergenza_nascosto_${authStore.user.id}` : null
+));
+const fondoEmergenzaNonVisibile = computed(() => (
+  fondoEmergenzaNascosto.value && !fondoStore.fondo?.esiste
+));
+
+watch(chiaveFondoEmergenzaNascosto, (chiave) => {
+  try {
+    fondoEmergenzaNascosto.value = chiave ? localStorage.getItem(chiave) === '1' : false;
+  } catch {
+    fondoEmergenzaNascosto.value = false;
+  }
+}, { immediate: true });
+
+const nascondiFondoEmergenza = () => {
+  fondoEmergenzaNascosto.value = true;
+  try {
+    if (chiaveFondoEmergenzaNascosto.value) {
+      localStorage.setItem(chiaveFondoEmergenzaNascosto.value, '1');
+    }
+  } catch {
+    // La scheda resta nascosta per la sessione anche se il browser blocca la persistenza.
+  }
+};
 
 const oggi = dayjs();
 const meseStart = oggi.startOf('month').format('YYYY-MM-DD');
@@ -205,7 +231,6 @@ const loadInvestimenti = async () => {
 const loadObiettivi = () => obiettiviStore.fetchObiettivi();
 const loadFondo = () => fondoStore.fetchFondo();
 
-const fondoCardRef = ref(null);
 const creazioneFondoInCorso = ref(false);
 
 /** Crea il fondo di emergenza dalla card. Il conto nasce vuoto, quindi non c'è
@@ -215,7 +240,6 @@ const onCreaFondo = async (mesiTarget) => {
   creazioneFondoInCorso.value = true;
   try {
     await fondoStore.creaFondo({ mesiTarget });
-    fondoCardRef.value?.chiudiConferma();
     await loadConti();
   } finally {
     creazioneFondoInCorso.value = false;
@@ -323,6 +347,12 @@ onMounted(async () => {
       :ricorrenti="ricorrenti"
       :obiettivi-attivi="obiettiviStore.obiettivi.attivi"
       :obiettivi-completati-count="obiettiviStore.obiettivi.completati.length"
+      :fondo="fondoStore.fondo"
+      :fondo-emergenza-esiste="fondoStore.fondo?.esiste ?? null"
+      :fondo-emergenza-nascosto="fondoEmergenzaNonVisibile"
+      :stato-fondo="fondoStore.risorsaFondo.stato"
+      :last-updated-fondo="fondoStore.risorsaFondo.lastUpdated"
+      :creazione-fondo-in-corso="creazioneFondoInCorso"
       :stato-saldo="statoSaldo"
       :last-updated-saldo="lastUpdatedSaldo"
       :stato-conti="contiStore.risorsaConti.stato"
@@ -341,6 +371,9 @@ onMounted(async () => {
       :last-updated-ricorrenti="movimentiStore.risorsaRicorrenti.lastUpdated"
       @riprova-saldo="riprovaSaldo()"
       @riprova-conti="contiStore.risorsaConti.riprova()"
+      @crea-fondo="onCreaFondo"
+      @nascondi-fondo="nascondiFondoEmergenza"
+      @riprova-fondo="fondoStore.risorsaFondo.riprova()"
       @riprova-oggi="movimentiStore.risorsaOggi.riprova()"
       @riprova-budget="budgetStore.riprovaPagina()"
       @riprova-scommesse="riprovaScommesse()"
@@ -359,16 +392,6 @@ onMounted(async () => {
       :last-updated="movimentiStore.risorsaRecenti.lastUpdated"
       @riprova="movimentiStore.risorsaRecenti.riprova()"
       @select="onSelectMovimento"
-    />
-
-    <FondoEmergenzaCard
-      ref="fondoCardRef"
-      :fondo="fondoStore.fondo"
-      :stato="fondoStore.risorsaFondo.stato"
-      :last-updated="fondoStore.risorsaFondo.lastUpdated"
-      :creazione-in-corso="creazioneFondoInCorso"
-      @crea="onCreaFondo"
-      @riprova="fondoStore.risorsaFondo.riprova()"
     />
 
     <MovimentoForm

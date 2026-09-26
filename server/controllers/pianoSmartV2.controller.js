@@ -123,6 +123,7 @@ const save = async (req, res) => {
     });
     return res.status(201).json({ id: created.id, engineVersion: 'smart-v2', ...savedResult });
   } catch (error) {
+    logger.error('Errore nel salvataggio del piano V2', { err: error, userId: req.userId });
     return res.status(error.status || 500).json({ error: error.status ? error.message : 'Errore nel salvataggio del piano V2.' });
   }
 };

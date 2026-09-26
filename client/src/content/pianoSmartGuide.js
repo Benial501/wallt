@@ -22,10 +22,11 @@ export const GUIDA_PIANO_SMART = Object.freeze([
     sottotitolo: 'Il limite giornaliero è indicativo e dipende dai giorni considerati.',
     paragraphs: [
       'Liquidità: saldo dei conti ordinari considerati. I conti nascosti e i conti scommesse sono esclusi dalla somma spendibile.',
-      'Somme protette: importi già accantonati negli obiettivi e impegni ricorrenti compresi nel calcolo, più eventuali scadenze note entro fine mese. Lo spendibile è la liquidità allocabile dopo queste voci; un impegno già protetto non si sottrae una seconda volta.',
-      'Limite indicativo al giorno = margine spendibile diviso per i giorni civili da oggi (incluso) a fine mese. Il ritmo giornaliero usa le uscite non ricorrenti registrate nel mese e i giorni osservabili. Il margine giornaliero confronta limite e ritmo.',
+      'Se hai entrate ricorrenti stabili, il limite indicativo divide il margine spendibile per i giorni civili da oggi (incluso) a fine mese. Se le entrate non sono stabili, puoi scegliere da uno a sei mesi di spese da proteggere: il valore iniziale è un mese. WALLT sottrae dal margine la riserva che manca, al netto del fondo di sicurezza già presente, e non consiglia più del ritmo medio delle spese osservate.',
+      'Per la riserva si usano prima le spese essenziali medie sui mesi completi; se non sono disponibili, si usa la media delle spese totali. Senza mesi completi di spese, il limite resta non stimabile invece di considerare spendibile tutto il saldo. Il ritmo del mese usa le uscite non ricorrenti registrate e i giorni osservabili.',
+      'Somme protette: importi già accantonati e impegni ricorrenti compresi nel calcolo, più eventuali scadenze note entro fine mese e la quota di riserva ancora da coprire. Un impegno già incluso nella liquidità non si sottrae una seconda volta.',
     ],
-    example: 'Esempio: con 300 € spendibili e 10 giorni da oggi a fine mese, il limite indicativo è 30 € al giorno. È una divisione del margine, non una promessa di spesa sicura.',
+    example: 'Esempio: se la spesa media è 600 € al mese e scegli due mesi, la riserva obiettivo è 1.200 €. Il fondo di sicurezza già accumulato riduce quanto va protetto negli altri conti. Il limite quotidiano resta inoltre entro la spesa media giornaliera osservata.',
   },
   {
     id: 'previsione', titolo: 'Previsione, qualità e avvisi',

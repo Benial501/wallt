@@ -4,7 +4,12 @@ const context = (overrides = {}) => ({
   period: { referenceDate: '2026-09-25' },
   liquidity: { ordinary: 800, allocated: 200, allocatable: 500, commitments: 100 },
   expenses: { currentMonth: 300, variableCurrentMonth: 300, monthlyAverage: 400 },
-  income: { currentMonth: 1200, monthlyAverage: 1200 },
+  income: {
+    currentMonth: 1200,
+    monthlyAverage: 1200,
+    recurringMonthlyAverage: 1200,
+    stability: 'stabile',
+  },
   emergencyFund: { status: 'assente', missingAmount: null },
   dataQuality: { completeMonths: 3, firstMovementDate: '2026-06-01', registrationCompleteness: 'non_verificabile' },
   netWorth: { total: 2000, assets: 2500, liabilities: 500 },

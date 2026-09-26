@@ -1208,6 +1208,11 @@ const validateUpdateProfiloFinanziario = [
     .optional({ values: 'null' })
     .isDecimal({ decimal_digits: '0,2' })
     .withMessage('entrata_mensile non valida'),
+  body('mesi_riserva_piano_smart')
+    .optional({ values: 'null' })
+    .isInt({ min: 1, max: 6 })
+    .toInt()
+    .withMessage('Scegli una copertura da 1 a 6 mesi'),
   body('situazione_abitativa')
     .optional({ values: 'null' })
     .isString()

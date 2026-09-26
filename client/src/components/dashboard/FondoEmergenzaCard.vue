@@ -1,17 +1,18 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import WModal from '@/components/common/WModal.vue';
 import DataState from '@/components/common/DataState.vue';
+import CreaFondoEmergenzaModal from '@/components/dashboard/CreaFondoEmergenzaModal.vue';
 import { useValuta } from '@/composables/useValuta';
-import { Shield } from '@/utils/appIcons';
-import { MESI_TARGET_AMMESSI, MESI_TARGET_DEFAULT, formattaMesi } from '@/utils/fondoEmergenza';
+import { Shield, X } from '@/utils/appIcons';
+import { formattaMesi } from '@/utils/fondoEmergenza';
 
 /**
- * Il fondo di emergenza in fondo alla home, con un ciclo di vita: finché il
- * conto non esiste è un invito a crearlo; appena esiste diventa la sintesi
+ * La scheda del fondo di emergenza nel carosello della home, con un ciclo di vita:
+ * finché il conto non esiste è un invito a crearlo; appena esiste diventa la sintesi
  * cliccabile che porta alla sua pagina. Una cosa sola che cambia stato, non un
  * invito che resta per sempre a chiedere qualcosa di già fatto.
  *
@@ -27,12 +28,12 @@ const props = defineProps({
   creazioneInCorso: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['crea', 'riprova']);
+const emit = defineEmits(['crea', 'riprova', 'nascondi']);
 const router = useRouter();
 const { formatValuta } = useValuta();
 
 const confermaAperta = ref(false);
-const mesiScelti = ref(MESI_TARGET_DEFAULT);
+const confermaNascondiAperta = ref(false);
 
 const esiste = computed(() => !!props.fondo?.esiste);
 const copertura = computed(() => props.fondo?.copertura || null);
@@ -69,28 +70,37 @@ const motivoSenzaCopertura = computed(() => {
 });
 
 const apriConferma = () => {
-  mesiScelti.value = MESI_TARGET_DEFAULT;
   confermaAperta.value = true;
-};
-
-const conferma = () => {
-  emit('crea', mesiScelti.value);
 };
 
 const chiudiConferma = () => {
   confermaAperta.value = false;
 };
 
-defineExpose({ chiudiConferma });
+watch(esiste, (fondoCreato) => {
+  if (fondoCreato) chiudiConferma();
+});
 </script>
 
 <template>
   <section class="fondo-card">
     <div class="fondo-card__header">
       <h2 class="fondo-card__title">Fondo di emergenza</h2>
-      <button v-if="esiste" type="button" class="fondo-card__link" @click="router.push('/fondo-emergenza')">
-        Apri →
-      </button>
+      <div class="fondo-card__header-actions">
+        <button v-if="esiste" type="button" class="fondo-card__link" @click="router.push('/fondo-emergenza')">
+          Apri →
+        </button>
+        <button
+          v-else
+          type="button"
+          class="fondo-card__dismiss"
+          aria-label="Nascondi il fondo di emergenza dalla Home"
+          title="Nascondi dalla Home"
+          @click="confermaNascondiAperta = true"
+        >
+          <X :size="18" aria-hidden="true" />
+        </button>
+      </div>
     </div>
 
     <DataState :stato="stato" :last-updated="lastUpdated" @riprova="emit('riprova')">
@@ -127,30 +137,28 @@ defineExpose({ chiudiConferma });
       </WCard>
     </DataState>
 
-    <WModal :open="confermaAperta" title="Creare il conto di emergenza?" @close="chiudiConferma">
-      <p class="fondo-conferma__testo">
-        Creo un conto separato, vuoto. I soldi che metterai dentro:
+    <CreaFondoEmergenzaModal
+      :open="confermaAperta"
+      :loading="creazioneInCorso"
+      @close="chiudiConferma"
+      @crea="emit('crea', $event)"
+    />
+
+    <WModal
+      :open="confermaNascondiAperta"
+      title="Nascondere il fondo di emergenza?"
+      @close="confermaNascondiAperta = false"
+    >
+      <p class="fondo-card__dismiss-copy">
+        La scheda verrà rimossa dalla Home. Potrai configurare il fondo in qualsiasi momento dal pulsante
+        “Configura il fondo di emergenza” nella scheda “I miei conti”.
       </p>
-      <ul class="fondo-conferma__elenco">
-        <li>restano nel tuo patrimonio totale;</li>
-        <li>non compaiono fra i soldi spendibili in home;</li>
-        <li>si spostano solo con un trasferimento fra i tuoi conti, mai con una spesa.</li>
-      </ul>
-
-      <fieldset class="fondo-conferma__mesi">
-        <legend>Quanti mesi di spese essenziali vuoi coprire?</legend>
-        <div class="fondo-conferma__scelte">
-          <label v-for="m in MESI_TARGET_AMMESSI" :key="m" class="fondo-conferma__scelta" :class="{ 'fondo-conferma__scelta--attiva': mesiScelti === m }">
-            <input v-model="mesiScelti" type="radio" name="mesi-target" :value="m">
-            <span>{{ m }} mesi</span>
-          </label>
-        </div>
-        <p class="fondo-conferma__nota">Puoi cambiare questa soglia quando vuoi.</p>
-      </fieldset>
-
-      <div class="fondo-conferma__azioni">
-        <WButton variant="ghost" @click="chiudiConferma">Annulla</WButton>
-        <WButton variant="primary" :loading="creazioneInCorso" @click="conferma">Crea il conto</WButton>
+      <div class="fondo-card__dismiss-actions">
+        <WButton variant="ghost" @click="confermaNascondiAperta = false">Annulla</WButton>
+        <WButton
+          variant="primary"
+          @click="emit('nascondi'); confermaNascondiAperta = false"
+        >Nascondi scheda</WButton>
       </div>
     </WModal>
   </section>
@@ -158,7 +166,7 @@ defineExpose({ chiudiConferma });
 
 <style scoped>
 .fondo-card {
-  margin-top: 1.5rem;
+  margin-top: 0;
 }
 
 .fondo-card__header {
@@ -174,6 +182,30 @@ defineExpose({ chiudiConferma });
   letter-spacing: var(--tracking-title);
   color: var(--text-primary);
 }
+
+.fondo-card__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fondo-card__dismiss {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.fondo-card__dismiss:hover { color: var(--text-primary); background: var(--bg-input); }
+.fondo-card__dismiss:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
+.fondo-card__dismiss-copy { margin-bottom: 1rem; color: var(--text-secondary); font-size: var(--text-sm); line-height: 1.5; }
+.fondo-card__dismiss-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 
 .fondo-card__link {
   background: none;
@@ -282,79 +314,4 @@ defineExpose({ chiudiConferma });
   color: var(--text-muted);
 }
 
-.fondo-conferma__testo {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  margin-bottom: 0.5rem;
-}
-
-.fondo-conferma__elenco {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  margin: 0 0 1rem 1rem;
-  padding: 0;
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-.fondo-conferma__mesi {
-  border: none;
-  padding: 0;
-  margin: 0 0 1rem;
-}
-
-.fondo-conferma__mesi legend {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 0.5rem;
-}
-
-.fondo-conferma__scelte {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.fondo-conferma__scelta {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.625rem 0.5rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.fondo-conferma__scelta input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.fondo-conferma__scelta--attiva {
-  border-color: var(--accent-green);
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.fondo-conferma__scelta:focus-within {
-  box-shadow: var(--focus-ring-tight);
-}
-
-.fondo-conferma__nota {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  margin-top: 0.5rem;
-}
-
-.fondo-conferma__azioni {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
 </style>

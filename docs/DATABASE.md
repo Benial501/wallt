@@ -69,6 +69,7 @@ Migrazioni: `npm run migrate` o auto-run all'avvio (`server.js`, disabilitato in
 | `ha_investimenti` | STRING(50) | |
 | `fa_scommesse` | STRING(50) | Default `no` |
 | `onboarding_completato` | BOOLEAN | Default false |
+| `mesi_riserva_piano_smart` | INTEGER | Default 1, scelta dell'utente da 1 a 6 mesi per la riserva prudenziale di Piano Smart |
 
 ### `conti`
 | Campo | Tipo | Note |

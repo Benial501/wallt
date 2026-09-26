@@ -9,7 +9,9 @@ import AppDialog from '@/components/common/AppDialog.vue';
 import PianoSmartChangeTimeline from '@/components/piano-smart/PianoSmartChangeTimeline.vue';
 import PianoSmartCashFlowRadar from '@/components/piano-smart/PianoSmartCashFlowRadar.vue';
 import PianoSmartGoalsSummary from '@/components/piano-smart/PianoSmartGoalsSummary.vue';
+import PianoSmartGuide from '@/components/piano-smart/PianoSmartGuide.vue';
 import { usePianoSmartStore } from '@/stores/pianoSmart.store';
+import { useProfiloStore } from '@/stores/profilo.store';
 import { useToastStore } from '@/stores/toast.store';
 import { CircleHelp, Trash2 } from '@/utils/appIcons';
 import { purchaseAmountCents } from '@/utils/pianoSmartSimulation';
@@ -36,6 +38,7 @@ import {
  * centesimi interi (vedi lo store).
  */
 const store = usePianoSmartStore();
+const profiloStore = useProfiloStore();
 const router = useRouter();
 const toast = useToastStore();
 const {
@@ -50,11 +53,15 @@ const {
 
 const tab = ref('today');
 const pianoMode = ref('create');
+const pianoFocus = ref(null);
+const guidaSpiegazioneAperta = ref(false);
+const sezioneGuidaPiano = ref('cos-e');
 const step = ref(1);
 const dettaglioAperto = ref(false);
 const confermaEliminazione = ref(false);
 const eliminazioneInCorso = ref(false);
 const simulatoreImporto = ref('');
+const salvaMesiRiservaInCorso = ref(false);
 
 const ORIGINI = ORIGINI_SOMMA;
 
@@ -114,7 +121,25 @@ const usaSimulazioneRapida = async (amount) => {
     await store.simulatePurchase(String(amount));
   }
 };
-const apriGuida = (sezione) => router.push({ path: '/aiuto', query: { argomento: 'piano-smart', sezione } });
+const apriGuida = (sezione) => {
+  sezioneGuidaPiano.value = sezione;
+  guidaSpiegazioneAperta.value = true;
+};
+
+const aggiornaMesiRiserva = async (event) => {
+  const months = Number(event.target.value);
+  if (!Number.isInteger(months) || months < 1 || months > 6 || salvaMesiRiservaInCorso.value) return;
+  salvaMesiRiservaInCorso.value = true;
+  try {
+    await profiloStore.updateProfilo({ mesi_riserva_piano_smart: months });
+    await store.loadCurrentSituation();
+    toast.success('Copertura della riserva aggiornata.');
+  } catch {
+    toast.error('Non è stato possibile aggiornare la copertura. Riprova.');
+  } finally {
+    salvaMesiRiservaInCorso.value = false;
+  }
+};
 
 /** Motivazioni indicizzate per codice: serve a mostrare sotto una categoria
  * solo quelle che il backend ha davvero emesso per lei. */
@@ -293,9 +318,12 @@ const ricomincia = () => {
 const eseguiSuggerimento = (suggestion) => {
   const type = suggestion?.action?.type;
   if (type === 'open-analysis') router.push('/analisi');
+  if (type === 'open-emergency-fund') router.push('/fondo-emergenza');
   if (type === 'create-plan') {
-    tab.value = 'create';
+    tab.value = 'plans';
+    pianoMode.value = 'create';
     step.value = 1;
+    pianoFocus.value = suggestion.action.mode === 'emergency-fund' ? 'emergency-fund' : null;
   }
 };
 
@@ -315,7 +343,7 @@ onMounted(() => {
           <h1 class="page-title">Piano Smart</h1>
           <button
             class="info-button" type="button" aria-label="Apri la guida di Piano Smart"
-            title="Apri la guida completa in Aiuto" @click="apriGuida('cos-e')"
+            title="Apri la guida completa di Piano Smart" @click="apriGuida('cos-e')"
           >
             <CircleHelp :size="18" :stroke-width="1.8" aria-hidden="true" />
           </button>
@@ -329,11 +357,15 @@ onMounted(() => {
     <div class="tabs" role="group" aria-label="Aree del Piano Smart">
       <button
         type="button" :aria-pressed="tab === 'today'"
-        :class="{ active: tab === 'today' }" @click="tab = 'today'"
+        :class="{ active: tab === 'today' }" @click="tab = 'today'; pianoFocus = null"
       >Oggi</button>
       <button
+        type="button" :aria-pressed="tab === 'upcoming'"
+        :class="{ active: tab === 'upcoming' }" @click="tab = 'upcoming'; pianoFocus = null"
+      >Prossimi 30 giorni</button>
+      <button
         type="button" :aria-pressed="tab === 'analysis'"
-        :class="{ active: tab === 'analysis' }" @click="tab = 'analysis'"
+        :class="{ active: tab === 'analysis' }" @click="tab = 'analysis'; pianoFocus = null"
       >Analisi</button>
       <button
         type="button" :aria-pressed="tab === 'plans'"
@@ -341,7 +373,7 @@ onMounted(() => {
       >Piani</button>
     </div>
 
-    <template v-if="tab === 'today' || tab === 'analysis'">
+    <template v-if="tab === 'today' || tab === 'upcoming' || tab === 'analysis'">
       <div v-if="currentSituationState === 'loading'" class="loading">Sto leggendo la tua situazione…</div>
       <div v-else-if="currentSituationState === 'error'" class="error" role="alert">{{ currentSituationError?.message || 'Non riesco a recuperare la situazione.' }}</div>
       <template v-else-if="currentSituation">
@@ -350,18 +382,42 @@ onMounted(() => {
           <p class="muted">Limite giornaliero indicativo</p>
           <strong>{{ formattaEuro(currentSituation.current.dailyLimit) }}</strong>
           <p class="hero-today">oggi</p>
-          <p>Calcolato sul margine e sui {{ currentSituation.current.remainingDays }} giorni da oggi a fine mese.</p>
-          <button type="button" class="context-help" @click="apriGuida('oggi')">Che cosa significa?</button>
+          <p v-if="currentSituation.current.incomeMode === 'irregolare' && currentSituation.current.dailyLimit !== null">
+            Il limite considera la riserva che hai scelto, la spesa media osservata e i {{ currentSituation.current.remainingDays }} giorni fino a fine mese.
+          </p>
+          <p v-else-if="currentSituation.current.dailyLimit !== null">
+            Calcolato sul margine e sui {{ currentSituation.current.remainingDays }} giorni da oggi a fine mese.
+          </p>
+          <p v-else>Per calcolare un limite prudente servono mesi completi di spese registrate.</p>
+          <div v-if="currentSituation.current.incomeMode === 'irregolare'" class="reserve-setting">
+            <label for="piano-smart-reserve-months">Mesi di spese da proteggere</label>
+            <select
+              id="piano-smart-reserve-months"
+              :value="currentSituation.current.reserveMonths"
+              :disabled="salvaMesiRiservaInCorso"
+              @change="aggiornaMesiRiserva"
+            >
+              <option v-for="months in 6" :key="months" :value="months">{{ months }} {{ months === 1 ? 'mese' : 'mesi' }}</option>
+            </select>
+            <span v-if="currentSituation.current.reserveTarget !== null">
+              Riserva obiettivo: {{ formattaEuro(currentSituation.current.reserveTarget) }}
+              <template v-if="currentSituation.current.reserveFromLiquidity > 0">· da proteggere: {{ formattaEuro(currentSituation.current.reserveFromLiquidity) }}</template>
+            </span>
+          </div>
           <div class="safe-to-spend">
             <div><span>Liquidità dei conti</span><strong>{{ formattaEuro(currentSituation.current.liquidity) }}</strong></div>
             <div><span>Da proteggere</span><strong>{{ formattaEuro(currentSituation.current.protectedAmount) }}</strong></div>
             <div class="safe-to-spend__highlight"><span>Spendibile</span><strong>{{ formattaEuro(currentSituation.current.availableToSpend) }}</strong></div>
           </div>
           <details class="explanation protection-details">
-            <summary>Quali somme sono protette? <button type="button" class="context-help" @click.stop="apriGuida('oggi')">Che cosa significa?</button></summary>
+            <summary>Quali somme sono protette?</summary>
+            <button type="button" class="context-help" @click="apriGuida('oggi')">Che cosa significa?</button>
             <p>Obiettivi già accantonati: {{ formattaEuro(currentSituation.current.allocatedToGoals) }}.</p>
             <p>Impegni rilevati: {{ formattaEuro(currentSituation.current.commitments) }}. Ulteriori scadenze entro fine mese: {{ formattaEuro(currentSituation.current.additionalCommitments) }}.</p>
-            <p>Lo spendibile è già al netto di queste somme. Il saldo dei conti scommesse è escluso. L’importo ancora da raccogliere per il fondo di sicurezza non viene bloccato automaticamente.</p>
+            <p>Lo spendibile è già al netto di queste somme. Il saldo dei conti scommesse è escluso.</p>
+            <p v-if="currentSituation.current.incomeMode === 'irregolare' && currentSituation.current.reserveTarget !== null">
+              La riserva scelta copre {{ currentSituation.current.reserveMonths }} {{ currentSituation.current.reserveMonths === 1 ? 'mese' : 'mesi' }} di spese {{ currentSituation.current.reserveExpenseBasis === 'essenziale' ? 'essenziali' : 'medie' }}. Il saldo già presente nel fondo di sicurezza viene conteggiato, così non viene protetto due volte.
+            </p>
           </details>
           <p v-if="Number(currentSituation.current.shortfall) > 0" class="shortfall" role="status">Mancano {{ formattaEuro(currentSituation.current.shortfall) }} per coprire tutte le somme protette.</p>
           <div class="hero-availability">
@@ -407,8 +463,11 @@ onMounted(() => {
           </details>
         </WCard>
 
+        </template>
+
+        <template v-if="tab === 'upcoming'">
         <WCard class="text-card">
-          <h2>Prossime uscite</h2>
+          <h2>Uscite entro fine mese</h2>
           <p class="muted">Da oggi al {{ formattaScadenza(currentSituation.upcoming.through) }}.</p>
           <template v-if="currentSituation.upcoming.items.length">
             <div v-for="item in currentSituation.upcoming.items" :key="item.occurrenceKey" class="upcoming-row">
@@ -422,7 +481,6 @@ onMounted(() => {
         </WCard>
 
         <PianoSmartCashFlowRadar :items="currentSituation.cashFlowTimeline" />
-
         </template>
 
         <template v-if="tab === 'analysis'">
@@ -486,7 +544,13 @@ onMounted(() => {
               v-if="suggestion.action" variant="secondary" size="small"
               @click="eseguiSuggerimento(suggestion)"
             >
-              {{ suggestion.action.type === 'open-analysis' ? 'Apri analisi' : 'Crea un piano' }}
+              {{ suggestion.action.type === 'open-analysis'
+                ? 'Apri analisi'
+                : suggestion.action.type === 'open-emergency-fund'
+                  ? 'Crea fondo di emergenza'
+                  : suggestion.key === 'start-emergency-fund'
+                    ? 'Crea un piano per la riserva'
+                    : 'Crea un piano' }}
             </WButton>
           </div>
         </WCard>
@@ -503,7 +567,9 @@ onMounted(() => {
               <button v-for="amount in [50, 100, 250, 500]" :key="amount" type="button" @click="usaSimulazioneRapida(amount)">{{ amount }} €</button>
             </div>
           </div>
-            <WButton variant="primary" :disabled="simulatoreErrore || !simulatoreImporto || currentSituation.current.availableToSpend === null" :loading="purchaseSimulationState === 'loading'" @click="simulaAcquisto">Simula acquisto</WButton>
+            <div class="simulator-submit">
+              <WButton variant="primary" :disabled="simulatoreErrore || !simulatoreImporto || currentSituation.current.availableToSpend === null" :loading="purchaseSimulationState === 'loading'" @click="simulaAcquisto">Simula acquisto</WButton>
+            </div>
           <div v-if="purchaseSimulationState === 'error'" class="field-error" role="alert">{{ currentSituationError?.message || 'Non è stato possibile simulare questa spesa.' }}</div>
           <div v-if="simulazione" class="simulator-result" :class="`simulator-result--${simulazione.status}`" aria-live="polite" aria-atomic="true">
             <strong>{{ simulazione.status === 'compatibile' ? 'Entro il limite stimato' : simulazione.status === 'attenzione' ? 'Riduce il margine' : simulazione.status === 'non_stimabile' ? 'Effetto sul mese non ancora stimabile' : 'Potrebbe compromettere il piano' }}</strong>
@@ -562,6 +628,14 @@ onMounted(() => {
         <button class="active" type="button" aria-current="page">Crea un piano</button>
         <button type="button" @click="apriStorico">Piani salvati</button>
       </div>
+      <WCard v-if="pianoFocus === 'emergency-fund'" class="text-card emergency-plan-focus">
+        <h2>Piano per la riserva di sicurezza</h2>
+        <p class="muted">
+          Nel piano puoi destinare una quota alla categoria Fondo di sicurezza.
+          Il piano non sposta denaro: per accantonarla, trasferisci poi la somma
+          al Fondo di emergenza da un altro conto.
+        </p>
+      </WCard>
       <p class="hint">Le spese obbligatorie confermate vengono sottratte alla somma ricevuta per ottenere il capitale distribuibile. <button type="button" class="context-help" @click="apriGuida('piani')">Come si compone un piano?</button></p>
       <ol class="steps" aria-label="Avanzamento del piano">
         <li
@@ -1005,6 +1079,13 @@ onMounted(() => {
         </div>
       </div>
     </AppDialog>
+
+    <PianoSmartGuide
+      :open="guidaSpiegazioneAperta"
+      :initial-section="sezioneGuidaPiano"
+      :show-start="false"
+      @close="guidaSpiegazioneAperta = false"
+    />
   </div>
 </template>
 
@@ -1029,8 +1110,8 @@ onMounted(() => {
 .info-button { display: inline-grid; place-items: center; width: 36px; height: 36px; border: 1px solid var(--glass-interactive-border); border-radius: 50%; background: var(--glass-interactive-bg); color: var(--accent-text); cursor: pointer; }
 .info-button:hover { background: var(--glass-interactive-bg-hover); color: var(--text-primary); }
 
-.tabs { display: flex; gap: .4rem; border-bottom: 1px solid var(--divider); margin-bottom: 1.25rem; }
-.tabs button { border: 0; background: none; padding: .75rem 1rem; min-height: 44px; color: var(--text-muted); font: inherit; cursor: pointer; border-bottom: 2px solid transparent; }
+.tabs { display: flex; gap: .4rem; overflow-x: auto; border-bottom: 1px solid var(--divider); margin-bottom: 1.25rem; scrollbar-width: thin; }
+.tabs button { flex: 0 0 auto; white-space: nowrap; border: 0; background: none; padding: .75rem 1rem; min-height: 44px; color: var(--text-muted); font: inherit; cursor: pointer; border-bottom: 2px solid transparent; }
 .tabs button.active { color: var(--accent-text); border-color: var(--accent-green); font-weight: 700; }
 .tabs--inner { margin: 0 0 1rem; border-bottom: 0; }
 .tabs--inner button { border: 1px solid var(--divider); border-radius: 999px; padding: .55rem .85rem; }
@@ -1049,6 +1130,10 @@ onMounted(() => {
 .flow-card, .allocations, .hero, .text-card, .empty, .zero-capital { display: flex; flex-direction: column; gap: .9rem; margin-bottom: 1rem; }
 .situation-hero { display: flex; flex-direction: column; align-items: center; gap: .45rem; margin-bottom: 1rem; text-align: center; }
 .situation-hero > strong { color: var(--text-primary); font-size: 2.9rem; line-height: 1.05; }
+.reserve-setting { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .35rem .75rem; width: 100%; max-width: 28rem; margin: .35rem 0; padding: .75rem; border: 1px solid var(--divider); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface) 72%, transparent); text-align: left; }
+.reserve-setting label { color: var(--text-primary); font-size: var(--text-sm); font-weight: 600; }
+.reserve-setting select { min-height: 40px; padding: .35rem .6rem; border: 1px solid var(--divider); border-radius: var(--radius-sm); background: var(--surface); color: var(--text-primary); font: inherit; }
+.reserve-setting span { grid-column: 1 / -1; color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.45; }
 .hero-kicker { margin: 0 0 .35rem; color: var(--text-secondary); font-size: var(--text-xs); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .hero-today { margin: -.2rem 0 .25rem !important; color: var(--text-primary) !important; font-size: 1rem; font-weight: 600; }
 .hero-availability { display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; margin: .45rem 0 .2rem; color: var(--text-secondary); font-size: var(--text-sm); }
@@ -1104,6 +1189,7 @@ onMounted(() => {
 .frequent-category__icon { display: grid; place-items: center; width: 2rem; height: 2rem; flex: 0 0 2rem; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--category-color) 12%, transparent); color: var(--category-color); }
 .simulator { border-top: 1px solid var(--divider); padding-top: 1.25rem; }
 .simulator-form { display: flex; flex-direction: column; gap: .35rem; margin-top: .75rem; }
+.simulator-submit { margin-top: 5px; }
 .simulator-form input { width: 100%; min-height: 44px; padding: .7rem .8rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--text-primary); font: inherit; }
 .simulator-quick { display: flex; gap: .45rem; flex-wrap: wrap; }
 .simulator-quick button { min-height: 36px; padding: .35rem .7rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-subtle); color: var(--text-secondary); font: inherit; cursor: pointer; }

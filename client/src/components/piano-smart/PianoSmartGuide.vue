@@ -4,7 +4,11 @@ import AppDialog from '@/components/common/AppDialog.vue';
 import WButton from '@/components/common/WButton.vue';
 import { GUIDA_ESEMPIO, GUIDA_PIANO_SMART, calcolaTotaleEsempio } from '@/content/pianoSmartGuide';
 
-const props = defineProps({ open: Boolean, initialSection: { type: String, default: 'cos-e' } });
+const props = defineProps({
+  open: Boolean,
+  initialSection: { type: String, default: 'cos-e' },
+  showStart: { type: Boolean, default: true },
+});
 const emit = defineEmits(['close', 'start']);
 const sezione = ref(0);
 const allocazioni = ref({ ...GUIDA_ESEMPIO.allocazioni });
@@ -92,7 +96,8 @@ const formattaEuro = (value) => new Intl.NumberFormat('it-IT', { style: 'currenc
       <footer class="guide__footer">
         <button type="button" class="guide__back" :disabled="sezione === 0" @click="indietro">Indietro</button>
         <WButton v-if="!ultima" variant="primary" @click="avanti">Continua</WButton>
-        <WButton v-else variant="primary" @click="emit('start'); emit('close')">Apri Piano Smart</WButton>
+        <WButton v-else-if="showStart" variant="primary" @click="emit('start'); emit('close')">Apri Piano Smart</WButton>
+        <WButton v-else variant="primary" @click="emit('close')">Chiudi guida</WButton>
       </footer>
     </div>
   </AppDialog>
