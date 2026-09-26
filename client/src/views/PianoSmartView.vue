@@ -62,6 +62,7 @@ const confermaEliminazione = ref(false);
 const eliminazioneInCorso = ref(false);
 const simulatoreImporto = ref('');
 const salvaMesiRiservaInCorso = ref(false);
+const spiegazioneImportiAperta = ref(false);
 
 const ORIGINI = ORIGINI_SOMMA;
 
@@ -409,16 +410,23 @@ onMounted(() => {
             <div><span>Da proteggere</span><strong>{{ formattaEuro(currentSituation.current.protectedAmount) }}</strong></div>
             <div class="safe-to-spend__highlight"><span>Spendibile</span><strong>{{ formattaEuro(currentSituation.current.availableToSpend) }}</strong></div>
           </div>
-          <details class="explanation protection-details">
-            <summary>Quali somme sono protette?</summary>
-            <button type="button" class="context-help" @click="apriGuida('oggi')">Che cosa significa?</button>
-            <p>Obiettivi già accantonati: {{ formattaEuro(currentSituation.current.allocatedToGoals) }}.</p>
-            <p>Impegni rilevati: {{ formattaEuro(currentSituation.current.commitments) }}. Ulteriori scadenze entro fine mese: {{ formattaEuro(currentSituation.current.additionalCommitments) }}.</p>
-            <p>Lo spendibile è già al netto di queste somme. Il saldo dei conti scommesse è escluso.</p>
-            <p v-if="currentSituation.current.incomeMode === 'irregolare' && currentSituation.current.reserveTarget !== null">
-              La riserva scelta copre {{ currentSituation.current.reserveMonths }} {{ currentSituation.current.reserveMonths === 1 ? 'mese' : 'mesi' }} di spese {{ currentSituation.current.reserveExpenseBasis === 'essenziale' ? 'essenziali' : 'medie' }}. Il saldo già presente nel fondo di sicurezza viene conteggiato, così non viene protetto due volte.
-            </p>
-          </details>
+          <div class="protection-details-row">
+            <details class="explanation protection-details">
+              <summary>Quali somme sono protette?</summary>
+              <p>Obiettivi già accantonati: {{ formattaEuro(currentSituation.current.allocatedToGoals) }}.</p>
+              <p>Impegni rilevati: {{ formattaEuro(currentSituation.current.commitments) }}. Ulteriori scadenze entro fine mese: {{ formattaEuro(currentSituation.current.additionalCommitments) }}.</p>
+              <p>Lo spendibile è già al netto di queste somme. Il saldo dei conti scommesse è escluso.</p>
+              <p v-if="currentSituation.current.incomeMode === 'irregolare' && currentSituation.current.reserveTarget !== null">
+                La riserva scelta copre {{ currentSituation.current.reserveMonths }} {{ currentSituation.current.reserveMonths === 1 ? 'mese' : 'mesi' }} di spese {{ currentSituation.current.reserveExpenseBasis === 'essenziale' ? 'essenziali' : 'medie' }}. Il saldo già presente nel fondo di sicurezza viene conteggiato, così non viene protetto due volte.
+              </p>
+            </details>
+            <button
+              type="button"
+              class="protection-info-button"
+              aria-label="Spiega Da proteggere e Spendibile"
+              @click="spiegazioneImportiAperta = true"
+            ><CircleHelp :size="18" aria-hidden="true" /></button>
+          </div>
           <p v-if="Number(currentSituation.current.shortfall) > 0" class="shortfall" role="status">Mancano {{ formattaEuro(currentSituation.current.shortfall) }} per coprire tutte le somme protette.</p>
           <div class="hero-availability">
             <span>{{ currentSituation.current.remainingDays }} giorni, oggi incluso, fino a fine mese</span>
@@ -1086,6 +1094,30 @@ onMounted(() => {
       :show-start="false"
       @close="guidaSpiegazioneAperta = false"
     />
+
+    <AppDialog
+      :open="spiegazioneImportiAperta"
+      title="Da proteggere e spendibile"
+      @close="spiegazioneImportiAperta = false"
+    >
+      <div class="protection-help">
+        <p class="protection-help__summary">
+          In questo momento WALLT considera {{ formattaEuro(currentSituation?.current?.protectedAmount) }} da proteggere e {{ formattaEuro(currentSituation?.current?.availableToSpend) }} spendibili, su {{ formattaEuro(currentSituation?.current?.liquidity) }} di liquidità.
+        </p>
+        <h3>Da proteggere</h3>
+        <p>
+          È la somma che il Piano Smart tiene da parte nei calcoli per gli obiettivi già accantonati, gli impegni rilevati e le scadenze vicine. Se hai entrate non regolari, comprende anche la quota della riserva di sicurezza ancora da coprire.
+        </p>
+        <p v-if="currentSituation?.current?.incomeMode === 'irregolare' && currentSituation?.current?.reserveTarget !== null && currentSituation?.current?.reserveTarget !== undefined">
+          La riserva scelta ha un obiettivo di {{ formattaEuro(currentSituation.current.reserveTarget) }} per {{ currentSituation.current.reserveMonths }} {{ currentSituation.current.reserveMonths === 1 ? 'mese' : 'mesi' }} di spese {{ currentSituation.current.reserveExpenseBasis === 'essenziale' ? 'essenziali' : 'medie' }}. Dopo aver contato l’eventuale saldo nel fondo, restano {{ formattaEuro(currentSituation.current.reserveFromLiquidity) }} da coprire.
+        </p>
+        <p>Questi soldi non vengono spostati né bloccati: restano nei tuoi conti. È una quota prudenziale usata per calcolare lo spendibile.</p>
+        <h3>Spendibile</h3>
+        <p>
+          È la liquidità che rimane dopo aver considerato le somme da proteggere. WALLT la usa per stimare quanto puoi destinare a nuove spese senza intaccare obiettivi, impegni e riserva. È un’indicazione, non l’obbligo di spendere tutto l’importo.
+        </p>
+      </div>
+    </AppDialog>
   </div>
 </template>
 
@@ -1305,7 +1337,14 @@ summary { cursor: pointer; color: var(--text-primary); font-weight: 600; font-si
 .delete-confirmation__copy p { margin: 0; color: var(--text-primary); line-height: 1.5; }
 .delete-confirmation__copy .hint { color: var(--text-secondary); }
 
-.protection-details { width: 100%; text-align: left; }
+.protection-details-row { display: grid; grid-template-columns: minmax(0, 1fr) 2.5rem; align-items: start; gap: .25rem; width: 100%; text-align: left; }
+.protection-details { width: auto; min-width: 0; text-align: left; }
+.protection-info-button { display: grid; place-items: center; min-width: 40px; min-height: 40px; margin-top: .35rem; border: 1px solid var(--glass-interactive-border); border-radius: 50%; background: var(--glass-interactive-bg); color: var(--accent-text); cursor: pointer; }
+.protection-info-button:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 3px; }
+.protection-help { display: grid; gap: .6rem; color: var(--text-secondary); font-size: var(--text-sm); line-height: 1.6; }
+.protection-help p, .protection-help h3 { margin: 0; }
+.protection-help h3 { color: var(--text-primary); font-size: var(--text-sm); }
+.protection-help__summary { padding: .8rem; border: 1px solid var(--divider); border-radius: var(--radius-md); background: var(--surface-subtle); color: var(--text-primary); font-variant-numeric: tabular-nums; }
 .shortfall { color: var(--negative); font-weight: 600; }
 .forecast-quality { padding: .8rem 0; border-top: 1px solid var(--divider); color: var(--text-secondary); }
 .forecast-quality strong { color: var(--text-primary); }
