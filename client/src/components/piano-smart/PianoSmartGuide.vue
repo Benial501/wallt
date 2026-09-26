@@ -4,21 +4,23 @@ import AppDialog from '@/components/common/AppDialog.vue';
 import WButton from '@/components/common/WButton.vue';
 import { GUIDA_ESEMPIO, GUIDA_PIANO_SMART, calcolaTotaleEsempio } from '@/content/pianoSmartGuide';
 
-const props = defineProps({ open: Boolean });
+const props = defineProps({ open: Boolean, initialSection: { type: String, default: 'cos-e' } });
 const emit = defineEmits(['close', 'start']);
 const sezione = ref(0);
 const allocazioni = ref({ ...GUIDA_ESEMPIO.allocazioni });
 const contenuto = computed(() => GUIDA_PIANO_SMART[sezione.value]);
+const categoriePiano = GUIDA_PIANO_SMART.find((section) => section.id === 'piani');
 const totaleDistribuito = computed(() => calcolaTotaleEsempio(allocazioni.value));
 const differenza = computed(() => GUIDA_ESEMPIO.totale - totaleDistribuito.value);
 const ultima = computed(() => sezione.value === GUIDA_PIANO_SMART.length - 1);
 
-watch(() => props.open, (open) => {
+watch(() => [props.open, props.initialSection], ([open, initialSection]) => {
   if (open) {
-    sezione.value = 0;
+    const requested = GUIDA_PIANO_SMART.findIndex((section) => section.id === initialSection);
+    sezione.value = requested >= 0 ? requested : 0;
     allocazioni.value = { ...GUIDA_ESEMPIO.allocazioni };
   }
-});
+}, { immediate: true });
 
 const avanti = () => { if (!ultima.value) sezione.value += 1; };
 const indietro = () => { if (sezione.value > 0) sezione.value -= 1; };
@@ -29,14 +31,22 @@ const formattaEuro = (value) => new Intl.NumberFormat('it-IT', { style: 'currenc
   <AppDialog :open="open" title="Guida al Piano Smart" @close="emit('close')">
     <div class="guide" aria-label="Guida interattiva al Piano Smart">
       <div class="guide__progress" aria-label="Avanzamento guida">
-        <span>Sezione {{ sezione + 1 }} di {{ GUIDA_PIANO_SMART.length }}</span>
+        <span role="status" aria-live="polite">Argomento {{ sezione + 1 }} di {{ GUIDA_PIANO_SMART.length }}: {{ contenuto.titolo }}</span>
         <div class="guide__dots" aria-hidden="true">
           <i v-for="(_, index) in GUIDA_PIANO_SMART" :key="index" :class="{ active: index === sezione }" />
         </div>
       </div>
 
+      <nav class="guide__index" aria-label="Argomenti della guida">
+        <button
+          v-for="(item, index) in GUIDA_PIANO_SMART" :key="item.id" type="button"
+          :aria-current="index === sezione ? 'step' : undefined"
+          @click="sezione = index"
+        >{{ item.titolo }}</button>
+      </nav>
+
       <header class="guide__intro">
-        <p class="guide__eyebrow">Piano Smart</p>
+        <p class="guide__eyebrow">Che cosa significa? · Piano Smart</p>
         <h2>{{ contenuto.titolo }}</h2>
         <p>{{ contenuto.sottotitolo }}</p>
       </header>
@@ -44,12 +54,12 @@ const formattaEuro = (value) => new Intl.NumberFormat('it-IT', { style: 'currenc
       <div class="guide__content">
         <p v-for="paragraph in contenuto.paragraphs" :key="paragraph">{{ paragraph }}</p>
 
-        <div v-if="contenuto.id === 'esempio'" class="example">
+        <div v-if="contenuto.id === 'piani'" class="example">
           <div class="example__total">
             <span>Somma da organizzare</span>
             <strong>{{ formattaEuro(GUIDA_ESEMPIO.totale) }}</strong>
           </div>
-          <div v-for="item in GUIDA_PIANO_SMART[3].items" :key="item.id" class="example__row">
+          <div v-for="item in categoriePiano.items" :key="item.id" class="example__row">
             <label :for="`guide-${item.id}`">{{ item.titolo }}</label>
             <div class="example__input">
               <span>€</span>
@@ -63,6 +73,8 @@ const formattaEuro = (value) => new Intl.NumberFormat('it-IT', { style: 'currenc
             <span v-else>Il totale torna: puoi salvare.</span>
           </p>
         </div>
+
+        <p v-if="contenuto.example" class="guide__example-note">{{ contenuto.example }}</p>
 
         <ol v-if="contenuto.steps" class="guide__steps">
           <li v-for="step in contenuto.steps" :key="step[0]"><b>{{ step[0] }}</b><div><strong>{{ step[1] }}</strong><p>{{ step[2] }}</p></div></li>
@@ -92,11 +104,16 @@ const formattaEuro = (value) => new Intl.NumberFormat('it-IT', { style: 'currenc
 .guide__dots { display: flex; gap: .3rem; }
 .guide__dots i { width: .45rem; height: .45rem; border-radius: 50%; background: var(--border); }
 .guide__dots i.active { background: var(--accent-green); transform: scale(1.25); }
+.guide__index { display: flex; flex-wrap: wrap; gap: .4rem; max-height: 8rem; overflow: auto; }
+.guide__index button { min-height: 36px; padding: .35rem .6rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text-secondary); font: inherit; font-size: var(--text-xs); cursor: pointer; }
+.guide__index button[aria-current="step"] { border-color: var(--accent-green); color: var(--text-primary); font-weight: 700; }
+.guide__index button:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 2px; }
 .guide__eyebrow { margin: 0 0 .25rem; color: var(--accent-text); font-size: var(--text-xs); font-weight: 700; }
 .guide h2 { margin: 0; color: var(--text-primary); font-size: 1.35rem; }
 .guide__intro > p:last-child, .guide__content > p { color: var(--text-secondary); line-height: 1.6; font-size: var(--text-sm); }
 .guide__intro > p:last-child { margin: .35rem 0 0; }
 .guide__content > p { margin: 0 0 .8rem; }
+.guide__example-note { padding: .75rem; border-radius: var(--radius-md); background: var(--surface-subtle); }
 .example { padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-subtle); }
 .example__total, .example__result { display: flex; justify-content: space-between; gap: 1rem; color: var(--text-secondary); font-size: var(--text-sm); }
 .example__total { align-items: baseline; padding-bottom: .75rem; margin-bottom: .25rem; border-bottom: 1px solid var(--divider); }

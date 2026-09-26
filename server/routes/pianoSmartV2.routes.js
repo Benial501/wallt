@@ -1,14 +1,16 @@
 const express = require('express');
 const authMiddleware = require('../middleware/auth.middleware');
+const { pianoSmartPreviewLimiter } = require('../middleware/rateLimit.middleware');
 const {
   validatePianoSmartId,
   validatePianoSmartActionId,
 } = require('../middleware/validation.middleware');
-const { preview, currentSituation, save, listActions, updateAction, getSnapshot, getScenarios, getProjection } = require('../controllers/pianoSmartV2.controller');
+const { preview, currentSituation, simulatePurchase, save, listActions, updateAction, getSnapshot, getScenarios, getProjection } = require('../controllers/pianoSmartV2.controller');
 
 const router = express.Router();
 router.post('/preview', authMiddleware, preview);
 router.get('/current-situation', authMiddleware, currentSituation);
+router.post('/simulate-purchase', authMiddleware, pianoSmartPreviewLimiter, simulatePurchase);
 router.post('/', authMiddleware, save);
 router.get('/:id/scenarios', authMiddleware, validatePianoSmartId, getScenarios);
 router.get('/:id/projection', authMiddleware, validatePianoSmartId, getProjection);

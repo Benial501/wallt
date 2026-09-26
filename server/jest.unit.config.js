@@ -27,6 +27,7 @@ module.exports = {
     '<rootDir>/tests/pianoSmartInvarianti.test.js',
     '<rootDir>/tests/pianoSmartScenari.test.js',
     '<rootDir>/tests/pianoSmartCurrentSituation.test.js',
+    '<rootDir>/tests/pianoSmartV2Serializer.test.js',
     '<rootDir>/tests/pianoSmartChangeTimeline.test.js',
     '<rootDir>/tests/pianoSmartRecurringCashFlow.test.js',
     '<rootDir>/tests/aggregaMedieSpeseFrequenti.test.js',

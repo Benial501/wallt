@@ -267,15 +267,16 @@ const TOPICS = [
   {
     id: 'piano-smart',
     title: 'Piano Smart',
-    summary: 'Capisci cosa sta succedendo ai tuoi soldi e organizza le prossime decisioni.',
+    summary: 'Leggi il margine di oggi, confronta periodi, simula una spesa e organizza una somma.',
     paragraphs: [
-      'La Situazione attuale è il punto di partenza: mostra quanto puoi spendere oggi, cosa devi ancora proteggere, il ritmo delle tue spese e una stima di come potresti arrivare a fine mese.',
-      'Puoi leggere le prossime uscite, i suggerimenti di WALLT e la direzione finanziaria con patrimonio, debiti e obiettivi. I valori osservati sono distinti dalle stime e gli avvisi spiegano quando i dati non bastano per una previsione affidabile.',
-      'Prima di un acquisto puoi usare “Prima di spendere”: inserisci un importo e WALLT mostra come cambierebbero margine, limite giornaliero e previsione del mese. È una simulazione e non registra nessun movimento.',
-      'Da “Crea piano” puoi organizzare una nuova entrata tra necessità, sicurezza, obiettivi, futuro e libertà. WALLT usa i dati che hai già inserito, può chiederti solo il contesto mancante e ti permette di modificare la proposta prima di salvarla.',
-      'Piano Smart non sposta denaro, non aggiorna i saldi e non decide al posto tuo: serve a capire la situazione e a prendere decisioni più consapevoli.',
+      'La sezione Oggi riassume liquidità dei conti considerati, somme protette, margine spendibile, limite giornaliero indicativo, ritmo delle spese, previsione di fine mese, ricorrenze future conosciute, suggerimenti e simulatore di acquisto.',
+      'Analisi confronta movimenti registrati in periodi equivalenti e mostra medie per categoria, andamento del mese, patrimonio netto, debiti, fondo di sicurezza e obiettivi. I confronti descrivono i movimenti disponibili oggi: WALLT non ricostruisce saldi storici e non può verificare la completezza delle registrazioni manuali.',
+      'Piani raccoglie la creazione, gli scenari, i piani salvati e il relativo dettaglio. Le spese obbligatorie confermate vengono sottratte dalla somma ricevuta per ottenere il capitale distribuibile. Le categorie V1 sono necessità, sicurezza, obiettivi, futuro e libertà; V2 aggiunge scenari, proiezioni e azioni preparatorie.',
+      'Un dato assente o non stimabile resta esplicito e non viene trasformato in zero. Una stima usa una base temporale dichiarata e non garantisce il risultato futuro.',
+      'La simulazione di una spesa è solo un confronto: non crea movimenti, non modifica saldi o obiettivi e non esegue pagamenti. Le azioni V2 sono promemoria: aggiornarne lo stato non esegue operazioni finanziarie.',
+      'WALLT non collega automaticamente i conti bancari, non sposta denaro e non è un consulente finanziario automatico. Le entrate, uscite o rate future non registrate come ricorrenze possono non essere considerate.',
     ],
-    link: { label: 'Apri Piano Smart', to: '/funzionalita/piano-smart' },
+    link: { label: 'Apri la guida completa e interattiva', to: '/aiuto?argomento=piano-smart' },
   },
 ];
 

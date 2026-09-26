@@ -1,4 +1,4 @@
-const { buildCurrentSituation } = require('../services/pianoSmartV2/currentSituation.service');
+const { buildCurrentSituation, simulatePurchase } = require('../services/pianoSmartV2/currentSituation.service');
 const now = new Date('2026-09-25T12:00:00Z');
 const context = (overrides = {}) => ({
   period: { referenceDate: '2026-09-25' },
@@ -17,7 +17,7 @@ const build = (overrides = {}, date = now) => buildCurrentSituation({ context: c
 describe('Piano Smart: situazione corrente', () => {
   test('riconcilia saldo ordinario, obiettivi e impegni senza bloccare il fondo ancora da costruire', () => {
     const result = build({ emergencyFund: { missingAmount: 2000 } });
-    expect(result.current).toMatchObject({ liquidity: '800.00', protectedAmount: '300.00', allocatedToGoals: '200.00', commitments: '100.00', availableToSpend: '500.00', dailyLimit: '83.33', remainingDays: 6 });
+    expect(result.current).toMatchObject({ liquidity: '800.00', protectedAmount: '300.00', allocatedToGoals: '200.00', commitments: '100.00', availableToSpend: '500.00', dailyLimit: '83.33', dailyMargin: '71.33', remainingDays: 6 });
   });
   test('non sottrae due volte gli impegni già protetti', () => {
     expect(build().upcoming).toMatchObject({ total: '100.00', afterTotal: '500.00' });
@@ -153,5 +153,26 @@ describe('Piano Smart: situazione corrente', () => {
     expect(goals[0].importo_restante).toBeNull();
     expect(goals.map((goal) => goal.estimatedMonthsAtCurrentMargin)).toEqual([null, null, null, null]);
     expect(goals[3].importo_restante).toBeNull();
+  });
+});
+
+describe('Piano Smart: simulazione acquisto', () => {
+  const situazione = {
+    current: { availableToSpend: '1000.00', shortfall: '0.00', dailyLimit: '100.00', remainingDays: 10 },
+    forecast: { endOfMonthAvailable: '700.00' },
+  };
+
+  test('calcola il confronto prima/dopo in centesimi e mantiene distinti i dati non stimabili', () => {
+    expect(simulatePurchase(situazione, '125.50')).toMatchObject({
+      amount: '125.50', availableBefore: '1000.00', availableAfter: '874.50',
+      dailyLimitBefore: '100.00', dailyLimitAfter: '87.45',
+      forecastBefore: '700.00', forecastAfter: '574.50', status: 'attenzione',
+    });
+    expect(simulatePurchase({ ...situazione, forecast: { endOfMonthAvailable: null } }, '25.00').forecastAfter).toBeNull();
+  });
+
+  test('rifiuta importi non positivi o con più di due decimali', () => {
+    expect(simulatePurchase(situazione, '0')).toBeNull();
+    expect(simulatePurchase(situazione, '1.005')).toBeNull();
   });
 });

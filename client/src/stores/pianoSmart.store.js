@@ -37,6 +37,11 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
   // `setError` porterebbe anche `state` a 'error', facendo comparire il
   // banner della situazione dentro "Crea piano" e "Storico".
   const currentSituationError = ref(null);
+  const purchaseSimulation = ref(null);
+  const purchaseSimulationState = ref('idle');
+  const selectedScenario = ref('bilanciato');
+  const selectedPlanSnapshot = ref(null);
+  const selectedPlanActions = ref([]);
   const recommendedAllocations = ref([]);
   const finalAllocations = ref([]);
   const plans = ref([]);
@@ -87,8 +92,9 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     () => Boolean(preview.value) && capitalToAllocateCents.value === 0,
   );
 
-  const canSave = computed(() => allocationDifferenceCents.value === 0
-    && !hasNegativeAllocation.value);
+  const canSave = computed(() => v2Preview.value
+    ? Boolean(v2Preview.value.scenarios?.some((scenario) => scenario.id === selectedScenario.value))
+    : allocationDifferenceCents.value === 0 && !hasNegativeAllocation.value);
 
   const questions = computed(() => readiness.value?.questions ?? []);
   const warnings = computed(() => preview.value?.warnings ?? readiness.value?.warnings ?? []);
@@ -155,6 +161,7 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
   async function generatePreview() {
     state.value = 'generating';
     error.value = null;
+    v2Preview.value = null;
     try {
       const result = await pianoSmartApi.createPreview(buildPayload());
       preview.value = result;
@@ -172,6 +179,7 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     error.value = null;
     try {
       v2Preview.value = await pianoSmartApi.createV2Preview(buildPayload());
+      selectedScenario.value = v2Preview.value?.selectedScenario || 'bilanciato';
       state.value = 'previewReady';
       return v2Preview.value;
     } catch (err) {
@@ -196,20 +204,35 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     }
   }
 
+  async function simulatePurchase(amount) {
+    purchaseSimulationState.value = 'loading';
+    try {
+      purchaseSimulation.value = await pianoSmartApi.simulatePurchase(amount);
+      purchaseSimulationState.value = 'ready';
+      return purchaseSimulation.value;
+    } catch (err) {
+      purchaseSimulation.value = null;
+      purchaseSimulationState.value = 'error';
+      currentSituationError.value = pianoSmartError(err);
+      return null;
+    }
+  }
+
   async function savePlan() {
     if (!canSave.value) return null;
     state.value = 'saving';
     error.value = null;
     try {
-      const result = await pianoSmartApi.createPlan({
-        ...buildPayload(),
-        // Del client il backend accetta solo le quote finali: le raccomandate
-        // le ricalcola da sé e ignora quelle che arrivano dal browser.
-        allocations: finalAllocations.value.map((voce) => ({
-          category: voce.category,
-          finalAmount: centesimiInImporto(importoInCentesimi(voce.finalAmount) ?? 0),
-        })),
-      });
+      const result = v2Preview.value
+        ? await pianoSmartApi.createV2Plan({ ...buildPayload(), selectedScenario: selectedScenario.value })
+        : await pianoSmartApi.createPlan({
+          ...buildPayload(),
+          // Il backend ricalcola le quote raccomandate e verifica le finali.
+          allocations: finalAllocations.value.map((voce) => ({
+            category: voce.category,
+            finalAmount: centesimiInImporto(importoInCentesimi(voce.finalAmount) ?? 0),
+          })),
+        });
       selectedPlan.value = result;
       state.value = 'saved';
       return result;
@@ -235,6 +258,16 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     error.value = null;
     try {
       selectedPlan.value = await pianoSmartApi.getPlan(id);
+      selectedPlanSnapshot.value = null;
+      selectedPlanActions.value = [];
+      if (selectedPlan.value?.engineVersion === 'smart-v2') {
+        const [snapshot, actions] = await Promise.all([
+          pianoSmartApi.getV2Plan(id),
+          pianoSmartApi.listV2Actions(id),
+        ]);
+        selectedPlanSnapshot.value = snapshot;
+        selectedPlanActions.value = actions;
+      }
       return selectedPlan.value;
     } catch (err) {
       setError(err);
@@ -252,6 +285,18 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     } catch (err) {
       setError(err);
       return null;
+    }
+  }
+
+  async function updateV2Action(id, actionId, status) {
+    error.value = null;
+    try {
+      await pianoSmartApi.updateV2Action(id, actionId, status);
+      selectedPlanActions.value = await pianoSmartApi.listV2Actions(id);
+      return true;
+    } catch (err) {
+      setError(err);
+      return false;
     }
   }
 
@@ -280,6 +325,11 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     readiness.value = null;
     preview.value = null;
     v2Preview.value = null;
+    purchaseSimulation.value = null;
+    purchaseSimulationState.value = 'idle';
+    selectedScenario.value = 'bilanciato';
+    selectedPlanSnapshot.value = null;
+    selectedPlanActions.value = [];
     currentSituation.value = null;
     currentSituationState.value = 'idle';
     currentSituationError.value = null;
@@ -299,6 +349,11 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     currentSituation,
     currentSituationState,
     currentSituationError,
+    purchaseSimulation,
+    purchaseSimulationState,
+    selectedScenario,
+    selectedPlanSnapshot,
+    selectedPlanActions,
     recommendedAllocations,
     finalAllocations,
     plans,
@@ -317,10 +372,12 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     generatePreview,
     generateV2Preview,
     loadCurrentSituation,
+    simulatePurchase,
     savePlan,
     loadPlans,
     loadPlan,
     updateStatus,
+    updateV2Action,
     deletePlan,
     resetFinalAllocations,
     reset,

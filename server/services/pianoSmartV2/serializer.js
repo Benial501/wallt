@@ -9,7 +9,9 @@ const serializeScenario = (scenario) => ({
   })),
 });
 
-const serializePreview = ({ planningContext, scenarios, projections, actions }) => ({
+const serializeAction = (action) => ({ ...action, amount: fromCents(action.amountCents), amountCents: undefined });
+
+const serializePreview = ({ planningContext, scenarios, projections, actions, actionsByScenario = {} }) => ({
   engineVersion: 'smart-v2',
   capital: planningContext.capital,
   financialSituation: planningContext.situation,
@@ -17,7 +19,9 @@ const serializePreview = ({ planningContext, scenarios, projections, actions }) 
   scenarios: scenarios.map(serializeScenario),
   selectedScenario: 'bilanciato',
   projections,
-  actions: actions.map((action) => ({ ...action, amount: fromCents(action.amountCents), amountCents: undefined })),
+  actions: actions.map(serializeAction),
+  actionsByScenario: Object.fromEntries(Object.entries(actionsByScenario)
+    .map(([scenarioId, scenarioActions]) => [scenarioId, scenarioActions.map(serializeAction)])),
   warnings: planningContext.warnings,
   confidence: planningContext.dataQuality.hasSufficientHistory ? 'GOOD' : 'LIMITED',
 });

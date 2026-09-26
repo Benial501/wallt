@@ -1,7 +1,7 @@
 # Piano Smart V1 — Contratto API (implementato)
 
-> Questo documento descrive il contratto **realmente implementato** su
-> `feature/piano-smart-backend`, non un contratto teorico. Gli esempi sono
+> Questo documento descrive il contratto **realmente implementato**, non un
+> contratto teorico. Gli esempi sono
 > estratti dal serializzatore reale.
 >
 > Base URL: `/api/piano-smart` · Auth: Bearer JWT su **tutte** le rotte.
@@ -17,9 +17,11 @@
 | GET | `/api/piano-smart` | elenco dei piani dell'utente | `apiLimiter` |
 | GET | `/api/piano-smart/:id` | dettaglio, solo proprietario | `apiLimiter` |
 | PATCH | `/api/piano-smart/:id` | allocazioni finali e/o stato | `apiLimiter` |
+| DELETE | `/api/piano-smart/:id` | elimina il piano, solo proprietario | `apiLimiter` |
 
-**Non esiste un DELETE.** L'archiviazione è `PATCH { status: 'archived' }`, così
-il piano resta verificabile.
+L'archiviazione è `PATCH { status: 'archived' }`, così il piano resta
+verificabile. `DELETE` rimuove il piano e le sue allocazioni associate; non
+modifica saldi, movimenti, obiettivi o altri dati finanziari.
 
 ---
 

@@ -10,6 +10,11 @@ describe('Piano Smart V2 API', () => {
     expect(response.status).toBe(401);
   });
 
+  test('simulare una spesa richiede autenticazione', async () => {
+    const response = await request(app).post('/api/piano-smart/v2/simulate-purchase').send({ amount: '50.00' });
+    expect(response.status).toBe(401);
+  });
+
   test('le rotte GET V2 non vengono catturate dal router V1', async () => {
     const { res: registration } = await registerUser(app);
     const response = await request(app)

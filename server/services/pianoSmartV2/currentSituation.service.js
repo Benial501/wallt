@@ -1,4 +1,4 @@
-const { fromCents } = require('../pianoSmart/money');
+const { fromCents, toCents } = require('../pianoSmart/money');
 const { oggiLocale, fineMese, inizioMese } = require('../../utils/dateRome');
 
 const cents = (value) => {
@@ -27,6 +27,41 @@ const buildSuggestion = ({ key, title, reason, effect, priority, action = null }
 // conteggio vive qui perché il client non deve reinterpretare uno stato
 // di dominio (vedi il vincolo "il backend resta l'unica fonte di verità").
 const obiettivoAttivo = (goal) => goal.stato !== 'completato';
+
+/** Simula una spesa aggiuntiva senza scrivere dati finanziari. */
+function simulatePurchase(situation, rawAmount) {
+  const amount = toCents(rawAmount);
+  if (!situation || amount === null || amount <= 0) return null;
+  const available = cents(situation.current?.availableToSpend);
+  const shortfall = cents(situation.current?.shortfall);
+  const dailyLimit = cents(situation.current?.dailyLimit);
+  const forecast = cents(situation.forecast?.endOfMonthAvailable);
+  const remainingDays = Number(situation.current?.remainingDays);
+  if (available === null || shortfall === null || !Number.isInteger(remainingDays) || remainingDays <= 0) return null;
+
+  const availableAfter = available - shortfall - amount;
+  const dailyLimitAfter = dailyLimit === null
+    ? null : Math.floor(Math.max(availableAfter, 0) / remainingDays);
+  const forecastAfter = forecast === null ? null : forecast - amount;
+  const status = availableAfter < 0 || (forecastAfter !== null && forecastAfter < 0) ? 'rischio'
+    : dailyLimitAfter === null || forecastAfter === null ? 'non_stimabile'
+      : amount <= dailyLimit ? 'compatibile' : 'attenzione';
+  const impact = available === 0 || amount * 100 > available * 45 ? 'alto'
+    : amount * 100 > available * 20 ? 'moderato' : 'basso';
+
+  return {
+    amount: fromCents(amount),
+    availableBefore: fromCents(available),
+    availableAfter: signedMoney(availableAfter),
+    dailyLimitBefore: money(dailyLimit),
+    dailyLimitAfter: money(dailyLimitAfter),
+    forecastBefore: signedMoney(forecast),
+    forecastAfter: signedMoney(forecastAfter),
+    status,
+    impact,
+    writesFinancialData: false,
+  };
+}
 
 function buildCurrentSituation({ context, now = new Date(), changes = null }) {
   const referenceDate = context.period?.referenceDate || oggiLocale(undefined, now);
@@ -216,6 +251,8 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
       availableToSpend: money(available),
       dailyLimit: money(dailyLimit),
       actualDailySpend: money(actualDailySpend),
+      dailyMargin: dailyLimit === null || actualDailySpend === null
+        ? null : signedMoney(dailyLimit - actualDailySpend),
       paceDelta: signedMoney(paceDelta),
       paceStatus,
       remainingDays,
@@ -270,4 +307,4 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
   };
 }
 
-module.exports = { buildCurrentSituation };
+module.exports = { buildCurrentSituation, simulatePurchase };

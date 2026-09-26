@@ -6,6 +6,12 @@ Le rotte V2 sono locali al namespace `/api/piano-smart/v2`, richiedono JWT e non
 
 `GET /api/piano-smart/v2/current-situation` legge il contesto finanziario dell'utente e restituisce il riepilogo read-only usato dalla pagina Piano Smart: liquidità, importi protetti, margine disponibile, limite giornaliero, previsione di fine mese, direzione finanziaria, massimo tre suggerimenti, qualità dei dati e avvisi. I valori monetari sono stringhe decimali; la risposta distingue i dati stimati dai dati non stimabili.
 
+`current.dailyMargin` è il limite giornaliero indicativo meno il ritmo giornaliero osservato; è `null` quando uno dei due valori non è stimabile.
+
+## Simulazione di una spesa
+
+`POST /api/piano-smart/v2/simulate-purchase` accetta `{ "amount": "125.50" }` e restituisce importo, valori iniziali e valori dopo l'acquisto per spendibile, limite giornaliero indicativo e previsione. Il calcolo avviene nel backend in centesimi interi. La risposta include `writesFinancialData: false`; l'endpoint non crea movimenti e non aggiorna saldi o obiettivi. Importi non positivi, malformati o con più di due decimali sono rifiutati. Un campo non stimabile resta `null`.
+
 Il riepilogo usa il giorno civile Europe/Rome e l’orizzonte da oggi (incluso)
 a fine mese. Non scrive dati finanziari.
 
@@ -84,7 +90,7 @@ non stimabile. Impatto basso/moderato/alto descrive la quota di spendibile usata
 
 Body: `amount`, `mandatoryExpenses`, `sourceType`, `recurring`.
 
-La risposta contiene `engineVersion: "smart-v2"`, capitale ricevuto/obbligatorio/riserva/distribuibile, situazione finanziaria, qualità dati, tre scenari, proiezioni a 3/6/12 mesi, azioni preparatorie, avvisi e affidabilità.
+La risposta contiene `engineVersion: "smart-v2"`, capitale ricevuto/obbligatorio/riserva/distribuibile, situazione finanziaria, qualità dati, tre scenari, proiezioni a 3/6/12 mesi, avvisi e affidabilità. `actionsByScenario` associa le azioni preparatorie a ogni scenario selezionabile; `actions` resta l'insieme delle azioni bilanciate per i client precedenti.
 
 Gli importi sono stringhe decimali. I valori non stimabili hanno stato `non_stimabile` e una motivazione.
 
@@ -92,7 +98,9 @@ Gli importi sono stringhe decimali. I valori non stimabili hanno stato `non_stim
 
 `POST /api/piano-smart/v2`
 
-Ricalcola il piano lato server e salva snapshot e azioni in una transazione. Non crea movimenti finanziari.
+Ricalcola il piano lato server e salva snapshot e azioni in una transazione. `selectedScenario` può indicare lo scenario generato da salvare (prudente, bilanciato o ambizioso); lo scenario selezionato è memorizzato nello snapshot e riportato nel dettaglio. Le allocazioni persistite corrispondono a quello scenario. Non crea movimenti finanziari.
+
+Il dettaglio V1 continua a fornire l'elenco e le quote persistite. Per un piano V2, `GET /api/piano-smart/v2/:id` restituisce lo snapshot della generazione associato a quel piano e `GET /api/piano-smart/v2/:id/actions` restituisce le azioni persistite, con il loro stato corrente.
 
 ## Azioni
 

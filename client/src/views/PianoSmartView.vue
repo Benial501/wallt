@@ -6,14 +6,13 @@ import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
 import AppDialog from '@/components/common/AppDialog.vue';
-import PianoSmartGuide from '@/components/piano-smart/PianoSmartGuide.vue';
 import PianoSmartChangeTimeline from '@/components/piano-smart/PianoSmartChangeTimeline.vue';
 import PianoSmartCashFlowRadar from '@/components/piano-smart/PianoSmartCashFlowRadar.vue';
 import PianoSmartGoalsSummary from '@/components/piano-smart/PianoSmartGoalsSummary.vue';
 import { usePianoSmartStore } from '@/stores/pianoSmart.store';
 import { useToastStore } from '@/stores/toast.store';
 import { CircleHelp, Trash2 } from '@/utils/appIcons';
-import { simulatePurchase, purchaseAmountCents } from '@/utils/pianoSmartSimulation';
+import { purchaseAmountCents } from '@/utils/pianoSmartSimulation';
 import { GLOSSARIO } from '@/content/glossario';
 import {
   ORIGINI_SOMMA,
@@ -43,13 +42,15 @@ const {
   state, input, readiness, preview, v2Preview, recommendedAllocations, finalAllocations,
   plans, selectedPlan, error, questions, warnings,
   currentSituation, currentSituationState, currentSituationError,
+  purchaseSimulation, purchaseSimulationState, selectedScenario,
+  selectedPlanSnapshot, selectedPlanActions,
   capitalToAllocate, allocationDifferenceCents, hasNegativeAllocation,
   isZeroCapital, canSave,
 } = storeToRefs(store);
 
-const tab = ref('situation');
+const tab = ref('today');
+const pianoMode = ref('create');
 const step = ref(1);
-const infoAperta = ref(false);
 const dettaglioAperto = ref(false);
 const confermaEliminazione = ref(false);
 const eliminazioneInCorso = ref(false);
@@ -78,7 +79,7 @@ const descrizioneCategoria = (categoria) => GLOSSARIO[CATEGORIA_CONCETTO[categor
   ?? '';
 const etichettaOrigine = (value) => ORIGINI.find((o) => o.value === value)?.label ?? value ?? 'Entrata';
 const etichettaStato = (value) => STATI_PIANO[value] ?? value;
-const simulazione = computed(() => simulatePurchase(currentSituation.value, simulatoreImporto.value));
+const simulazione = computed(() => purchaseSimulation.value);
 const speseFrequenti = computed(() => {
   const weekly = currentSituation.value?.frequentExpenses?.weekly;
   const monthly = currentSituation.value?.frequentExpenses?.monthly;
@@ -101,16 +102,19 @@ const speseFrequenti = computed(() => {
   });
 });
 const simulatoreErrore = computed(() => simulatoreImporto.value !== '' && purchaseAmountCents(simulatoreImporto.value) === null);
-const formattaCentesimi = (value) => formattaEuro(value === null ? null : value / 100);
 const formattaScadenza = (value) => new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`));
 const qualitaPrevisione = computed(() => ({ dati_insufficienti: 'Previsione non disponibile', storico_limitato: 'Storico ancora limitato', storico_disponibile: 'Storico disponibile' })[currentSituation.value?.forecast.quality]);
-const margineGiornaliero = computed(() => {
-  const ritmo = importoInCentesimi(currentSituation.value?.current?.actualDailySpend);
-  const limite = importoInCentesimi(currentSituation.value?.current?.dailyLimit);
-  if (ritmo === null || limite === null) return null;
-  return limite - ritmo;
-});
-const usaSimulazioneRapida = (amount) => { simulatoreImporto.value = String(amount); };
+const margineGiornaliero = computed(() => currentSituation.value?.current?.dailyMargin ?? null);
+const simulaAcquisto = async () => {
+  if (!simulatoreErrore.value && simulatoreImporto.value) await store.simulatePurchase(simulatoreImporto.value);
+};
+const usaSimulazioneRapida = async (amount) => {
+  simulatoreImporto.value = String(amount);
+  if (currentSituation.value?.current?.availableToSpend !== null) {
+    await store.simulatePurchase(String(amount));
+  }
+};
+const apriGuida = (sezione) => router.push({ path: '/aiuto', query: { argomento: 'piano-smart', sezione } });
 
 /** Motivazioni indicizzate per codice: serve a mostrare sotto una categoria
  * solo quelle che il backend ha davvero emesso per lei. */
@@ -165,6 +169,11 @@ const datiUtilizzati = computed(() => {
       valore: c.emergencyFund?.status === 'assente'
         ? 'non impostato'
         : `${formattaEuro(c.emergencyFund?.current)} di ${formattaEuro(c.emergencyFund?.target)}`,
+      // Senza fondo il dato da solo è un vicolo cieco: qui c'è il posto dove
+      // crearlo, che è un conto vero e non un altro piano (vedi
+      // views/FondoEmergenzaView.vue).
+      rotta: c.emergencyFund?.status === 'assente' ? '/fondo-emergenza' : null,
+      azione: 'Crea il fondo',
     },
     { etichetta: 'Obiettivi attivi', valore: String(c.goals?.active ?? 0) },
   ];
@@ -221,12 +230,14 @@ const salva = async () => {
   const salvato = await store.savePlan();
   if (!salvato) return;
   toast.success('Piano Smart salvato.');
-  tab.value = 'history';
+  tab.value = 'plans';
+  pianoMode.value = 'history';
   await store.loadPlans();
 };
 
 const apriStorico = async () => {
-  tab.value = 'history';
+  tab.value = 'plans';
+  pianoMode.value = 'history';
   await store.loadPlans();
 };
 
@@ -243,6 +254,11 @@ const cambiaStato = async (nuovoStato) => {
   if (!selectedPlan.value?.id) return;
   const esito = await store.updateStatus(selectedPlan.value.id, nuovoStato);
   if (esito) toast.success(`Piano ${etichettaStato(nuovoStato).toLowerCase()}.`);
+};
+
+const aggiornaAzioneV2 = async (action, status) => {
+  if (!selectedPlan.value?.id || !action?.id) return;
+  await store.updateV2Action(selectedPlan.value.id, action.id, status);
 };
 
 const eliminaPiano = () => {
@@ -270,7 +286,8 @@ const ricomincia = () => {
   store.loadReadiness();
   store.loadCurrentSituation();
   step.value = 1;
-  tab.value = 'create';
+  tab.value = 'plans';
+  pianoMode.value = 'create';
 };
 
 const eseguiSuggerimento = (suggestion) => {
@@ -298,7 +315,7 @@ onMounted(() => {
           <h1 class="page-title">Piano Smart</h1>
           <button
             class="info-button" type="button" aria-label="Apri la guida di Piano Smart"
-            title="Come funziona Piano Smart" @click="infoAperta = true"
+            title="Apri la guida completa in Aiuto" @click="apriGuida('cos-e')"
           >
             <CircleHelp :size="18" :stroke-width="1.8" aria-hidden="true" />
           </button>
@@ -309,44 +326,39 @@ onMounted(() => {
       </div>
     </header>
 
-    <div class="tabs" role="tablist">
+    <div class="tabs" role="group" aria-label="Aree del Piano Smart">
       <button
-        type="button" role="tab" :aria-selected="tab === 'situation'"
-        :class="{ active: tab === 'situation' }" @click="tab = 'situation'"
-      >
-        Situazione attuale
-      </button>
+        type="button" :aria-pressed="tab === 'today'"
+        :class="{ active: tab === 'today' }" @click="tab = 'today'"
+      >Oggi</button>
       <button
-        type="button" role="tab" :aria-selected="tab === 'create'"
-        :class="{ active: tab === 'create' }" @click="tab = 'create'"
-      >
-        Crea piano
-      </button>
+        type="button" :aria-pressed="tab === 'analysis'"
+        :class="{ active: tab === 'analysis' }" @click="tab = 'analysis'"
+      >Analisi</button>
       <button
-        type="button" role="tab" :aria-selected="tab === 'history'"
-        :class="{ active: tab === 'history' }" @click="apriStorico"
-      >
-        I miei piani
-      </button>
+        type="button" :aria-pressed="tab === 'plans'"
+        :class="{ active: tab === 'plans' }" @click="tab = 'plans'; store.loadPlans()"
+      >Piani</button>
     </div>
 
-    <template v-if="tab === 'situation'">
+    <template v-if="tab === 'today' || tab === 'analysis'">
       <div v-if="currentSituationState === 'loading'" class="loading">Sto leggendo la tua situazione…</div>
       <div v-else-if="currentSituationState === 'error'" class="error" role="alert">{{ currentSituationError?.message || 'Non riesco a recuperare la situazione.' }}</div>
       <template v-else-if="currentSituation">
-        <WCard class="situation-hero">
+        <WCard v-if="tab === 'today'" class="situation-hero">
           <p class="hero-kicker">Situazione oggi</p>
-          <p class="muted">Puoi spendere</p>
+          <p class="muted">Limite giornaliero indicativo</p>
           <strong>{{ formattaEuro(currentSituation.current.dailyLimit) }}</strong>
           <p class="hero-today">oggi</p>
-          <p>Limite indicativo, in base ai dati registrati</p>
+          <p>Calcolato sul margine e sui {{ currentSituation.current.remainingDays }} giorni da oggi a fine mese.</p>
+          <button type="button" class="context-help" @click="apriGuida('oggi')">Che cosa significa?</button>
           <div class="safe-to-spend">
             <div><span>Liquidità dei conti</span><strong>{{ formattaEuro(currentSituation.current.liquidity) }}</strong></div>
             <div><span>Da proteggere</span><strong>{{ formattaEuro(currentSituation.current.protectedAmount) }}</strong></div>
             <div class="safe-to-spend__highlight"><span>Spendibile</span><strong>{{ formattaEuro(currentSituation.current.availableToSpend) }}</strong></div>
           </div>
           <details class="explanation protection-details">
-            <summary>Quali somme sono protette?</summary>
+            <summary>Quali somme sono protette? <button type="button" class="context-help" @click.stop="apriGuida('oggi')">Che cosa significa?</button></summary>
             <p>Obiettivi già accantonati: {{ formattaEuro(currentSituation.current.allocatedToGoals) }}.</p>
             <p>Impegni rilevati: {{ formattaEuro(currentSituation.current.commitments) }}. Ulteriori scadenze entro fine mese: {{ formattaEuro(currentSituation.current.additionalCommitments) }}.</p>
             <p>Lo spendibile è già al netto di queste somme. Il saldo dei conti scommesse è escluso. L’importo ancora da raccogliere per il fondo di sicurezza non viene bloccato automaticamente.</p>
@@ -360,11 +372,13 @@ onMounted(() => {
           </span>
           <div class="situation-grid">
             <div><span>Ritmo non ricorrente</span><strong>{{ formattaEuro(currentSituation.current.actualDailySpend) }}/giorno</strong></div>
-            <div><span>Margine giornaliero</span><strong>{{ margineGiornaliero === null ? '—' : `${margineGiornaliero >= 0 ? '+' : ''}${formattaEuro(margineGiornaliero / 100)}` }}</strong></div>
+            <div><span>Margine giornaliero</span><strong>{{ margineGiornaliero === null ? '—' : `${Number(margineGiornaliero) >= 0 ? '+' : ''}${formattaEuro(margineGiornaliero)}` }}</strong></div>
             <div><span>Il tuo limite</span><strong>{{ formattaEuro(currentSituation.current.dailyLimit) }}/giorno</strong></div>
           </div>
         </WCard>
 
+        <template v-if="tab === 'analysis'">
+        <div class="analysis-heading"><h2>Cosa è cambiato?</h2><button type="button" class="context-help" @click="apriGuida('analisi')">Che cosa significa?</button></div>
         <PianoSmartChangeTimeline :changes="currentSituation.changes" />
 
         <section class="situation-section" aria-labelledby="analisi-wallt-title">
@@ -373,7 +387,9 @@ onMounted(() => {
             <li v-for="insight in currentSituation.insights" :key="insight.key">{{ insight.text }}</li>
           </ul>
         </section>
+        </template>
 
+        <template v-if="tab === 'today'">
         <WCard class="text-card">
           <h2>Previsione fine mese</h2>
           <p class="muted">Quanto potrebbe restare dello spendibile.</p>
@@ -407,8 +423,11 @@ onMounted(() => {
 
         <PianoSmartCashFlowRadar :items="currentSituation.cashFlowTimeline" />
 
+        </template>
+
+        <template v-if="tab === 'analysis'">
         <section class="situation-section month-progress" aria-labelledby="andamento-mese-title">
-          <h2 id="andamento-mese-title">Andamento del mese</h2>
+          <h2 id="andamento-mese-title">Andamento del mese <button type="button" class="context-help" @click="apriGuida('analisi')">Che cosa significa?</button></h2>
           <div class="progress-line"><span>Entrate</span><strong>{{ formattaEuro(currentSituation.monthProgress.income) }}</strong></div>
           <div class="progress-track"><i :style="{ width: `${currentSituation.monthProgress.incomeShare}%` }" /></div>
           <div class="progress-line"><span>Uscite</span><strong>{{ formattaEuro(currentSituation.monthProgress.expenses) }}</strong></div>
@@ -419,7 +438,7 @@ onMounted(() => {
 
         <WCard class="text-card frequent-expenses" aria-labelledby="spese-frequenti-title">
           <div>
-            <h2 id="spese-frequenti-title">Medie delle spese frequenti</h2>
+            <h2 id="spese-frequenti-title">Medie delle spese frequenti <button type="button" class="context-help" @click="apriGuida('analisi')">Che cosa significa?</button></h2>
             <p class="muted">Le uscite registrate, raggruppate per categoria.</p>
           </div>
           <p v-if="speseFrequenti.length" class="frequent-expenses__periods">
@@ -453,7 +472,9 @@ onMounted(() => {
           <p v-else class="frequent-expenses__empty">Non ci sono ancora spese registrate in periodi completi sufficienti per calcolare queste medie.</p>
           <p class="hint">I periodi in corso sono esclusi. Le settimane e i mesi senza uscite valgono zero; i pagamenti ricorrenti non ancora addebitati non vengono conteggiati.</p>
         </WCard>
+        </template>
 
+        <template v-if="tab === 'today'">
         <WCard class="text-card">
           <h2>Cosa fare adesso</h2>
           <p v-if="!currentSituation.suggestions.length" class="muted">Non ci sono azioni urgenti: continua a monitorare il mese.</p>
@@ -482,39 +503,66 @@ onMounted(() => {
               <button v-for="amount in [50, 100, 250, 500]" :key="amount" type="button" @click="usaSimulazioneRapida(amount)">{{ amount }} €</button>
             </div>
           </div>
+            <WButton variant="primary" :disabled="simulatoreErrore || !simulatoreImporto || currentSituation.current.availableToSpend === null" :loading="purchaseSimulationState === 'loading'" @click="simulaAcquisto">Simula acquisto</WButton>
+          <div v-if="purchaseSimulationState === 'error'" class="field-error" role="alert">{{ currentSituationError?.message || 'Non è stato possibile simulare questa spesa.' }}</div>
           <div v-if="simulazione" class="simulator-result" :class="`simulator-result--${simulazione.status}`" aria-live="polite" aria-atomic="true">
             <strong>{{ simulazione.status === 'compatibile' ? 'Entro il limite stimato' : simulazione.status === 'attenzione' ? 'Riduce il margine' : simulazione.status === 'non_stimabile' ? 'Effetto sul mese non ancora stimabile' : 'Potrebbe compromettere il piano' }}</strong>
             <table class="simulation-comparison">
-              <caption class="sr-only">Confronto prima e dopo una spesa di {{ formattaCentesimi(simulazione.amount) }}</caption>
+              <caption class="sr-only">Confronto prima e dopo una spesa di {{ formattaEuro(simulazione.amount) }}</caption>
               <thead><tr><th scope="col">Il tuo piano</th><th scope="col">Prima</th><th scope="col">Dopo</th></tr></thead>
               <tbody>
-                <tr><th scope="row">Spendibile</th><td>{{ formattaEuro(currentSituation.current.availableToSpend) }}</td><td>{{ formattaCentesimi(simulazione.availableAfter) }}</td></tr>
-                <tr><th scope="row">Fine mese</th><td>{{ formattaEuro(currentSituation.forecast.endOfMonthAvailable) }}</td><td>{{ formattaCentesimi(simulazione.forecastAfter) }}</td></tr>
-                <tr><th scope="row">Limite / giorno</th><td>{{ formattaEuro(currentSituation.current.dailyLimit) }}</td><td>{{ formattaCentesimi(simulazione.dailyAfter) }}</td></tr>
+              <tr><th scope="row">Spendibile</th><td>{{ formattaEuro(simulazione.availableBefore) }}</td><td>{{ formattaEuro(simulazione.availableAfter) }}</td></tr>
+              <tr><th scope="row">Fine mese</th><td>{{ formattaEuro(simulazione.forecastBefore) }}</td><td>{{ formattaEuro(simulazione.forecastAfter) }}</td></tr>
+              <tr><th scope="row">Limite indicativo / giorno</th><td>{{ formattaEuro(simulazione.dailyLimitBefore) }}</td><td>{{ formattaEuro(simulazione.dailyLimitAfter) }}</td></tr>
               </tbody>
             </table>
-            <span class="simulator-result__impact">Impatto sullo spendibile: {{ simulazione.impact }}</span>
-            <p v-if="simulazione.availableAfter < 0" class="hint">Mancano {{ formattaCentesimi(-simulazione.availableAfter) }} per coprire l’acquisto e le somme protette.</p>
-            <p v-if="simulazione.forecastAfter === null" class="hint">Puoi confrontare lo spendibile, ma i dati non bastano per valutare la fine del mese.</p>
-            <details class="explanation"><summary>Come leggere l’impatto?</summary><p>Basso: fino al 20% dello spendibile. Moderato: fino al 45%. Alto: oltre il 45%. È la quota utilizzata dall’acquisto, non una misura di sicurezza.</p></details>
+            <span class="simulator-result__impact">Quota del margine usata: {{ simulazione.impact }}</span>
+            <p class="hint">Gli importi già accantonati a obiettivi o riserva restano invariati. La simulazione non ricalcola tempi degli obiettivi o ripartizioni: l’acquisto ipotetico non è collegato a un contributo o a un piano.</p>
+            <p v-if="simulazione.availableAfter < 0" class="hint">L’acquisto supera il margine spendibile stimato.</p>
+            <p v-if="simulazione.forecastAfter === null" class="hint">L’effetto sulla fine del mese non è stimabile con i dati attuali.</p>
+            <details class="explanation"><summary>Come leggere l’impatto?</summary><p>Basso: fino al 20% dello spendibile. Moderato: dal 20% al 45%. Alto: oltre il 45%. È una descrizione della quota coinvolta, non una misura di sicurezza.</p></details>
           </div>
           <p v-else-if="currentSituation.current.availableToSpend === null" class="hint">La simulazione sarà disponibile quando potremo calcolare lo spendibile.</p>
         </section>
+        </template>
+
+        <template v-if="tab === 'analysis'">
         <WCard class="text-card">
-          <h2>La tua direzione finanziaria</h2>
+          <h2>La tua direzione finanziaria <button type="button" class="context-help" @click="apriGuida('analisi')">Che cosa significa?</button></h2>
           <div class="situation-grid situation-grid--secondary">
             <div><span>Patrimonio netto</span><strong>{{ formattaEuro(currentSituation.financialDirection.netWorth) }}</strong></div>
             <div><span>Debiti residui</span><strong>{{ formattaEuro(currentSituation.financialDirection.debts?.totalOutstanding) }}</strong></div>
+            <div><span>Rate mensili dichiarate</span><strong>{{ formattaEuro(currentSituation.financialDirection.debts?.totalMonthlyPayments) }}</strong></div>
             <div><span>Obiettivi attivi</span><strong>{{ currentSituation.financialDirection.activeGoals }}</strong></div>
+          </div>
+          <p class="hint">Le rate dei debiti sono separate dagli impegni ricorrenti e non vengono sottratte dal margine senza una ricorrenza collegata.</p>
+          <div v-if="currentSituation.financialDirection.emergencyFund" class="fund-summary">
+            <strong>Fondo di sicurezza</strong>
+            <span v-if="currentSituation.financialDirection.emergencyFund.current !== null && currentSituation.financialDirection.emergencyFund.target !== null">
+              {{ formattaEuro(currentSituation.financialDirection.emergencyFund.current) }} di {{ formattaEuro(currentSituation.financialDirection.emergencyFund.target) }}
+            </span>
+            <span v-else>Importo o obiettivo non disponibile</span>
+            <small v-if="currentSituation.financialDirection.emergencyFund.coverageMonths !== null">
+              Copertura teorica: {{ currentSituation.financialDirection.emergencyFund.coverageMonths }} mesi
+              <template v-if="currentSituation.financialDirection.emergencyFund.limitedHistory"> · storico limitato</template>
+            </small>
+            <small v-else>Copertura non stimabile con i dati disponibili.</small>
           </div>
         </WCard>
         <PianoSmartGoalsSummary :goals="currentSituation.financialDirection.goals" />
+        <button type="button" class="context-help" @click="apriGuida('analisi')">Che cosa significano obiettivi, residuo e tempi teorici?</button>
+        </template>
 
       </template>
     </template>
 
     <!-- ================= CREA PIANO ================= -->
-    <template v-if="tab === 'create'">
+    <template v-if="tab === 'plans' && pianoMode === 'create'">
+      <div class="tabs tabs--inner" role="group" aria-label="Gestione dei piani">
+        <button class="active" type="button" aria-current="page">Crea un piano</button>
+        <button type="button" @click="apriStorico">Piani salvati</button>
+      </div>
+      <p class="hint">Le spese obbligatorie confermate vengono sottratte alla somma ricevuta per ottenere il capitale distribuibile. <button type="button" class="context-help" @click="apriGuida('piani')">Come si compone un piano?</button></p>
       <ol class="steps" aria-label="Avanzamento del piano">
         <li
           v-for="passo in [
@@ -577,7 +625,7 @@ onMounted(() => {
             <label><input v-model="input.recurring" type="radio" name="smart-recurring" :value="true"> Sì</label>
             <label><input v-model="input.recurring" type="radio" name="smart-recurring" :value="false"> No</label>
           </div>
-          <p class="hint">Cambia la proposta: una somma che si ripete deve coprire il mese che comincia.</p>
+          <p class="hint">“Sì” indica una somma che prevedi di ricevere anche in futuro; “No” indica una somma occasionale. Questa scelta cambia la proposta del piano.</p>
         </fieldset>
 
         <div class="field">
@@ -590,6 +638,7 @@ onMounted(() => {
             WALLT ha trovato {{ formattaEuro(suggerimentoSpese.amount) }} di ricorrenze
             di questo periodo non ancora addebitate. Puoi confermarle o correggerle.
           </p>
+          <p class="hint">Le spese che confermi vengono sottratte dalla somma ricevuta. Il capitale distribuibile è la differenza, mai inferiore a zero.</p>
         </div>
 
         <p class="capital">
@@ -736,7 +785,7 @@ onMounted(() => {
                 Indietro
               </WButton>
               <WButton variant="secondary" @click="generaAnalisiEvoluta">
-                Analisi evoluta
+                Genera scenari V2
               </WButton>
               <WButton variant="secondary" @click="store.resetFinalAllocations">
                 Ripristina suggerimento WALLT
@@ -745,7 +794,7 @@ onMounted(() => {
                 variant="primary" :disabled="!canSave" :loading="state === 'saving'"
                 @click="salva"
               >
-                Salva Piano Smart
+                {{ v2Preview ? `Salva scenario ${v2Preview.scenarios.find((scenario) => scenario.id === selectedScenario)?.label || selectedScenario}` : 'Salva ripartizione' }}
               </WButton>
             </div>
           </WCard>
@@ -773,7 +822,17 @@ onMounted(() => {
               <dl class="context-summary">
                 <template v-for="riga in datiUtilizzati" :key="riga.etichetta">
                   <dt>{{ riga.etichetta }}</dt>
-                  <dd>{{ riga.valore }}</dd>
+                  <dd>
+                    {{ riga.valore }}
+                    <button
+                      v-if="riga.rotta"
+                      type="button"
+                      class="context-summary__azione"
+                      @click="router.push(riga.rotta)"
+                    >
+                      {{ riga.azione }} →
+                    </button>
+                  </dd>
                 </template>
               </dl>
               <p class="hint">
@@ -789,8 +848,8 @@ onMounted(() => {
             <p><strong>Capitale distribuibile: {{ formattaEuro(v2Preview.capital?.distributable) }}</strong></p>
             <p class="muted">{{ v2Preview.capital?.formula }} · Riserva {{ formattaEuro(v2Preview.capital?.minimumReserve) }} ({{ v2Preview.capital?.reserveSource }})</p>
             <div class="smart-v2-scenarios">
-              <article v-for="scenario in v2Preview.scenarios" :key="scenario.id">
-                <h3>{{ scenario.label }} <small v-if="scenario.recommended">consigliato</small></h3>
+              <article v-for="scenario in v2Preview.scenarios" :key="scenario.id" :class="{ 'scenario-selected': selectedScenario === scenario.id }">
+                <label class="scenario-choice"><input v-model="selectedScenario" type="radio" name="scenario-v2" :value="scenario.id"> <strong>{{ scenario.label }}</strong> <small v-if="scenario.recommended">proposto da WALLT</small></label>
                 <ul>
                   <li v-for="allocation in scenario.allocations" :key="allocation.category">
                     {{ etichettaCategoria(allocation.category) }}: {{ formattaEuro(allocation.amount) }}
@@ -798,16 +857,16 @@ onMounted(() => {
                 </ul>
               </article>
             </div>
-            <h3>Proiezione bilanciata</h3>
+            <h3>Proiezione {{ v2Preview.scenarios.find((scenario) => scenario.id === selectedScenario)?.label || selectedScenario }}</h3>
             <ul>
-              <li v-for="(periodo, mesi) in (v2Preview.projections?.bilanciato || {})" :key="mesi">
+              <li v-for="(periodo, mesi) in (v2Preview.projections?.[selectedScenario] || {})" :key="mesi">
                 {{ mesi }} mesi:
                 <span v-if="periodo.status === 'stimabile'">liquidità {{ formattaEuro(periodo.liquidityCents / 100) }}</span>
                 <span v-else>non stimabile — {{ periodo.reason }}</span>
               </li>
             </ul>
             <h3>Cosa fare ora</h3>
-            <ol><li v-for="azione in v2Preview.actions" :key="azione.actionKey">{{ azione.title }} — {{ azione.reason }}</li></ol>
+            <ol><li v-for="azione in (v2Preview.actionsByScenario?.[selectedScenario] || v2Preview.actions)" :key="azione.actionKey">{{ azione.title }} — {{ azione.reason }}</li></ol>
             <p v-for="avviso in v2Preview.warnings" :key="avviso" class="muted">{{ avviso }}</p>
           </WCard>
         </template>
@@ -815,7 +874,11 @@ onMounted(() => {
     </template>
 
     <!-- ================= I MIEI PIANI ================= -->
-    <section v-else class="history">
+    <section v-if="tab === 'plans' && pianoMode === 'history'" class="history">
+      <div class="tabs tabs--inner" role="group" aria-label="Gestione dei piani">
+        <button type="button" @click="pianoMode = 'create'">Crea un piano</button>
+        <button class="active" type="button" aria-current="page">Piani salvati</button>
+      </div>
       <WCard v-if="error && !plans.length" class="error" role="alert">
         <p>{{ error.message }}</p>
         <WButton variant="secondary" size="sm" @click="apriStorico">Riprova</WButton>
@@ -823,7 +886,7 @@ onMounted(() => {
       <WCard v-else-if="!plans.length" class="empty">
         <h2>Non hai ancora creato un Piano Smart.</h2>
         <p class="muted">Organizza una nuova somma e ritroverai qui il piano salvato.</p>
-        <WButton variant="primary" @click="tab = 'create'">Crea il tuo primo piano</WButton>
+        <WButton variant="primary" @click="pianoMode = 'create'">Crea il tuo primo piano</WButton>
       </WCard>
       <button
         v-for="piano in plans" :key="piano.id" type="button" class="history-item"
@@ -838,8 +901,6 @@ onMounted(() => {
     </section>
 
     <!-- ================= DIALOG ================= -->
-    <PianoSmartGuide :open="infoAperta" @close="infoAperta = false" @start="infoAperta = false" />
-
     <AppDialog
       :open="dettaglioAperto && Boolean(selectedPlan)" title="Dettaglio Piano Smart"
       @close="dettaglioAperto = false"
@@ -850,10 +911,11 @@ onMounted(() => {
           <strong>{{ formattaEuro(selectedPlan.incomingAmount) }}</strong>
         </p>
         <dl class="context-summary">
-          <dt>Spese obbligatorie</dt><dd>{{ formattaEuro(selectedPlan.mandatoryExpenses) }}</dd>
-          <dt>Capitale distribuito</dt><dd>{{ formattaEuro(selectedPlan.allocatableCapital) }}</dd>
+          <dt>Somma ricevuta</dt><dd>{{ formattaEuro(selectedPlan.incomingAmount) }} · {{ selectedPlan.recurring ? 'ricorrente' : 'occasionale' }}</dd>
+          <dt>Spese obbligatorie considerate</dt><dd>{{ formattaEuro(selectedPlan.mandatoryExpenses) }}</dd>
+          <dt>Capitale distribuibile</dt><dd>{{ formattaEuro(selectedPlan.allocatableCapital) }}</dd>
           <dt>Stato</dt><dd>{{ etichettaStato(selectedPlan.status) }}</dd>
-          <dt>Versione del motore</dt><dd>{{ selectedPlan.engineVersion }}</dd>
+          <dt>Tipo di piano</dt><dd>{{ selectedPlan.engineVersion === 'smart-v2' ? 'Analisi evoluta V2' : 'Ripartizione V1' }}</dd>
         </dl>
 
         <table class="detail-table">
@@ -871,6 +933,38 @@ onMounted(() => {
             </tr>
           </tbody>
         </table>
+
+        <section v-if="selectedPlan.engineVersion === 'smart-v2' && selectedPlanSnapshot" class="saved-v2-detail">
+          <h3>Scenario salvato: {{ selectedPlanSnapshot.scenarios?.find((scenario) => scenario.id === selectedPlanSnapshot.selectedScenario)?.label || selectedPlanSnapshot.selectedScenario }}</h3>
+          <p>Questa è l’istantanea della generazione salvata. Le proiezioni sono stime basate sui dati disponibili in quel momento.</p>
+          <div class="smart-v2-scenarios">
+            <article v-for="scenario in selectedPlanSnapshot.scenarios" :key="scenario.id" :class="{ 'scenario-selected': scenario.id === selectedPlanSnapshot.selectedScenario }">
+              <h4>{{ scenario.label }} <small v-if="scenario.id === selectedPlanSnapshot.selectedScenario">salvato</small></h4>
+              <ul><li v-for="allocation in scenario.allocations" :key="allocation.category">{{ etichettaCategoria(allocation.category) }}: {{ formattaEuro(allocation.amount) }}</li></ul>
+            </article>
+          </div>
+          <h4>Proiezioni salvate per lo scenario scelto</h4>
+          <ul class="saved-projections">
+            <li v-for="(period, months) in (selectedPlanSnapshot.projections?.[selectedPlanSnapshot.selectedScenario] || {})" :key="months">
+              <strong>{{ months }} mesi</strong>
+              <span v-if="period.status === 'stimabile'">Liquidità teorica: {{ formattaEuro(period.liquidityCents / 100) }}</span>
+              <span v-else>Non stimabile — {{ period.reason }}</span>
+            </li>
+          </ul>
+          <h4>Azioni preparatorie associate al piano</h4>
+          <p class="hint">Segnare un’azione aggiorna solo il suo stato nel piano; non sposta denaro e non crea movimenti.</p>
+          <ul class="saved-actions">
+            <li v-for="action in selectedPlanActions" :key="action.id">
+              <strong>{{ action.title }}</strong><span>{{ action.amount === null ? 'Importo non definito' : formattaEuro(action.amount) }} · {{ action.status.replaceAll('_', ' ') }}</span>
+              <p>{{ action.reason }}</p>
+              <small v-if="action.riskIfIgnored">Se rimandata: {{ action.riskIfIgnored }}</small>
+              <div v-if="action.status === 'da_fare'" class="actions">
+                <WButton variant="secondary" size="sm" @click="aggiornaAzioneV2(action, 'completata')">Segna completata</WButton>
+                <WButton variant="secondary" size="sm" @click="aggiornaAzioneV2(action, 'ignorata')">Segna come ignorata</WButton>
+              </div>
+            </li>
+          </ul>
+        </section>
 
         <div v-if="statiPossibili.length" class="actions">
           <WButton
@@ -938,6 +1032,13 @@ onMounted(() => {
 .tabs { display: flex; gap: .4rem; border-bottom: 1px solid var(--divider); margin-bottom: 1.25rem; }
 .tabs button { border: 0; background: none; padding: .75rem 1rem; min-height: 44px; color: var(--text-muted); font: inherit; cursor: pointer; border-bottom: 2px solid transparent; }
 .tabs button.active { color: var(--accent-text); border-color: var(--accent-green); font-weight: 700; }
+.tabs--inner { margin: 0 0 1rem; border-bottom: 0; }
+.tabs--inner button { border: 1px solid var(--divider); border-radius: 999px; padding: .55rem .85rem; }
+.tabs--inner button.active { background: color-mix(in srgb, var(--accent-green) 10%, transparent); }
+.context-help { min-height: 36px; padding: .25rem .45rem; border: 0; background: transparent; color: var(--accent-text); font: inherit; font-size: var(--text-xs); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.context-help:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 2px; border-radius: var(--radius-sm); }
+.analysis-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin: .75rem 0; }
+.analysis-heading h2 { margin: 0; }
 
 .steps { display: flex; gap: .5rem; margin: 0 0 1rem; padding: 0; list-style: none; color: var(--text-muted); font-size: var(--text-xs); }
 .steps li { flex: 1; padding: .5rem; text-align: center; border-bottom: 2px solid var(--border); }
@@ -1066,6 +1167,25 @@ input:focus-visible, select:focus-visible, .tabs button:focus-visible, .info-but
 .context-summary dt { color: var(--text-secondary); }
 .context-summary dd { margin: 0; color: var(--text-primary); font-weight: 600; text-align: right; }
 summary { cursor: pointer; color: var(--text-primary); font-weight: 600; font-size: var(--text-sm); min-height: 44px; display: flex; align-items: center; }
+.smart-v2-scenarios { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: .75rem; margin: 1rem 0; }
+.smart-v2-scenarios article { padding: .85rem; border: 1px solid var(--divider); border-radius: var(--radius-md); background: var(--surface-subtle); }
+.smart-v2-scenarios article.scenario-selected { border-color: var(--accent-green); box-shadow: inset 0 0 0 1px var(--accent-green); }
+.smart-v2-scenarios h3, .smart-v2-scenarios h4 { margin: 0 0 .5rem; }
+.scenario-choice { display: flex; align-items: center; gap: .4rem; cursor: pointer; }
+.scenario-choice input { width: auto; min-height: auto; }
+.scenario-choice small, .smart-v2-scenarios h4 small { color: var(--accent-text); font-size: var(--text-xs); }
+.saved-v2-detail { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--divider); }
+.saved-v2-detail > p { color: var(--text-secondary); font-size: var(--text-sm); line-height: 1.5; }
+.saved-actions { display: grid; gap: .75rem; margin: .75rem 0; padding: 0; list-style: none; }
+.saved-projections { display: flex; flex-wrap: wrap; gap: .6rem; margin: .75rem 0; padding: 0; list-style: none; }
+.saved-projections li { display: grid; gap: .25rem; padding: .7rem; border: 1px solid var(--divider); border-radius: var(--radius-md); color: var(--text-secondary); font-size: var(--text-xs); }
+.saved-projections strong { color: var(--text-primary); }
+.saved-actions > li { display: grid; gap: .3rem; padding: .75rem; border: 1px solid var(--divider); border-radius: var(--radius-md); }
+.saved-actions span, .saved-actions small, .saved-actions p { color: var(--text-secondary); font-size: var(--text-xs); }
+.saved-actions p { margin: 0; line-height: 1.5; }
+.fund-summary { display: grid; gap: .25rem; margin-top: .9rem; padding: .75rem; border: 1px solid var(--divider); border-radius: var(--radius-md); }
+.fund-summary span { color: var(--text-primary); }
+.fund-summary small { color: var(--text-secondary); font-size: var(--text-xs); }
 
 @media (max-width: 600px) {
   .situation-grid { grid-template-columns: 1fr; }
@@ -1120,5 +1240,22 @@ summary { cursor: pointer; color: var(--text-primary); font-weight: 600; font-si
   .allocation__input input { max-width: 12rem; }
   .actions { flex-direction: column; }
   .hero strong { font-size: 2rem; }
+}
+
+/* Il collegamento dentro il riepilogo: un dato che manca deve dire dove si
+   rimedia, non solo che manca. */
+.context-summary__azione {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 0.5rem;
+  color: var(--text-link);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.context-summary__azione:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-tight);
 }
 </style>

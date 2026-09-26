@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import WCard from '@/components/common/WCard.vue';
 import SupportContact from '@/components/help/SupportContact.vue';
@@ -8,6 +8,7 @@ import WButton from '@/components/common/WButton.vue';
 import { useHelpStore } from '@/stores/help.store';
 import { HELP_SECTIONS, getHelpTopic } from '@/content/helpTopics';
 import { ChevronDown, ChevronRight } from '@/utils/appIcons';
+import PianoSmartGuide from '@/components/piano-smart/PianoSmartGuide.vue';
 
 /**
  * Guida completa, organizzata per attività.
@@ -15,6 +16,9 @@ import { ChevronDown, ChevronRight } from '@/utils/appIcons';
  */
 
 const router = useRouter();
+const route = useRoute();
+const guidaPianoAperta = ref(false);
+const sezioneGuidaPiano = computed(() => String(route.query.sezione || 'cos-e'));
 const helpStore = useHelpStore();
 const { gettingStartedHidden, initialized } = storeToRefs(helpStore);
 
@@ -47,6 +51,12 @@ const riattivaPrimiPassi = () => {
   helpStore.showGettingStarted();
   router.push('/dashboard');
 };
+
+watch(() => route.query.argomento, (argomento) => {
+  guidaPianoAperta.value = argomento === 'piano-smart';
+}, { immediate: true });
+
+const chiudiGuidaPiano = () => router.replace({ path: '/aiuto' });
 </script>
 
 <template>
@@ -162,6 +172,13 @@ const riattivaPrimiPassi = () => {
         Mostra di nuovo Primi passi
       </WButton>
     </WCard>
+
+    <PianoSmartGuide
+      :open="guidaPianoAperta"
+      :initial-section="sezioneGuidaPiano"
+      @close="chiudiGuidaPiano"
+      @start="router.push('/funzionalita/piano-smart')"
+    />
   </div>
 </template>
 

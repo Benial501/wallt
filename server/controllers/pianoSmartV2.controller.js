@@ -6,7 +6,7 @@ const { createActions } = require('../services/pianoSmartV2/action.service');
 const { toCents } = require('../services/pianoSmart/money');
 const { serializePreview } = require('../services/pianoSmartV2/serializer');
 const { sequelize, PianoSmart, PianoSmartAllocazione, PianoSmartAzione } = require('../models');
-const { buildCurrentSituation } = require('../services/pianoSmartV2/currentSituation.service');
+const { buildCurrentSituation, simulatePurchase: simulaAcquisto } = require('../services/pianoSmartV2/currentSituation.service');
 const { getMovementDailyTotals, buildChangeTimeline } = require('../services/pianoSmartV2/changeTimeline.service');
 const logger = require('../utils/logger');
 
@@ -31,8 +31,13 @@ const generate = async (userId, body) => {
     projectScenario({ scenario, planningContext, financialContext }),
   ]));
   const balanced = scenarios.find((scenario) => scenario.id === 'bilanciato');
-  const actions = createActions({ scenario: balanced, planningContext, projection: projections.bilanciato });
-  return serializePreview({ planningContext, scenarios, projections, actions });
+  const actionsByScenario = Object.fromEntries(scenarios.map((scenario) => [
+    scenario.id,
+    createActions({ scenario, planningContext, projection: projections[scenario.id] }),
+  ]));
+  const actions = actionsByScenario.bilanciato
+    || createActions({ scenario: balanced, planningContext, projection: projections.bilanciato });
+  return serializePreview({ planningContext, scenarios, projections, actions, actionsByScenario });
 };
 
 const preview = async (req, res) => {
@@ -60,11 +65,30 @@ const currentSituation = async (req, res) => {
   }
 };
 
+const simulatePurchase = async (req, res) => {
+  try {
+    const amountCents = toCents(req.body?.amount);
+    if (amountCents === null || amountCents <= 0) {
+      return res.status(400).json({ error: 'Inserisci un importo positivo con al massimo due decimali.' });
+    }
+    const financialContext = await getFinancialContext(req.userId);
+    const situation = buildCurrentSituation({ context: financialContext });
+    const result = simulaAcquisto(situation, req.body.amount);
+    if (!result) return res.status(400).json({ error: 'Inserisci un importo positivo valido e assicurati che lo spendibile sia disponibile.' });
+    return res.json(result);
+  } catch (error) {
+    logger.error('Purchase simulation failed', { err: error, userId: req.userId });
+    return res.status(error.status || 500).json({ error: error.status ? error.message : 'Errore nella simulazione della spesa.' });
+  }
+};
+
 const save = async (req, res) => {
   try {
     const result = await generate(req.userId, req.body);
     const selected = result.scenarios.find((scenario) => scenario.id === (req.body.selectedScenario || 'bilanciato'))
       || result.scenarios.find((scenario) => scenario.id === 'bilanciato');
+    const selectedActions = result.actionsByScenario?.[selected.id] || result.actions;
+    const savedResult = { ...result, selectedScenario: selected.id, actions: selectedActions };
     const input = inputFromBody(req.body);
     const created = await sequelize.transaction(async (transaction) => {
       const plan = await PianoSmart.create({
@@ -76,7 +100,7 @@ const save = async (req, res) => {
         source_type: req.body.sourceType || 'altro',
         source_recurring: input.recurring,
         engine_version: 'smart-v2',
-        context_snapshot: result,
+        context_snapshot: savedResult,
         reason_codes: [],
         status: 'draft',
       }, { transaction });
@@ -90,14 +114,14 @@ const save = async (req, res) => {
         metadata: { destinationType: item.destinationType, destinationId: item.destinationId },
         reason_codes: [],
       })), { transaction });
-      await PianoSmartAzione.bulkCreate(result.actions.map((action) => ({
+      await PianoSmartAzione.bulkCreate(selectedActions.map((action) => ({
         plan_id: plan.id, user_id: req.userId, action_key: action.actionKey, title: action.title,
         amount: action.amount, destination_type: action.destinationType, destination_id: action.destinationId,
         reason: action.reason, risk_if_ignored: action.riskIfIgnored, priority: action.priority, status: action.status,
       })), { transaction });
       return plan;
     });
-    return res.status(201).json({ id: created.id, engineVersion: 'smart-v2', ...result, selectedScenario: selected.id });
+    return res.status(201).json({ id: created.id, engineVersion: 'smart-v2', ...savedResult });
   } catch (error) {
     return res.status(error.status || 500).json({ error: error.status ? error.message : 'Errore nel salvataggio del piano V2.' });
   }
@@ -147,4 +171,4 @@ const getOwnedSnapshot = async (req) => {
   return plan?.context_snapshot || null;
 };
 
-module.exports = { preview, currentSituation, save, listActions, updateAction, getSnapshot, getScenarios, getProjection, generate };
+module.exports = { preview, currentSituation, simulatePurchase, save, listActions, updateAction, getSnapshot, getScenarios, getProjection, generate };
