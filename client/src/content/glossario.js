@@ -34,6 +34,21 @@ const CONCETTI = [
     topic: 'saldo-effettivo-come-si-calcola',
   },
   {
+    id: 'fondo_emergenza',
+    etichetta: 'Fondo di emergenza',
+    descrizione:
+      'Un conto separato in cui tenere una riserva per gli imprevisti. Resta nel tuo patrimonio ma sta fuori dai soldi spendibili, e il denaro vi entra ed esce solo con un trasferimento fra i tuoi conti.',
+    origine: 'GET /fondo-emergenza → importo',
+  },
+  {
+    id: 'mesi_copertura',
+    etichetta: 'Mesi di copertura',
+    descrizione:
+      'Per quanti mesi il fondo coprirebbe le tue spese essenziali se le entrate si fermassero. Si calcola sulla media dei mesi di calendario completi: il mese in corso non entra.',
+    formula: 'fondo ÷ media mensile delle spese essenziali',
+    origine: 'GET /fondo-emergenza → copertura.mesi_copertura',
+  },
+  {
     id: 'componente_conti',
     etichetta: 'Conti',
     descrizione:
@@ -72,7 +87,7 @@ const CONCETTI = [
     id: 'piano_smart_safety',
     etichetta: 'Sicurezza',
     descrizione:
-      'La riserva per gli imprevisti. Se hai un obiettivo di tipo fondo di sicurezza, questa quota non supera mai quanto ti manca per completarlo.',
+      'La riserva per gli imprevisti. Se hai un fondo di emergenza, questa quota non supera mai quanto ti manca per raggiungere la sua soglia.',
     origine: 'POST /piano-smart/preview → allocations[category=safety]',
   },
   {

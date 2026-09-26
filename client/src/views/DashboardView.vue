@@ -7,6 +7,7 @@ import GettingStartedCard from '@/components/help/GettingStartedCard.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import WOverviewCarousel from '@/components/custom/WOverviewCarousel.vue';
 import RecentTransactions from '@/components/dashboard/RecentTransactions.vue';
+import FondoEmergenzaCard from '@/components/dashboard/FondoEmergenzaCard.vue';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
 import { useAuthStore } from '@/stores/auth.store';
 import { useContiStore } from '@/stores/conti.store';
@@ -16,8 +17,7 @@ import { useScommesseStore } from '@/stores/scommesse.store';
 import { useInvestimentiStore } from '@/stores/investimenti.store';
 import { useObiettiviStore } from '@/stores/obiettivi.store';
 import { useHelpStore } from '@/stores/help.store';
-import { usePianoSmartStore } from '@/stores/pianoSmart.store';
-import { formattaEuro } from '@/utils/pianoSmart';
+import { useFondoEmergenzaStore } from '@/stores/fondoEmergenza.store';
 import api from '@/utils/axios';
 import dayjs from 'dayjs';
 import 'dayjs/locale/it';
@@ -32,12 +32,11 @@ const scommesseStore = useScommesseStore();
 const investimentiStore = useInvestimentiStore();
 const obiettiviStore = useObiettiviStore();
 const helpStore = useHelpStore();
-const pianoSmartStore = usePianoSmartStore();
+const fondoStore = useFondoEmergenzaStore();
 const router = useRouter();
 const { canAccessScommesseFeature, canAccessInvestimentiFeature } = storeToRefs(authStore);
 const { recentiHome, ricorrenti } = storeToRefs(movimentiStore);
 const { gettingStartedVisible } = storeToRefs(helpStore);
-const { currentSituation: pianoSmartHome } = storeToRefs(pianoSmartStore);
 
 const oggi = dayjs();
 const meseStart = oggi.startOf('month').format('YYYY-MM-DD');
@@ -174,11 +173,6 @@ const loadDashboardMovimenti = () => Promise.all([
   movimentiStore.fetchRicorrenti(),
 ]);
 
-// Passa dallo store: l'errore resta lì e non azzera quello che avevamo
-// già letto, altrimenti un problema di rete diventerebbe indistinguibile
-// da "non ci sono dati" (Coding Rule 17).
-const loadPianoSmartHome = () => pianoSmartStore.loadCurrentSituation();
-
 const loadBudget = async () => {
   await budgetStore.fetchBudget(oggi.month() + 1, oggi.year());
   // `hasBudget`, non `esiste`: dopo una scrittura riuscita ma una rilettura
@@ -209,6 +203,24 @@ const loadInvestimenti = async () => {
 };
 
 const loadObiettivi = () => obiettiviStore.fetchObiettivi();
+const loadFondo = () => fondoStore.fetchFondo();
+
+const fondoCardRef = ref(null);
+const creazioneFondoInCorso = ref(false);
+
+/** Crea il fondo di emergenza dalla card. Il conto nasce vuoto, quindi non c'è
+ * nessun saldo da ricaricare: si aggiornano i conti perché nell'elenco ne
+ * compare uno nuovo. */
+const onCreaFondo = async (mesiTarget) => {
+  creazioneFondoInCorso.value = true;
+  try {
+    await fondoStore.creaFondo({ mesiTarget });
+    fondoCardRef.value?.chiudiConferma();
+    await loadConti();
+  } finally {
+    creazioneFondoInCorso.value = false;
+  }
+};
 
 const openForm = (tipo = 'uscita', mov = null) => {
   formTipo.value = tipo;
@@ -243,7 +255,7 @@ const onSaved = async () => {
     loadScommesse(),
     loadInvestimenti(),
     loadObiettivi(),
-    loadPianoSmartHome(),
+    loadFondo(),
     // Senza, il numero in cima allo slide si aggiorna e la linea/variazione
     // due centimetri sotto restano sul valore vecchio finché non si ricarica
     // la pagina: due numeri della stessa schermata in contraddizione.
@@ -262,6 +274,7 @@ onMounted(async () => {
     loadScommesse(),
     loadInvestimenti(),
     loadObiettivi(),
+    loadFondo(),
   ]);
 });
 
@@ -283,20 +296,6 @@ onMounted(async () => {
     <div class="dashboard-view__help">
       <HelpTrigger topic="dashboard-riepilogo" label="Come leggere il riepilogo" />
     </div>
-
-    <button
-      v-if="pianoSmartHome"
-      type="button"
-      class="dashboard-view__smart-summary"
-      @click="router.push('/piano-smart')"
-    >
-      <span class="dashboard-view__smart-label">Quanto puoi spendere oggi?</span>
-      <strong>{{ formattaEuro(pianoSmartHome.current.availableToSpend) }}</strong>
-      <small v-if="pianoSmartHome.current.dailyLimit !== null">
-        Circa {{ formattaEuro(pianoSmartHome.current.dailyLimit) }} al giorno
-      </small>
-      <span class="dashboard-view__smart-link">Apri Piano Smart →</span>
-    </button>
 
     <WOverviewCarousel
       ref="overviewRef"
@@ -362,6 +361,16 @@ onMounted(async () => {
       @select="onSelectMovimento"
     />
 
+    <FondoEmergenzaCard
+      ref="fondoCardRef"
+      :fondo="fondoStore.fondo"
+      :stato="fondoStore.risorsaFondo.stato"
+      :last-updated="fondoStore.risorsaFondo.lastUpdated"
+      :creazione-in-corso="creazioneFondoInCorso"
+      @crea="onCreaFondo"
+      @riprova="fondoStore.risorsaFondo.riprova()"
+    />
+
     <MovimentoForm
       :open="formOpen"
       :tipo="formTipo"
@@ -384,26 +393,6 @@ onMounted(async () => {
   justify-content: flex-end;
   margin-bottom: 0.625rem;
 }
-
-.dashboard-view__smart-summary {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  width: 100%;
-  gap: .25rem;
-  padding: 1.1rem 1.25rem;
-  margin-bottom: 1rem;
-  border: 1px solid var(--glass-interactive-border);
-  border-radius: var(--radius-lg);
-  background: var(--glass-interactive-bg);
-  color: var(--text-primary);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.dashboard-view__smart-summary strong { font-size: 1.7rem; }
-.dashboard-view__smart-label, .dashboard-view__smart-summary small { color: var(--text-secondary); font-size: var(--text-sm); }
-.dashboard-view__smart-link { margin-top: .35rem; color: var(--accent-text); font-size: var(--text-xs); font-weight: 700; }
 
 /* L'azione principale della dashboard: pastiglia ad alto contrasto, chiara
    sul tema scuro e scura sul chiaro. La gerarchia arriva dal contrasto, non

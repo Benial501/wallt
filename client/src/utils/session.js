@@ -13,6 +13,7 @@ import { useUiStore } from '@/stores/ui.store';
 import { useHelpStore } from '@/stores/help.store';
 import { useNotificheStore } from '@/stores/notifiche.store';
 import { usePianoSmartStore } from '@/stores/pianoSmart.store';
+import { useFondoEmergenzaStore } from '@/stores/fondoEmergenza.store';
 
 /**
  * Pulisce tutti gli store Pinia e i dati temporanei di sessione.
@@ -51,6 +52,9 @@ export function resetPiniaStores() {
     // login successivo sulla stessa scheda li avrebbe mostrati a un altro
     // utente: lo stesso difetto del numero 9, su dati più sensibili.
     usePianoSmartStore,
+    // Il saldo del fondo di emergenza è un dato dell'utente come gli altri:
+    // resta in memoria dopo il logout se nessuno lo azzera.
+    useFondoEmergenzaStore,
   ].forEach((useStore) => {
     try { useStore().reset(); } catch { /* ignore */ }
   });

@@ -117,6 +117,11 @@ export const routes = [
         component: () => import('@/views/ObiettiviView.vue'),
       },
       {
+        path: 'fondo-emergenza',
+        name: 'fondo-emergenza',
+        component: () => import('@/views/FondoEmergenzaView.vue'),
+      },
+      {
         path: 'ricorrenti',
         name: 'ricorrenti',
         component: () => import('@/views/RicorrentiView.vue'),

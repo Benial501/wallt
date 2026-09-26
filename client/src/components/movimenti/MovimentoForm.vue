@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import AppDialog from '@/components/common/AppDialog.vue';
 import WButton from '@/components/common/WButton.vue';
 import { useContiStore } from '@/stores/conti.store';
+import { isContoFondo } from '@/utils/fondoEmergenza';
 import { useMovimentiStore } from '@/stores/movimenti.store';
 import { useToastStore } from '@/stores/toast.store';
 import { CATEGORIE_ENTRATA, CATEGORIE_USCITA, CATEGORIE_ARCHIVIATE } from '@/utils/categorie';
@@ -67,8 +68,12 @@ const trasferimentoForm = ref({
 const isTrasferimento = computed(() => props.tipo === 'trasferimento' && !props.movimento);
 const isEdit = computed(() => !!props.movimento);
 
+// Il fondo di emergenza non accetta entrate o uscite dirette (il server le
+// rifiuta): offrirlo qui vorrebbe dire far scegliere una strada che finisce in
+// errore. Nel trasferimento invece resta disponibile, ed è l'unico modo per
+// metterci o togliere denaro.
 const contiSelezionabili = computed(() => {
-  const attivi = [...contiStore.contiAttivi];
+  const attivi = contiStore.contiAttivi.filter((c) => !isContoFondo(c));
   if (isEdit.value && props.movimento?.conto_id) {
     const corrente = contiStore.conti.find((c) => c.id === props.movimento.conto_id);
     if (corrente && !attivi.some((c) => c.id === corrente.id)) {
