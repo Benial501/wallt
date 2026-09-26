@@ -59,6 +59,44 @@ describe('Spese ricorrenti (cron mensile)', () => {
     expect(result).toEqual({ processed: 1, skipped: 0, failed: 0 });
   });
 
+  it('addebita una ricorrenza al giorno configurato o all’ultimo giorno disponibile del mese', async () => {
+    await creaRicorrente({ ricorrente_giorno: 31 });
+
+    const result = await processaRicorrenti(new Date('2026-04-30T12:00:00Z'));
+    const secondaEsecuzione = await processaRicorrenti(new Date('2026-04-30T12:00:00Z'));
+
+    expect(result).toEqual({ processed: 1, skipped: 0, failed: 0 });
+    expect(secondaEsecuzione).toEqual({ processed: 0, skipped: 1, failed: 0 });
+    const automatico = await Movimento.findOne({
+      where: { user_id: userId, ricorrente: false },
+    });
+    expect(automatico.ricorrenza_periodo).toBe('2026-04');
+    await conto.reload();
+    expect(Number(conto.saldo)).toBe(950);
+  });
+
+  it('addebita al 28 febbraio una ricorrenza configurata al 31', async () => {
+    await creaRicorrente({ ricorrente_giorno: 31 });
+
+    const result = await processaRicorrenti(new Date('2026-02-28T12:00:00Z'));
+
+    expect(result.processed).toBe(1);
+    const automatico = await Movimento.findOne({
+      where: { user_id: userId, ricorrente: false },
+    });
+    expect(automatico.ricorrenza_periodo).toBe('2026-02');
+  });
+
+  it('non anticipa al 30 l’addebito configurato al 31 quando il mese ha 31 giorni', async () => {
+    await creaRicorrente({ ricorrente_giorno: 31 });
+
+    const result = await processaRicorrenti(new Date('2026-05-30T12:00:00Z'));
+
+    expect(result.processed).toBe(0);
+    const automatici = await Movimento.findAll({ where: { user_id: userId, ricorrente: false } });
+    expect(automatici).toHaveLength(0);
+  });
+
   it('NON crea nulla prima del giorno configurato', async () => {
     // Prima del suo giorno la mensile non è ancora dovuta. Dal giorno in poi
     // invece lo è, anche a giorno passato: vedi il commento su valutaOccorrenza

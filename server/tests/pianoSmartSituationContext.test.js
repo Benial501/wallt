@@ -14,13 +14,14 @@ test('scadenze: oggi incluso, mesi corti, stati, addebiti eseguiti e frequenze d
   const paid = await movement({ ricorrente: true, stato_ricorrenza: 'attiva', ricorrente_frequenza: 'mensile', ricorrente_giorno: 27 });
   await movement({ ricorrenza_origine_id: paid.id, ricorrenza_periodo: '2026-09', data: '2026-09-25' });
   await movement({ ricorrente: true, stato_ricorrenza: 'sospesa', ricorrente_frequenza: 'mensile', ricorrente_giorno: 26 });
-  await movement({ ricorrente: true, stato_ricorrenza: 'attiva', ricorrente_frequenza: 'mensile', ricorrente_giorno: 31 });
+  const monthEnd = await movement({ ricorrente: true, stato_ricorrenza: 'attiva', ricorrente_frequenza: 'mensile', ricorrente_giorno: 31 });
   const weekly = await movement({ ricorrente: true, stato_ricorrenza: 'attiva', ricorrente_frequenza: 'settimanale', ricorrente_giorno: 1 });
   const annual = await movement({ ricorrente: true, stato_ricorrenza: 'attiva', ricorrente_frequenza: 'annuale', ricorrente_giorno: 30, ricorrente_mese: 9 });
   const ctx = await getFinancialContext(userId, { referenceDate: new Date('2026-09-25T12:00:00Z') });
   expect(ctx.recurring.items.map(({ id, dueDate, reserved }) => ({ id, dueDate, reserved }))).toEqual([
     { id: today.id, dueDate: '2026-09-25', reserved: true },
     { id: weekly.id, dueDate: '2026-09-28', reserved: false },
+    { id: monthEnd.id, dueDate: '2026-09-30', reserved: true },
     { id: annual.id, dueDate: '2026-09-30', reserved: true },
   ]);
 });
@@ -61,7 +62,7 @@ test('cash flow: include entrate e uscite future entro 30 giorni e conserva gli 
   expect(ctx.recurring.cashFlowItems.some((item) => item.id === paid.id)).toBe(false);
   expect(ctx.recurring.cashFlowItems.some((item) => item.dueDate > '2026-10-25')).toBe(false);
   expect(ctx.recurring.items.every((item) => item.id !== income.id)).toBe(true);
-  expect(ctx.recurring.commitments).toBeCloseTo(35 * 52 / 12 + 50 / 12);
+  expect(ctx.recurring.commitments).toBeCloseTo(35 * 52 / 12 + 50);
 });
 
 test('riepilogo autenticato, isolato e senza scritture', async () => {

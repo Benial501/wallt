@@ -1,3 +1,6 @@
+// Il setup globale dei test backend importa i modelli reali per PostgreSQL.
+// Questa suite usa modelli finti e deve caricarli dopo il reset del registro.
+jest.resetModules();
 jest.mock('../models', () => ({ Movimento: { findAll: jest.fn() } }));
 jest.mock('../services/categorie.service', () => ({ list: jest.fn() }));
 

@@ -146,6 +146,9 @@ const periodoPerRicorrenza = (movimento, current) => (
     : periodoPerFrequenza(movimento.ricorrente_frequenza, current)
 );
 
+/** Ultimo giorno del mese civile, con `month` espresso da 1 a 12. */
+const ultimoGiornoDelMese = (year, month) => new Date(Date.UTC(year, month, 0)).getUTCDate();
+
 /** Decide se oggi è il giorno giusto per un movimento ricorrente, e la chiave di deduplica del periodo. */
 const valutaOccorrenza = (movimento, current) => {
   // La chiave di periodo viene da periodoPerRicorrenza: è l'unica
@@ -170,7 +173,8 @@ const valutaOccorrenza = (movimento, current) => {
   // Settimanale e annuale restano sull'uguaglianza: lì una finestra "dal
   // giorno in poi" non ha un significato altrettanto definito.
   if (movimento.ricorrente_frequenza === 'mensile') {
-    const giornoTarget = movimento.ricorrente_giorno || 1;
+    const giornoConfigurato = movimento.ricorrente_giorno || 1;
+    const giornoTarget = Math.min(giornoConfigurato, ultimoGiornoDelMese(current.year, current.month));
     return { dovuto: current.day >= giornoTarget, periodo };
   }
   if (movimento.ricorrente_frequenza === 'annuale') {

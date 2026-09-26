@@ -69,6 +69,9 @@ La cronologia dei movimenti rappresenta i dati come sono registrati oggi; il
 database non conserva snapshot di ogni giorno né l'audit delle modifiche. Il
 confronto misura quindi entrate e uscite registrate, non ricostruisce saldi,
 liquidità o spendibile storici. L'interfaccia lo dichiara accanto alla serie.
+La data iniziale usata per valutare la copertura considera il primo movimento
+effettivo di entrata o uscita: trasferimenti e regole ricorrenti non dimostrano
+che l'utente abbia registrato spese o entrate.
 
 ### 2. Qualità e affidabilità
 
