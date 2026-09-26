@@ -28,7 +28,7 @@ const buildSuggestion = ({ key, title, reason, effect, priority, action = null }
 // di dominio (vedi il vincolo "il backend resta l'unica fonte di verità").
 const obiettivoAttivo = (goal) => goal.stato !== 'completato';
 
-function buildCurrentSituation({ context, now = new Date() }) {
+function buildCurrentSituation({ context, now = new Date(), changes = null }) {
   const referenceDate = context.period?.referenceDate || oggiLocale(undefined, now);
   const monthEnd = fineMese(referenceDate);
   const remainingDays = Number(monthEnd.slice(-2)) - Number(referenceDate.slice(-2)) + 1;
@@ -49,6 +49,25 @@ function buildCurrentSituation({ context, now = new Date() }) {
   const netAvailable = netLiquidity === null ? null : netLiquidity - additionalCommitments;
   const available = netAvailable === null ? null : Math.max(netAvailable, 0);
   const shortfall = netAvailable === null ? null : Math.max(-netAvailable, 0);
+  let progressiveMargin = available;
+  const cashFlowTimeline = (context.recurring?.cashFlowItems || [])
+    .filter((item) => item.dueDate >= referenceDate)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate)
+      || a.occurrenceKey.localeCompare(b.occurrenceKey))
+    .map((item) => {
+      const amount = cents(item.amount);
+      if (progressiveMargin !== null && amount !== null) {
+        if (item.direction === 'entrata') progressiveMargin += amount;
+        else if (item.direction === 'uscita' && item.reserved !== true) progressiveMargin -= amount;
+      } else {
+        progressiveMargin = null;
+      }
+      return {
+        ...item,
+        amount: money(amount),
+        marginAfter: signedMoney(progressiveMargin),
+      };
+    });
   const dailyLimit = available === null ? null : Math.floor(available / remainingDays);
   const currentExpenses = cents(context.expenses?.currentMonth);
   const variableExpenses = cents(context.expenses?.variableCurrentMonth);
@@ -57,6 +76,34 @@ function buildCurrentSituation({ context, now = new Date() }) {
   const monthlySavings = monthlyIncome !== null && monthlyExpenses !== null
     ? monthlyIncome - monthlyExpenses : null;
   const dataQuality = context.dataQuality || {};
+  const goals = (context.goals || []).map((goal) => {
+    const parsedRemaining = cents(goal.importo_restante);
+    const remaining = parsedRemaining !== null && parsedRemaining >= 0 ? parsedRemaining : null;
+    let estimateReason = null;
+    let estimatedMonthsAtCurrentMargin = null;
+    if (goal.stato === 'completato') estimateReason = 'Obiettivo già completato.';
+    else if (goal.stato === 'scaduto') estimateReason = 'Obiettivo scaduto: la stima non è applicabile.';
+    else if (remaining === null) estimateReason = 'Importo residuo non disponibile.';
+    else if (remaining === 0) {
+      estimatedMonthsAtCurrentMargin = 0;
+      estimateReason = 'Obiettivo senza importo residuo.';
+    } else if ((dataQuality.completeMonths || 0) < 3) {
+      estimateReason = 'Servono almeno tre mesi civili completi per una stima.';
+    } else if (monthlySavings === null || monthlySavings <= 0) {
+      estimateReason = 'La media mensile non mostra un margine positivo.';
+    } else {
+      estimatedMonthsAtCurrentMargin = Math.ceil(remaining / monthlySavings);
+      estimateReason = 'Stima teorica individuale basata sul margine medio mensile.';
+    }
+    return {
+      ...goal,
+      importo_restante: money(remaining),
+      contributo_mensile_richiesto: money(cents(goal.contributo_mensile_richiesto)),
+      estimatedMonthsAtCurrentMargin,
+      estimateBasis: estimatedMonthsAtCurrentMargin === null ? null : 'margine_medio_mensile',
+      estimateReason,
+    };
+  });
   const firstDate = dataQuality.firstMovementDate;
   const observationStart = firstDate && firstDate > inizioMese(referenceDate)
     ? firstDate : inizioMese(referenceDate);
@@ -74,6 +121,9 @@ function buildCurrentSituation({ context, now = new Date() }) {
   if (dataQuality.completeMonths === 0) warnings.push('Non ci sono mesi completi sufficienti per una media storica.');
   if (dataQuality.registrationCompleteness === 'non_verificabile') {
     warnings.push('La completezza delle registrazioni manuali non è verificabile.');
+  }
+  if (dataQuality.missingClassificationData) {
+    warnings.push('Alcuni movimenti non sono classificati: le variazioni per categoria possono essere incomplete.');
   }
   if (liquidity === null) warnings.push('La liquidità disponibile non è stimabile.');
   if (!canEstimate) {
@@ -177,6 +227,8 @@ function buildCurrentSituation({ context, now = new Date() }) {
       items: recurringItems.map((item) => ({ ...item, amount: money(cents(item.amount)) })),
       total: money(upcomingTotal), afterTotal: signedMoney(netAvailable), through: monthEnd,
     },
+    cashFlowTimeline,
+    changes,
     monthProgress: {
       income: money(cents(context.income?.currentMonth)),
       expenses: money(currentExpenses),
@@ -190,8 +242,8 @@ function buildCurrentSituation({ context, now = new Date() }) {
       liabilities: money(cents(netWorth.liabilities)),
       debts: context.debts || null,
       emergencyFund: context.emergencyFund || null,
-      goals: context.goals || [],
-      activeGoals: (context.goals || []).filter(obiettivoAttivo).length,
+      goals,
+      activeGoals: goals.filter(obiettivoAttivo).length,
     },
     suggestions: suggestions.sort((a, b) => a.priority - b.priority).slice(0, 3),
     dataQuality,

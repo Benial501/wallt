@@ -31,7 +31,7 @@ describe('getFinancialContext — utente nuovo, senza alcun dato', () => {
     expect(ctx.debts.debtPressure).toBeNull(); // reddito sconosciuto: mai 0 o Infinity
     expect(ctx.investments.items).toEqual([]);
     expect(ctx.recurring).toEqual({
-      active: 0, paused: 0, ended: 0, commitments: 0,
+      active: 0, paused: 0, ended: 0, commitments: 0, cashFlowItems: [],
     });
     expect(ctx.emergencyFund.status).toBe('assente');
     expect(ctx.dataQuality.hasSufficientHistory).toBe(false);

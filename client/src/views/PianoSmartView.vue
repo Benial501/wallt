@@ -6,6 +6,9 @@ import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import AppDialog from '@/components/common/AppDialog.vue';
 import PianoSmartGuide from '@/components/piano-smart/PianoSmartGuide.vue';
+import PianoSmartChangeTimeline from '@/components/piano-smart/PianoSmartChangeTimeline.vue';
+import PianoSmartCashFlowRadar from '@/components/piano-smart/PianoSmartCashFlowRadar.vue';
+import PianoSmartGoalsSummary from '@/components/piano-smart/PianoSmartGoalsSummary.vue';
 import { usePianoSmartStore } from '@/stores/pianoSmart.store';
 import { useToastStore } from '@/stores/toast.store';
 import { CircleHelp, Trash2 } from '@/utils/appIcons';
@@ -340,6 +343,8 @@ onMounted(() => {
           </div>
         </WCard>
 
+        <PianoSmartChangeTimeline :changes="currentSituation.changes" />
+
         <section class="situation-section" aria-labelledby="analisi-wallt-title">
           <h2 id="analisi-wallt-title">Analisi di WALLT</h2>
           <ul class="insight-list">
@@ -377,6 +382,8 @@ onMounted(() => {
           </template>
           <p v-else class="muted">Non risultano altre uscite ricorrenti entro fine mese.</p>
         </WCard>
+
+        <PianoSmartCashFlowRadar :items="currentSituation.cashFlowTimeline" />
 
         <section class="situation-section month-progress" aria-labelledby="andamento-mese-title">
           <h2 id="andamento-mese-title">Andamento del mese</h2>
@@ -442,6 +449,7 @@ onMounted(() => {
             <div><span>Obiettivi attivi</span><strong>{{ currentSituation.financialDirection.activeGoals }}</strong></div>
           </div>
         </WCard>
+        <PianoSmartGoalsSummary :goals="currentSituation.financialDirection.goals" />
 
       </template>
     </template>

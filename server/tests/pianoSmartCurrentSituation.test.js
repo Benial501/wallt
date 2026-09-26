@@ -83,4 +83,55 @@ describe('Piano Smart: situazione corrente', () => {
     expect(result.suggestions.length).toBeLessThanOrEqual(3);
     expect(result.suggestions.some((s) => s.key === 'review-spending')).toBe(true);
   });
+  test('costruisce il margine progressivo senza sottrarre due volte le uscite protette', () => {
+    const result = build({ recurring: { cashFlowItems: [
+      { id: 1, occurrenceKey: '1:2026-09', description: 'Palestra', amount: 60, dueDate: '2026-09-26', direction: 'uscita', reserved: true },
+      { id: 2, occurrenceKey: '2:2026-09', description: 'Stipendio', amount: 100, dueDate: '2026-09-27', direction: 'entrata', reserved: false },
+      { id: 3, occurrenceKey: '3:2026-09', description: 'Assicurazione', amount: 40, dueDate: '2026-09-28', direction: 'uscita', reserved: false },
+    ] } });
+    expect(result.cashFlowTimeline.map((item) => item.marginAfter)).toEqual(['500.00', '600.00', '560.00']);
+    expect(result.cashFlowTimeline.map((item) => item.direction)).toEqual(['uscita', 'entrata', 'uscita']);
+  });
+  test('il radar resta vuoto quando non ci sono eventi futuri', () => {
+    expect(build({ recurring: {} }).cashFlowTimeline).toEqual([]);
+  });
+  test('stima il singolo obiettivo solo con almeno tre mesi e margine mensile positivo', () => {
+    const result = build({
+      income: { monthlyAverage: 520 }, expenses: { monthlyAverage: 400 },
+      dataQuality: { completeMonths: 5 },
+      goals: [{ id: 1, nome: 'Auto', importo_restante: 760, contributo_mensile_richiesto: 100, scadenza: null, stato: 'in_corso' }],
+    });
+    expect(result.financialDirection.goals[0]).toMatchObject({
+      importo_restante: '760.00', contributo_mensile_richiesto: '100.00',
+      estimatedMonthsAtCurrentMargin: 7, estimateBasis: 'margine_medio_mensile',
+    });
+  });
+  test('non stima gli obiettivi con storico corto o senza margine positivo', () => {
+    const short = build({
+      income: { monthlyAverage: 520 }, expenses: { monthlyAverage: 400 }, dataQuality: { completeMonths: 2 },
+      goals: [{ id: 1, importo_restante: 760, stato: 'in_corso' }],
+    }).financialDirection.goals[0];
+    const noMargin = build({
+      income: { monthlyAverage: 400 }, expenses: { monthlyAverage: 400 }, dataQuality: { completeMonths: 5 },
+      goals: [{ id: 2, importo_restante: 760, stato: 'in_corso' }],
+    }).financialDirection.goals[0];
+    expect(short.estimatedMonthsAtCurrentMargin).toBeNull();
+    expect(short.estimateReason).toMatch(/tre mesi/i);
+    expect(noMargin.estimatedMonthsAtCurrentMargin).toBeNull();
+    expect(noMargin.estimateReason).toMatch(/positivo/i);
+  });
+  test('mantiene gli importi mancanti null e non stima obiettivi completati o scaduti', () => {
+    const goals = build({
+      income: { monthlyAverage: 520 }, expenses: { monthlyAverage: 400 }, dataQuality: { completeMonths: 5 },
+      goals: [
+        { id: 1, importo_restante: null, stato: 'in_corso' },
+        { id: 2, importo_restante: 10, stato: 'completato' },
+        { id: 3, importo_restante: 10, stato: 'scaduto' },
+        { id: 4, importo_restante: -10, stato: 'in_corso' },
+      ],
+    }).financialDirection.goals;
+    expect(goals[0].importo_restante).toBeNull();
+    expect(goals.map((goal) => goal.estimatedMonthsAtCurrentMargin)).toEqual([null, null, null, null]);
+    expect(goals[3].importo_restante).toBeNull();
+  });
 });

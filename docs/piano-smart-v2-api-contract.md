@@ -37,10 +37,31 @@ a fine mese. Non scrive dati finanziari.
   indica se già incluse nella liquidità centrale. Date e deduplica sono quelle
   del cron; sospese, terminate e occorrenze già addebitate sono escluse.
   `upcoming.afterTotal` è il margine **già al netto**: non sottrae ancora il totale.
+- `changes.referenceDate` e `changes.points`: punti precalcolati per durate da
+  1 a 30 giorni, poi 37, 44, 51, 58, 65, 72, 79, 86 e 90. Ogni punto confronta
+  due finestre inclusive di uguale durata; `delta` è sempre periodo recente
+  meno periodo precedente. Il giorno corrente è parziale. `quality` dichiara
+  `dati_insufficienti`, `storico_limitato` o `storico_disponibile`; nessun
+  giorno prima del primo movimento utile viene riempito con uno zero.
+  `changedCategories` contiene al massimo tre categorie ordinate per variazione
+  assoluta. I confronti riguardano i movimenti registrati, non saldi o
+  disponibilità storiche; la completezza dei movimenti manuali non è verificabile.
+- `cashFlowTimeline`: eventi ricorrenti attivi in entrata e uscita da oggi a
+  oggi + 30 giorni, ordinati per data. `marginAfter` è una stima del margine
+  spendibile dopo l'evento, non il saldo dei conti. Le entrate vengono sommate;
+  le uscite con `reserved: true` sono già considerate nello spendibile iniziale
+  e non vengono sottratte di nuovo; le altre uscite vengono sottratte una volta.
+  Eventi futuri non registrati come ricorrenze non sono inclusi.
 - `financialDirection.activeGoals`: numero di obiettivi non completati.
   Lo stato usa il vocabolario di `obiettiviStato.service.js`
   (`completato`, `in_corso`, `scaduto`, …), non quello dei piani: il conteggio
   lo fa il backend e il client non lo ricalcola.
+- `financialDirection.goals`: obiettivi con `importo_restante` e
+  `contributo_mensile_richiesto` serializzati come stringhe decimali o `null`,
+  più `estimatedMonthsAtCurrentMargin`, `estimateBasis` ed `estimateReason`.
+  La durata teorica è disponibile soltanto con almeno tre mesi civili completi,
+  residuo valido e margine medio mensile positivo. È calcolata per un obiettivo
+  alla volta, non ripartisce il margine fra obiettivi e non promette una data.
 - Gli scenari numerici legacy restano nella risposta quando stimabili:
   `prudente` applica +20% alla spesa non ricorrente residua, `attuale` usa il
   ritmo osservato, `limite` usa il limite giornaliero; sono ipotesi deterministiche,

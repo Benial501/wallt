@@ -35,6 +35,35 @@ test('ritmo osservato esclude ricorrenti, addebiti generati e date future', asyn
   expect(ctx.dataQuality.firstMovementDate).toBe('2026-09-01');
 });
 
+test('cash flow: include entrate e uscite future entro 30 giorni e conserva gli impegni', async () => {
+  const income = await movement({
+    tipo: 'entrata', importo: 1200, ricorrente: true, stato_ricorrenza: 'attiva',
+    ricorrente_frequenza: 'mensile', ricorrente_giorno: 30,
+  });
+  const weekly = await movement({
+    importo: 35, ricorrente: true, stato_ricorrenza: 'attiva',
+    ricorrente_frequenza: 'settimanale', ricorrente_giorno: 1,
+  });
+  await movement({
+    importo: 20, ricorrente: true, stato_ricorrenza: 'sospesa',
+    ricorrente_frequenza: 'mensile', ricorrente_giorno: 26,
+  });
+  const paid = await movement({
+    importo: 50, ricorrente: true, stato_ricorrenza: 'attiva',
+    ricorrente_frequenza: 'mensile', ricorrente_giorno: 28,
+  });
+  await movement({ ricorrenza_origine_id: paid.id, ricorrenza_periodo: '2026-09', data: '2026-09-28' });
+  const ctx = await getFinancialContext(userId, { referenceDate: new Date('2026-09-25T12:00:00Z') });
+  expect(ctx.recurring.cashFlowItems).toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: income.id, direction: 'entrata', dueDate: '2026-09-30', amount: 1200 }),
+    expect.objectContaining({ id: weekly.id, direction: 'uscita', dueDate: '2026-09-28', amount: 35 }),
+  ]));
+  expect(ctx.recurring.cashFlowItems.some((item) => item.id === paid.id)).toBe(false);
+  expect(ctx.recurring.cashFlowItems.some((item) => item.dueDate > '2026-10-25')).toBe(false);
+  expect(ctx.recurring.items.every((item) => item.id !== income.id)).toBe(true);
+  expect(ctx.recurring.commitments).toBeCloseTo(35 * 52 / 12 + 50 / 12);
+});
+
 test('riepilogo autenticato, isolato e senza scritture', async () => {
   expect((await request(app).get('/api/piano-smart/v2/current-situation')).status).toBe(401);
   const before = await Movimento.count();
@@ -42,6 +71,11 @@ test('riepilogo autenticato, isolato e senza scritture', async () => {
   expect(own.status).toBe(200);
   expect(own.body.current.liquidity).toBe('1000.00');
   expect(own.body.forecast.endOfMonthAvailable).toBeNull();
+  expect(own.body.changes.points.map((point) => point.days)).toEqual([
+    ...Array.from({ length: 30 }, (_, index) => index + 1),
+    37, 44, 51, 58, 65, 72, 79, 86, 90,
+  ]);
+  expect(own.body.cashFlowTimeline).toEqual([]);
   const { res: other } = await registerUser(app);
   const foreign = await request(app).get('/api/piano-smart/v2/current-situation').set(authHeader(other.body.token));
   expect(foreign.body.current.liquidity).toBe('0.00');

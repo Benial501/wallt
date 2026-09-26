@@ -49,6 +49,7 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date()) {
   let commitments = 0;
   const oggi = getRomeDateParts(referenceDate);
   const termine = fineMese(oggi.date);
+  const termineFlussi = sommaGiorni(oggi.date, 30);
   const addebiti = ricorrenti.length ? await Movimento.findAll({
     where: { user_id: userId, ricorrenza_origine_id: { [Op.in]: ricorrenti.map((r) => r.id) } },
     attributes: ['ricorrenza_origine_id', 'ricorrenza_periodo'],
@@ -63,9 +64,28 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date()) {
   // di duplicati al posto del calendario.
   const emesse = new Set();
   const items = [];
+  const cashFlowItems = [];
   ricorrenti.forEach((r) => {
     const stato = normalizzaStatoRicorrenza(r.stato_ricorrenza);
     conteggi[stato] = (conteggi[stato] || 0) + 1;
+    if (stato === 'attiva' && (r.tipo === 'entrata' || r.tipo === 'uscita')) {
+      for (let date = oggi.date; date <= termineFlussi; date = sommaGiorni(date, 1)) {
+        const giorno = getRomeDateParts(new Date(`${date}T12:00:00Z`));
+        const { dovuto, periodo } = valutaOccorrenza(r, giorno);
+        const occurrenceKey = `${r.id}:${periodo}`;
+        if (!dovuto || eseguiti.has(occurrenceKey)) continue;
+        cashFlowItems.push({
+          id: r.id,
+          occurrenceKey,
+          description: r.descrizione,
+          amount: toNumber(r.importo),
+          dueDate: date,
+          direction: r.tipo,
+          frequency: r.ricorrente_frequenza,
+          reserved: r.tipo === 'uscita' && periodo === periodoPerFrequenza(r.ricorrente_frequenza, oggi),
+        });
+      }
+    }
     if (stato === 'attiva' && r.tipo === 'uscita') {
       const fattore = FATTORE_MENSILE[r.ricorrente_frequenza];
       if (fattore) commitments += toNumber(r.importo) * fattore;
@@ -91,6 +111,8 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date()) {
     paused: conteggi.sospesa,
     ended: conteggi.terminata,
     commitments: round2(commitments),
+    cashFlowItems: cashFlowItems.sort((a, b) => a.dueDate.localeCompare(b.dueDate)
+      || a.occurrenceKey.localeCompare(b.occurrenceKey)),
   };
   if (items.length) riepilogo.items = items.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   return riepilogo;
@@ -456,4 +478,4 @@ async function getFinancialContext(userId, options = {}) {
   };
 }
 
-module.exports = { getFinancialContext };
+module.exports = { getFinancialContext, riepilogoRicorrenti };

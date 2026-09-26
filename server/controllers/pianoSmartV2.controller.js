@@ -7,6 +7,7 @@ const { toCents } = require('../services/pianoSmart/money');
 const { serializePreview } = require('../services/pianoSmartV2/serializer');
 const { sequelize, PianoSmart, PianoSmartAllocazione, PianoSmartAzione } = require('../models');
 const { buildCurrentSituation } = require('../services/pianoSmartV2/currentSituation.service');
+const { getMovementDailyTotals, buildChangeTimeline } = require('../services/pianoSmartV2/changeTimeline.service');
 const logger = require('../utils/logger');
 
 const inputFromBody = (body) => ({
@@ -43,7 +44,16 @@ const preview = async (req, res) => {
 const currentSituation = async (req, res) => {
   try {
     const financialContext = await getFinancialContext(req.userId);
-    return res.json(buildCurrentSituation({ context: financialContext }));
+    const { dailyTotals, firstMovementDate } = await getMovementDailyTotals(
+      req.userId,
+      financialContext.period.referenceDate,
+    );
+    const changes = buildChangeTimeline({
+      dailyTotals,
+      firstMovementDate,
+      referenceDate: financialContext.period.referenceDate,
+    });
+    return res.json(buildCurrentSituation({ context: financialContext, changes }));
   } catch (error) {
     logger.error('Current situation calculation failed', { err: error, userId: req.userId });
     return res.status(error.status || 500).json({ error: error.status ? error.message : 'Errore nel riepilogo della situazione.' });
