@@ -31,6 +31,12 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
   const readiness = ref(null);
   const preview = ref(null);
   const v2Preview = ref(null);
+  const currentSituation = ref(null);
+  const currentSituationState = ref('idle');
+  // Errore dedicato: la situazione si carica in parallelo al wizard, e
+  // `setError` porterebbe anche `state` a 'error', facendo comparire il
+  // banner della situazione dentro "Crea piano" e "Storico".
+  const currentSituationError = ref(null);
   const recommendedAllocations = ref([]);
   const finalAllocations = ref([]);
   const plans = ref([]);
@@ -174,6 +180,22 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     }
   }
 
+  async function loadCurrentSituation() {
+    currentSituationState.value = 'loading';
+    currentSituationError.value = null;
+    try {
+      currentSituation.value = await pianoSmartApi.getCurrentSituation();
+      currentSituationState.value = 'ready';
+      return currentSituation.value;
+    } catch (err) {
+      // I dati già ottenuti restano: un errore di rete non deve diventare
+      // indistinguibile da "non ci sono dati" (Coding Rule 17).
+      currentSituationError.value = pianoSmartError(err);
+      currentSituationState.value = 'error';
+      return null;
+    }
+  }
+
   async function savePlan() {
     if (!canSave.value) return null;
     state.value = 'saving';
@@ -258,6 +280,9 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     readiness.value = null;
     preview.value = null;
     v2Preview.value = null;
+    currentSituation.value = null;
+    currentSituationState.value = 'idle';
+    currentSituationError.value = null;
     recommendedAllocations.value = [];
     finalAllocations.value = [];
     plans.value = [];
@@ -271,6 +296,9 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     readiness,
     preview,
     v2Preview,
+    currentSituation,
+    currentSituationState,
+    currentSituationError,
     recommendedAllocations,
     finalAllocations,
     plans,
@@ -288,6 +316,7 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     loadReadiness,
     generatePreview,
     generateV2Preview,
+    loadCurrentSituation,
     savePlan,
     loadPlans,
     loadPlan,

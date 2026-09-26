@@ -9,12 +9,33 @@ export const calcolaTotaleEsempio = (allocazioni) => Object.values(allocazioni)
 export const GUIDA_PIANO_SMART = Object.freeze([
   {
     id: 'cos-e',
-    titolo: 'Prima di iniziare',
-    sottotitolo: 'Piano Smart organizza una nuova somma in base alla tua situazione.',
+    titolo: 'Che cos’è Piano Smart',
+    sottotitolo: 'Prima ti aiuta a leggere il mese, poi a organizzare una nuova somma.',
     paragraphs: [
-      'Inserisci una somma che hai appena ricevuto o che stai per ricevere. WALLT la confronta con i dati che hai già registrato e propone come dividerla.',
-      'La proposta cambia in base a entrate, spese, liquidità, sicurezza e obiettivi. Non è una percentuale fissa uguale per tutti.',
-      'Piano Smart non sposta denaro, non crea movimenti e non modifica i saldi: è uno strumento per decidere come organizzare la somma.',
+      'Nella Situazione attuale trovi quanto puoi spendere oggi, le uscite previste, il ritmo delle tue spese e una stima di come potresti chiudere il mese.',
+      'WALLT interpreta i dati che hai registrato e ti propone cosa controllare o cosa valutare. Quando una previsione non è affidabile, te lo dice invece di inventare un numero.',
+      'Piano Smart non sposta denaro, non crea movimenti e non modifica i saldi: è uno strumento per capire e decidere.',
+    ],
+  },
+  {
+    id: 'situazione',
+    titolo: 'Come leggere la situazione attuale',
+    sottotitolo: 'I numeri principali rispondono a domande concrete.',
+    steps: [
+      ['1', 'Puoi spendere oggi', 'È il limite giornaliero stimato dopo aver considerato il margine disponibile e le somme già destinate agli obiettivi e gli impegni rilevati.'],
+      ['2', 'Prossime uscite', 'Sono le ricorrenze ancora da addebitare entro fine mese. Sono già considerate nello spendibile e non vengono sottratte due volte.'],
+      ['3', 'Previsione fine mese', 'È una stima basata sulle spese non ricorrenti dei giorni osservati nel mese. Non include entrate future o eventi non registrati; senza dati sufficienti non viene mostrato un importo.'],
+      ['4', 'Cosa fare adesso', 'Sono al massimo tre azioni ordinate per urgenza e impatto. Aprirle non modifica automaticamente i tuoi dati.'],
+    ],
+  },
+  {
+    id: 'simulazione',
+    titolo: 'Prima di spendere',
+    sottotitolo: 'Valuta un acquisto prima di decidere.',
+    paragraphs: [
+      'Inserisci l’importo che stai pensando di spendere. WALLT mostra quanto resterebbe disponibile, quale sarebbe il nuovo limite giornaliero e come cambierebbe la previsione di fine mese.',
+      '“Entro il limite stimato” significa che l’acquisto resta nel limite giornaliero e la previsione dopo l’acquisto non è negativa. L’avviso di rischio indica che supera lo spendibile o porta la previsione sotto zero. Se manca una previsione, l’effetto sul mese resta non stimabile.',
+      'La simulazione è solo informativa: per registrare davvero una spesa devi usare il normale flusso dei Movimenti.',
     ],
   },
   {

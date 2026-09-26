@@ -19,6 +19,7 @@ export const pianoSmartApi = {
   async getPlan(id) { return unwrap(await api.get(`/piano-smart/${id}`)); },
   async updatePlan(id, payload) { return unwrap(await api.patch(`/piano-smart/${id}`, payload)); },
   async createV2Preview(payload) { return unwrap(await api.post('/piano-smart/v2/preview', payload)); },
+  async getCurrentSituation() { return unwrap(await api.get('/piano-smart/v2/current-situation')); },
   async createV2Plan(payload) { return unwrap(await api.post('/piano-smart/v2', payload)); },
   async getV2Plan(id) { return unwrap(await api.get(`/piano-smart/v2/${id}`)); },
   async getV2Scenarios(id) { return unwrap(await api.get(`/piano-smart/v2/${id}/scenarios`)); },

@@ -125,6 +125,7 @@ async function aggregaSpeseMesi(userId, numMesi, riferimento = new Date(), opzio
       media_mensile: null,
       mesi_completi: 0,
       mese_corrente: null,
+      spese_non_ricorrenti_mese_corrente: 0,
       byNecessity: vuoto,
       byNecessityMesiCompleti: vuoto,
     };
@@ -136,7 +137,7 @@ async function aggregaSpeseMesi(userId, numMesi, riferimento = new Date(), opzio
       tipo: 'uscita',
       data: { [Op.between]: [periodi[0].da, periodi[periodi.length - 1].a] },
     },
-    attributes: ['data', 'categoria', 'importo', 'ricorrente'],
+    attributes: ['data', 'categoria', 'importo', 'ricorrente', 'ricorrenza_origine_id'],
   });
 
   const totaliPerPeriodo = new Map(periodi.map((p) => [p.chiave, {}]));
@@ -191,6 +192,13 @@ async function aggregaSpeseMesi(userId, numMesi, riferimento = new Date(), opzio
     totale_mesi_completi: totaleCompleti,
     media_mensile,
     mesi_completi: mesiCompleti.length,
+    // Il ritmo del mese considera solo uscite già datate, escluse le
+    // ricorrenti (origini e addebiti): le loro scadenze si stimano a parte.
+    spese_non_ricorrenti_mese_corrente: round2(movimenti
+      .filter((m) => String(m.data).slice(0, 7) === meseCorrente
+        && String(m.data).slice(0, 10) <= oggiLocale(FUSO_DEFAULT, riferimento)
+        && !m.ricorrente && !m.ricorrenza_origine_id)
+      .reduce((sum, m) => sum + toNumber(m.importo), 0)),
     mese_corrente: storico.find((m) => m.periodo === meseCorrente) || null,
     byNecessity,
     byNecessityMesiCompleti,

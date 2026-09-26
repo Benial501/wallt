@@ -4,10 +4,11 @@ const {
   validatePianoSmartId,
   validatePianoSmartActionId,
 } = require('../middleware/validation.middleware');
-const { preview, save, listActions, updateAction, getSnapshot, getScenarios, getProjection } = require('../controllers/pianoSmartV2.controller');
+const { preview, currentSituation, save, listActions, updateAction, getSnapshot, getScenarios, getProjection } = require('../controllers/pianoSmartV2.controller');
 
 const router = express.Router();
 router.post('/preview', authMiddleware, preview);
+router.get('/current-situation', authMiddleware, currentSituation);
 router.post('/', authMiddleware, save);
 router.get('/:id/scenarios', authMiddleware, validatePianoSmartId, getScenarios);
 router.get('/:id/projection', authMiddleware, validatePianoSmartId, getProjection);
