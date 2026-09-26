@@ -33,6 +33,10 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
   const v2Preview = ref(null);
   const currentSituation = ref(null);
   const currentSituationState = ref('idle');
+  // Errore dedicato: la situazione si carica in parallelo al wizard, e
+  // `setError` porterebbe anche `state` a 'error', facendo comparire il
+  // banner della situazione dentro "Crea piano" e "Storico".
+  const currentSituationError = ref(null);
   const recommendedAllocations = ref([]);
   const finalAllocations = ref([]);
   const plans = ref([]);
@@ -178,13 +182,15 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
 
   async function loadCurrentSituation() {
     currentSituationState.value = 'loading';
-    error.value = null;
+    currentSituationError.value = null;
     try {
       currentSituation.value = await pianoSmartApi.getCurrentSituation();
       currentSituationState.value = 'ready';
       return currentSituation.value;
     } catch (err) {
-      setError(err);
+      // I dati già ottenuti restano: un errore di rete non deve diventare
+      // indistinguibile da "non ci sono dati" (Coding Rule 17).
+      currentSituationError.value = pianoSmartError(err);
       currentSituationState.value = 'error';
       return null;
     }
@@ -276,6 +282,7 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     v2Preview.value = null;
     currentSituation.value = null;
     currentSituationState.value = 'idle';
+    currentSituationError.value = null;
     recommendedAllocations.value = [];
     finalAllocations.value = [];
     plans.value = [];
@@ -291,6 +298,7 @@ export const usePianoSmartStore = defineStore('pianoSmart', () => {
     v2Preview,
     currentSituation,
     currentSituationState,
+    currentSituationError,
     recommendedAllocations,
     finalAllocations,
     plans,

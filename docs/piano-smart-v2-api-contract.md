@@ -37,6 +37,10 @@ a fine mese. Non scrive dati finanziari.
   indica se già incluse nella liquidità centrale. Date e deduplica sono quelle
   del cron; sospese, terminate e occorrenze già addebitate sono escluse.
   `upcoming.afterTotal` è il margine **già al netto**: non sottrae ancora il totale.
+- `financialDirection.activeGoals`: numero di obiettivi non completati.
+  Lo stato usa il vocabolario di `obiettiviStato.service.js`
+  (`completato`, `in_corso`, `scaduto`, …), non quello dei piani: il conteggio
+  lo fa il backend e il client non lo ricalcola.
 - Gli scenari numerici legacy restano nella risposta quando stimabili:
   `prudente` applica +20% alla spesa non ricorrente residua, `attuale` usa il
   ritmo osservato, `limite` usa il limite giornaliero; sono ipotesi deterministiche,

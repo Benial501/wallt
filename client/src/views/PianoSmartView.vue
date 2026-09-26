@@ -38,7 +38,7 @@ const toast = useToastStore();
 const {
   state, input, readiness, preview, v2Preview, recommendedAllocations, finalAllocations,
   plans, selectedPlan, error, questions, warnings,
-  currentSituation, currentSituationState,
+  currentSituation, currentSituationState, currentSituationError,
   capitalToAllocate, allocationDifferenceCents, hasNegativeAllocation,
   isZeroCapital, canSave,
 } = storeToRefs(store);
@@ -74,7 +74,6 @@ const descrizioneCategoria = (categoria) => GLOSSARIO[CATEGORIA_CONCETTO[categor
   ?? '';
 const etichettaOrigine = (value) => ORIGINI.find((o) => o.value === value)?.label ?? value ?? 'Entrata';
 const etichettaStato = (value) => STATI_PIANO[value] ?? value;
-const statoCompletato = Object.keys(STATI_PIANO).find((value) => STATI_PIANO[value] === 'Completato');
 const simulazione = computed(() => simulatePurchase(currentSituation.value, simulatoreImporto.value));
 const simulatoreErrore = computed(() => simulatoreImporto.value !== '' && purchaseAmountCents(simulatoreImporto.value) === null);
 const formattaCentesimi = (value) => formattaEuro(value === null ? null : value / 100);
@@ -308,7 +307,7 @@ onMounted(() => {
 
     <template v-if="tab === 'situation'">
       <div v-if="currentSituationState === 'loading'" class="loading">Sto leggendo la tua situazione…</div>
-      <div v-else-if="currentSituationState === 'error'" class="error">{{ error?.message || 'Non riesco a recuperare la situazione.' }}</div>
+      <div v-else-if="currentSituationState === 'error'" class="error" role="alert">{{ currentSituationError?.message || 'Non riesco a recuperare la situazione.' }}</div>
       <template v-else-if="currentSituation">
         <WCard class="situation-hero">
           <p class="hero-kicker">Situazione oggi</p>
@@ -440,7 +439,7 @@ onMounted(() => {
           <div class="situation-grid situation-grid--secondary">
             <div><span>Patrimonio netto</span><strong>{{ formattaEuro(currentSituation.financialDirection.netWorth) }}</strong></div>
             <div><span>Debiti residui</span><strong>{{ formattaEuro(currentSituation.financialDirection.debts?.totalOutstanding) }}</strong></div>
-            <div><span>Obiettivi attivi</span><strong>{{ currentSituation.financialDirection.goals.filter((goal) => goal.stato !== statoCompletato).length }}</strong></div>
+            <div><span>Obiettivi attivi</span><strong>{{ currentSituation.financialDirection.activeGoals }}</strong></div>
           </div>
         </WCard>
 

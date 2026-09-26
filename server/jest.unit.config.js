@@ -1,8 +1,9 @@
 /**
  * Suite che girano senza PostgreSQL: config, entrypoint Vercel, logger,
  * migrazioni (a livello di codice), rotta cron con service mockato e il
- * motore puro di Piano Smart (money, profile, engine, invarianti, scenari:
- * non toccano il database per progetto, vedi services/pianoSmart/).
+ * motore puro di Piano Smart (money, profile, engine, invarianti, scenari
+ * e situazione corrente: non toccano il database per progetto, vedi
+ * services/pianoSmart/ e services/pianoSmartV2/currentSituation.service.js).
  * Sono un sottoinsieme di `npm test`, non un rimpiazzo: la suite completa
  * (jest.config.js) resta l'unica autorevole e richiede un database.
  */
@@ -25,6 +26,7 @@ module.exports = {
     '<rootDir>/tests/pianoSmartEngine.test.js',
     '<rootDir>/tests/pianoSmartInvarianti.test.js',
     '<rootDir>/tests/pianoSmartScenari.test.js',
+    '<rootDir>/tests/pianoSmartCurrentSituation.test.js',
   ],
   testTimeout: 20000,
   verbose: true,

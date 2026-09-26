@@ -58,6 +58,21 @@ describe('Piano Smart: situazione corrente', () => {
     expect(result.current.shortfall).toBe('200.00');
     expect(result.forecast.endOfMonthAvailable).toBe('-272.00');
   });
+  test('conta come attivi solo gli obiettivi non completati, col vocabolario degli obiettivi', () => {
+    const goals = [
+      { id: 1, nome: 'Fondo', stato: 'completato' },
+      { id: 2, nome: 'Viaggio', stato: 'in_corso' },
+      { id: 3, nome: 'Auto', stato: 'scaduto' },
+    ];
+    const result = build({ goals });
+    expect(result.financialDirection.activeGoals).toBe(2);
+    expect(result.financialDirection.goals).toHaveLength(3);
+  });
+  test('senza obiettivi attivi non conta nulla e non suggerisce di controllarli', () => {
+    const result = build({ goals: [{ id: 1, nome: 'Fondo', stato: 'completato' }] });
+    expect(result.financialDirection.activeGoals).toBe(0);
+    expect(result.suggestions.some((s) => s.key === 'review-goals')).toBe(false);
+  });
   test('un conto in rosso non fa fallire la direzione finanziaria', () => {
     const result = build({ netWorth: { total: -10, assets: -10, liabilities: 0 } });
     expect(result.financialDirection.assets).toBe('-10.00');

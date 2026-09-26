@@ -22,6 +22,12 @@ const buildSuggestion = ({ key, title, reason, effect, priority, action = null }
   key, title, reason, effect, priority, action,
 });
 
+// Il vocabolario di `stato` è quello di obiettiviStato.service.js
+// (`completato`, `in_corso`, `scaduto`, …), non quello dei piani: il
+// conteggio vive qui perché il client non deve reinterpretare uno stato
+// di dominio (vedi il vincolo "il backend resta l'unica fonte di verità").
+const obiettivoAttivo = (goal) => goal.stato !== 'completato';
+
 function buildCurrentSituation({ context, now = new Date() }) {
   const referenceDate = context.period?.referenceDate || oggiLocale(undefined, now);
   const monthEnd = fineMese(referenceDate);
@@ -107,7 +113,7 @@ function buildCurrentSituation({ context, now = new Date() }) {
       action: { type: 'create-plan', mode: 'goal' },
     }));
   }
-  if ((context.goals || []).some((goal) => goal.stato !== 'completato')) {
+  if ((context.goals || []).some(obiettivoAttivo)) {
     suggestions.push(buildSuggestion({
       key: 'review-goals', priority: 3, title: 'Controlla i tuoi obiettivi',
       reason: 'Hai almeno un obiettivo di risparmio ancora attivo.',
@@ -185,6 +191,7 @@ function buildCurrentSituation({ context, now = new Date() }) {
       debts: context.debts || null,
       emergencyFund: context.emergencyFund || null,
       goals: context.goals || [],
+      activeGoals: (context.goals || []).filter(obiettivoAttivo).length,
     },
     suggestions: suggestions.sort((a, b) => a.priority - b.priority).slice(0, 3),
     dataQuality,
