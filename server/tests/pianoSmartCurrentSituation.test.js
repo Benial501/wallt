@@ -92,6 +92,17 @@ describe('Piano Smart: situazione corrente', () => {
     expect(result.cashFlowTimeline.map((item) => item.marginAfter)).toEqual(['500.00', '600.00', '560.00']);
     expect(result.cashFlowTimeline.map((item) => item.direction)).toEqual(['uscita', 'entrata', 'uscita']);
   });
+  test('non sottrae nel radar le ulteriori scadenze già tolte dallo spendibile iniziale', () => {
+    const result = build({ recurring: {
+      items: [{ id: 4, occurrenceKey: '4:2026-09', dueDate: '2026-09-28', amount: 40, reserved: false }],
+      cashFlowItems: [
+        { id: 4, occurrenceKey: '4:2026-09', description: 'Assicurazione', amount: 40, dueDate: '2026-09-28', direction: 'uscita', reserved: false },
+        { id: 5, occurrenceKey: '5:2026-10', description: 'Manutenzione', amount: 30, dueDate: '2026-10-05', direction: 'uscita', reserved: false },
+      ],
+    } });
+    expect(result.current.availableToSpend).toBe('460.00');
+    expect(result.cashFlowTimeline.map((item) => item.marginAfter)).toEqual(['460.00', '430.00']);
+  });
   test('il radar resta vuoto quando non ci sono eventi futuri', () => {
     expect(build({ recurring: {} }).cashFlowTimeline).toEqual([]);
   });

@@ -60,6 +60,17 @@ describe('timeline dei cambiamenti Piano Smart', () => {
     expect(point.delta).toMatchObject({ expenses: '2.35', income: '50.00' });
     expect(point.currentPeriodPartial).toBe(true);
   });
+  test('non presenta come zero la media del periodo precedente al primo movimento', () => {
+    const point = buildChangeTimeline({
+      dailyTotals: [{ date: '2026-09-29', type: 'uscita', category: 'cibo_spesa', amount: '10.00' }],
+      firstMovementDate: '2026-09-29',
+      referenceDate: '2026-09-30',
+    }).points.find((item) => item.days === 7);
+    expect(point.recent.observedDays).toBe(2);
+    expect(point.previous.observedDays).toBe(0);
+    expect(point.previous.averageDailyExpenses).toBeNull();
+    expect(point.recent.averageDailyExpenses).toBe('5.00');
+  });
 
   test('limita la lettura ai movimenti utili dell’utente e agli ultimi 180 giorni', async () => {
     const original = Movimento.findAll;

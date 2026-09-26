@@ -76,6 +76,13 @@ function buildChangeTimeline({ dailyTotals = [], referenceDate, firstMovementDat
     const recentExpenses = totalCents(recentRows, (row) => row.type === 'uscita');
     const previousIncome = totalCents(previousRows, (row) => row.type === 'entrata');
     const previousExpenses = totalCents(previousRows, (row) => row.type === 'uscita');
+    const observedDays = (range) => {
+      if (!firstMovementDate || firstMovementDate > range.a) return 0;
+      const start = firstMovementDate > range.da ? firstMovementDate : range.da;
+      return Math.floor((Date.parse(`${range.a}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86400000) + 1;
+    };
+    const recentObservedDays = observedDays(recent);
+    const previousObservedDays = observedDays(previous);
     const categoryTotals = new Map();
     dailyTotals.forEach((row) => {
       if (row.type !== 'uscita' || !row.category) return;
@@ -84,7 +91,8 @@ function buildChangeTimeline({ dailyTotals = [], referenceDate, firstMovementDat
       if (within(row.date, previous)) current.previous += toCents(String(row.amount)) || 0;
       categoryTotals.set(row.category, current);
     });
-    const changedCategories = [...categoryTotals.entries()]
+    const changedCategories = (recentObservedDays === days && previousObservedDays === days
+      ? [...categoryTotals.entries()]
       .map(([category, totals]) => ({
         category,
         recent: serializza(totals.recent),
@@ -93,25 +101,23 @@ function buildChangeTimeline({ dailyTotals = [], referenceDate, firstMovementDat
       }))
       .filter((item) => item.delta !== '0.00')
       .sort((a, b) => Math.abs(Number(b.delta) * 100) - Math.abs(Number(a.delta) * 100))
-      .slice(0, 3);
+      .slice(0, 3) : []);
     const hasHistory = Boolean(firstMovementDate);
     const covered = hasHistory && firstMovementDate <= previous.da;
     const quality = !hasHistory ? 'dati_insufficienti' : covered ? 'storico_disponibile' : 'storico_limitato';
-    const observedDays = hasHistory && firstMovementDate <= referenceDate
-      ? Math.min(days, Math.max(0, Math.floor((Date.parse(`${referenceDate}T00:00:00Z`) - Date.parse(`${firstMovementDate}T00:00:00Z`)) / 86400000) + 1))
-      : 0;
-
     return {
       days,
       recent: {
         from: recent.da, to: recent.a,
         income: serializza(recentIncome), expenses: serializza(recentExpenses),
-        averageDailyExpenses: serializza(Math.round(recentExpenses / days)),
+        averageDailyExpenses: recentObservedDays > 0 ? serializza(Math.round(recentExpenses / recentObservedDays)) : null,
+        observedDays: recentObservedDays,
       },
       previous: {
         from: previous.da, to: previous.a,
         income: serializza(previousIncome), expenses: serializza(previousExpenses),
-        averageDailyExpenses: serializza(Math.round(previousExpenses / days)),
+        averageDailyExpenses: previousObservedDays > 0 ? serializza(Math.round(previousExpenses / previousObservedDays)) : null,
+        observedDays: previousObservedDays,
       },
       delta: {
         income: signed(recentIncome - previousIncome),
@@ -119,7 +125,7 @@ function buildChangeTimeline({ dailyTotals = [], referenceDate, firstMovementDat
       },
       changedCategories,
       quality,
-      observedDays,
+      observedDays: recentObservedDays,
       currentPeriodPartial: true,
     };
   });

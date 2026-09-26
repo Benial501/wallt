@@ -44,6 +44,9 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
   // occorrenze settimanali entro fine mese non sono ancora in quel totale.
   const additionalCommitments = recurringItems.filter((item) => item.reserved === false)
     .reduce((sum, item) => sum + (cents(item.amount) || 0), 0);
+  const commitmentsAlreadyRemoved = new Set(recurringItems
+    .filter((item) => item.reserved === false)
+    .map((item) => item.occurrenceKey));
   const protectedAmount = allocated === null || recurringCommitments === null
     ? null : allocated + recurringCommitments + additionalCommitments;
   const netAvailable = netLiquidity === null ? null : netLiquidity - additionalCommitments;
@@ -58,7 +61,8 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
       const amount = cents(item.amount);
       if (progressiveMargin !== null && amount !== null) {
         if (item.direction === 'entrata') progressiveMargin += amount;
-        else if (item.direction === 'uscita' && item.reserved !== true) progressiveMargin -= amount;
+        else if (item.direction === 'uscita' && item.reserved !== true
+          && !commitmentsAlreadyRemoved.has(item.occurrenceKey)) progressiveMargin -= amount;
       } else {
         progressiveMargin = null;
       }

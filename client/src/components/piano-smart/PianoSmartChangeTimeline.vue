@@ -59,19 +59,19 @@ const testoPasso = computed(() => {
         <article>
           <span>Periodo selezionato</span>
           <strong>{{ data(point.recent.from) }} – {{ data(point.recent.to) }}</strong>
-          <small>Entrate {{ euro(point.recent.income) }} · Uscite {{ euro(point.recent.expenses) }}</small>
+          <small>Entrate {{ euro(point.recent.income) }} · Uscite {{ euro(point.recent.expenses) }} · {{ point.recent.observedDays }}/{{ point.days }} giorni osservati</small>
         </article>
         <article>
           <span>Periodo precedente equivalente</span>
           <strong>{{ data(point.previous.from) }} – {{ data(point.previous.to) }}</strong>
-          <small>Entrate {{ euro(point.previous.income) }} · Uscite {{ euro(point.previous.expenses) }}</small>
+          <small>Entrate {{ euro(point.previous.income) }} · Uscite {{ euro(point.previous.expenses) }} · {{ point.previous.observedDays }}/{{ point.days }} giorni osservati</small>
         </article>
       </div>
       <dl class="deltas">
         <div><dt>Variazione entrate</dt><dd>{{ variazione(point.delta.income) }}</dd></div>
         <div><dt>Variazione uscite</dt><dd>{{ variazione(point.delta.expenses) }}</dd></div>
-        <div><dt>Ritmo spese recente</dt><dd>{{ euro(point.recent.averageDailyExpenses) }}/giorno</dd></div>
-        <div><dt>Ritmo precedente</dt><dd>{{ euro(point.previous.averageDailyExpenses) }}/giorno</dd></div>
+        <div><dt>Ritmo spese recente</dt><dd>{{ euro(point.recent.averageDailyExpenses) }}{{ point.recent.averageDailyExpenses === null ? '' : '/giorno' }}</dd></div>
+        <div><dt>Ritmo precedente</dt><dd>{{ euro(point.previous.averageDailyExpenses) }}{{ point.previous.averageDailyExpenses === null ? '' : '/giorno' }}</dd></div>
       </dl>
       <div class="quality" role="status">
         <strong>{{ qualita(point.quality) }}</strong>

@@ -43,7 +43,10 @@ a fine mese. Non scrive dati finanziari.
   meno periodo precedente. Il giorno corrente è parziale. `quality` dichiara
   `dati_insufficienti`, `storico_limitato` o `storico_disponibile`; nessun
   giorno prima del primo movimento utile viene riempito con uno zero.
-  `changedCategories` contiene al massimo tre categorie ordinate per variazione
+  `recent.observedDays` e `previous.observedDays` dichiarano i giorni coperti
+  separatamente; la media giornaliera è `null` quando una finestra non ha
+  movimenti osservabili. Le categorie si mostrano solo quando entrambe le
+  finestre sono coperte per intero. `changedCategories` contiene al massimo tre categorie ordinate per variazione
   assoluta. I confronti riguardano i movimenti registrati, non saldi o
   disponibilità storiche; la completezza dei movimenti manuali non è verificabile.
 - `cashFlowTimeline`: eventi ricorrenti attivi in entrata e uscita da oggi a
