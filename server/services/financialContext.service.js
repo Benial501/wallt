@@ -12,8 +12,9 @@
  * investimenti/ricorrenti aggiunti in questo lavoro): questo file compone,
  * non ricalcola.
  */
+const { Op } = require('sequelize');
 const { Obiettivo, Investimento, Movimento } = require('../models');
-const { FUSO_DEFAULT, oggiLocale } = require('../utils/dateRome');
+const { FUSO_DEFAULT, oggiLocale, fineMese, sommaGiorni } = require('../utils/dateRome');
 const { elencoMesi, classificaFinestra } = require('./finestraMesi.service');
 const { calcolaPatrimonioNetto } = require('./financialSummary.service');
 const { calcolaLiquidita } = require('./liquidita.service');
@@ -23,7 +24,7 @@ const { calcolaMesiCopertura } = require('./fondoSicurezza.service');
 const { riepilogo: riepilogoDebiti, calcolaPressioneDebitoria } = require('./debiti.service');
 const { calcolaProgressoObiettivo } = require('./obiettiviStato.service');
 const { descriviLiquidabilita } = require('./investimentiLiquidabilita.service');
-const { STATI_RICORRENZA, normalizzaStatoRicorrenza } = require('./ricorrenti.service');
+const { STATI_RICORRENZA, normalizzaStatoRicorrenza, getRomeDateParts, valutaOccorrenza, periodoPerFrequenza } = require('./ricorrenti.service');
 
 const round2 = (v) => Math.round(v * 100) / 100;
 const toNumber = (v) => parseFloat(v) || 0;
@@ -38,29 +39,61 @@ const FATTORE_MENSILE = { mensile: 1, settimanale: 52 / 12, annuale: 1 / 12 };
  * delle sole ricorrenti attive (le sospese/terminate non generano movimenti
  * e non contano come impegno futuro — CLAUDE.md, Regola ricorrenti §12).
  */
-async function riepilogoRicorrenti(userId) {
+async function riepilogoRicorrenti(userId, referenceDate = new Date()) {
   const ricorrenti = await Movimento.findAll({
     where: { user_id: userId, ricorrente: true },
-    attributes: ['stato_ricorrenza', 'ricorrente_frequenza', 'tipo', 'importo'],
+    attributes: ['id', 'descrizione', 'data', 'stato_ricorrenza', 'ricorrente_frequenza', 'ricorrente_giorno', 'ricorrente_mese', 'tipo', 'importo'],
   });
 
   const conteggi = Object.fromEntries(STATI_RICORRENZA.map((s) => [s, 0]));
   let commitments = 0;
+  const oggi = getRomeDateParts(referenceDate);
+  const termine = fineMese(oggi.date);
+  const addebiti = ricorrenti.length ? await Movimento.findAll({
+    where: { user_id: userId, ricorrenza_origine_id: { [Op.in]: ricorrenti.map((r) => r.id) } },
+    attributes: ['ricorrenza_origine_id', 'ricorrenza_periodo'],
+  }) : [];
+  const eseguiti = new Set(addebiti.map((m) => `${m.ricorrenza_origine_id}:${m.ricorrenza_periodo}`));
+  // Un'occorrenza si annuncia una volta sola, il primo giorno in cui è
+  // dovuta. Serve perché valutaOccorrenza apre una FINESTRA, non un istante:
+  // una mensile è dovuta dal suo giorno in poi (recupero di un cron saltato,
+  // vedi ricorrenti.service.js), quindi scorrendo i giorni la stessa scadenza
+  // risulterebbe dovuta ogni giorno fino a fine mese. Per il cron è corretto
+  // — l'indice unico lo limita a un addebito — ma qui produrrebbe una lista
+  // di duplicati al posto del calendario.
+  const emesse = new Set();
+  const items = [];
   ricorrenti.forEach((r) => {
     const stato = normalizzaStatoRicorrenza(r.stato_ricorrenza);
     conteggi[stato] = (conteggi[stato] || 0) + 1;
     if (stato === 'attiva' && r.tipo === 'uscita') {
       const fattore = FATTORE_MENSILE[r.ricorrente_frequenza];
       if (fattore) commitments += toNumber(r.importo) * fattore;
+      // Stesse date e chiavi di deduplica del cron, senza inventare il
+      // giorno 31 in un mese corto né includere addebiti già eseguiti.
+      for (let date = oggi.date; date <= termine; date = sommaGiorni(date, 1)) {
+        const giorno = getRomeDateParts(new Date(`${date}T12:00:00Z`));
+        const { dovuto, periodo } = valutaOccorrenza(r, giorno);
+        const occurrenceKey = `${r.id}:${periodo}`;
+        if (!dovuto || eseguiti.has(occurrenceKey) || emesse.has(occurrenceKey)) continue;
+        emesse.add(occurrenceKey);
+        items.push({
+          id: r.id, occurrenceKey, description: r.descrizione, amount: toNumber(r.importo),
+          dueDate: date, frequency: r.ricorrente_frequenza,
+          reserved: periodo === periodoPerFrequenza(r.ricorrente_frequenza, oggi),
+        });
+      }
     }
   });
 
-  return {
+  const riepilogo = {
     active: conteggi.attiva,
     paused: conteggi.sospesa,
     ended: conteggi.terminata,
     commitments: round2(commitments),
   };
+  if (items.length) riepilogo.items = items.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  return riepilogo;
 }
 
 /**
@@ -234,7 +267,7 @@ async function getFinancialContext(userId, options = {}) {
     riepilogoDebiti(userId),
     elencoObiettivi(userId, referenceDate),
     riepilogoInvestimenti(userId),
-    riepilogoRicorrenti(userId),
+    riepilogoRicorrenti(userId, referenceDate),
     riepilogoFondoSicurezza(userId, referenceDate),
   ]);
 
@@ -297,6 +330,7 @@ async function getFinancialContext(userId, options = {}) {
       // Tutti i conteggi partono dalla finestra OSSERVATA: un mese di
       // calendario prima del primo movimento dell'utente non è "storico a
       // zero", semplicemente non è storico.
+      firstMovementDate: primoMovimento,
       historyMonthsAvailable: spese.finestra.osservati.length,
       completeMonths: nMesiMedie,
       incompleteMonths: spese.finestra.osservati.length - nMesiMedie,
@@ -333,6 +367,7 @@ async function getFinancialContext(userId, options = {}) {
 
     expenses: {
       currentMonth: spese.mese_corrente?.totale ?? 0,
+      variableCurrentMonth: spese.spese_non_ricorrenti_mese_corrente,
       monthlyAverage: monthlyAverageExpenses,
       averageMonths: nMesiMedie,
       // Totale sui soli mesi completi: è il denominatore con cui

@@ -267,11 +267,13 @@ const TOPICS = [
   {
     id: 'piano-smart',
     title: 'Piano Smart',
-    summary: 'Una proposta personalizzata per organizzare una nuova somma di denaro.',
+    summary: 'Capisci cosa sta succedendo ai tuoi soldi e organizza le prossime decisioni.',
     paragraphs: [
-      'Piano Smart utilizza i dati che hai già inserito in WALLT per proporti una suddivisione tra necessità, sicurezza, obiettivi, futuro e libertà.',
-      'Se mancano informazioni importanti, può chiederti solo il contesto necessario per questo piano. Puoi modificare la proposta prima di salvarla.',
-      'Piano Smart non sposta denaro automaticamente: è uno strumento di organizzazione e le decisioni finali restano sempre all’utente.',
+      'La Situazione attuale è il punto di partenza: mostra quanto puoi spendere oggi, cosa devi ancora proteggere, il ritmo delle tue spese e una stima di come potresti arrivare a fine mese.',
+      'Puoi leggere le prossime uscite, i suggerimenti di WALLT e la direzione finanziaria con patrimonio, debiti e obiettivi. I valori osservati sono distinti dalle stime e gli avvisi spiegano quando i dati non bastano per una previsione affidabile.',
+      'Prima di un acquisto puoi usare “Prima di spendere”: inserisci un importo e WALLT mostra come cambierebbero margine, limite giornaliero e previsione del mese. È una simulazione e non registra nessun movimento.',
+      'Da “Crea piano” puoi organizzare una nuova entrata tra necessità, sicurezza, obiettivi, futuro e libertà. WALLT usa i dati che hai già inserito, può chiederti solo il contesto mancante e ti permette di modificare la proposta prima di salvarla.',
+      'Piano Smart non sposta denaro, non aggiorna i saldi e non decide al posto tuo: serve a capire la situazione e a prendere decisioni più consapevoli.',
     ],
     link: { label: 'Apri Piano Smart', to: '/funzionalita/piano-smart' },
   },

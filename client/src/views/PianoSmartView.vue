@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
+import { useRouter } from 'vue-router';
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import AppDialog from '@/components/common/AppDialog.vue';
@@ -8,6 +9,7 @@ import PianoSmartGuide from '@/components/piano-smart/PianoSmartGuide.vue';
 import { usePianoSmartStore } from '@/stores/pianoSmart.store';
 import { useToastStore } from '@/stores/toast.store';
 import { CircleHelp, Trash2 } from '@/utils/appIcons';
+import { simulatePurchase, purchaseAmountCents } from '@/utils/pianoSmartSimulation';
 import { GLOSSARIO } from '@/content/glossario';
 import {
   ORIGINI_SOMMA,
@@ -31,20 +33,23 @@ import {
  * centesimi interi (vedi lo store).
  */
 const store = usePianoSmartStore();
+const router = useRouter();
 const toast = useToastStore();
 const {
   state, input, readiness, preview, v2Preview, recommendedAllocations, finalAllocations,
   plans, selectedPlan, error, questions, warnings,
+  currentSituation, currentSituationState, currentSituationError,
   capitalToAllocate, allocationDifferenceCents, hasNegativeAllocation,
   isZeroCapital, canSave,
 } = storeToRefs(store);
 
-const tab = ref('create');
+const tab = ref('situation');
 const step = ref(1);
 const infoAperta = ref(false);
 const dettaglioAperto = ref(false);
 const confermaEliminazione = ref(false);
 const eliminazioneInCorso = ref(false);
+const simulatoreImporto = ref('');
 
 const ORIGINI = ORIGINI_SOMMA;
 
@@ -69,6 +74,18 @@ const descrizioneCategoria = (categoria) => GLOSSARIO[CATEGORIA_CONCETTO[categor
   ?? '';
 const etichettaOrigine = (value) => ORIGINI.find((o) => o.value === value)?.label ?? value ?? 'Entrata';
 const etichettaStato = (value) => STATI_PIANO[value] ?? value;
+const simulazione = computed(() => simulatePurchase(currentSituation.value, simulatoreImporto.value));
+const simulatoreErrore = computed(() => simulatoreImporto.value !== '' && purchaseAmountCents(simulatoreImporto.value) === null);
+const formattaCentesimi = (value) => formattaEuro(value === null ? null : value / 100);
+const formattaScadenza = (value) => new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`));
+const qualitaPrevisione = computed(() => ({ dati_insufficienti: 'Previsione non disponibile', storico_limitato: 'Storico ancora limitato', storico_disponibile: 'Storico disponibile' })[currentSituation.value?.forecast.quality]);
+const margineGiornaliero = computed(() => {
+  const ritmo = importoInCentesimi(currentSituation.value?.current?.actualDailySpend);
+  const limite = importoInCentesimi(currentSituation.value?.current?.dailyLimit);
+  if (ritmo === null || limite === null) return null;
+  return limite - ritmo;
+});
+const usaSimulazioneRapida = (amount) => { simulatoreImporto.value = String(amount); };
 
 /** Motivazioni indicizzate per codice: serve a mostrare sotto una categoria
  * solo quelle che il backend ha davvero emesso per lei. */
@@ -225,14 +242,26 @@ const confermaEdEliminaPiano = async () => {
 
 const ricomincia = () => {
   store.reset();
+  store.loadReadiness();
+  store.loadCurrentSituation();
   step.value = 1;
   tab.value = 'create';
+};
+
+const eseguiSuggerimento = (suggestion) => {
+  const type = suggestion?.action?.type;
+  if (type === 'open-analysis') router.push('/analisi');
+  if (type === 'create-plan') {
+    tab.value = 'create';
+    step.value = 1;
+  }
 };
 
 onMounted(() => {
   // La readiness serve già allo step 1: propone le spese obbligatorie e
   // anticipa gli avvisi sullo storico.
   store.loadReadiness();
+  store.loadCurrentSituation();
 });
 </script>
 
@@ -250,12 +279,18 @@ onMounted(() => {
           </button>
         </div>
         <p class="page-sub">
-          Trasforma una nuova entrata in un piano costruito sulla tua situazione finanziaria.
+          Capisci cosa sta succedendo ai tuoi soldi e decidi meglio come muoverti.
         </p>
       </div>
     </header>
 
     <div class="tabs" role="tablist">
+      <button
+        type="button" role="tab" :aria-selected="tab === 'situation'"
+        :class="{ active: tab === 'situation' }" @click="tab = 'situation'"
+      >
+        Situazione attuale
+      </button>
       <button
         type="button" role="tab" :aria-selected="tab === 'create'"
         :class="{ active: tab === 'create' }" @click="tab = 'create'"
@@ -269,6 +304,147 @@ onMounted(() => {
         I miei piani
       </button>
     </div>
+
+    <template v-if="tab === 'situation'">
+      <div v-if="currentSituationState === 'loading'" class="loading">Sto leggendo la tua situazione…</div>
+      <div v-else-if="currentSituationState === 'error'" class="error" role="alert">{{ currentSituationError?.message || 'Non riesco a recuperare la situazione.' }}</div>
+      <template v-else-if="currentSituation">
+        <WCard class="situation-hero">
+          <p class="hero-kicker">Situazione oggi</p>
+          <p class="muted">Puoi spendere</p>
+          <strong>{{ formattaEuro(currentSituation.current.dailyLimit) }}</strong>
+          <p class="hero-today">oggi</p>
+          <p>Limite indicativo, in base ai dati registrati</p>
+          <div class="safe-to-spend">
+            <div><span>Liquidità dei conti</span><strong>{{ formattaEuro(currentSituation.current.liquidity) }}</strong></div>
+            <div><span>Da proteggere</span><strong>{{ formattaEuro(currentSituation.current.protectedAmount) }}</strong></div>
+            <div class="safe-to-spend__highlight"><span>Spendibile</span><strong>{{ formattaEuro(currentSituation.current.availableToSpend) }}</strong></div>
+          </div>
+          <details class="explanation protection-details">
+            <summary>Quali somme sono protette?</summary>
+            <p>Obiettivi già accantonati: {{ formattaEuro(currentSituation.current.allocatedToGoals) }}.</p>
+            <p>Impegni rilevati: {{ formattaEuro(currentSituation.current.commitments) }}. Ulteriori scadenze entro fine mese: {{ formattaEuro(currentSituation.current.additionalCommitments) }}.</p>
+            <p>Lo spendibile è già al netto di queste somme. Il saldo dei conti scommesse è escluso. L’importo ancora da raccogliere per il fondo di sicurezza non viene bloccato automaticamente.</p>
+          </details>
+          <p v-if="Number(currentSituation.current.shortfall) > 0" class="shortfall" role="status">Mancano {{ formattaEuro(currentSituation.current.shortfall) }} per coprire tutte le somme protette.</p>
+          <div class="hero-availability">
+            <span>{{ currentSituation.current.remainingDays }} giorni, oggi incluso, fino a fine mese</span>
+          </div>
+          <span class="situation-status" :class="`situation-status--${currentSituation.current.paceStatus}`">
+            {{ currentSituation.current.paceStatus === 'sopra_il_ritmo' ? 'Sopra il ritmo previsto' : currentSituation.current.paceStatus === 'sotto_controllo' ? 'Ritmo entro il limite' : 'Stiamo imparando il tuo ritmo' }}
+          </span>
+          <div class="situation-grid">
+            <div><span>Ritmo non ricorrente</span><strong>{{ formattaEuro(currentSituation.current.actualDailySpend) }}/giorno</strong></div>
+            <div><span>Margine giornaliero</span><strong>{{ margineGiornaliero === null ? '—' : `${margineGiornaliero >= 0 ? '+' : ''}${formattaEuro(margineGiornaliero / 100)}` }}</strong></div>
+            <div><span>Il tuo limite</span><strong>{{ formattaEuro(currentSituation.current.dailyLimit) }}/giorno</strong></div>
+          </div>
+        </WCard>
+
+        <section class="situation-section" aria-labelledby="analisi-wallt-title">
+          <h2 id="analisi-wallt-title">Analisi di WALLT</h2>
+          <ul class="insight-list">
+            <li v-for="insight in currentSituation.insights" :key="insight.key">{{ insight.text }}</li>
+          </ul>
+        </section>
+
+        <WCard class="text-card">
+          <h2>Previsione fine mese</h2>
+          <p class="muted">Quanto potrebbe restare dello spendibile.</p>
+          <div v-if="currentSituation.forecast.endOfMonthAvailable !== null" class="forecast-main"><strong>{{ formattaEuro(currentSituation.forecast.endOfMonthAvailable) }}</strong><span>a fine mese</span></div>
+          <p v-else class="forecast-empty">Servono altre registrazioni per stimare il ritmo delle spese.</p>
+          <div class="forecast-quality">
+            <strong>{{ qualitaPrevisione }}</strong>
+            <p>{{ currentSituation.forecast.observedDays }} giorni osservati nel mese · {{ currentSituation.dataQuality.completeMonths ?? 0 }} mesi civili completi nello storico.</p>
+            <p v-for="warning in currentSituation.warnings" :key="warning" class="hint">{{ warning }}</p>
+          </div>
+          <details class="explanation">
+            <summary>Come viene calcolata?</summary>
+            <p>Partiamo dalla liquidità dei conti, al netto degli obiettivi accantonati e degli impegni rilevati. Stimiamo le spese non ricorrenti rimanenti usando il ritmo dei giorni osservati di questo mese, oggi incluso.</p>
+            <p>Le ricorrenze vengono considerate separatamente e una sola volta. Le entrate future, le rate non collegate a ricorrenze e gli eventi non registrati non sono inclusi. La previsione resta una stima, non un saldo garantito.</p>
+          </details>
+        </WCard>
+
+        <WCard class="text-card">
+          <h2>Prossime uscite</h2>
+          <p class="muted">Da oggi al {{ formattaScadenza(currentSituation.upcoming.through) }}.</p>
+          <template v-if="currentSituation.upcoming.items.length">
+            <div v-for="item in currentSituation.upcoming.items" :key="item.occurrenceKey" class="upcoming-row">
+              <span><strong>{{ item.description || 'Spesa ricorrente' }}</strong><small>{{ formattaScadenza(item.dueDate) }}</small></span>
+              <strong>{{ formattaEuro(item.amount) }}</strong>
+            </div>
+            <div class="upcoming-total"><span>Totale previsto</span><strong>{{ formattaEuro(currentSituation.upcoming.total) }}</strong></div>
+            <p class="hint">Queste uscite sono già protette. Il margine al netto degli impegni è {{ formattaEuro(currentSituation.upcoming.afterTotal) }}: non le sottraiamo una seconda volta.</p>
+          </template>
+          <p v-else class="muted">Non risultano altre uscite ricorrenti entro fine mese.</p>
+        </WCard>
+
+        <section class="situation-section month-progress" aria-labelledby="andamento-mese-title">
+          <h2 id="andamento-mese-title">Andamento del mese</h2>
+          <div class="progress-line"><span>Entrate</span><strong>{{ formattaEuro(currentSituation.monthProgress.income) }}</strong></div>
+          <div class="progress-track"><i :style="{ width: `${currentSituation.monthProgress.incomeShare}%` }" /></div>
+          <div class="progress-line"><span>Uscite</span><strong>{{ formattaEuro(currentSituation.monthProgress.expenses) }}</strong></div>
+          <div class="progress-track progress-track--expenses"><i :style="{ width: `${currentSituation.monthProgress.expenseShare}%` }" /></div>
+          <div class="progress-line"><span>Risparmio medio storico / mese</span><strong>{{ formattaEuro(currentSituation.forecast.monthlySavings) }}</strong></div>
+          <p class="hint">Limite giornaliero: {{ formattaEuro(currentSituation.current.dailyLimit) }} · {{ currentSituation.current.remainingDays }} giorni rimanenti</p>
+        </section>
+
+        <WCard class="text-card">
+          <h2>Cosa fare adesso</h2>
+          <p v-if="!currentSituation.suggestions.length" class="muted">Non ci sono azioni urgenti: continua a monitorare il mese.</p>
+          <div v-for="suggestion in currentSituation.suggestions" :key="suggestion.key" class="suggestion-row">
+            <strong>{{ suggestion.title }}</strong>
+            <p>{{ suggestion.reason }}</p>
+            <small>{{ suggestion.effect }}</small>
+            <WButton
+              v-if="suggestion.action" variant="secondary" size="small"
+              @click="eseguiSuggerimento(suggestion)"
+            >
+              {{ suggestion.action.type === 'open-analysis' ? 'Apri analisi' : 'Crea un piano' }}
+            </WButton>
+          </div>
+        </WCard>
+
+
+        <section class="situation-section simulator" aria-labelledby="simulatore-title">
+          <h2 id="simulatore-title">Prima di spendere</h2>
+          <p class="muted">Vuoi sapere come cambierebbe il tuo mese?</p>
+          <div class="simulator-form">
+            <label for="simulatore-importo">Importo dell’acquisto</label>
+            <input id="simulatore-importo" v-model="simulatoreImporto" inputmode="decimal" placeholder="0,00 €" :aria-invalid="simulatoreErrore" aria-describedby="simulatore-help">
+            <p id="simulatore-help" :class="simulatoreErrore ? 'field-error' : 'hint'">{{ simulatoreErrore ? 'Inserisci un importo positivo con al massimo due decimali.' : 'Una spesa aggiuntiva rispetto al ritmo previsto. Nessun movimento viene registrato.' }}</p>
+            <div class="simulator-quick" aria-label="Importi rapidi">
+              <button v-for="amount in [50, 100, 250, 500]" :key="amount" type="button" @click="usaSimulazioneRapida(amount)">{{ amount }} €</button>
+            </div>
+          </div>
+          <div v-if="simulazione" class="simulator-result" :class="`simulator-result--${simulazione.status}`" aria-live="polite" aria-atomic="true">
+            <strong>{{ simulazione.status === 'compatibile' ? 'Entro il limite stimato' : simulazione.status === 'attenzione' ? 'Riduce il margine' : simulazione.status === 'non_stimabile' ? 'Effetto sul mese non ancora stimabile' : 'Potrebbe compromettere il piano' }}</strong>
+            <table class="simulation-comparison">
+              <caption class="sr-only">Confronto prima e dopo una spesa di {{ formattaCentesimi(simulazione.amount) }}</caption>
+              <thead><tr><th scope="col">Il tuo piano</th><th scope="col">Prima</th><th scope="col">Dopo</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Spendibile</th><td>{{ formattaEuro(currentSituation.current.availableToSpend) }}</td><td>{{ formattaCentesimi(simulazione.availableAfter) }}</td></tr>
+                <tr><th scope="row">Fine mese</th><td>{{ formattaEuro(currentSituation.forecast.endOfMonthAvailable) }}</td><td>{{ formattaCentesimi(simulazione.forecastAfter) }}</td></tr>
+                <tr><th scope="row">Limite / giorno</th><td>{{ formattaEuro(currentSituation.current.dailyLimit) }}</td><td>{{ formattaCentesimi(simulazione.dailyAfter) }}</td></tr>
+              </tbody>
+            </table>
+            <span class="simulator-result__impact">Impatto sullo spendibile: {{ simulazione.impact }}</span>
+            <p v-if="simulazione.availableAfter < 0" class="hint">Mancano {{ formattaCentesimi(-simulazione.availableAfter) }} per coprire l’acquisto e le somme protette.</p>
+            <p v-if="simulazione.forecastAfter === null" class="hint">Puoi confrontare lo spendibile, ma i dati non bastano per valutare la fine del mese.</p>
+            <details class="explanation"><summary>Come leggere l’impatto?</summary><p>Basso: fino al 20% dello spendibile. Moderato: fino al 45%. Alto: oltre il 45%. È la quota utilizzata dall’acquisto, non una misura di sicurezza.</p></details>
+          </div>
+          <p v-else-if="currentSituation.current.availableToSpend === null" class="hint">La simulazione sarà disponibile quando potremo calcolare lo spendibile.</p>
+        </section>
+        <WCard class="text-card">
+          <h2>La tua direzione finanziaria</h2>
+          <div class="situation-grid situation-grid--secondary">
+            <div><span>Patrimonio netto</span><strong>{{ formattaEuro(currentSituation.financialDirection.netWorth) }}</strong></div>
+            <div><span>Debiti residui</span><strong>{{ formattaEuro(currentSituation.financialDirection.debts?.totalOutstanding) }}</strong></div>
+            <div><span>Obiettivi attivi</span><strong>{{ currentSituation.financialDirection.activeGoals }}</strong></div>
+          </div>
+        </WCard>
+
+      </template>
+    </template>
 
     <!-- ================= CREA PIANO ================= -->
     <template v-if="tab === 'create'">
@@ -703,6 +879,62 @@ onMounted(() => {
 .steps__link:disabled { cursor: default; text-decoration: none; opacity: .6; }
 
 .flow-card, .allocations, .hero, .text-card, .empty, .zero-capital { display: flex; flex-direction: column; gap: .9rem; margin-bottom: 1rem; }
+.situation-hero { display: flex; flex-direction: column; align-items: center; gap: .45rem; margin-bottom: 1rem; text-align: center; }
+.situation-hero > strong { color: var(--text-primary); font-size: 2.9rem; line-height: 1.05; }
+.hero-kicker { margin: 0 0 .35rem; color: var(--text-secondary); font-size: var(--text-xs); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.hero-today { margin: -.2rem 0 .25rem !important; color: var(--text-primary) !important; font-size: 1rem; font-weight: 600; }
+.hero-availability { display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; margin: .45rem 0 .2rem; color: var(--text-secondary); font-size: var(--text-sm); }
+.safe-to-spend { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; width: 100%; margin: .6rem 0 .15rem; }
+.safe-to-spend > div { display: grid; gap: .2rem; padding: .65rem .5rem; border: 1px solid var(--divider); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface) 72%, transparent); }
+.safe-to-spend span { color: var(--text-secondary); font-size: var(--text-xs); }
+.safe-to-spend strong { color: var(--text-primary); font-size: 1rem; }
+.safe-to-spend__highlight { border-color: color-mix(in srgb, var(--accent-green) 55%, var(--divider)) !important; background: color-mix(in srgb, var(--accent-green) 10%, transparent) !important; }
+.situation-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; width: 100%; margin-top: .5rem; }
+.situation-grid > div { display: flex; flex-direction: column; gap: .25rem; padding: .75rem; border: 1px solid var(--divider); border-radius: var(--radius-md); text-align: left; }
+.situation-grid span { color: var(--text-secondary); font-size: var(--text-xs); }
+.situation-grid strong { color: var(--text-primary); }
+.situation-status { padding: .35rem .65rem; border-radius: 999px; font-size: var(--text-xs); background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.situation-status--sopra_il_ritmo { background: color-mix(in srgb, #f0a35b 16%, transparent); color: #f0a35b; }
+.situation-section { margin: 1.25rem 0; padding: 0 .25rem; }
+.situation-section h2 { margin-bottom: .4rem; }
+.situation-section p { margin: 0; color: var(--text-secondary); line-height: 1.5; }
+.insight-list { display: grid; gap: .65rem; margin: .75rem 0 0; padding: 0; list-style: none; }
+.insight-list li { padding: .8rem 0; border-bottom: 1px solid var(--divider); color: var(--text-secondary); line-height: 1.45; }
+.insight-list li:last-child { border-bottom: 0; }
+.forecast-main { display: flex; align-items: baseline; gap: .6rem; margin: 1rem 0; }
+.forecast-main strong { font-size: 2rem; color: var(--text-primary); }
+.forecast-main span, .forecast-grid span, .upcoming-row small { color: var(--text-secondary); font-size: var(--text-xs); }
+.forecast-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; }
+.forecast-grid div { display: grid; gap: .25rem; padding: .7rem; border: 1px solid var(--divider); border-radius: var(--radius-md); }
+.forecast-grid strong { color: var(--text-primary); }
+.explanation { border-top: 1px solid var(--divider); padding-top: .7rem; color: var(--text-secondary); font-size: var(--text-xs); }
+.explanation summary { color: var(--accent-text); cursor: pointer; font-weight: 600; }
+.explanation p { margin: .6rem 0 0; line-height: 1.55; }
+.upcoming-row, .upcoming-total { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .75rem 0; border-bottom: 1px solid var(--divider); }
+.upcoming-row span { display: grid; gap: .2rem; }
+.upcoming-row strong, .upcoming-total strong { color: var(--text-primary); }
+.upcoming-total { border-bottom: 0; padding-bottom: 0; }
+.month-progress { border-top: 1px solid var(--divider); padding-top: 1.25rem; }
+.progress-line { display: flex; justify-content: space-between; margin-top: .8rem; color: var(--text-secondary); }
+.progress-line strong { color: var(--text-primary); }
+.progress-track { height: .45rem; margin-top: .4rem; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.progress-track i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .35s ease; }
+.progress-track--expenses { background: color-mix(in srgb, #f0a35b 14%, transparent); }
+.progress-track--expenses i { background: #f0a35b; }
+.simulator { border-top: 1px solid var(--divider); padding-top: 1.25rem; }
+.simulator-form { display: flex; flex-direction: column; gap: .35rem; margin-top: .75rem; }
+.simulator-form input { width: 100%; min-height: 44px; padding: .7rem .8rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--text-primary); font: inherit; }
+.simulator-quick { display: flex; gap: .45rem; flex-wrap: wrap; }
+.simulator-quick button { min-height: 36px; padding: .35rem .7rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-subtle); color: var(--text-secondary); font: inherit; cursor: pointer; }
+.simulator-quick button:hover, .simulator-quick button:focus-visible { border-color: var(--accent-green); color: var(--text-primary); }
+.simulator-quick button:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 2px; }
+.simulator-result { display: flex; flex-direction: column; gap: .3rem; margin-top: .75rem; padding: .85rem; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); border-radius: 0 var(--radius-md) var(--radius-md) 0; color: var(--text-secondary); }
+.simulator-result strong { color: var(--text-primary); }
+.simulator-result__impact { margin-top: .25rem; color: var(--text-primary); font-weight: 600; }
+.simulator-result--rischio { border-left-color: #d86c6c; background: color-mix(in srgb, #d86c6c 8%, transparent); }
+.simulator-result--attenzione { border-left-color: #f0a35b; background: color-mix(in srgb, #f0a35b 8%, transparent); }
+.suggestion-row { padding: .8rem 0; border-top: 1px solid var(--divider); }
+.suggestion-row p, .suggestion-row small { display: block; margin: .25rem 0 0; color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.5; }
 h2 { color: var(--text-primary); font-size: 1.1rem; }
 .field { display: flex; flex-direction: column; gap: .35rem; border: 0; padding: 0; margin: 0; }
 label, legend { color: var(--text-primary); font-size: var(--text-sm); font-weight: 600; padding: 0; }
@@ -755,6 +987,12 @@ input:focus-visible, select:focus-visible, .tabs button:focus-visible, .info-but
 .context-summary dd { margin: 0; color: var(--text-primary); font-weight: 600; text-align: right; }
 summary { cursor: pointer; color: var(--text-primary); font-weight: 600; font-size: var(--text-sm); min-height: 44px; display: flex; align-items: center; }
 
+@media (max-width: 600px) {
+  .situation-grid { grid-template-columns: 1fr; }
+  .safe-to-spend { grid-template-columns: 1fr; }
+  .forecast-grid { grid-template-columns: 1fr; }
+}
+
 .history-item { display: flex; justify-content: space-between; align-items: center; gap: 1rem; width: 100%; margin-bottom: .75rem; padding: 1rem; min-height: 44px; text-align: left; cursor: pointer; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); font: inherit; color: var(--text-primary); }
 .history-item__main { display: flex; flex-direction: column; gap: .2rem; }
 .history-item small { color: var(--text-secondary); font-size: var(--text-xs); }
@@ -780,6 +1018,19 @@ summary { cursor: pointer; color: var(--text-primary); font-weight: 600; font-si
 .delete-confirmation__copy { display: flex; flex-direction: column; gap: .4rem; }
 .delete-confirmation__copy p { margin: 0; color: var(--text-primary); line-height: 1.5; }
 .delete-confirmation__copy .hint { color: var(--text-secondary); }
+
+.protection-details { width: 100%; text-align: left; }
+.shortfall { color: var(--negative); font-weight: 600; }
+.forecast-quality { padding: .8rem 0; border-top: 1px solid var(--divider); color: var(--text-secondary); }
+.forecast-quality strong { color: var(--text-primary); }
+.forecast-quality p { margin: .4rem 0 0; font-size: var(--text-xs); line-height: 1.5; }
+.forecast-empty { color: var(--text-secondary); line-height: 1.5; }
+.simulation-comparison { width: 100%; border-collapse: collapse; margin: .7rem 0; font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.simulation-comparison th, .simulation-comparison td { padding: .65rem .25rem; border-bottom: 1px solid var(--divider); text-align: right; }
+.simulation-comparison th:first-child { text-align: left; font-weight: 500; }
+.simulation-comparison td:last-child { color: var(--text-primary); font-weight: 700; }
+@media (max-width: 400px) { .simulation-comparison { font-size: var(--text-xs); } }
+@media (prefers-reduced-motion: reduce) { .progress-track i { transition: none; } }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 

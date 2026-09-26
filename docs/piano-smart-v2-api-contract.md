@@ -2,6 +2,58 @@
 
 Le rotte V2 sono locali al namespace `/api/piano-smart/v2`, richiedono JWT e non modificano saldi o movimenti.
 
+## Situazione corrente
+
+`GET /api/piano-smart/v2/current-situation` legge il contesto finanziario dell'utente e restituisce il riepilogo read-only usato dalla pagina Piano Smart: liquidità, importi protetti, margine disponibile, limite giornaliero, previsione di fine mese, direzione finanziaria, massimo tre suggerimenti, qualità dei dati e avvisi. I valori monetari sono stringhe decimali; la risposta distingue i dati stimati dai dati non stimabili.
+
+Il riepilogo usa il giorno civile Europe/Rome e l’orizzonte da oggi (incluso)
+a fine mese. Non scrive dati finanziari.
+
+- `current.liquidity`: saldo dei conti ordinari; `allocatedToGoals`: importi
+  già accantonati negli obiettivi attivi, incluso il fondo di sicurezza.
+- `protectedAmount`: obiettivi accantonati + impegni del servizio liquidità +
+  ulteriori occorrenze settimanali entro fine mese (`additionalCommitments`).
+  L’importo ancora mancante al target del fondo **non** viene bloccato.
+- `availableToSpend`: liquidità allocabile centrale meno gli ulteriori
+  impegni, limitata a zero; `shortfall` conserva l’eventuale deficit.
+  Vale `liquidity - protectedAmount = availableToSpend - shortfall`.
+- `dailyLimit`: spendibile diviso per i giorni rimanenti, troncato al centesimo.
+- `actualDailySpend`: uscite non ricorrenti registrate nel mese fino a oggi,
+  divise per i giorni dall’inizio del mese o dal primo movimento reale,
+  se successivo. Origini ricorrenti e addebiti generati restano fuori dal ritmo.
+- `forecast.endOfMonthAvailable`: margine netto (anche negativo) meno le
+  spese non ricorrenti proiettate sul periodo residuo. Le entrate future e
+  le rate dei debiti non riconciliate con ricorrenze restano escluse.
+  Il giorno corrente, parziale, conta sia nei giorni osservati sia nel
+  budget residuo: una convenzione prudenziale esplicitata nella UI.
+- `forecast.observedDays`, `quality` e `status`: qualità descrittiva, senza
+  percentuali di precisione inventate. Senza dati di spesa osservabili,
+  ritmo e previsione sono `null`, stato `non_stimabile`, nessun insight numerico
+  di fine mese. Uno zero osservato con storico rimane un dato valido.
+- `forecast.monthlySavings` è una **media storica**, non il risparmio di questo
+  mese. I mesi civili completi restano quelli di `finestraMesi.service.js`.
+- `upcoming.items`: tutte le occorrenze residue entro fine mese, ordinate
+  per data, con `occurrenceKey` univoca, importo decimale e `reserved` che
+  indica se già incluse nella liquidità centrale. Date e deduplica sono quelle
+  del cron; sospese, terminate e occorrenze già addebitate sono escluse.
+  `upcoming.afterTotal` è il margine **già al netto**: non sottrae ancora il totale.
+- `financialDirection.activeGoals`: numero di obiettivi non completati.
+  Lo stato usa il vocabolario di `obiettiviStato.service.js`
+  (`completato`, `in_corso`, `scaduto`, …), non quello dei piani: il conteggio
+  lo fa il backend e il client non lo ricalcola.
+- Gli scenari numerici legacy restano nella risposta quando stimabili:
+  `prudente` applica +20% alla spesa non ricorrente residua, `attuale` usa il
+  ritmo osservato, `limite` usa il limite giornaliero; sono ipotesi deterministiche,
+  non intervalli probabilistici. La pagina privilegia una sola stima spiegata.
+
+Il simulatore frontend sottrae una spesa **aggiuntiva** dai risultati del server,
+senza registrare movimenti. Mostra prima/dopo e conserva valori negativi.
+Accetta importi positivi con al massimo due decimali. Il rischio prevale quando
+lo spendibile o la previsione risultano negativi; una previsione assente resta
+non stimabile. Impatto basso/moderato/alto descrive la quota di spendibile usata
+(≤20%, ≤45%, >45%), non una garanzia di sostenibilità.
+
+
 ## Preview
 
 `POST /api/piano-smart/v2/preview`

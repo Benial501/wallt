@@ -311,5 +311,5 @@ module.exports = {
   processaRicorrenti, avviaCronRicorrenti, getRomeDateParts, FREQUENZE_SUPPORTATE, periodoPerFrequenza,
   periodoPerRicorrenza,
   STATI_RICORRENZA, ricorrenzaAttiva, cambiaStatoRicorrenza,
-  whereRicorrenzaAttiva, normalizzaStatoRicorrenza, muoveSaldo,
+  whereRicorrenzaAttiva, normalizzaStatoRicorrenza, muoveSaldo, valutaOccorrenza,
 };
