@@ -1,10 +1,15 @@
-// tipo_obiettivo distingue un obiettivo generico da un fondo di sicurezza,
-// per cui e' calcolabile mesiCopertura = importoFondo / speseEssenzialiMensili.
+// mesiCopertura = importoFondo / speseEssenzialiMensili: il calcolo puro, che
+// non sa dove i soldi del fondo siano tenuti. Da settembre 2026 sono il saldo
+// di un Conto tipo 'emergenza' (tests/fondoEmergenza.test.js); qui si verifica
+// solo la matematica e la finestra di osservazione.
 const {
   request, createApp, registerUser, authHeader,
 } = require('./setup');
 
 describe('Obiettivo.tipo_obiettivo', () => {
+  // Il fondo di emergenza NON è più un obiettivo: è un Conto tipo 'emergenza'
+  // (tests/fondoEmergenza.test.js). Qui resta solo il presidio che impedisce
+  // al vecchio modello di rientrare da una porta laterale.
   let app;
   let token;
 
@@ -23,13 +28,27 @@ describe('Obiettivo.tipo_obiettivo', () => {
     expect(res.body.obiettivo.tipo_obiettivo).toBe('generico');
   });
 
-  it('accetta fondo_sicurezza esplicitamente', async () => {
+  it('non accetta più fondo_sicurezza: il fondo è un conto, non un obiettivo', async () => {
     const res = await request(app)
       .post('/api/obiettivi')
       .set(authHeader(token))
       .send({ nome: 'Fondo emergenza', importo_target: 5000, tipo_obiettivo: 'fondo_sicurezza' });
 
-    expect(res.body.obiettivo.tipo_obiettivo).toBe('fondo_sicurezza');
+    expect(res.status).toBe(400);
+  });
+
+  it('non accetta fondo_sicurezza nemmeno via update', async () => {
+    const created = await request(app)
+      .post('/api/obiettivi')
+      .set(authHeader(token))
+      .send({ nome: 'Vacanza', importo_target: 1000 });
+
+    const res = await request(app)
+      .put(`/api/obiettivi/${created.body.obiettivo.id}`)
+      .set(authHeader(token))
+      .send({ tipo_obiettivo: 'fondo_sicurezza' });
+
+    expect(res.status).toBe(400);
   });
 
   it('rifiuta un tipo_obiettivo non valido', async () => {
@@ -41,157 +60,16 @@ describe('Obiettivo.tipo_obiettivo', () => {
     expect(res.status).toBe(400);
   });
 
-  it('può essere cambiato via update', async () => {
+  it('l\'endpoint /copertura sugli obiettivi non esiste più', async () => {
     const created = await request(app)
       .post('/api/obiettivi')
       .set(authHeader(token))
       .send({ nome: 'Vacanza', importo_target: 1000 });
 
     const res = await request(app)
-      .put(`/api/obiettivi/${created.body.obiettivo.id}`)
-      .set(authHeader(token))
-      .send({ tipo_obiettivo: 'fondo_sicurezza' });
+      .get(`/api/obiettivi/${created.body.obiettivo.id}/copertura`)
+      .set(authHeader(token));
 
-    expect(res.body.obiettivo.tipo_obiettivo).toBe('fondo_sicurezza');
-  });
-});
-
-describe('FondoSicurezzaService.calcolaMesiCopertura', () => {
-  const { Conto, Movimento } = require('./setup');
-  let app;
-  let token;
-  let userId;
-  let contoId;
-
-  const creaMovimentoUscita = async (importo, categoria, data) => request(app)
-    .post('/api/movimenti')
-    .set(authHeader(token))
-    .send({ conto_id: contoId, tipo: 'uscita', importo, categoria, data });
-
-  beforeEach(async () => {
-    app = createApp({ enableRateLimit: false });
-    const { res } = await registerUser(app);
-    token = res.body.token;
-    userId = res.body.user.id;
-    const contoRes = await request(app).post('/api/conti').set(authHeader(token)).send({ nome: 'C', tipo: 'banca', saldo_iniziale: 10000 });
-    contoId = contoRes.body.conto.id;
-  });
-
-  const creaFondo = async (importoAttuale = 0) => {
-    const res = await request(app)
-      .post('/api/obiettivi')
-      .set(authHeader(token))
-      .send({
-        nome: 'Fondo', importo_target: 10000, tipo_obiettivo: 'fondo_sicurezza', importo_iniziale: importoAttuale,
-      });
-    return res.body.obiettivo.id;
-  };
-
-  it('dati_insufficienti se non c\'è nessuno storico di spese', async () => {
-    const id = await creaFondo(1000);
-    const res = await request(app).get(`/api/obiettivi/${id}/copertura`).set(authHeader(token));
-    expect(res.body.stato).toBe('dati_insufficienti');
-    expect(res.body.mesi_copertura).toBeNull();
-  });
-
-  it('non_calcolabile se c\'è storico ma zero spese essenziali', async () => {
-    const meseScorso = new Date();
-    meseScorso.setMonth(meseScorso.getMonth() - 1);
-    const data = `${meseScorso.toISOString().slice(0, 7)}-01`;
-    await creaMovimentoUscita(100, 'svago', data); // discrezionale, non essenziale
-
-    const id = await creaFondo(1000);
-    const res = await request(app).get(`/api/obiettivi/${id}/copertura`).set(authHeader(token));
-    expect(res.body.stato).toBe('non_calcolabile');
-  });
-
-  it('disponibile con mesi_copertura=0 se il fondo è vuoto ma ci sono spese essenziali', async () => {
-    const meseScorso = new Date();
-    meseScorso.setMonth(meseScorso.getMonth() - 1);
-    const data = `${meseScorso.toISOString().slice(0, 7)}-01`;
-    await creaMovimentoUscita(300, 'affitto', data);
-
-    const id = await creaFondo(0);
-    const res = await request(app).get(`/api/obiettivi/${id}/copertura`).set(authHeader(token));
-    expect(res.body.stato).toBe('disponibile');
-    expect(res.body.mesi_copertura).toBe(0);
-  });
-
-  it('calcola correttamente la copertura con dati completi, anche se l\'obiettivo è completato', async () => {
-    const meseScorso = new Date();
-    meseScorso.setMonth(meseScorso.getMonth() - 1);
-    const data = `${meseScorso.toISOString().slice(0, 7)}-01`;
-    // 900€ nell'unico mese completo osservato: non viene diluito sui mesi
-    // precedenti all'inizio dello storico.
-    await creaMovimentoUscita(900, 'affitto', data);
-
-    const id = await creaFondo(1500);
-    // Completa l'obiettivo per verificare che non cambi il comportamento.
-    await request(app).post(`/api/obiettivi/${id}/contributi`).set(authHeader(token)).send({ importo: 8500 });
-
-    const res = await request(app).get(`/api/obiettivi/${id}/copertura`).set(authHeader(token));
-    expect(res.body.stato).toBe('disponibile');
-    expect(res.body.spese_essenziali_mensili).toBe(900);
-    expect(res.body.mesi_copertura).toBe(round1(10000 / 900));
-
-    function round1(v) { return Math.round(v * 10) / 10; }
-  });
-
-  it('segnala classificazione_incompleta quando una spesa ha una categoria orfana', async () => {
-    const meseScorso = new Date();
-    meseScorso.setMonth(meseScorso.getMonth() - 1);
-    const data = `${meseScorso.toISOString().slice(0, 7)}-01`;
-    await creaMovimentoUscita(900, 'affitto', data);
-    // Simula una categoria personale poi cancellata per davvero (non solo
-    // archiviata): l'API di creazione movimenti non lo permette, si inserisce
-    // direttamente col modello, come farebbe un dato legacy nel DB.
-    await Movimento.create({
-      user_id: userId,
-      conto_id: contoId, tipo: 'uscita', importo: 100, categoria: 'id_orfano_inesistente', data,
-    });
-
-    const id = await creaFondo(1000);
-    const res = await request(app).get(`/api/obiettivi/${id}/copertura`).set(authHeader(token));
-
-    expect(res.body.stato).toBe('disponibile');
-    expect(res.body.classificazione_incompleta).toBe(true);
-    // Le spese essenziali restano solo l'affitto: la quota orfana non vi entra.
-    expect(res.body.spese_essenziali_mensili).toBe(900);
-  });
-
-  it('classificazione_incompleta è false con dati interamente classificati', async () => {
-    const meseScorso = new Date();
-    meseScorso.setMonth(meseScorso.getMonth() - 1);
-    const data = meseScorso.toISOString().split('T')[0];
-    await creaMovimentoUscita(900, 'affitto', data);
-
-    const id = await creaFondo(1000);
-    const res = await request(app).get(`/api/obiettivi/${id}/copertura`).set(authHeader(token));
-
-    expect(res.body.classificazione_incompleta).toBe(false);
-  });
-
-  it('400 se l\'obiettivo non è un fondo di sicurezza', async () => {
-    const created = await request(app).post('/api/obiettivi').set(authHeader(token)).send({ nome: 'Vacanza', importo_target: 1000 });
-    const res = await request(app).get(`/api/obiettivi/${created.body.obiettivo.id}/copertura`).set(authHeader(token));
-    expect(res.status).toBe(400);
-  });
-
-  it('404 se l\'obiettivo non esiste o è di un altro utente', async () => {
-    const res = await request(app).get('/api/obiettivi/999999/copertura').set(authHeader(token));
-    expect(res.status).toBe(404);
-  });
-
-  it('404 se l\'obiettivo esiste ma è di un altro utente', async () => {
-    const { res: registerRes } = await registerUser(app);
-    const altroToken = registerRes.body.token;
-    const altroFondoRes = await request(app)
-      .post('/api/obiettivi')
-      .set(authHeader(altroToken))
-      .send({ nome: 'Fondo altrui', importo_target: 5000, tipo_obiettivo: 'fondo_sicurezza' });
-    const altroId = altroFondoRes.body.obiettivo.id;
-
-    const res = await request(app).get(`/api/obiettivi/${altroId}/copertura`).set(authHeader(token));
     expect(res.status).toBe(404);
   });
 });
@@ -228,7 +106,7 @@ describe('calcolaMesiCopertura — periodo dichiarato e aggregazioni condivise',
     await spesa(9999, 'affitto', '2026-09-10'); // mese corrente: fuori
 
     const res = await calcolaMesiCopertura({
-      userId, obiettivo: { importo_attuale: 1800 }, riferimento,
+      userId, importoFondo: 1800, riferimento,
     });
 
     expect(res.periodo).toEqual({
@@ -241,7 +119,7 @@ describe('calcolaMesiCopertura — periodo dichiarato e aggregazioni condivise',
   it('il periodo dichiarato attraversa il cambio d\'anno', async () => {
     const res = await calcolaMesiCopertura({
       userId,
-      obiettivo: { importo_attuale: 0 },
+      importoFondo: 0,
       riferimento: new Date('2026-02-10T10:00:00Z'),
     });
     expect(res.periodo).toEqual({ da: null, a: null, mesi: 0 });
@@ -249,7 +127,7 @@ describe('calcolaMesiCopertura — periodo dichiarato e aggregazioni condivise',
 
   it('nessuna spesa nel periodo: dati insufficienti, e il periodo resta dichiarato', async () => {
     const res = await calcolaMesiCopertura({
-      userId, obiettivo: { importo_attuale: 500 }, riferimento,
+      userId, importoFondo: 500, riferimento,
     });
     expect(res.stato).toBe('dati_insufficienti');
     expect(res.periodo).toEqual({ da: null, a: null, mesi: 0 });
@@ -258,7 +136,7 @@ describe('calcolaMesiCopertura — periodo dichiarato e aggregazioni condivise',
   it('non diluisce un solo mese completo sui tre mesi richiesti', async () => {
     await spesa(900, 'affitto', '2026-08-01');
     const res = await calcolaMesiCopertura({
-      userId, obiettivo: { importo_attuale: 2700 }, riferimento,
+      userId, importoFondo: 2700, riferimento,
     });
 
     expect(res.spese_essenziali_mensili).toBe(900);
@@ -267,11 +145,32 @@ describe('calcolaMesiCopertura — periodo dichiarato e aggregazioni condivise',
     expect(res.storico_limitato).toBe(true);
   });
 
+  it('segnala classificazione_incompleta quando una spesa ha una categoria orfana', async () => {
+    await spesa(900, 'affitto', '2026-08-01');
+    // Una categoria personale cancellata per davvero (non archiviata): l'API
+    // dei movimenti non lo permette, si inserisce col modello come farebbe un
+    // dato legacy nel database.
+    await spesa(100, 'id_orfano_inesistente', '2026-08-02');
+
+    const res = await calcolaMesiCopertura({ userId, importoFondo: 1000, riferimento });
+
+    expect(res.stato).toBe('disponibile');
+    expect(res.classificazione_incompleta).toBe(true);
+    // Le spese essenziali restano solo l'affitto: la quota orfana non vi entra.
+    expect(res.spese_essenziali_mensili).toBe(900);
+  });
+
+  it('classificazione_incompleta è false con dati interamente classificati', async () => {
+    await spesa(900, 'affitto', '2026-08-01');
+    const res = await calcolaMesiCopertura({ userId, importoFondo: 1000, riferimento });
+    expect(res.classificazione_incompleta).toBe(false);
+  });
+
   it('esclude il primo mese iniziato a metà mese dal denominatore', async () => {
     await spesa(500, 'affitto', '2026-07-15');
     await spesa(900, 'affitto', '2026-08-01');
     const res = await calcolaMesiCopertura({
-      userId, obiettivo: { importo_attuale: 2700 }, riferimento,
+      userId, importoFondo: 2700, riferimento,
     });
 
     expect(res.spese_essenziali_mensili).toBe(900);

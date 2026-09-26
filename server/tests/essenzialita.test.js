@@ -224,19 +224,17 @@ describe('Personalizzazione essenzialità delle categorie predefinite (per utent
       conto_id: contoId, tipo: 'uscita', importo: 300, categoria: 'svago', data,
     });
 
-    const fondoRes = await request(app)
-      .post('/api/obiettivi')
-      .set(authHeader(tokenA))
-      .send({ nome: 'Fondo', importo_target: 10000, tipo_obiettivo: 'fondo_sicurezza' });
-    const copertura = await request(app)
-      .get(`/api/obiettivi/${fondoRes.body.obiettivo.id}/copertura`)
-      .set(authHeader(tokenA));
+    // Il fondo di emergenza è un conto (tests/fondoEmergenza.test.js): la
+    // copertura si legge da lì, non più da un obiettivo.
+    await request(app).post('/api/fondo-emergenza')
+      .set(authHeader(tokenA)).send({ mesi_target: 3 });
+    const fondo = await request(app).get('/api/fondo-emergenza').set(authHeader(tokenA));
 
     // 300€ nell'unico mese completo osservato: senza la personalizzazione
     // 'svago' sarebbe discrezionale e spese_essenziali_mensili sarebbe 0.
     // (stato 'non_calcolabile').
-    expect(copertura.body.stato).toBe('disponibile');
-    expect(copertura.body.spese_essenziali_mensili).toBe(300);
+    expect(fondo.body.copertura.stato).toBe('disponibile');
+    expect(fondo.body.copertura.spese_essenziali_mensili).toBe(300);
   });
 });
 

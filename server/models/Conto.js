@@ -44,6 +44,12 @@ const Conto = sequelize.define('Conto', {
     allowNull: false,
     defaultValue: false,
   },
+  // Solo per il conto di tipo 'emergenza': la soglia del fondo in mesi di
+  // spese essenziali. Null su ogni altro conto.
+  mesi_sicurezza_target: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
 }, {
   tableName: 'conti',
 });

@@ -670,9 +670,12 @@ describe('PATCH /api/piano-smart/:id', () => {
 describe('il cap resta valido anche dopo che il contesto cambia', () => {
   test('un PATCH usa i cap conservati nello snapshot, non quelli di oggi', async () => {
     const { token, userId } = await utenteConStorico();
-    await Obiettivo.create({
-      user_id: userId, nome: 'Fondo', importo_target: 2400, importo_attuale: 100,
-      tipo_obiettivo: 'fondo_sicurezza', completato: false,
+    // Il fondo è un conto nascosto di tipo 'emergenza'. Con 800 €/mese di
+    // spese essenziali nello storico, tre mesi di soglia fanno 2.400 €: lo
+    // stesso traguardo di prima, ora derivato invece che scritto a mano.
+    const fondo = await Conto.create({
+      user_id: userId, nome: 'Fondo', tipo: 'emergenza', saldo: 100,
+      nascosto: true, mesi_sicurezza_target: 3, attivo: true,
     });
 
     const piano = (await request(app).post('/api/piano-smart')
@@ -680,10 +683,7 @@ describe('il cap resta valido anche dopo che il contesto cambia', () => {
 
     // L'utente completa il fondo DOPO aver creato il piano: il gap di oggi è 0,
     // ma le allocazioni del piano restano quelle valide quando è stato creato.
-    await Obiettivo.update(
-      { importo_attuale: 2400 },
-      { where: { user_id: userId, tipo_obiettivo: 'fondo_sicurezza' } },
-    );
+    await fondo.update({ saldo: 2400 });
 
     const safetyOriginale = piano.allocations.find((a) => a.category === 'safety');
     const res = await request(app).patch(`/api/piano-smart/${piano.id}`)

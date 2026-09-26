@@ -93,19 +93,20 @@ const fasciaEmergencyCoverage = (fondo) => {
  * (`dati_mancanti`, `target_non_valido`) non sono eleggibili: non si alloca
  * denaro su un obiettivo di cui non si conosce il traguardo.
  *
- * Il fondo di sicurezza è escluso, e non è un dettaglio: in WALLT il fondo È
- * un obiettivo (`tipo_obiettivo: 'fondo_sicurezza'`), ma nel piano ha già una
- * categoria tutta sua — `safety` — con il suo cap sul gap. Lasciandolo anche
- * fra gli obiettivi riceverebbe denaro da due categorie, e la somma diretta al
- * fondo poteva superare quello che gli manca davvero: verificato su un bonus
- * da 10.000 €, safety al cap di 3.300 € più altri 1.374 € dalla quota
- * obiettivi, cioè 4.674 € verso un fondo che ne chiedeva 3.300.
+ * Il fondo di sicurezza non compare fra gli obiettivi, e non serve più
+ * escluderlo qui: dal settembre 2026 è un CONTO (tipo 'emergenza'), non un
+ * obiettivo, quindi non può entrare in questo elenco per costruzione. Il
+ * motivo per cui va tenuto fuori resta valido e vale la pena ricordarlo: nel
+ * piano il fondo ha già una categoria tutta sua — `safety` — con il suo cap
+ * sul gap, e comparire anche fra gli obiettivi gli faceva ricevere denaro da
+ * due categorie. Verificato su un bonus da 10.000 €: safety al cap di 3.300 €
+ * più altri 1.374 € dalla quota obiettivi, cioè 4.674 € verso un fondo che ne
+ * chiedeva 3.300.
  */
 const obiettivoEleggibile = (o) => o
   && o.stato !== 'completato'
   && o.stato !== 'dati_mancanti'
   && o.stato !== 'target_non_valido'
-  && o.tipo_obiettivo !== 'fondo_sicurezza'
   && numeroValido(o.importo_restante)
   && o.importo_restante > 0;
 

@@ -2,6 +2,7 @@ const { assertCategory } = require('../services/categorie.service');
 const { NATURE_ENTRATA, PERIODICITA_ENTRATA } = require('../services/entrate.service');
 const { LIQUIDABILITA } = require('../services/investimentiLiquidabilita.service');
 const { STATI_RICORRENZA } = require('../services/ricorrenti.service');
+const { MESI_TARGET_AMMESSI } = require('../services/fondoEmergenza.service');
 const { SOURCE_TYPES, STATI_PIANO, CHIAVI_CONTESTO_MANUALE } = require('../constants/pianoSmart');
 const { isImportoValido, toCents } = require('../services/pianoSmart/money');
 const { oggiLocale, FUSO_DEFAULT } = require('../utils/dateRome');
@@ -812,9 +813,12 @@ const validateObiettivo = [
     .optional({ values: 'null' })
     .isDecimal({ decimal_digits: '0,2' })
     .withMessage('Importo iniziale non valido'),
+  // 'fondo_sicurezza' è stato rimosso: il fondo di emergenza è un Conto tipo
+  // 'emergenza' (services/fondoEmergenza.service.js), non un obiettivo. La
+  // colonna resta per le righe storiche, che valgono tutte 'generico'.
   body('tipo_obiettivo')
     .optional({ values: 'null' })
-    .isIn(['generico', 'fondo_sicurezza'])
+    .isIn(['generico'])
     .withMessage('Tipo obiettivo non valido'),
   body('priorita')
     .optional({ values: 'null' })
@@ -845,9 +849,12 @@ const validateUpdateObiettivo = [
     .trim()
     .isLength({ max: 20 })
     .withMessage('Icona non valida'),
+  // 'fondo_sicurezza' è stato rimosso: il fondo di emergenza è un Conto tipo
+  // 'emergenza' (services/fondoEmergenza.service.js), non un obiettivo. La
+  // colonna resta per le righe storiche, che valgono tutte 'generico'.
   body('tipo_obiettivo')
     .optional({ values: 'null' })
-    .isIn(['generico', 'fondo_sicurezza'])
+    .isIn(['generico'])
     .withMessage('Tipo obiettivo non valido'),
   body('priorita')
     .optional({ values: 'null' })
@@ -1437,6 +1444,42 @@ const validatePianoSmartActionId = [
   validate,
 ];
 
+// --- Fondo di emergenza ---
+// 'emergenza' non entra nelle whitelist dei tipi conto: il fondo si crea solo
+// da POST /api/fondo-emergenza, e POST/PATCH /api/conti non possono né crearlo
+// né convertire un conto esistente in fondo.
+const mesiTargetBody = (opzionale) => {
+  const campo = body('mesi_target');
+  if (opzionale) campo.optional({ values: 'null' });
+  return campo
+    .isInt()
+    .toInt()
+    .isIn(MESI_TARGET_AMMESSI)
+    .withMessage(`Mesi di sicurezza non validi: ammessi ${MESI_TARGET_AMMESSI.join(', ')}`);
+};
+
+const validateCreateFondoEmergenza = [
+  body('nome')
+    .optional({ values: 'null' })
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('Nome non valido'),
+  mesiTargetBody(true),
+  validate,
+];
+
+const validateUpdateFondoEmergenza = [
+  body('nome')
+    .optional({ values: 'null' })
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('Nome non valido'),
+  mesiTargetBody(true),
+  validate,
+];
+
 module.exports = {
   validate,
   handleValidation: validate,
@@ -1495,4 +1538,6 @@ module.exports = {
   validateUpdatePianoSmart,
   validatePianoSmartId,
   validatePianoSmartActionId,
+  validateCreateFondoEmergenza,
+  validateUpdateFondoEmergenza,
 };

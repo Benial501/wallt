@@ -5,6 +5,13 @@ const toNumber = (val) => parseFloat(val) || 0;
 const round1 = (val) => Math.round(val * 10) / 10;
 
 /**
+ * Calcolo puro: quanti mesi di spese essenziali copre un dato importo. Chi sia
+ * il fondo, e dove viva quell'importo, non lo decide questo file — dal
+ * settembre 2026 è il saldo di un Conto tipo 'emergenza' e il punto sorgente è
+ * services/fondoEmergenza.service.js (prima era Obiettivo.importo_attuale).
+ * Qui arriva solo `importoFondo`, così il calcolo resta indipendente da dove i
+ * soldi sono tenuti.
+ *
  * mesiCopertura = importoFondo / speseEssenzialiMensili, calcolate sulla
  * media delle spese essenziali negli ultimi `mesi` mesi solari completi
  * (esclude il mese corrente, ancora parziale).
@@ -13,10 +20,12 @@ const round1 = (val) => Math.round(val * 10) / 10;
  * - nessun movimento di uscita nel periodo → 'dati_insufficienti'
  * - c'e' storico ma nessuna spesa e' classificata 'essenziale' → 'non_calcolabile'
  *   (dividere per zero non ha senso)
- * - fondo vuoto (importo_attuale=0) con spese essenziali > 0 → 'disponibile',
+ * - fondo vuoto (importoFondo=0) con spese essenziali > 0 → 'disponibile',
  *   mesi_copertura=0 (e' un risultato legittimo, non un errore)
- * - obiettivo completato → nessun trattamento speciale, la formula si applica
- *   comunque con l'importo_attuale corrente
+ * Nota sul parametro `mesi`: è la FINESTRA di osservazione delle spese (mesi
+ * civili completi da guardare indietro), non la soglia di copertura desiderata
+ * dall'utente. La soglia in mesi vive sul conto
+ * (Conto.mesi_sicurezza_target) e non entra in questo calcolo.
  *
  * Copertura e semi-essenziali: il fondo copre solo le spese 'essenziale',
  * mai le 'semi_essenziale' (comprimibili in caso di necessità, per
@@ -39,8 +48,8 @@ const round1 = (val) => Math.round(val * 10) / 10;
  * e il periodo effettivamente osservato viene restituito in `periodo`
  * invece di restare implicito nel codice.
  */
-async function calcolaMesiCopertura({ userId, obiettivo, mesi = 3, riferimento = new Date() }) {
-  const importoFondo = toNumber(obiettivo.importo_attuale);
+async function calcolaMesiCopertura({ userId, importoFondo: importoRaw, mesi = 3, riferimento = new Date() }) {
+  const importoFondo = toNumber(importoRaw);
   // mesi + 1: la finestra richiesta comprende il mese corrente, che
   // aggregaSpeseMesi marca parziale e tiene fuori dai mesi completi.
   const movimentiStorici = await Movimento.findAll({

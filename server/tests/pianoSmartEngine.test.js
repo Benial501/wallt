@@ -323,11 +323,13 @@ describe('obiettivi', () => {
     expect(alta.amountCents).toBeGreaterThan(bassa.amountCents);
   });
 
-  test('il fondo di sicurezza non riceve anche dalla quota obiettivi', () => {
-    // Il fondo È un obiettivo nel modello dati di WALLT, ma nel piano ha già
-    // la sua categoria (`safety`) con il cap sul gap. Se restasse eleggibile
-    // anche fra gli obiettivi riceverebbe da due categorie, e il totale
-    // diretto al fondo potrebbe superare quello che gli manca davvero.
+  test('il fondo riceve solo dalla sua categoria: fra gli obiettivi non c\'è', () => {
+    // Il fondo non può comparire fra gli obiettivi: da settembre 2026 è un
+    // conto (services/fondoEmergenza.service.js), non un obiettivo. Prima lo
+    // era, e andava escluso a mano da `goals`, altrimenti riceveva denaro da
+    // due categorie — `safety` più la quota obiettivi — e il totale diretto al
+    // fondo poteva superare quello che gli mancava davvero. L'invariante resta
+    // e qui si verifica che valga: solo gli obiettivi veri entrano in `goals`.
     const esito = piano({
       incomingCents: 1000000,
       context: contestoFinto({
@@ -335,22 +337,19 @@ describe('obiettivi', () => {
           coverageMonths: 1, current: 900, target: 3300, targetMonths: 4, missingAmount: 2400,
         },
         goals: [
-          obiettivoFinto({
-            id: 1, nome: 'Fondo di sicurezza', tipo_obiettivo: 'fondo_sicurezza', importo_restante: 2400,
-          }),
           obiettivoFinto({ id: 2, nome: 'Viaggio', importo_restante: 1500 }),
         ],
       }),
     });
     const dettaglio = esito.allocations.find((a) => a.category === 'goals').metadata.goals;
     expect(dettaglio.map((g) => g.id)).toEqual([2]);
-    expect(dettaglio.some((g) => g.nome === 'Fondo di sicurezza')).toBe(false);
+    expect(quote(esito).safety).toBeLessThanOrEqual(240000);
   });
 
-  test('con il solo fondo di sicurezza la quota obiettivi è zero', () => {
+  test('senza obiettivi eleggibili la quota obiettivi è zero', () => {
     const esito = piano({
       context: contestoFinto({
-        goals: [obiettivoFinto({ tipo_obiettivo: 'fondo_sicurezza', importo_restante: 2400 })],
+        goals: [obiettivoFinto({ stato: 'completato', importo_restante: 0 })],
       }),
     });
     expect(quote(esito).goals).toBe(0);
@@ -366,7 +365,6 @@ describe('obiettivi', () => {
           coverageMonths: 1, current: 900, target: 3300, targetMonths: 4, missingAmount: 2400,
         },
         goals: [
-          obiettivoFinto({ id: 1, nome: 'Fondo', tipo_obiettivo: 'fondo_sicurezza', importo_restante: 2400 }),
           obiettivoFinto({ id: 2, nome: 'Viaggio', importo_restante: 1500 }),
         ],
       }),

@@ -9,6 +9,7 @@ const {
 } = require('../services/scommesseContoSync.service');
 const { calcolaPatrimonio, calcolaPatrimonioNetto, calcolaVariazioneMensile } = require('../services/financialSummary.service');
 const { calcolaLiquidita } = require('../services/liquidita.service');
+const { isContoFondo } = require('../services/fondoEmergenza.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
 
@@ -161,6 +162,20 @@ const updateConto = async (req, res) => {
     const {
       nome, icona, colore, ordine, saldo, nascosto,
     } = req.body;
+
+    // Il fondo di emergenza resta sempre fuori dai soldi spendibili: è il
+    // "default non cambiabile" della funzione. Renderlo visibile lo farebbe
+    // rientrare nel saldo effettivo e nel capitale allocabile di Piano Smart,
+    // cioè lo farebbe tornare denaro come tutti gli altri.
+    // `tipo` non è fra i campi aggiornabili qui sopra, quindi un conto non può
+    // nemmeno essere convertito in fondo (o smettere di esserlo) da questa API.
+    if (isContoFondo(conto) && nascosto === false) {
+      await t.rollback();
+      return res.status(400).json({
+        message: 'Il fondo di emergenza resta fuori dai soldi spendibili: puoi chiuderlo, non renderlo spendibile',
+      });
+    }
+
     const updateData = {};
     if (nome !== undefined) updateData.nome = nome;
     if (icona !== undefined) updateData.icona = icona;

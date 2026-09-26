@@ -1,6 +1,5 @@
 const logger = require('../utils/logger');
 const { Obiettivo, ObiettivoContributo } = require('../models');
-const { calcolaMesiCopertura } = require('../services/fondoSicurezza.service');
 const { calcolaProgressoObiettivo } = require('../services/obiettiviStato.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
@@ -186,27 +185,6 @@ const getProiezione = async (req, res) => {
   }
 };
 
-const getCopertura = async (req, res) => {
-  try {
-    const obiettivo = await Obiettivo.findOne({
-      where: { id: req.params.id, user_id: req.userId },
-    });
-
-    if (!obiettivo) {
-      return res.status(404).json({ message: 'Obiettivo non trovato' });
-    }
-    if (obiettivo.tipo_obiettivo !== 'fondo_sicurezza') {
-      return res.status(400).json({ message: 'L\'obiettivo non è un fondo di sicurezza' });
-    }
-
-    const risultato = await calcolaMesiCopertura({ userId: req.userId, obiettivo });
-    res.json(risultato);
-  } catch (error) {
-    logger.error('Errore getCopertura', { err: error });
-    res.status(500).json({ message: 'Errore nel calcolo della copertura' });
-  }
-};
-
 module.exports = {
   getObiettivi,
   createObiettivo,
@@ -214,5 +192,4 @@ module.exports = {
   deleteObiettivo,
   addContributo,
   getProiezione,
-  getCopertura,
 };

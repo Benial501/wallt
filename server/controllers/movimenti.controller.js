@@ -8,6 +8,7 @@ const CategoryLearningService = require('../services/import/CategoryLearningServ
 const { aggiornaSaldoConto } = require('../services/scommesseContoSync.service');
 const { calcolaEntrate } = require('../services/entrate.service');
 const { cambiaStatoRicorrenza, muoveSaldo } = require('../services/ricorrenti.service');
+const { isContoFondo } = require('../services/fondoEmergenza.service');
 // Valutazione delle soglie di budget dopo una scrittura. Gira FUORI dalla
 // transazione, non lancia mai e non può alterare saldi o esito
 // dell'operazione (vedi services/notifiche/NotificheGenerator.js).
@@ -206,6 +207,16 @@ const createMovimento = async (req, res, next) => {
       return res.status(404).json({ error: 'Conto non trovato' });
     }
 
+    // Il fondo di emergenza non accetta entrate o uscite dirette: il denaro vi
+    // entra ed esce solo con un trasferimento fra conti, che è ciò che
+    // distingue una riserva da un normale conto di spesa.
+    if (isContoFondo(conto)) {
+      await t.rollback();
+      return res.status(400).json({
+        message: 'Il fondo di emergenza non accetta entrate o uscite dirette: sposta il denaro con un trasferimento fra conti',
+      });
+    }
+
     if (tipo === 'uscita' && conto.tipo !== 'carta_credito') {
       if (toNumber(conto.saldo) < importoNum) {
         await t.rollback();
@@ -312,6 +323,16 @@ const updateMovimento = async (req, res, next) => {
     if (!contoNuovo) {
       await t.rollback();
       return res.status(404).json({ message: 'Conto destinazione non trovato' });
+    }
+
+    // Stesso vincolo della creazione: un movimento non può essere spostato sul
+    // fondo di emergenza, altrimenti la strada vietata in createMovimento si
+    // riaprirebbe in due passaggi.
+    if (isContoFondo(contoNuovo)) {
+      await t.rollback();
+      return res.status(400).json({
+        message: 'Il fondo di emergenza non accetta entrate o uscite dirette: sposta il denaro con un trasferimento fra conti',
+      });
     }
 
     if (nuovoImporto <= 0) {

@@ -20,7 +20,7 @@ const { calcolaPatrimonioNetto } = require('./financialSummary.service');
 const { calcolaLiquidita } = require('./liquidita.service');
 const { aggregaSpeseMesi, aggregaMedieSpeseFrequenti } = require('./spese.service');
 const { calcolaEntrate } = require('./entrate.service');
-const { calcolaMesiCopertura } = require('./fondoSicurezza.service');
+const { descriviFondo } = require('./fondoEmergenza.service');
 const { riepilogo: riepilogoDebiti, calcolaPressioneDebitoria } = require('./debiti.service');
 const { calcolaProgressoObiettivo } = require('./obiettiviStato.service');
 const { descriviLiquidabilita } = require('./investimentiLiquidabilita.service');
@@ -165,17 +165,22 @@ async function riepilogoInvestimenti(userId) {
 }
 
 /**
- * Fondo di sicurezza: cerca l'obiettivo tipo_obiettivo='fondo_sicurezza'
- * dell'utente (al più uno per costruzione della UI, ma la query non lo
- * presume: prende il primo attivo). Nessun fondo definito è uno stato
- * esplicito ('assente'), non un errore né uno zero.
+ * Fondo di sicurezza: dal settembre 2026 è un CONTO (tipo 'emergenza',
+ * nascosto), non più un obiettivo — vedi services/fondoEmergenza.service.js,
+ * che è il punto sorgente unico. Qui si legge solo, e la forma del contratto
+ * verso Piano Smart (`emergencyFund`) è rimasta identica: il motore, i suoi
+ * test di invarianza e il glossario del client non sono stati toccati.
+ *
+ * Nessun fondo definito è uno stato esplicito ('assente'), non un errore né
+ * uno zero.
+ *
+ * `targetMonths` ora è la soglia scelta dall'utente (Conto.mesi_sicurezza_target)
+ * invece di un rapporto derivato da importo_target: è lo stesso numero, ma
+ * dichiarato invece che ricostruito.
  */
 async function riepilogoFondoSicurezza(userId, referenceDate) {
-  const fondo = await Obiettivo.findOne({
-    where: { user_id: userId, tipo_obiettivo: 'fondo_sicurezza' },
-    order: [['createdAt', 'ASC']],
-  });
-  if (!fondo) {
+  const fondo = await descriviFondo(userId, { riferimento: referenceDate });
+  if (!fondo.esiste) {
     return {
       essentialMonthlyExpenses: null,
       current: null,
@@ -189,17 +194,18 @@ async function riepilogoFondoSicurezza(userId, referenceDate) {
     };
   }
 
-  const copertura = await calcolaMesiCopertura({ userId, obiettivo: fondo, riferimento: referenceDate });
-  const target = toNumber(fondo.importo_target);
-  const current = toNumber(fondo.importo_attuale);
+  const { copertura } = fondo;
   return {
     essentialMonthlyExpenses: copertura.spese_essenziali_mensili,
-    current,
-    target,
-    targetMonths: copertura.spese_essenziali_mensili
-      ? round2(target / copertura.spese_essenziali_mensili) : null,
+    current: fondo.importo,
+    // La soglia in euro non è un dato salvato: è mesi_target × spese
+    // essenziali mensili (fondoEmergenza.service.js). Resta null quando le
+    // spese essenziali non sono calcolabili, e con lei missingAmount: meglio
+    // nessun numero che un traguardo inventato.
+    target: fondo.soglia_euro,
+    targetMonths: fondo.mesi_target,
     coverageMonths: copertura.mesi_copertura,
-    missingAmount: round2(Math.max(target - current, 0)),
+    missingAmount: fondo.mancante,
     status: copertura.stato,
     classificazione_incompleta: copertura.classificazione_incompleta ?? null,
     // Il fondo ha una finestra propria (tre mesi civili completi) diversa da

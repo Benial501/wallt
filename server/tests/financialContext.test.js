@@ -134,8 +134,10 @@ describe('getFinancialContext — utente con dati su più domini', () => {
   });
 
   it('il fondo di sicurezza dichiara la propria finestra, distinta da quella delle medie', async () => {
-    await Obiettivo.create({
-      user_id: userId, nome: 'Fondo', tipo_obiettivo: 'fondo_sicurezza', importo_target: 5000, importo_attuale: 1000,
+    // Il fondo è un conto nascosto di tipo 'emergenza', non un obiettivo:
+    // services/fondoEmergenza.service.js.
+    await Conto.create({
+      user_id: userId, nome: 'Fondo', tipo: 'emergenza', saldo: 1000, nascosto: true, mesi_sicurezza_target: 3, attivo: true,
     });
     const ctx = await getFinancialContext(userId, { referenceDate: riferimento, historyMonths: 12 });
     // Tre mesi civili completi, sempre e comunque: è la regola del fondo, non
