@@ -133,9 +133,7 @@ const mobileNav = computed(() => [
   { path: '/dashboard', icon: Home, label: 'Home' },
   { path: '/movimenti', icon: ArrowLeftRight, label: 'Transazioni' },
   { path: '/funzionalita/piano-smart', icon: Sparkles, label: 'Piano Smart' },
-  canAccessInvestimentiFeature.value
-    ? { path: '/investimenti', icon: TrendingUp, label: 'Investimenti' }
-    : { path: '/analisi', icon: TrendingUp, label: 'Analisi' },
+  { path: '/analisi', icon: TrendingUp, label: 'Analisi' },
   { path: 'altro', icon: LayoutGrid, label: 'Altro' },
 ]);
 
