@@ -54,6 +54,14 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date()) {
     attributes: ['ricorrenza_origine_id', 'ricorrenza_periodo'],
   }) : [];
   const eseguiti = new Set(addebiti.map((m) => `${m.ricorrenza_origine_id}:${m.ricorrenza_periodo}`));
+  // Un'occorrenza si annuncia una volta sola, il primo giorno in cui è
+  // dovuta. Serve perché valutaOccorrenza apre una FINESTRA, non un istante:
+  // una mensile è dovuta dal suo giorno in poi (recupero di un cron saltato,
+  // vedi ricorrenti.service.js), quindi scorrendo i giorni la stessa scadenza
+  // risulterebbe dovuta ogni giorno fino a fine mese. Per il cron è corretto
+  // — l'indice unico lo limita a un addebito — ma qui produrrebbe una lista
+  // di duplicati al posto del calendario.
+  const emesse = new Set();
   const items = [];
   ricorrenti.forEach((r) => {
     const stato = normalizzaStatoRicorrenza(r.stato_ricorrenza);
@@ -67,7 +75,8 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date()) {
         const giorno = getRomeDateParts(new Date(`${date}T12:00:00Z`));
         const { dovuto, periodo } = valutaOccorrenza(r, giorno);
         const occurrenceKey = `${r.id}:${periodo}`;
-        if (!dovuto || eseguiti.has(occurrenceKey)) continue;
+        if (!dovuto || eseguiti.has(occurrenceKey) || emesse.has(occurrenceKey)) continue;
+        emesse.add(occurrenceKey);
         items.push({
           id: r.id, occurrenceKey, description: r.descrizione, amount: toNumber(r.importo),
           dueDate: date, frequency: r.ricorrente_frequenza,
