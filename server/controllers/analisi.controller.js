@@ -289,7 +289,8 @@ const getSuggerimenti = async (req, res) => {
     // Giorno civile nel fuso applicativo (Europe/Rome), non nel fuso del
     // processo (UTC su Vercel): vicino alla mezzanotte i due disaccordano
     // sul mese corrente. Vedi CLAUDE.md § Date e timezone.
-    const { mese: meseCorrente, anno: annoCorrente } = partiLocali(new Date(), FUSO_DEFAULT);
+    const adesso = new Date();
+    const { mese: meseCorrente, anno: annoCorrente } = partiLocali(adesso, FUSO_DEFAULT);
     const mesePrec = meseCorrente === 1 ? 12 : meseCorrente - 1;
     const annoPrec = meseCorrente === 1 ? annoCorrente - 1 : annoCorrente;
 
@@ -420,7 +421,7 @@ const getSuggerimenti = async (req, res) => {
       if (mancante <= 0) return;
 
       const deadline = new Date(obj.deadline);
-      const mesiRim = Math.max(1, Math.ceil((deadline - now) / (1000 * 60 * 60 * 24 * 30)));
+      const mesiRim = Math.max(1, Math.ceil((deadline - adesso) / (1000 * 60 * 60 * 24 * 30)));
       const rataNecessaria = mancante / mesiRim;
 
       const contributi = obj.contributi || [];
