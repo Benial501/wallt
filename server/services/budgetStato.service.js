@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const { BudgetMensile, BudgetCategoria, Movimento } = require('../models');
+const { muoveSaldo } = require('./ricorrenti.service');
 
 /**
  * Calcolo dello stato di avanzamento del budget mensile.
@@ -102,8 +103,14 @@ const calcolaStatoBudget = async ({ userId, mese, anno }) => {
     },
   });
 
+  // Una ricorrenza (regola) non è una spesa avvenuta: crearla non deve far
+  // scattare "budget superato" prima che il cron l'abbia davvero addebitata,
+  // altrimenti l'utente riceve un alert falso e vede uno "speso" che il suo
+  // conto non riflette (vedi muoveSaldo, ricorrenti.service.js). I
+  // trasferimenti contati nel budget (TRASFERIMENTI_NEL_BUDGET) hanno sempre
+  // ricorrente: false, quindi il filtro non li tocca.
   const spesoPerCategoria = {};
-  movimenti.forEach((m) => {
+  movimenti.filter(muoveSaldo).forEach((m) => {
     const cat = m.categoria || 'altro_uscita';
     spesoPerCategoria[cat] = (spesoPerCategoria[cat] || 0) + toNumber(m.importo);
   });

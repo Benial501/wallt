@@ -25,8 +25,27 @@ const { formatValuta } = useValuta();
 
 const MAX_VOCI = 4;
 
-const spese = computed(() => ordinaProssimeSpese(props.movimenti).slice(0, MAX_VOCI));
-const totaleSpese = computed(() => ordinaProssimeSpese(props.movimenti).length);
+// Unica fonte per la lista mostrata: `spese` e `totaleSpese` derivano da qui,
+// invece di richiamare due volte `ordinaProssimeSpese` (filtro+sort ripetuti
+// a ogni render per lo stesso risultato).
+const prossimeSpese = computed(() => ordinaProssimeSpese(props.movimenti));
+const spese = computed(() => prossimeSpese.value.slice(0, MAX_VOCI));
+const totaleSpese = computed(() => prossimeSpese.value.length);
+
+/**
+ * Lo stato passato a `DataState` non può essere quello grezzo della risorsa:
+ * `risorsaRicorrenti.stato` dice "vuoto" solo se l'array delle ricorrenze è
+ * vuoto, ma la card mostra `prossimeSpese`, un sottoinsieme filtrato. Un
+ * utente con solo entrate ricorrenti (o solo ricorrenze sospese) avrebbe la
+ * risorsa "pronto" e la card vuota senza lo slot `#vuoto`.
+ *
+ * La correzione vale solo quando la risorsa è davvero "pronto": un errore di
+ * rete deve restare un errore (con il suo "riprova"), mai travestirsi da
+ * vuoto solo perché la lista filtrata coincide.
+ */
+const statoLista = computed(() => (
+  props.stato === 'pronto' && prossimeSpese.value.length === 0 ? 'vuoto' : props.stato
+));
 
 /** "Oggi" / "Domani" / "fra 5 giorni" entro la settimana, poi la data. */
 const quando = (spesa) => {
@@ -50,7 +69,7 @@ const quando = (spesa) => {
     </div>
 
     <DataState
-      :stato="stato"
+      :stato="statoLista"
       :last-updated="lastUpdated"
       messaggio-errore="Non e stato possibile caricare le prossime spese."
       skeleton-type="text"

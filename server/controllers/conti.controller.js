@@ -1,5 +1,4 @@
 const logger = require('../utils/logger');
-const { Op } = require('sequelize');
 const { sequelize, Conto, Movimento, Investimento } = require('../models');
 const {
   ensurePiattaformaForConto,
@@ -8,9 +7,8 @@ const {
   deactivateLinkedPiattaforma,
   backfillUserLinks,
 } = require('../services/scommesseContoSync.service');
-const { calcolaPatrimonio, calcolaPatrimonioNetto } = require('../services/financialSummary.service');
+const { calcolaPatrimonio, calcolaPatrimonioNetto, calcolaVariazioneMensile } = require('../services/financialSummary.service');
 const { calcolaLiquidita } = require('../services/liquidita.service');
-const { muoveSaldo } = require('../services/ricorrenti.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
 
@@ -225,29 +223,10 @@ const getPatrimonioTotale = async (req, res) => {
       calcolaLiquidita(req.userId),
     ]);
 
-    const now = new Date();
-    const primoGiorno = new Date(now.getFullYear(), now.getMonth(), 1);
-    const dataInizio = primoGiorno.toISOString().split('T')[0];
-
-    const movimentiMese = await Movimento.findAll({
-      where: {
-        user_id: req.userId,
-        data: { [Op.gte]: dataInizio },
-        tipo: { [Op.in]: ['entrata', 'uscita'] },
-      },
-    });
-
-    // La variazione del mese è una differenza di patrimonio, quindi conta solo
-    // il denaro che si è davvero mosso: una spesa programmata non ancora
-    // addebitata non ha cambiato il patrimonio (vedi muoveSaldo), e sommarla
-    // qui farebbe dire alla dashboard "sei in calo di 300 €" per un'uscita che
-    // non è ancora avvenuta. Quando il cron la addebita crea la sua occorrenza,
-    // che invece viene contata.
-    let deltaMese = 0;
-    movimentiMese.filter(muoveSaldo).forEach((m) => {
-      if (m.tipo === 'entrata') deltaMese += toNumber(m.importo);
-      else if (m.tipo === 'uscita') deltaMese -= toNumber(m.importo);
-    });
+    // La variazione del mese è una differenza di patrimonio: il calcolo
+    // (filtrato con muoveSaldo, Regola 11/20) è condiviso con
+    // analisi.controller.js#getSuggerimenti, vedi financialSummary.service.js.
+    const deltaMese = await calcolaVariazioneMensile(req.userId);
 
     const totaleInizioMese = totale - deltaMese;
     const variazione_importo = Math.round((totale - totaleInizioMese) * 100) / 100;

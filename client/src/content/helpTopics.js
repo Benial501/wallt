@@ -75,10 +75,12 @@ const TOPICS = [
   {
     id: 'movimento-ricorrenza',
     title: 'Movimenti ricorrenti',
-    summary: 'La ricorrenza disponibile è mensile.',
+    summary: 'Una ricorrenza è una regola: il movimento lo registra WALLT a ogni scadenza.',
     paragraphs: [
-      'Segnando un movimento come ricorrente, WALLT lo ripete ogni mese nel giorno che indichi: è pensato per affitto, abbonamenti e bollette a importo fisso.',
-      'La sola frequenza gestita è quella mensile. Non esistono ricorrenze giornaliere, settimanali o annuali.',
+      'Segnando un movimento come ricorrente crei una regola, pensata per affitto, abbonamenti e bollette a importo fisso. Il movimento vero lo registra WALLT a ogni scadenza, ed è in quel momento che il saldo del conto cambia: salvare la regola non addebita nulla subito, nemmeno se la scadenza è oggi.',
+      'Il controllo passa una volta al giorno. Per una ricorrenza mensile, se il giorno del mese è già passato quando crei la regola, il primo addebito arriva al controllo successivo senza saltare il mese.',
+      'Intanto l\'uscita è già visibile in home nel saldo effettivo, come impegno: il denaro è ancora sul conto, ma sai che è promesso.',
+      'Puoi ripetere il movimento ogni mese, ogni settimana o ogni anno. Dalla pagina Ricorrenti puoi anche programmare un\'uscita una sola volta, in una data precisa.',
     ],
   },
   {
@@ -87,7 +89,7 @@ const TOPICS = [
     summary: 'Controlla le ricorrenze mensili, la prossima esecuzione e il conto coinvolto.',
     paragraphs: [
       'La pagina Ricorrenti raccoglie in un solo posto i movimenti mensili già configurati. Per ciascuno mostra importo, conto, giorno del mese e prossima esecuzione prevista.',
-      'Puoi modificare i dati della ricorrenza oppure eliminarla. Al momento non è possibile metterla in pausa: se non deve più essere eseguita, eliminala e ricreala quando ti servirà di nuovo.',
+      'Puoi modificare i dati della ricorrenza, sospenderla o terminarla. Una ricorrenza sospesa o terminata non viene più addebitata e smette di pesare sul saldo effettivo: sospendila per fermarla senza perderne lo storico, e riprendila quando ti servirà di nuovo. Riprendendola non arrivano arretrati.',
       'Se il giorno scelto non esiste in un mese, la prossima esecuzione cade nell\'ultimo giorno disponibile di quel mese.',
     ],
     link: { label: 'Vai a Ricorrenti', to: '/ricorrenti' },

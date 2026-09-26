@@ -358,6 +358,83 @@ describe('Isolamento tra utenti (USER_A vs USER_B)', () => {
     expect(movimentiB.length).toBeGreaterThan(0);
   });
 
+  it('USER_A non può leggere né modificare Conto.nascosto di USER_B', async () => {
+    const contoNascostoB = await Conto.create({
+      user_id: userIdB,
+      nome: 'Conto nascosto B',
+      tipo: 'banca',
+      saldo: 500,
+      attivo: true,
+      nascosto: true,
+    });
+
+    // Lettura: il conto nascosto di B non deve comparire nella lista di A,
+    // né dentro né fuori dal saldo effettivo (che dipende da `nascosto`).
+    const listRes = await request(app)
+      .get('/api/conti')
+      .set(authHeader(tokenA));
+    expect(listRes.body.conti.some((c) => c.id === contoNascostoB.id)).toBe(false);
+
+    // Scrittura: A non può togliere il flag `nascosto` di un conto di B
+    // passandone l'id nell'URL.
+    const putRes = await request(app)
+      .put(`/api/conti/${contoNascostoB.id}`)
+      .set(authHeader(tokenA))
+      .send({ nascosto: false });
+    expect(putRes.status).toBe(404);
+
+    await contoNascostoB.reload();
+    expect(contoNascostoB.nascosto).toBe(true);
+  });
+
+  it('USER_A non può leggere né modificare Movimento.ricorrente_data di USER_B', async () => {
+    const domani = new Date();
+    domani.setDate(domani.getDate() + 1);
+    const dataOriginale = domani.toISOString().split('T')[0];
+
+    const spesaProgrammataB = await Movimento.create({
+      user_id: userIdB,
+      conto_id: contoB.id,
+      tipo: 'uscita',
+      importo: 42,
+      categoria: 'cibo_spesa',
+      descrizione: 'Spesa programmata segreta B',
+      data: dataOriginale,
+      ricorrente: true,
+      ricorrente_frequenza: 'una_tantum',
+      ricorrente_data: dataOriginale,
+    });
+
+    // Lettura: la spesa programmata di B non deve comparire fra i movimenti
+    // (e quindi le sue ricorrente_data) restituiti ad A.
+    const listRes = await request(app)
+      .get('/api/movimenti')
+      .set(authHeader(tokenA));
+    const idsA = (listRes.body.movimenti || []).map((m) => m.id);
+    expect(idsA).not.toContain(spesaProgrammataB.id);
+
+    // Scrittura: A non può spostare la data di addebito di una spesa
+    // programmata di B passandone l'id nell'URL.
+    const nuovaData = new Date();
+    nuovaData.setDate(nuovaData.getDate() + 30);
+    const putRes = await request(app)
+      .put(`/api/movimenti/${spesaProgrammataB.id}`)
+      .set(authHeader(tokenA))
+      // ricorrente_frequenza è richiesto insieme a ricorrente_data dalla
+      // validazione (la data si usa solo per una spesa programmata): senza,
+      // la richiesta verrebbe respinta con 400 prima di arrivare al
+      // controller, mascherando l'esito che vogliamo verificare (404).
+      .send({
+        ricorrente: true,
+        ricorrente_frequenza: 'una_tantum',
+        ricorrente_data: nuovaData.toISOString().split('T')[0],
+      });
+    expect(putRes.status).toBe(404);
+
+    await spesaProgrammataB.reload();
+    expect(spesaProgrammataB.ricorrente_data).toBe(dataOriginale);
+  });
+
   it('USER_A non può modificare il profilo di USER_B (nessun modo di specificare un userId diverso)', async () => {
     const res = await request(app)
       .put('/api/impostazioni/profilo')
