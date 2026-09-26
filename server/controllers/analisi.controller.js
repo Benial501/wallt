@@ -7,7 +7,8 @@ const {
   Movimento, Conto, BudgetMensile, BudgetCategoria,
   Obiettivo, ObiettivoContributo, MovimentoScommesse, Investimento,
 } = require('../models');
-const { calcolaPatrimonio } = require('../services/financialSummary.service');
+const { calcolaPatrimonio, calcolaVariazioneMensile } = require('../services/financialSummary.service');
+const { muoveSaldo } = require('../services/ricorrenti.service');
 const { partiLocali, FUSO_DEFAULT } = require('../utils/dateRome');
 
 const toNumber = (val) => parseFloat(val) || 0;
@@ -53,9 +54,11 @@ const buildDistribuzione = async (userId, tipo, { da, a }) => {
     if (a) where.data[Op.lte] = a;
   }
 
-  const movimenti = await Movimento.findAll({ where, attributes: ['categoria', 'importo'] });
+  const movimenti = await Movimento.findAll({ where, attributes: ['categoria', 'importo', 'ricorrente'] });
   const map = {};
-  movimenti.forEach((m) => {
+  // Una ricorrenza (regola) non è una spesa/entrata avvenuta: i grafici delle
+  // Analisi contano solo ciò che ha davvero mosso denaro (vedi muoveSaldo).
+  movimenti.filter(muoveSaldo).forEach((m) => {
     const cat = m.categoria || (tipo === 'entrata' ? 'altro_entrata' : 'altro_uscita');
     map[cat] = (map[cat] || 0) + toNumber(m.importo);
   });
@@ -124,12 +127,14 @@ const getConfrontoMesi = async (req, res) => {
         data: { [Op.between]: [periodi[0].da, periodi[periodi.length - 1].a] },
         tipo: { [Op.in]: ['entrata', 'uscita'] },
       },
-      attributes: ['data', 'tipo', 'importo'],
+      attributes: ['data', 'tipo', 'importo', 'ricorrente'],
     });
 
     const totali = new Map(periodi.map((p) => [p.chiave, { entrate: 0, uscite: 0 }]));
 
-    movimenti.forEach((m) => {
+    // Una ricorrenza (regola) non è denaro mosso: esclusa dal confronto per
+    // lo stesso motivo di buildDistribuzione (vedi muoveSaldo).
+    movimenti.filter(muoveSaldo).forEach((m) => {
       // `data` e' DATEONLY: Sequelize la restituisce come stringa YYYY-MM-DD.
       // Confrontare stringhe ISO equivale a confrontare date ed evita di
       // reintrodurre il fuso orario del processo nel calcolo.
@@ -217,13 +222,16 @@ const getAndamentoPatrimonio = async (req, res) => {
         data: { [Op.between]: [periodi[0].da, periodi[periodi.length - 1].a] },
         tipo: { [Op.in]: ['entrata', 'uscita'] },
       },
-      attributes: ['data', 'tipo', 'importo'],
+      attributes: ['data', 'tipo', 'importo', 'ricorrente'],
     });
 
     // Saldo netto di ogni periodo. Una sola passata sui movimenti invece di
     // una scansione completa per punto, come faceva la versione precedente.
+    // Una ricorrenza (regola) non ha ancora mosso denaro: contarla qui
+    // sposterebbe indietro nel tempo un punto del grafico per un'uscita non
+    // ancora avvenuta (vedi muoveSaldo).
     const delta = new Map(periodi.map((p) => [p.chiave, 0]));
-    movimenti.forEach((m) => {
+    movimenti.filter(muoveSaldo).forEach((m) => {
       const giorno = String(m.data).slice(0, 10);
       const periodo = periodi.find((p) => giorno >= p.da && giorno <= p.a);
       if (!periodo) return;
@@ -302,7 +310,10 @@ const getSuggerimenti = async (req, res) => {
       });
       const map = {};
       let tot = 0;
-      movs.forEach((mv) => {
+      // Una ricorrenza (regola) non è ancora una spesa avvenuta: contarla
+      // qui genererebbe un alert "categoria X: +50%" per un'uscita che il
+      // conto non ha ancora subito (vedi muoveSaldo).
+      movs.filter(muoveSaldo).forEach((mv) => {
         const c = mv.categoria || 'altro_uscita';
         map[c] = (map[c] || 0) + toNumber(mv.importo);
         tot += toNumber(mv.importo);
@@ -392,15 +403,12 @@ const getSuggerimenti = async (req, res) => {
     });
 
     const { patrimonio_totale: patrimonio } = await calcolaPatrimonio(req.userId);
-    const movimentiMese = await Movimento.findAll({
-      where: {
-        user_id: req.userId,
-        data: { [Op.gte]: `${annoCorrente}-${String(meseCorrente).padStart(2, '0')}-01` },
-        tipo: { [Op.in]: ['entrata', 'uscita'] },
-      },
-    });
-    let delta = 0;
-    movimentiMese.forEach((m) => { delta += m.tipo === 'entrata' ? toNumber(m.importo) : -toNumber(m.importo); });
+    // Stesso calcolo di conti.controller.js#getPatrimonioTotale, dallo stesso
+    // punto sorgente: prima era duplicato qui senza il filtro muoveSaldo, e
+    // una ricorrenza appena creata faceva dire "patrimonio in crescita" (o in
+    // calo) per un mese in cui il conto non si era ancora mosso (CLAUDE.md
+    // Regola 20).
+    const delta = await calcolaVariazioneMensile(req.userId);
     if (delta > 0) {
       suggerimenti.push({
         tipo: 'positivo',

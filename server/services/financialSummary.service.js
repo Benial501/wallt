@@ -1,4 +1,6 @@
-const { Conto, Investimento, Debito } = require('../models');
+const { Op } = require('sequelize');
+const { Conto, Investimento, Debito, Movimento } = require('../models');
+const { muoveSaldo } = require('./ricorrenti.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
 const round2 = (val) => Math.round(val * 100) / 100;
@@ -50,4 +52,40 @@ async function calcolaPatrimonioNetto(userId, { transaction } = {}) {
   };
 }
 
-module.exports = { calcolaPatrimonio, calcolaPassivita, calcolaPatrimonioNetto, toNumber, round2 };
+/**
+ * Variazione del patrimonio nel mese in corso (dal primo giorno del mese a
+ * oggi): somma le entrate e sottrae le uscite che hanno davvero mosso denaro
+ * (vedi muoveSaldo, ricorrenti.service.js) — una ricorrenza appena creata
+ * (regola, non movimento avvenuto) non deve far apparire un calo o una
+ * crescita di patrimonio che non c'è ancora stata.
+ *
+ * Punto sorgente unico: prima era duplicato in due controller
+ * (conti.controller.js#getPatrimonioTotale e
+ * analisi.controller.js#getSuggerimenti) e solo il primo applicava il
+ * filtro — la home e i suggerimenti potevano quindi raccontare due storie
+ * diverse dello stesso mese (CLAUDE.md Regola 20).
+ */
+async function calcolaVariazioneMensile(userId, { transaction, riferimento = new Date() } = {}) {
+  const primoGiorno = new Date(riferimento.getFullYear(), riferimento.getMonth(), 1);
+  const dataInizio = primoGiorno.toISOString().split('T')[0];
+
+  const movimentiMese = await Movimento.findAll({
+    where: {
+      user_id: userId,
+      data: { [Op.gte]: dataInizio },
+      tipo: { [Op.in]: ['entrata', 'uscita'] },
+    },
+    transaction,
+  });
+
+  let delta = 0;
+  movimentiMese.filter(muoveSaldo).forEach((m) => {
+    delta += m.tipo === 'entrata' ? toNumber(m.importo) : -toNumber(m.importo);
+  });
+
+  return round2(delta);
+}
+
+module.exports = {
+  calcolaPatrimonio, calcolaPassivita, calcolaPatrimonioNetto, calcolaVariazioneMensile, toNumber, round2,
+};

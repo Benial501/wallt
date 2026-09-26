@@ -15,6 +15,7 @@ const { aggregaPerEssenzialita } = require('./essenzialita.service');
 const { ultimiNMesi } = require('./confrontoPeriodi.service');
 const { classificaFinestra } = require('./finestraMesi.service');
 const { finestraGiorni, oggiLocale, FUSO_DEFAULT } = require('../utils/dateRome');
+const { muoveSaldo } = require('./ricorrenti.service');
 
 const round2 = (v) => Math.round(v * 100) / 100;
 const toNumber = (v) => parseFloat(v) || 0;
@@ -54,9 +55,11 @@ async function aggregaSpeseGiorni(userId, giorni, riferimento) {
   const { da, a } = finestraGiorniStandard(giorni, riferimento);
   const movimenti = await Movimento.findAll({
     where: { user_id: userId, tipo: 'uscita', data: { [Op.between]: [da, a] } },
-    attributes: ['categoria', 'importo'],
+    attributes: ['categoria', 'importo', 'ricorrente'],
   });
-  const { totaliPerCategoria, totale } = totaliPerCategoriaESomma(movimenti);
+  // Una ricorrenza (regola) non è ancora un'uscita avvenuta: esclusa qui per
+  // lo stesso motivo di aggregaSpeseMesi più sotto (vedi muoveSaldo).
+  const { totaliPerCategoria, totale } = totaliPerCategoriaESomma(movimenti.filter(muoveSaldo));
 
   const categorie = await listCategories(userId, { includeArchived: true });
   const categorieUscita = categorie.filter((c) => c.tipo === 'uscita');
@@ -133,11 +136,15 @@ async function aggregaSpeseMesi(userId, numMesi, riferimento = new Date(), opzio
       tipo: 'uscita',
       data: { [Op.between]: [periodi[0].da, periodi[periodi.length - 1].a] },
     },
-    attributes: ['data', 'categoria', 'importo'],
+    attributes: ['data', 'categoria', 'importo', 'ricorrente'],
   });
 
   const totaliPerPeriodo = new Map(periodi.map((p) => [p.chiave, {}]));
-  movimenti.forEach((m) => {
+  // Una ricorrenza (regola) non è una spesa avvenuta: entra nello storico
+  // mensile (e quindi nella media che alimenta fondo di sicurezza e Piano
+  // Smart, CLAUDE.md Regola 20/21) solo l'occorrenza che il cron ha davvero
+  // generato, mai la regola stessa (vedi muoveSaldo, ricorrenti.service.js).
+  movimenti.filter(muoveSaldo).forEach((m) => {
     const giorno = String(m.data).slice(0, 10);
     const periodo = periodi.find((p) => giorno >= p.da && giorno <= p.a);
     if (!periodo) return;

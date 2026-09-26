@@ -114,12 +114,15 @@ const getMovimenti = async (req, res) => {
       // Accorpare per giorno renderebbe impossibile un ordine globale: due
       // movimenti dello stesso giorno possono trovarsi ai lati opposti della
       // classifica. I gruppi unitari conservano esattamente l'ordine SQL.
+      // Il subtotale del giorno è denaro mosso: una ricorrenza (regola) resta
+      // visibile come riga ma non entra nel totale, per lo stesso motivo di
+      // getBilancioMese (vedi muoveSaldo).
       risultato = rows.map((mov) => ({
         data: mov.data,
         label: formatDataLabel(mov.data),
         movimenti: [mov],
-        totale_entrate_giorno: mov.tipo === 'entrata' ? toNumber(mov.importo) : 0,
-        totale_uscite_giorno: mov.tipo === 'uscita' ? toNumber(mov.importo) : 0,
+        totale_entrate_giorno: mov.tipo === 'entrata' && muoveSaldo(mov) ? toNumber(mov.importo) : 0,
+        totale_uscite_giorno: mov.tipo === 'uscita' && muoveSaldo(mov) ? toNumber(mov.importo) : 0,
       }));
     } else {
       const gruppi = {};
@@ -135,10 +138,14 @@ const getMovimenti = async (req, res) => {
           };
         }
         gruppi[dataKey].movimenti.push(mov);
-        if (mov.tipo === 'entrata') {
-          gruppi[dataKey].totale_entrate_giorno += toNumber(mov.importo);
-        } else if (mov.tipo === 'uscita') {
-          gruppi[dataKey].totale_uscite_giorno += toNumber(mov.importo);
+        // Una ricorrenza resta nell'elenco del giorno (l'utente la vede) ma
+        // non nel subtotale: non ha ancora mosso denaro (vedi muoveSaldo).
+        if (muoveSaldo(mov)) {
+          if (mov.tipo === 'entrata') {
+            gruppi[dataKey].totale_entrate_giorno += toNumber(mov.importo);
+          } else if (mov.tipo === 'uscita') {
+            gruppi[dataKey].totale_uscite_giorno += toNumber(mov.importo);
+          }
         }
       });
 
@@ -500,7 +507,10 @@ const getBilancioMese = async (req, res) => {
     let uscite = 0;
     const perCategoriaMap = {};
 
-    movimenti.forEach((m) => {
+    // Una ricorrenza (regola) non ha ancora mosso denaro: sommarla qui
+    // farebbe dire alla dashboard "hai speso X" per un'uscita non ancora
+    // addebitata dal cron (vedi muoveSaldo, ricorrenti.service.js).
+    movimenti.filter(muoveSaldo).forEach((m) => {
       const importo = toNumber(m.importo);
       if (m.tipo === 'entrata') {
         entrate += importo;

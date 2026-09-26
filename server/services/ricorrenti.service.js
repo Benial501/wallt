@@ -47,6 +47,18 @@ const whereRicorrenzaAttiva = () => ({ ricorrente: true, stato_ricorrenza: 'atti
  *
  * Le occorrenze che il cron genera hanno ricorrente: false, quindi muovono
  * denaro: sono loro il movimento vero.
+ *
+ * Lo stesso predicato filtra anche chi AGGREGA i movimenti come denaro
+ * (bilancio del mese, distribuzione per categoria, budget speso, medie
+ * mensili delle uscite, variazione del patrimonio...): una regola non è una
+ * spesa avvenuta, quindi non deve gonfiare un totale. Nota sull'impatto
+ * storico, decisione presa e accettata: le ricorrenze create PRIMA di questo
+ * filtro scalavano davvero il conto alla creazione (comportamento poi
+ * corretto dal commit 6c91ed8), quindi escluderle dalle aggregazioni fa
+ * calare i totali dei mesi passati che le includevano. Come per i saldi
+ * (6c91ed8), si è scelto di non fare una migrazione dati retroattiva: l'app
+ * non è ancora in produzione e l'imprecisione storica è preferibile alla
+ * complessità di riscrivere i movimenti passati.
  */
 const muoveSaldo = (movimento) => !movimento.ricorrente;
 
