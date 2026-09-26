@@ -129,19 +129,16 @@ const isFunzionalitaActive = computed(() =>
 
 const isDashboard = computed(() => route.path === '/dashboard');
 
-const mobileNav = [
+const mobileNav = computed(() => [
   { path: '/dashboard', icon: Home, label: 'Home' },
   { path: '/movimenti', icon: ArrowLeftRight, label: 'Transazioni' },
   { path: '/funzionalita/piano-smart', icon: Sparkles, label: 'Piano Smart' },
-  { path: '/analisi', icon: TrendingUp, label: 'Analisi' },
-  { path: 'altro', icon: LayoutGrid, label: 'Funzionalità' },
-];
+  canAccessInvestimentiFeature.value
+    ? { path: '/investimenti', icon: TrendingUp, label: 'Investimenti' }
+    : { path: '/analisi', icon: TrendingUp, label: 'Analisi' },
+  { path: 'altro', icon: LayoutGrid, label: 'Altro' },
+]);
 
-/**
- * L'etichetta testuale compare solo sotto la voce attiva: a 5 etichette
- * intere in italiano non c'è larghezza per stare tutte su una riga sola
- * senza scendere sotto il pavimento tipografico (--text-xs, 14px).
- */
 const isMobileNavActive = (item) => (
   item.path === 'altro' ? isFunzionalitaActive.value : isActive(item.path)
 );
@@ -272,7 +269,7 @@ const handleLogout = async () => {
           <component :is="resolveAppIcon(item.icon)" class="bottom-nav__icon-svg" :stroke-width="1.75" />
           <span v-if="item.path === 'altro'" class="bottom-nav__badge" />
         </span>
-        <span v-if="item.label && isMobileNavActive(item)" class="bottom-nav__label">{{ item.label }}</span>
+        <span v-if="item.label" class="bottom-nav__label">{{ item.label }}</span>
       </button>
     </nav>
 
@@ -443,64 +440,55 @@ const handleLogout = async () => {
   bottom: calc(18px + env(safe-area-inset-bottom, 0px));
   left: 12px;
   right: 12px;
-  height: auto;
-  padding: 8px 6px 10px;
+  height: 72px;
+  padding: 6px;
   background: var(--glass-elevated-bg);
   backdrop-filter: blur(var(--blur-xl)) saturate(var(--glass-saturate));
   -webkit-backdrop-filter: blur(var(--blur-xl)) saturate(var(--glass-saturate));
   border: 1px solid var(--glass-elevated-border);
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-pill);
   box-shadow: var(--shadow-lg), var(--glass-highlight);
   display: flex;
-  align-items: flex-end;
-  justify-content: space-around;
+  align-items: center;
+  justify-content: space-between;
   z-index: 100;
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .bottom-nav { background: var(--glass-elevated-solid); }
 }
-/* L'etichetta compare solo sotto la voce attiva (vedi isMobileNavActive):
-   con una sola label alla volta ogni voce può tenere la larghezza del
-   proprio contenuto invece di dividersi lo spazio in colonne fisse, e la
-   voce attiva ha sempre margine per stare su una riga sola. Il risultato è
-   anche un'altezza di barra costante: c'e' sempre esattamente una voce
-   attiva, quindi la riga più alta (icona + etichetta) è sempre presente. */
 .bottom-nav__item {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   background: none;
   border: none;
   color: var(--nav-item);
   cursor: pointer;
-  padding: 4px 6px;
-  flex: 0 0 auto;
-  min-width: 48px;
-  min-height: 48px;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: var(--tracking-normal);
-  transition: color var(--dur-base) var(--ease-out);
+  padding: 4px 2px;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 58px;
+  border-radius: var(--radius-pill);
+  font-size: 0.625rem;
+  font-weight: 550;
+  letter-spacing: 0;
+  transition:
+    color var(--dur-base) var(--ease-out),
+    background var(--dur-base) var(--ease-out);
 }
 .bottom-nav__item.active {
-  color: var(--accent-text);
-}
-/* La pastiglia dietro l'icona attiva e' l'unico elemento colorato della
-   barra: niente alone diffuso, solo un fondo tinto e un bordo appena visibile. */
-.bottom-nav__item.active .bottom-nav__icon-wrap {
-  background: var(--nav-active-bg);
-  border-color: color-mix(in srgb, var(--accent-green) 22%, transparent);
-  border-radius: var(--radius-md);
+  color: #43a8ff;
+  background: rgba(19, 111, 220, 0.26);
 }
 .bottom-nav__icon-wrap {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 34px;
+  width: 28px;
+  height: 26px;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   transition:
@@ -512,13 +500,14 @@ const handleLogout = async () => {
 .bottom-nav__item:focus-visible { outline: none; }
 .bottom-nav__item:focus-visible .bottom-nav__icon-wrap { box-shadow: var(--focus-ring-tight); }
 .bottom-nav__icon-svg {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   stroke: currentColor;
 }
 .bottom-nav__label {
-  line-height: 1.2;
-  letter-spacing: 0.01em;
+  max-width: 100%;
+  line-height: 1.15;
+  letter-spacing: 0;
   text-align: center;
   white-space: nowrap;
   hyphens: none;
