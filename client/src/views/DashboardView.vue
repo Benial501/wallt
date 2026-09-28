@@ -8,6 +8,7 @@ import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import WOverviewCarousel from '@/components/custom/WOverviewCarousel.vue';
 import RecentTransactions from '@/components/dashboard/RecentTransactions.vue';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
+import SceltaTipoMovimento from '@/components/movimenti/SceltaTipoMovimento.vue';
 import { useAuthStore } from '@/stores/auth.store';
 import { useContiStore } from '@/stores/conti.store';
 import { useMovimentiStore } from '@/stores/movimenti.store';
@@ -69,7 +70,9 @@ const meseStart = oggi.startOf('month').format('YYYY-MM-DD');
 const oggiStr = oggi.format('YYYY-MM-DD');
 
 const formOpen = ref(false);
+const sceltaTipoOpen = ref(false);
 const formTipo = ref('uscita');
+const formSaltaSceltaTipo = ref(false);
 const movimentoEdit = ref(null);
 
 // Per far rileggere AndamentoPatrimonio da onSaved: DataState tiene lo slot
@@ -246,19 +249,29 @@ const onCreaFondo = async (mesiTarget) => {
   }
 };
 
-const openForm = (tipo = 'uscita', mov = null) => {
+const openForm = (tipo = 'uscita', mov = null, saltaSceltaTipo = false) => {
   formTipo.value = tipo;
+  formSaltaSceltaTipo.value = saltaSceltaTipo;
   movimentoEdit.value = mov;
   formOpen.value = true;
 };
 
-const onGettingStartedMovimento = () => {
-  // Senza conti il form non ha dove registrare: si passa prima da I miei conti.
-  if (contiStore.contiAttivi.length > 0) {
-    openForm('uscita');
+const apriSceltaTipo = () => {
+  if (contiStore.contiAttivi.length === 0) {
+    router.push('/conti');
     return;
   }
-  router.push('/conti');
+  sceltaTipoOpen.value = true;
+};
+
+const scegliTipoMovimento = (tipo) => {
+  sceltaTipoOpen.value = false;
+  window.setTimeout(() => openForm(tipo, null, true), 280);
+};
+
+const onGettingStartedMovimento = () => {
+  // La scelta del tipo controlla anche che ci sia un conto in cui registrarlo.
+  apriSceltaTipo();
 };
 
 const onGettingStartedHide = () => helpStore.hideGettingStarted();
@@ -382,8 +395,8 @@ onMounted(async () => {
       @riprova-ricorrenti="movimentiStore.risorsaRicorrenti.riprova()"
     />
 
-    <button type="button" class="dashboard-view__cta" @click="openForm('uscita')">
-      + Aggiungi transazione
+    <button type="button" class="dashboard-view__cta" @click="apriSceltaTipo">
+      + Aggiungi movimento
     </button>
 
     <RecentTransactions
@@ -394,10 +407,17 @@ onMounted(async () => {
       @select="onSelectMovimento"
     />
 
+    <SceltaTipoMovimento
+      :open="sceltaTipoOpen"
+      @close="sceltaTipoOpen = false"
+      @select="scegliTipoMovimento"
+    />
+
     <MovimentoForm
       :open="formOpen"
       :tipo="formTipo"
       :movimento="movimentoEdit"
+      :salta-scelta-tipo="formSaltaSceltaTipo"
       @close="formOpen = false; movimentoEdit = null"
       @saved="onSaved"
     />

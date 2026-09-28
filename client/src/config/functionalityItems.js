@@ -7,6 +7,10 @@
  */
 export const FUNCTIONALITY_ITEMS = Object.freeze([
   {
+    id: 'conti', label: 'I miei conti', description: 'Saldi e disponibilità', icon: 'conti',
+    route: '/conti', placements: ['sheet'], order: { sheet: 0 }, active: true,
+  },
+  {
     id: 'budget', label: 'Budget', description: 'Pianifica le spese', icon: 'budget',
     route: '/budget', placements: ['sidebar', 'sheet'], order: { sidebar: 10, sheet: 20 }, active: true,
   },

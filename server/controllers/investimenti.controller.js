@@ -293,8 +293,15 @@ const addMovimentoInvestimento = async (req, res) => {
     }
 
     await t.commit();
-    await investimento.reload();
-    const stats = await calcolaStatsInvestimento(investimento.id);
+    let stats = {};
+    try {
+      stats = await calcolaStatsInvestimento(investimento.id);
+    } catch (error) {
+      // Il movimento e il saldo sono già stati committati: le statistiche
+      // accessorie possono aggiornarsi al prossimo caricamento senza
+      // trasformare il salvataggio in un errore da ripetere.
+      logger.warn('Statistiche investimento non aggiornate dopo il movimento', { err: error });
+    }
 
     res.status(201).json({
       movimento: mov,

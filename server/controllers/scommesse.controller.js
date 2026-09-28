@@ -69,7 +69,6 @@ const createPiattaforma = async (req, res) => {
     await ensureContoForPiattaforma(piattaforma, t);
 
     await t.commit();
-    await piattaforma.reload();
     res.status(201).json({ piattaforma, conto_id: piattaforma.conto_id });
   } catch (error) {
     await t.rollback();
@@ -232,9 +231,11 @@ const addMovimentoScommesse = async (req, res) => {
       await aggiornaSaldoConto(conto, nuovoSaldo, t);
     }
 
+    // Allinea il conto di gioco nella stessa transazione del movimento: una
+    // lettura o sincronizzazione dopo il commit non deve lasciare i due saldi
+    // divergenti né far apparire fallita una scrittura già registrata.
+    await syncContoSaldoFromPiattaforma(piattaforma, t);
     await t.commit();
-    await piattaforma.reload();
-    await syncContoSaldoFromPiattaforma(piattaforma);
 
     res.status(201).json({ movimento: movScommesse, piattaforma, conto });
   } catch (error) {

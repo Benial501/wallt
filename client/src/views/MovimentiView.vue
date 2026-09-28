@@ -3,10 +3,11 @@ import {
   ref, computed, onMounted, onBeforeUnmount,
 } from 'vue';
 import { storeToRefs } from 'pinia';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import WCard from '@/components/common/WCard.vue';
 import WSkeleton from '@/components/common/WSkeleton.vue';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
+import SceltaTipoMovimento from '@/components/movimenti/SceltaTipoMovimento.vue';
 import MovimentoItem from '@/components/movimenti/MovimentoItem.vue';
 import MovimentiFilters from '@/components/movimenti/MovimentiFilters.vue';
 import { useContiStore } from '@/stores/conti.store';
@@ -29,6 +30,7 @@ import 'dayjs/locale/it';
 dayjs.locale('it');
 
 const route = useRoute();
+const router = useRouter();
 const contiStore = useContiStore();
 const movimentiStore = useMovimentiStore();
 const { filtriUI, loadingBilancio } = storeToRefs(movimentiStore);
@@ -38,7 +40,9 @@ const { formatValuta } = useValuta();
 const oggi = dayjs();
 
 const formOpen = ref(false);
+const sceltaTipoOpen = ref(false);
 const formTipo = ref('entrata');
+const formSaltaSceltaTipo = ref(false);
 const movimentoEdit = ref(null);
 
 /**
@@ -147,10 +151,24 @@ const getCatInfo = (mov) => {
   return { nome: 'Trasferimento', colore: '#95A5A6' };
 };
 
-const apriForm = (tipo, mov = null) => {
+const apriForm = (tipo, mov = null, saltaSceltaTipo = false) => {
   formTipo.value = tipo;
+  formSaltaSceltaTipo.value = saltaSceltaTipo;
   movimentoEdit.value = mov;
   formOpen.value = true;
+};
+
+const apriSceltaTipo = () => {
+  if (senzaConti.value) {
+    router.push('/conti');
+    return;
+  }
+  sceltaTipoOpen.value = true;
+};
+
+const scegliTipoMovimento = (tipo) => {
+  sceltaTipoOpen.value = false;
+  window.setTimeout(() => apriForm(tipo, null, true), 280);
 };
 
 const elimina = async (mov) => {
@@ -194,8 +212,9 @@ onMounted(async () => {
     movimentiStore.fetchRecentiHome(),
   ]);
 
-  if (route.query.action) {
-    apriForm(route.query.action);
+  const tipoRichiesto = route.query.action;
+  if (typeof tipoRichiesto === 'string' && ['entrata', 'uscita', 'trasferimento'].includes(tipoRichiesto)) {
+    apriForm(tipoRichiesto, null, true);
   }
 });
 
@@ -227,7 +246,7 @@ onBeforeUnmount(() => clearTimeout(attesa));
           </span>
         </p>
       </div>
-      <button class="add-btn md:hidden" @click="apriForm('entrata')">+</button>
+      <button type="button" class="add-btn md:hidden" aria-label="Aggiungi movimento" @click="apriSceltaTipo">+</button>
     </header>
 
     <ImportEstrattoHint
@@ -276,7 +295,7 @@ onBeforeUnmount(() => clearTimeout(attesa));
               Inserisci la prima entrata o uscita, oppure importa l'estratto conto della tua banca.
             </p>
             <div class="empty-state__actions">
-              <button class="quick-add" @click="apriForm('entrata')">Aggiungi il primo movimento →</button>
+              <button class="quick-add" @click="apriSceltaTipo">Aggiungi il primo movimento →</button>
               <button class="quick-add quick-add--secondary" @click="$router.push('/importa')">
                 Importa un estratto
               </button>
@@ -300,7 +319,7 @@ onBeforeUnmount(() => clearTimeout(attesa));
               Non è stato possibile verificare se ci sono movimenti in altri periodi.
               Controlla i filtri o riprova.
             </p>
-            <button class="quick-add" @click="apriForm('entrata')">Aggiungi un movimento →</button>
+            <button class="quick-add" @click="apriSceltaTipo">Aggiungi un movimento →</button>
           </template>
         </WCard>
       </template>
@@ -369,10 +388,17 @@ onBeforeUnmount(() => clearTimeout(attesa));
       </div>
     </DataState>
 
+    <SceltaTipoMovimento
+      :open="sceltaTipoOpen"
+      @close="sceltaTipoOpen = false"
+      @select="scegliTipoMovimento"
+    />
+
     <MovimentoForm
       :open="formOpen"
       :tipo="formTipo"
       :movimento="movimentoEdit"
+      :salta-scelta-tipo="formSaltaSceltaTipo"
       @close="formOpen = false"
       @saved="onSaved"
     />

@@ -94,6 +94,21 @@ const slides = computed(() => {
   return list;
 });
 
+const etichetteSlide = {
+  saldo: 'Patrimonio',
+  conti: 'I miei conti',
+  'fondo-emergenza': 'Fondo di emergenza',
+  'prossime-spese': 'Prossime spese',
+  budget: 'Budget',
+  'uscite-oggi': 'Uscite di oggi',
+  'entrate-oggi': 'Entrate di oggi',
+  obiettivi: 'Obiettivi',
+  scommesse: 'Scommesse',
+  investimenti: 'Investimenti',
+};
+
+const etichettaSlide = (slide) => etichetteSlide[slide] || 'Sezione dashboard';
+
 const percentualeObiettivo = (obj) => {
   const target = parseFloat(obj.importo_target);
   const attuale = parseFloat(obj.importo_attuale);
@@ -639,15 +654,15 @@ defineExpose({
       </div>
     </div>
 
-    <div class="w-overview__dots" role="tablist" aria-label="Panoramica dashboard">
+    <div class="w-overview__dots" role="group" aria-label="Sezioni della dashboard">
       <button
         v-for="(slide, i) in slides"
         :key="slide"
         type="button"
         class="w-overview__dot"
         :class="{ 'w-overview__dot--active': activeIndex === i }"
-        :aria-label="slide"
-        :aria-selected="activeIndex === i"
+        :aria-label="`Mostra: ${etichettaSlide(slide)}`"
+        :aria-pressed="activeIndex === i"
         @click="scrollToSlide(i)"
       />
     </div>
