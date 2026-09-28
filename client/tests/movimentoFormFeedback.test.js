@@ -35,6 +35,23 @@ test('il form Entrata/Uscita mostra sempre la descrizione, anche per i movimenti
   assert.match(fieldMarkup, /<label>Descrizione \(opzionale\)<\/label>/);
 });
 
+test('le categorie vanno a capo tra parole e si fermano a due righe', () => {
+  const labelStart = component.indexOf('.cat-label {');
+  const labelEnd = component.indexOf('}', labelStart);
+  const labelStyles = component.slice(labelStart, labelEnd);
+  const gridStart = component.indexOf('.cat-grid {');
+  const gridEnd = component.indexOf('}', gridStart);
+  const gridStyles = component.slice(gridStart, gridEnd);
+
+  assert.match(labelStyles, /word-break:\s*keep-all/, 'le parole non devono essere spezzate');
+  assert.match(labelStyles, /hyphens:\s*none/, 'le parole non devono essere sillabate');
+  assert.match(labelStyles, /-webkit-line-clamp:\s*2/, 'le etichette devono fermarsi a due righe');
+  assert.match(labelStyles, /text-overflow:\s*ellipsis/, 'il testo oltre due righe deve essere troncato');
+  assert.match(gridStyles, /grid-auto-rows:\s*minmax\(5\.75rem,\s*auto\)/, 'le righe devono lasciare spazio alle etichette multilinea');
+  assert.match(component, /@media\s*\(max-width:\s*480px\)[\s\S]*?\.cat-grid\s*\{\s*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/, 'su mobile le colonne devono lasciare spazio alle parole intere');
+  assert.doesNotMatch(labelStyles, /overflow-wrap:\s*anywhere/, 'non si devono spezzare le parole a qualunque carattere');
+});
+
 test('il salvataggio mostra subito la conferma e aggiorna i dati in background', () => {
   const salvaStart = component.indexOf('const salva = async () => {');
   const salvaEnd = component.indexOf('const cambiaRicorrenza', salvaStart);

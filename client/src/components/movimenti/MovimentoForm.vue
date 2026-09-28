@@ -783,11 +783,12 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
    non da un fondo pieno che coprirebbe l'etichetta. */
 .cat-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: minmax(5.75rem, auto);
   gap: 0.4375rem;
   margin-top: 0.5rem;
   padding: 0.5rem;
-  max-height: 250px;
+  max-height: 300px;
   overflow-y: auto;
   border-radius: var(--radius-lg);
   border: 1px solid var(--glass-secondary-border);
@@ -803,7 +804,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
 }
 .cat-btn {
   display: flex; flex-direction: column; align-items: center; gap: 0.3125rem;
-  padding: 0.625rem 0.25rem; border-radius: var(--radius-md);
+  padding: 0.625rem 0.375rem; border-radius: var(--radius-md);
   border: 1px solid transparent; background: transparent;
   cursor: pointer; color: var(--text-secondary);
   transition:
@@ -856,11 +857,20 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
   color: var(--text-muted);
   text-align: center;
   min-width: 0;
-  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  hyphens: none;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .cat-btn.active .cat-label { color: var(--text-primary); font-weight: 600; }
+@media (max-width: 480px) {
+  .cat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 .transfer-arrow { text-align: center; font-size: 1.25rem; color: var(--accent-text); opacity: 0.7; }
 .error-text { color: var(--negative); font-size: var(--text-xs); margin-top: 0.25rem; }
 /* Lo spazio resta occupato anche senza messaggio: comparendo e sparendo
