@@ -6,6 +6,7 @@ import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
 import AppDialog from '@/components/common/AppDialog.vue';
+import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import PianoSmartChangeTimeline from '@/components/piano-smart/PianoSmartChangeTimeline.vue';
 import PianoSmartCashFlowRadar from '@/components/piano-smart/PianoSmartCashFlowRadar.vue';
 import PianoSmartGoalsSummary from '@/components/piano-smart/PianoSmartGoalsSummary.vue';
@@ -342,12 +343,7 @@ onMounted(() => {
       <div>
         <div class="page-title-row">
           <h1 class="page-title">Piano Smart</h1>
-          <button
-            class="info-button" type="button" aria-label="Apri la guida di Piano Smart"
-            title="Apri la guida completa di Piano Smart" @click="apriGuida('cos-e')"
-          >
-            <CircleHelp :size="18" :stroke-width="1.8" aria-hidden="true" />
-          </button>
+          <HelpTrigger topic="piano-smart" />
         </div>
         <p class="page-sub">
           Capisci cosa sta succedendo ai tuoi soldi e decidi meglio come muoverti.

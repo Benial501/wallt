@@ -2,13 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-test('Piano Smart apre la guida interattiva dalla pagina', async () => {
+test('Piano Smart usa l’aiuto contestuale condiviso come le altre sezioni', async () => {
   const source = await readFile(new URL('../src/views/PianoSmartView.vue', import.meta.url), 'utf8');
-  assert.match(source, /class="info-button"/);
-  assert.match(source, /aria-label="Apri la guida di Piano Smart"/);
-  assert.match(source, /title="Apri la guida completa di Piano Smart"/);
-  assert.match(source, /@click="apriGuida\('cos-e'\)"/);
-  assert.match(source, /:open="guidaSpiegazioneAperta"/);
+  const helpTopics = await readFile(new URL('../src/content/helpTopics.js', import.meta.url), 'utf8');
+  assert.match(source, /import HelpTrigger from '@\/components\/help\/HelpTrigger\.vue'/);
+  assert.match(source, /<HelpTrigger topic="piano-smart"\s*\/>/);
+  assert.doesNotMatch(source, /class="info-button"/);
+  assert.match(helpTopics, /id: 'piano-smart'[\s\S]*?link: \{ label: 'Apri la guida completa e interattiva'/);
+  assert.match(source, /:open="guidaSpiegazioneAperta"/, 'le spiegazioni contestuali nella pagina devono restare disponibili');
 });
 
 test('Piano Smart espone timeline accessibile, radar e obiettivi dalla situazione del server', async () => {
