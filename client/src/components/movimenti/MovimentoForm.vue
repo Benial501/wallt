@@ -24,6 +24,7 @@ const props = defineProps({
   tipo: { type: String, default: 'entrata' },
   movimento: { type: Object, default: null },
   modalitaProgrammate: { type: Boolean, default: false },
+  saltaSceltaTipo: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['close', 'saved']);
@@ -174,7 +175,7 @@ const resetForm = () => {
     data: dayjs().format('YYYY-MM-DD'),
     nota: '',
   };
-  step.value = isTrasferimento.value || isEdit.value ? 2 : 1;
+  step.value = isTrasferimento.value || isEdit.value || props.saltaSceltaTipo ? 2 : 1;
   if (props.modalitaProgrammate) {
     programmazione.value = 'una_volta';
     scheduleMode.value = 'scheduled';

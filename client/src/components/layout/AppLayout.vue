@@ -116,6 +116,7 @@ const navItems = computed(() => {
     { path: '/dashboard', icon: NAV_ICON_MAP.dashboard, label: 'Dashboard' },
     { path: '/conti', icon: NAV_ICON_MAP.conti, label: 'I miei conti' },
     { path: '/movimenti', icon: NAV_ICON_MAP.movimenti, label: 'Movimenti' },
+    { path: '/funzionalita/piano-smart', icon: NAV_ICON_MAP.pianoSmart, label: 'Piano Smart' },
   ];
   items.push(...resolveFunctionalityItems('sidebar'));
   return items;
@@ -270,7 +271,7 @@ const handleLogout = async () => {
       </button>
     </nav>
 
-    <BottomSheet :open="funzionalitaSheetOpen" title="Funzionalità" @close="funzionalitaSheetOpen = false">
+    <BottomSheet :open="funzionalitaSheetOpen" title="Altro" @close="funzionalitaSheetOpen = false">
       <div class="funz-grid">
         <button
           v-for="item in funzionalitaItems"
