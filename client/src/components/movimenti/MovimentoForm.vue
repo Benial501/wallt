@@ -311,6 +311,10 @@ const salva = async () => {
       }
     }
 
+    // Il server ha confermato il salvataggio. Mostrare subito l'esito evita
+    // che le ricariche della dashboard facciano sembrare bloccata l'operazione.
+    toastStore.success(messaggio);
+
     // Da qui in poi il movimento è già registrato sul server. Ricaricare saldi
     // e patrimonio serve solo a ciò che si vede: se fallisce, il salvataggio
     // resta valido e va comunicato come riuscito, altrimenti l'utente lo
@@ -324,7 +328,6 @@ const salva = async () => {
       transferUsesBettingAccount || selectedAccount?.tipo === 'scommesse',
     );
 
-    toastStore.success(messaggio);
     if (!vistaAggiornata) toastStore.warning(VISTA_NON_AGGIORNATA);
 
     emit('saved');
@@ -566,8 +569,8 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
           <input v-model="form.data" type="date" class="form-input" :min="scheduleMode === 'today' ? undefined : dayjs().format('YYYY-MM-DD')" />
         </div>
 
-        <div v-if="scheduleMode !== 'today' || form.ricorrente || isEdit" class="field">
-          <label>Note (opzionale)</label>
+        <div class="field">
+          <label>Descrizione (opzionale)</label>
           <input v-model="form.descrizione" type="text" class="form-input" placeholder="Descrizione..." />
         </div>
 
