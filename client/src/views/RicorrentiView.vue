@@ -134,12 +134,20 @@ const cambiaStato = async (movimento, stato) => {
   <div class="ricorrenti-view animate-fade-in">
     <header class="ricorrenti-view__header">
       <div>
-      <div class="ricorrenti-view__title-row">
+        <div class="ricorrenti-view__title-row">
           <h1>Spese/entrate programmate</h1>
           <HelpTrigger topic="ricorrenti-gestione" />
         </div>
         <p>Gestisci pagamenti futuri, rate e movimenti che si ripetono.</p>
       </div>
+      <WButton
+        v-if="numeroElementi"
+        class="ricorrenti-view__nuova"
+        variant="primary"
+        size="sm"
+        aria-label="Crea una nuova programmazione"
+        @click="showNuovaProgrammata = true"
+      >+ Nuova</WButton>
     </header>
 
     <DataState
@@ -187,13 +195,6 @@ const cambiaStato = async (movimento, stato) => {
           />
         </section>
       </div>
-      <WCard v-if="numeroElementi" class="ricorrenti-view__aggiungi">
-        <div>
-          <h2>Aggiungi una programmazione</h2>
-          <p>Scegli una data, una ricorrenza o un piano a rate.</p>
-        </div>
-        <WButton variant="primary" size="md" @click="showNuovaProgrammata = true">+ Nuova programmazione</WButton>
-      </WCard>
     </DataState>
 
     <RicorrenteForm
@@ -229,14 +230,12 @@ const cambiaStato = async (movimento, stato) => {
 <style scoped>
 .ricorrenti-view { display: flex; flex-direction: column; gap: 1.25rem; }
 .ricorrenti-view__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+.ricorrenti-view__nuova { white-space: nowrap; }
 .ricorrenti-view__title-row { display: flex; align-items: center; gap: 0.5rem; }
 .ricorrenti-view__title-row h1 { margin: 0; color: var(--text-primary); font-size: 1.5rem; font-weight: 700; }
 .ricorrenti-view__header p { margin: 0.35rem 0 0; color: var(--text-muted); font-size: var(--text-xs); line-height: 1.5; }
 .ricorrenti-view__lista { display: flex; flex-direction: column; gap: 0.875rem; }
 .ricorrenti-view__azioni { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.ricorrenti-view__aggiungi { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.ricorrenti-view__aggiungi h2 { margin: 0; color: var(--text-primary); font-size: var(--text-sm); }
-.ricorrenti-view__aggiungi p { margin: 0.25rem 0 0; color: var(--text-muted); font-size: var(--text-xs); }
 .ricorrenti-view__gruppo { display: flex; flex-direction: column; gap: 0.75rem; }
 .ricorrenti-view__gruppo h2 { margin: 0; color: var(--text-secondary); font-size: var(--text-sm); }
 .ricorrenti-view__vuoto { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 2.5rem 1.25rem !important; text-align: center; }
@@ -249,5 +248,4 @@ const cambiaStato = async (movimento, stato) => {
 .ricorrenti-view__avviso p { margin: 0; }
 .ricorrenti-view__dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; }
 @media (max-width: 420px) { .ricorrenti-view__dialog-actions { grid-template-columns: 1fr; } }
-@media (max-width: 520px) { .ricorrenti-view__aggiungi { align-items: stretch; flex-direction: column; } }
 </style>

@@ -1,6 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { renderSfc } from './helpers/renderVue.js';
+
+const ricorrentiView = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), '../src/views/RicorrentiView.vue'),
+  'utf8',
+);
+
+test('la creazione delle programmazioni resta in alto e compatta quando ci sono voci', () => {
+  const template = ricorrentiView.slice(ricorrentiView.indexOf('<template>'));
+  const headerEnd = template.indexOf('</header>');
+  const header = template.slice(0, headerEnd);
+
+  assert.match(header, /<WButton[^>]*v-if="numeroElementi"[^>]*size="sm"[^>]*>\+ Nuova<\/WButton>/);
+  assert.match(header, /aria-label="Crea una nuova programmazione"/);
+  assert.doesNotMatch(template, /class="ricorrenti-view__aggiungi"/, 'non deve restare il riquadro grande in fondo alla lista');
+  assert.match(template, /#vuoto[\s\S]*?\+ Nuova programmazione/, 'la schermata vuota mantiene l’invito completo alla creazione');
+});
 
 const movimento = {
   id: 1,
