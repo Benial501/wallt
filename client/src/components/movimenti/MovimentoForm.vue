@@ -277,10 +277,7 @@ const salva = async () => {
     let messaggio;
 
     if (isTrasferimento.value) {
-      const origine = contiStore.contiAttivi.find((c) => c.id === trasferimentoForm.value.conto_origine_id);
-      const destinazione = contiStore.contiAttivi.find((c) => c.id === trasferimentoForm.value.conto_destinazione_id);
-      const involvesScommesse = origine?.tipo === 'scommesse' || destinazione?.tipo === 'scommesse';
-      await contiStore.trasferimento({ ...trasferimentoForm.value }, { involvesScommesse });
+      await contiStore.trasferimento({ ...trasferimentoForm.value });
       messaggio = 'Trasferimento completato!';
     } else if (isEdit.value) {
       await movimentiStore.updateMovimento(props.movimento.id, buildUpdatePayload());
@@ -327,14 +324,17 @@ const salva = async () => {
       trasferimentoForm.value.conto_origine_id,
       trasferimentoForm.value.conto_destinazione_id,
     ].some((id) => contiStore.contiAttivi.find((account) => account.id === id)?.tipo === 'scommesse');
-    const vistaAggiornata = await contiStore.refreshDopoScrittura(
-      transferUsesBettingAccount || selectedAccount?.tipo === 'scommesse',
-    );
-
+    toastStore.success(messaggio);
     emit('saved');
     emit('close');
-    toastStore.success(messaggio);
-    if (!vistaAggiornata) toastStore.warning(VISTA_NON_AGGIORNATA);
+
+    // Il server ha già confermato la scrittura: la ricarica dei dati può
+    // proseguire in background senza trattenere la conferma o la chiusura.
+    void contiStore.refreshDopoScrittura(
+      transferUsesBettingAccount || selectedAccount?.tipo === 'scommesse',
+    ).then((vistaAggiornata) => {
+      if (!vistaAggiornata) toastStore.warning(VISTA_NON_AGGIORNATA);
+    });
   } catch (err) {
     feedback.value = { type: 'error', message: extractErrorMessage(err) };
   } finally {
@@ -462,7 +462,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
         <label>Note (opzionale)</label>
         <input v-model="trasferimentoForm.nota" type="text" class="form-input" placeholder="Descrizione..." />
       </div>
-      <WButton variant="primary" size="lg" :loading="loading" :disabled="!canSave" @click="salva">
+      <WButton class="form-save" variant="primary" size="lg" :loading="loading" :disabled="!canSave" @click="salva">
         Sposta soldi
       </WButton>
     </div>
@@ -677,7 +677,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
           </div>
         </div>
 
-        <WButton variant="primary" size="lg" :loading="loading" :disabled="!canSave" @click="salva">
+        <WButton class="form-save" variant="primary" size="lg" :loading="loading" :disabled="!canSave" @click="salva">
           Salva
         </WButton>
       </div>
@@ -717,6 +717,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
   background: color-mix(in srgb, var(--negative) 8%, var(--glass-elevated-bg));
 }
 .form-space { display: flex; flex-direction: column; gap: 1.125rem; }
+.form-save { margin-top: 0.5rem; }
 .form-intro { font-size: var(--text-xs); line-height: var(--leading-normal); color: var(--text-muted); }
 .prereq {
   display: flex;
@@ -855,7 +856,9 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
   color: var(--text-muted);
   text-align: center;
   min-width: 0;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .cat-btn.active .cat-label { color: var(--text-primary); font-weight: 600; }
 .transfer-arrow { text-align: center; font-size: 1.25rem; color: var(--accent-text); opacity: 0.7; }

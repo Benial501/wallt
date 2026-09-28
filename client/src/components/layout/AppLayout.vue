@@ -13,7 +13,6 @@ import {
   resolveAppIcon,
   Home,
   ArrowLeftRight,
-  TrendingUp,
   LayoutGrid,
   Settings,
   SunMoon,
@@ -22,7 +21,6 @@ import {
   ArrowUpCircle,
   Repeat2,
   CircleHelp,
-  Sparkles,
 } from '@/utils/appIcons';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
 import HelpPanel from '@/components/help/HelpPanel.vue';
@@ -133,8 +131,10 @@ const isDashboard = computed(() => route.path === '/dashboard');
 const mobileNav = computed(() => [
   { path: '/dashboard', icon: Home, label: 'Home' },
   { path: '/movimenti', icon: ArrowLeftRight, label: 'Transazioni' },
-  { path: '/funzionalita/piano-smart', icon: Sparkles, label: 'Piano Smart' },
-  { path: '/analisi', icon: TrendingUp, label: 'Analisi' },
+  { path: '/obiettivi', icon: NAV_ICON_MAP.obiettivi, label: 'Obiettivi' },
+  ...(mostraInvestimenti.value && canAccessInvestimentiFeature.value
+    ? [{ path: '/investimenti', icon: NAV_ICON_MAP.investimenti, label: 'Investimenti' }]
+    : []),
   { path: 'altro', icon: LayoutGrid, label: 'Altro' },
 ]);
 
@@ -252,7 +252,7 @@ const handleLogout = async () => {
       </router-view>
     </main>
 
-    <nav class="bottom-nav">
+    <nav class="bottom-nav" :style="{ '--bottom-nav-count': mobileNav.length }">
       <button
         v-for="item in mobileNav"
         :key="item.path"
@@ -447,7 +447,7 @@ const handleLogout = async () => {
   border-radius: var(--radius-pill);
   box-shadow: var(--shadow-lg), var(--glass-highlight);
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--bottom-nav-count, 5), minmax(0, 1fr));
   align-items: stretch;
   gap: 2px;
   z-index: 100;
@@ -508,8 +508,8 @@ const handleLogout = async () => {
   line-height: 1.15;
   letter-spacing: 0;
   text-align: center;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  font-size: clamp(0.5625rem, 2.8vw, var(--text-xs));
+  white-space: nowrap;
   hyphens: none;
 }
 /* --- Sheet: griglie di azioni e funzionalita' --------------------------- */

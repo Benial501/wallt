@@ -5,6 +5,8 @@ import {
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import WCard from '@/components/common/WCard.vue';
+import AppDialog from '@/components/common/AppDialog.vue';
+import WButton from '@/components/common/WButton.vue';
 import WSkeleton from '@/components/common/WSkeleton.vue';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
 import SceltaTipoMovimento from '@/components/movimenti/SceltaTipoMovimento.vue';
@@ -25,6 +27,7 @@ import { etichetta } from '@/content/glossario';
 import api from '@/utils/axios';
 import { refreshAfterWrite } from '@/utils/afterWrite';
 import dayjs from 'dayjs';
+import { Trash2 } from 'lucide-vue-next';
 import 'dayjs/locale/it';
 
 dayjs.locale('it');
@@ -44,6 +47,8 @@ const sceltaTipoOpen = ref(false);
 const formTipo = ref('entrata');
 const formSaltaSceltaTipo = ref(false);
 const movimentoEdit = ref(null);
+const movimentoDaEliminare = ref(null);
+const eliminazioneInCorso = ref(false);
 
 /**
  * Esistenza di movimenti a prescindere dai filtri: serve solo a distinguere
@@ -176,13 +181,34 @@ const elimina = async (mov) => {
     await movimentiStore.deleteMovimento(mov.id);
   } catch {
     toastStore.error('Errore nell\'eliminazione');
-    return;
+    return false;
   }
 
   // Movimento già eliminato: il ricaricamento della lista non deve far
   // credere che l'eliminazione sia fallita.
   await refreshAfterWrite(() => contiStore.fetchConti(), () => caricaMovimenti());
   toastStore.success('Movimento eliminato');
+  return true;
+};
+
+const richiediEliminazione = (movimento) => {
+  movimentoDaEliminare.value = movimento;
+};
+
+const annullaEliminazione = () => {
+  if (!eliminazioneInCorso.value) movimentoDaEliminare.value = null;
+};
+
+const confermaEliminazione = async () => {
+  const movimento = movimentoDaEliminare.value;
+  if (!movimento || eliminazioneInCorso.value) return;
+
+  eliminazioneInCorso.value = true;
+  try {
+    if (await elimina(movimento)) movimentoDaEliminare.value = null;
+  } finally {
+    eliminazioneInCorso.value = false;
+  }
 };
 
 const onSaved = async () => {
@@ -343,7 +369,7 @@ onBeforeUnmount(() => clearTimeout(attesa));
             :selected="formOpen && movimentoEdit?.id === mov.id"
             class="animate-slide-up"
             @click="(m) => m.tipo !== 'trasferimento' && apriForm(m.tipo, m)"
-            @delete="elimina"
+            @delete="richiediEliminazione"
           />
         </template>
         <template v-else>
@@ -363,7 +389,7 @@ onBeforeUnmount(() => clearTimeout(attesa));
               :cat-info="getCatInfo(mov)"
               :selected="formOpen && movimentoEdit?.id === mov.id"
               @click="(m) => m.tipo !== 'trasferimento' && apriForm(m.tipo, m)"
-              @delete="elimina"
+              @delete="richiediEliminazione"
             />
           </div>
         </template>
@@ -394,6 +420,38 @@ onBeforeUnmount(() => clearTimeout(attesa));
       @select="scegliTipoMovimento"
     />
 
+    <AppDialog
+      :open="Boolean(movimentoDaEliminare)"
+      title="Eliminare questo movimento?"
+      @close="annullaEliminazione"
+    >
+      <div v-if="movimentoDaEliminare" class="elimina-movimento">
+        <div class="elimina-movimento__avviso">
+          <span class="elimina-movimento__icona" aria-hidden="true">
+            <Trash2 :size="20" :stroke-width="1.8" />
+          </span>
+          <p>L’eliminazione aggiorna anche i saldi dei conti coinvolti.</p>
+        </div>
+
+        <div class="elimina-movimento__riepilogo">
+          <strong>{{ movimentoDaEliminare.descrizione || getCatInfo(movimentoDaEliminare).nome }}</strong>
+          <span>{{ getCatInfo(movimentoDaEliminare).nome }} · {{ dayjs(movimentoDaEliminare.data).format('D MMM YYYY') }}</span>
+          <b :class="movimentoDaEliminare.tipo === 'entrata' ? 'positive' : movimentoDaEliminare.tipo === 'uscita' ? 'negative' : ''">
+            {{ movimentoDaEliminare.tipo === 'entrata' ? '+' : movimentoDaEliminare.tipo === 'uscita' ? '−' : '' }}{{ formatValuta(movimentoDaEliminare.importo) }}
+          </b>
+        </div>
+
+        <div class="elimina-movimento__azioni">
+          <WButton variant="secondary" size="lg" :disabled="eliminazioneInCorso" @click="annullaEliminazione">
+            Annulla
+          </WButton>
+          <WButton variant="danger" size="lg" :loading="eliminazioneInCorso" @click="confermaEliminazione">
+            Elimina movimento
+          </WButton>
+        </div>
+      </div>
+    </AppDialog>
+
     <MovimentoForm
       :open="formOpen"
       :tipo="formTipo"
@@ -406,6 +464,15 @@ onBeforeUnmount(() => clearTimeout(attesa));
 </template>
 
 <style scoped>
+.elimina-movimento { display: grid; gap: 1rem; }
+.elimina-movimento__avviso { display: flex; align-items: center; gap: 0.75rem; color: var(--text-secondary); font-size: var(--text-sm); line-height: var(--leading-normal); }
+.elimina-movimento__icona { width: 42px; height: 42px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 13px; color: var(--negative); background: color-mix(in srgb, var(--negative) 12%, var(--glass-secondary-bg)); border: 1px solid color-mix(in srgb, var(--negative) 25%, var(--glass-secondary-border)); }
+.elimina-movimento__riepilogo { display: grid; grid-template-columns: 1fr auto; gap: 0.35rem 0.75rem; align-items: center; padding: 0.875rem 1rem; border: 1px solid var(--glass-secondary-border); border-radius: var(--radius-lg); background: var(--glass-secondary-bg); }
+.elimina-movimento__riepilogo strong { min-width: 0; overflow: hidden; color: var(--text-primary); text-overflow: ellipsis; white-space: nowrap; }
+.elimina-movimento__riepilogo span { grid-column: 1; color: var(--text-muted); font-size: var(--text-xs); }
+.elimina-movimento__riepilogo b { grid-column: 2; grid-row: 1 / span 2; text-align: right; font-variant-numeric: tabular-nums; }
+.elimina-movimento__azioni { display: grid; grid-template-columns: 1fr 1.2fr; gap: 0.625rem; margin-top: 0.25rem; }
+.elimina-movimento__azioni :deep(.w-btn) { min-width: 0; padding-inline: 0.5rem; }
 .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
 .page-title-row { display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap; }
 .page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }

@@ -112,10 +112,9 @@ export const useContiStore = defineStore('conti', () => {
     await refreshDopoScrittura(options.tipo);
   };
 
-  const trasferimento = async (dati, options = {}) => {
+  const trasferimento = async (dati) => {
     try {
       const { data } = await api.post('/conti/trasferimento', dati);
-      await refreshDopoScrittura(options.involvesScommesse === true);
       return data;
     } catch (err) {
       const data = err.response?.data;

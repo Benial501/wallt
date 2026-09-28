@@ -100,9 +100,7 @@ const onTouchCancel = () => {
 };
 
 const handleDelete = () => {
-  if (confirm('Eliminare questo movimento?')) {
-    emit('delete', props.movimento);
-  }
+  emit('delete', props.movimento);
   chiudi();
 };
 
