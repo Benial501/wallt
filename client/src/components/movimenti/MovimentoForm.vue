@@ -37,6 +37,7 @@ const router = useRouter();
 
 const step = ref(1);
 const loading = ref(false);
+const feedback = ref(null);
 const scheduleMode = ref('today');
 const programmazione = ref('nessuna');
 const mostraProgrammazione = ref(false);
@@ -146,6 +147,7 @@ const saldoInsufficiente = computed(() => {
 });
 
 const resetForm = () => {
+  feedback.value = null;
   scheduleMode.value = 'today';
   programmazione.value = 'nessuna';
   mostraProgrammazione.value = false;
@@ -270,6 +272,7 @@ const toggleMostraProgrammazione = () => {
 
 const salva = async () => {
   loading.value = true;
+  feedback.value = null;
   try {
     let messaggio;
 
@@ -311,9 +314,9 @@ const salva = async () => {
       }
     }
 
-    // Il server ha confermato il salvataggio. Mostrare subito l'esito evita
-    // che le ricariche della dashboard facciano sembrare bloccata l'operazione.
-    toastStore.success(messaggio);
+    // Il dialogo nativo vive sopra la pagina e copre i toast globali. Mostrare
+    // l'esito qui lo rende visibile anche durante l'aggiornamento dei riepiloghi.
+    feedback.value = { type: 'success', message: messaggio };
 
     // Da qui in poi il movimento è già registrato sul server. Ricaricare saldi
     // e patrimonio serve solo a ciò che si vede: se fallisce, il salvataggio
@@ -328,12 +331,12 @@ const salva = async () => {
       transferUsesBettingAccount || selectedAccount?.tipo === 'scommesse',
     );
 
-    if (!vistaAggiornata) toastStore.warning(VISTA_NON_AGGIORNATA);
-
     emit('saved');
     emit('close');
+    toastStore.success(messaggio);
+    if (!vistaAggiornata) toastStore.warning(VISTA_NON_AGGIORNATA);
   } catch (err) {
-    toastStore.error(extractErrorMessage(err));
+    feedback.value = { type: 'error', message: extractErrorMessage(err) };
   } finally {
     loading.value = false;
   }
@@ -341,13 +344,16 @@ const salva = async () => {
 
 const cambiaRicorrenza = async (stato) => {
   loading.value = true;
+  feedback.value = null;
   try {
     await api.patch(`/movimenti/${props.movimento.id}/ricorrenza/stato`, { stato });
-    toastStore.success(stato === 'sospesa' ? 'Programmazione sospesa' : stato === 'attiva' ? 'Programmazione riattivata' : 'Programmazione terminata');
+    const messaggio = stato === 'sospesa' ? 'Programmazione sospesa' : stato === 'attiva' ? 'Programmazione riattivata' : 'Programmazione terminata';
+    feedback.value = { type: 'success', message: messaggio };
     emit('saved');
     emit('close');
+    toastStore.success(messaggio);
   } catch (err) {
-    toastStore.error(extractErrorMessage(err));
+    feedback.value = { type: 'error', message: extractErrorMessage(err) };
   } finally {
     loading.value = false;
   }
@@ -402,6 +408,17 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
     v-bind="shellProps"
     @close="$emit('close')"
   >
+    <p
+      v-if="feedback"
+      class="form-feedback"
+      :class="`form-feedback--${feedback.type}`"
+      :role="feedback.type === 'error' ? 'alert' : 'status'"
+      :aria-live="feedback.type === 'error' ? 'assertive' : 'polite'"
+      aria-atomic="true"
+    >
+      {{ feedback.message }}
+    </p>
+
     <!-- Trasferimento -->
     <div v-if="isTrasferimento" class="form-space">
       <p class="form-intro">
@@ -680,6 +697,25 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
 .monthly-count { display: grid; gap: 0.4375rem; }
 .monthly-count > label:first-child { color: var(--text-muted); font-size: var(--text-xs); font-weight: 600; }
 .monthly-count__unlimited { display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); font-size: var(--text-xs); }
+.form-feedback {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--glass-elevated-border);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.35;
+}
+.form-feedback--success {
+  color: var(--positive);
+  border-color: color-mix(in srgb, var(--positive) 40%, var(--glass-elevated-border));
+  background: color-mix(in srgb, var(--positive) 8%, var(--glass-elevated-bg));
+}
+.form-feedback--error {
+  color: var(--negative);
+  border-color: color-mix(in srgb, var(--negative) 40%, var(--glass-elevated-border));
+  background: color-mix(in srgb, var(--negative) 8%, var(--glass-elevated-bg));
+}
 .form-space { display: flex; flex-direction: column; gap: 1.125rem; }
 .form-intro { font-size: var(--text-xs); line-height: var(--leading-normal); color: var(--text-muted); }
 .prereq {

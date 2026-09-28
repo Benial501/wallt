@@ -438,23 +438,25 @@ const handleLogout = async () => {
   bottom: calc(18px + env(safe-area-inset-bottom, 0px));
   left: 12px;
   right: 12px;
-  height: 72px;
-  padding: 6px;
+  height: 78px;
+  padding: 5px;
   background: var(--glass-elevated-bg);
   backdrop-filter: blur(var(--blur-xl)) saturate(var(--glass-saturate));
   -webkit-backdrop-filter: blur(var(--blur-xl)) saturate(var(--glass-saturate));
   border: 1px solid var(--glass-elevated-border);
   border-radius: var(--radius-pill);
   box-shadow: var(--shadow-lg), var(--glass-highlight);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 2px;
   z-index: 100;
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .bottom-nav { background: var(--glass-elevated-solid); }
 }
 .bottom-nav__item {
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -465,9 +467,8 @@ const handleLogout = async () => {
   color: var(--nav-item);
   cursor: pointer;
   padding: 4px 2px;
-  flex: 1 1 0;
   min-width: 0;
-  min-height: 58px;
+  min-height: 66px;
   border-radius: var(--radius-pill);
   font-size: var(--text-xs);
   font-weight: 550;
@@ -507,7 +508,8 @@ const handleLogout = async () => {
   line-height: 1.15;
   letter-spacing: 0;
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
   hyphens: none;
 }
 /* --- Sheet: griglie di azioni e funzionalita' --------------------------- */
