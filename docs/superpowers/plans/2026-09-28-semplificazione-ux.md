@@ -71,15 +71,17 @@ Nuovo movimento
 - Modifica: `client/src/views/MovimentiView.vue`
 - Modifica: `client/src/views/DashboardView.vue`
 - Modifica: `client/src/components/movimenti/MovimentoForm.vue`
-- Riferimento da mantenere: `client/src/components/layout/BottomSheet.vue`
+- Modifica: `client/src/components/layout/BottomSheet.vue`
 
 **Interfacce:**
 
 - `SceltaTipoMovimento.vue` espone `open: Boolean` e gli eventi `close` e `select(tipo)` per i tre tipi ammessi: `entrata`, `uscita`, `trasferimento`.
+- `BottomSheet.vue` espone il pannello come dialogo modale accessibile, gestisce Esc e Tab, offre un controllo “Chiudi” e ripristina il focus all’elemento che lo ha aperto.
 - In `MovimentiView.vue` e `DashboardView.vue`, una ref locale controlla lo stesso componente; `apriForm(tipo, mov, saltaSceltaTipo)` gestisce creazione e modifica nel rispettivo modulo locale.
 - In `MovimentoForm.vue`, la nuova prop booleana `saltaSceltaTipo` vale `false` per impostazione predefinita; quando è `true` il modulo entra direttamente al passaggio dei dati. La schermata di scelta esistente resta disponibile agli ingressi che non la preselezionano.
 
 - [x] Creare `SceltaTipoMovimento.vue` riusando `BottomSheet`, le icone esistenti e token di colore, focus e raggio già definiti.
+- [x] Rendere il `BottomSheet` utilizzabile da tastiera con nome del dialogo, chiusura esplicita, Esc, focus confinato e ripristino del focus.
 - [x] In `MovimentiView.vue`, aprire il foglio dal pulsante “+” e dagli stati vuoti che propongono un inserimento; alla scelta aprire il modulo locale sul tipo selezionato.
 - [x] In `DashboardView.vue`, fare in modo che “Aggiungi transazione” apra lo stesso foglio invece di preselezionare Uscita; l’inserimento scelto riusa il modulo locale e il suo aggiornamento dashboard.
 - [x] Aggiungere `saltaSceltaTipo` a `MovimentoForm.vue` e impostare il passaggio iniziale in modo che edit e trasferimenti conservino il comportamento attuale, mentre la scelta esplicita avvia direttamente i dati.
@@ -133,3 +135,5 @@ Identità: `docs/superpowers/plans/2026-09-28-semplificazione-ux.md`.
 - Attività 3: completa; i controlli del carosello hanno etichette italiane e stato attivo accessibile.
 - Attività 4: completa; build Vite passata in `/private/tmp/wallt-ux-simplification-build`, `git diff --check` senza errori; verifica visuale via browser non eseguita.
 - Ruling: non aggiungo né avvio test automatici in conformità alle istruzioni operative; costo se errato: regressioni di interazione non coperte da test automatizzati.
+- Revisione: il revisore ha segnalato che il nuovo foglio non offriva una chiusura da tastiera; il turno di revisione si è poi interrotto per limite di utilizzo. Ho esteso il `BottomSheet` condiviso con semantica dialogo, tasto Esc, chiusura, focus confinato e ripristino.
+- Ruling: applico la correzione accessibile al `BottomSheet` condiviso, così tutte le sue istanze ricevono lo stesso comportamento modale — riduce la divergenza fra fogli; costo se errato: la gestione del focus tocca anche fogli già esistenti.
