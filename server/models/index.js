@@ -32,6 +32,8 @@ const Debito = require('./Debito');
 const PianoSmart = require('./PianoSmart');
 const PianoSmartAllocazione = require('./PianoSmartAllocazione');
 const PianoSmartAzione = require('./PianoSmartAzione');
+const PaymentPlan = require('./PaymentPlan');
+const ScheduledPayment = require('./ScheduledPayment');
 
 // User associations
 User.hasOne(ProfiloUtente, { foreignKey: 'user_id', as: 'profilo' });
@@ -108,6 +110,17 @@ PianoSmartAzione.belongsTo(PianoSmart, { foreignKey: 'plan_id', as: 'piano' });
 User.hasMany(PianoSmartAzione, { foreignKey: 'user_id', as: 'azioniPianiSmart', onDelete: 'CASCADE' });
 PianoSmartAzione.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
+User.hasMany(PaymentPlan, { foreignKey: 'user_id', as: 'pianiPagamento', onDelete: 'CASCADE' });
+PaymentPlan.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+PaymentPlan.belongsTo(Conto, { foreignKey: 'conto_id', as: 'conto' });
+PaymentPlan.belongsTo(Movimento, { foreignKey: 'movimento_iniziale_id', as: 'movimentoIniziale' });
+PaymentPlan.hasMany(ScheduledPayment, { foreignKey: 'piano_id', as: 'pagamenti', onDelete: 'CASCADE' });
+User.hasMany(ScheduledPayment, { foreignKey: 'user_id', as: 'pagamentiProgrammati', onDelete: 'CASCADE' });
+ScheduledPayment.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+ScheduledPayment.belongsTo(PaymentPlan, { foreignKey: 'piano_id', as: 'piano' });
+ScheduledPayment.belongsTo(Conto, { foreignKey: 'conto_id', as: 'conto' });
+ScheduledPayment.belongsTo(Movimento, { foreignKey: 'movimento_id', as: 'movimento' });
+
 module.exports = {
   CategoriaPersonale,
   CategoriaDefaultNascosta,
@@ -136,4 +149,6 @@ module.exports = {
   PianoSmart,
   PianoSmartAllocazione,
   PianoSmartAzione,
+  PaymentPlan,
+  ScheduledPayment,
 };

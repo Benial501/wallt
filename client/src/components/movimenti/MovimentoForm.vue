@@ -11,15 +11,19 @@ import CategoryIcon from '@/components/common/CategoryIcon.vue';
 import HelpNote from '@/components/help/HelpNote.vue';
 import { ArrowDownCircle, ArrowUpCircle } from '@/utils/appIcons';
 import { useRouter } from 'vue-router';
-import { refreshAfterWrite, VISTA_NON_AGGIORNATA } from '@/utils/afterWrite';
+import { VISTA_NON_AGGIORNATA } from '@/utils/afterWrite';
 import { GIORNI_SETTIMANA, MESI_ANNO, normalizzaFrequenza } from '@/utils/ricorrenti';
+import MonthlySchedulePicker from '@/components/ricorrenti/MonthlySchedulePicker.vue';
 import dayjs from 'dayjs';
 import api from '@/utils/axios';
+import { useScheduledPaymentsStore } from '@/stores/scheduledPayments.store';
+import { calculateInstallmentPlan } from '@/utils/installmentCalculator';
 
 const props = defineProps({
   open: { type: Boolean, default: false },
   tipo: { type: String, default: 'entrata' },
   movimento: { type: Object, default: null },
+  modalitaProgrammate: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['close', 'saved']);
@@ -27,10 +31,24 @@ const emit = defineEmits(['close', 'saved']);
 const contiStore = useContiStore();
 const movimentiStore = useMovimentiStore();
 const toastStore = useToastStore();
+const scheduledPaymentsStore = useScheduledPaymentsStore();
 const router = useRouter();
 
 const step = ref(1);
 const loading = ref(false);
+const scheduleMode = ref('today');
+const programmazione = ref('nessuna');
+const mostraProgrammazione = ref(false);
+const initialPayment = ref(0);
+const paymentCount = ref(3);
+const annualRate = ref(0);
+const senzaTermine = ref(false);
+const installmentPreview = computed(() => calculateInstallmentPlan({
+  purchaseAmount: form.value.importo,
+  initialPayment: initialPayment.value,
+  paymentCount: paymentCount.value,
+  annualRate: annualRate.value,
+}));
 
 const form = ref({
   tipo: 'entrata',
@@ -45,6 +63,7 @@ const form = ref({
   ricorrente_frequenza: 'mensile',
   ricorrente_giorno: 1,
   ricorrente_mese: 1,
+  ricorrente_occorrenze_rimanenti: 12,
 });
 
 // Il range valido di ricorrente_giorno dipende dalla frequenza (1-7 per
@@ -85,6 +104,11 @@ const contiSelezionabili = computed(() => {
 
 const buildUpdatePayload = () => {
   const payload = { ...form.value };
+  payload.ricorrente_occorrenze_rimanenti = payload.ricorrente
+    && payload.ricorrente_frequenza === 'mensile'
+    && !senzaTermine.value
+    ? payload.ricorrente_occorrenze_rimanenti
+    : null;
   if (!payload.ricorrente) {
     payload.ricorrente_frequenza = null;
     payload.ricorrente_giorno = null;
@@ -121,6 +145,13 @@ const saldoInsufficiente = computed(() => {
 });
 
 const resetForm = () => {
+  scheduleMode.value = 'today';
+  programmazione.value = 'nessuna';
+  mostraProgrammazione.value = false;
+  initialPayment.value = 0;
+  paymentCount.value = 3;
+  annualRate.value = 0;
+  senzaTermine.value = false;
   form.value = {
     tipo: props.tipo === 'trasferimento' ? 'entrata' : props.tipo,
     importo: null,
@@ -132,8 +163,9 @@ const resetForm = () => {
     periodicita_entrata: 'sconosciuta',
     ricorrente: false,
     ricorrente_frequenza: 'mensile',
-    ricorrente_giorno: 1,
-    ricorrente_mese: 1,
+    ricorrente_giorno: dayjs().date(),
+    ricorrente_mese: dayjs().month() + 1,
+    ricorrente_occorrenze_rimanenti: 12,
   };
   trasferimentoForm.value = {
     conto_origine_id: contiStore.contiAttivi[0]?.id || null,
@@ -143,6 +175,12 @@ const resetForm = () => {
     nota: '',
   };
   step.value = isTrasferimento.value || isEdit.value ? 2 : 1;
+  if (props.modalitaProgrammate) {
+    programmazione.value = 'una_volta';
+    scheduleMode.value = 'scheduled';
+    mostraProgrammazione.value = true;
+    form.value.data = dayjs().add(1, 'day').format('YYYY-MM-DD');
+  }
 };
 
 watch(() => props.open, (val) => {
@@ -162,7 +200,10 @@ watch(() => props.open, (val) => {
         ricorrente_frequenza: normalizzaFrequenza(props.movimento.ricorrente_frequenza),
         ricorrente_giorno: props.movimento.ricorrente_giorno || 1,
         ricorrente_mese: props.movimento.ricorrente_mese || 1,
+        ricorrente_occorrenze_rimanenti: props.movimento.ricorrente_occorrenze_rimanenti ?? 12,
       };
+      senzaTermine.value = props.movimento.ricorrente_frequenza === 'mensile'
+        && props.movimento.ricorrente_occorrenze_rimanenti == null;
     } else if (!isTrasferimento.value) {
       form.value.tipo = props.tipo;
     }
@@ -176,7 +217,54 @@ onMounted(() => {
 const selectTipo = (tipo) => {
   form.value.tipo = tipo;
   form.value.categoria = null;
+  if (tipo === 'entrata' && scheduleMode.value === 'installments') scheduleMode.value = 'today';
   step.value = 2;
+};
+
+const selectScheduleMode = (mode) => {
+  const previousMode = scheduleMode.value;
+  scheduleMode.value = mode;
+  if (mode === 'today') form.value.data = dayjs().format('YYYY-MM-DD');
+  if (mode === 'scheduled' && previousMode !== mode) form.value.data = dayjs().add(1, 'day').format('YYYY-MM-DD');
+  if (mode === 'installments' && previousMode !== mode) form.value.data = dayjs().add(1, 'month').format('YYYY-MM-DD');
+};
+
+const selectProgrammazione = (value) => {
+  programmazione.value = value;
+  form.value.ricorrente = ['mensile', 'settimanale', 'annuale'].includes(value);
+  if (form.value.tipo === 'entrata') {
+    form.value.periodicita_entrata = form.value.ricorrente ? 'ricorrente' : 'sconosciuta';
+  }
+
+  if (value === 'una_volta') {
+    selectScheduleMode('scheduled');
+  } else if (value === 'rate') {
+    selectScheduleMode('installments');
+  } else {
+    selectScheduleMode('today');
+    if (form.value.ricorrente) {
+      form.value.ricorrente_frequenza = value;
+      if (value === 'mensile') {
+        form.value.ricorrente_occorrenze_rimanenti = 12;
+        senzaTermine.value = false;
+      }
+      const oggi = dayjs();
+      if (value === 'mensile') form.value.ricorrente_giorno = oggi.add(1, 'month').date();
+      if (value === 'settimanale') {
+        const weekday = oggi.add(1, 'week').day();
+        form.value.ricorrente_giorno = weekday === 0 ? 7 : weekday;
+      }
+      if (value === 'annuale') {
+        form.value.ricorrente_giorno = oggi.date();
+        form.value.ricorrente_mese = oggi.month() + 1;
+      }
+    }
+  }
+};
+
+const toggleMostraProgrammazione = () => {
+  if (mostraProgrammazione.value) selectProgrammazione('nessuna');
+  mostraProgrammazione.value = !mostraProgrammazione.value;
 };
 
 const salva = async () => {
@@ -194,17 +282,45 @@ const salva = async () => {
       await movimentiStore.updateMovimento(props.movimento.id, buildUpdatePayload());
       messaggio = 'Movimento aggiornato!';
     } else {
-      await movimentiStore.createMovimento(form.value);
-      messaggio = 'Movimento salvato!';
+      if (scheduleMode.value === 'scheduled') {
+        await scheduledPaymentsStore.createPayment({
+          type: form.value.tipo,
+          amount: form.value.importo,
+          category: form.value.categoria,
+          account_id: form.value.conto_id,
+          description: form.value.descrizione,
+          due_date: form.value.data,
+        });
+        messaggio = 'Pagamento programmato!';
+      } else if (scheduleMode.value === 'installments') {
+        await scheduledPaymentsStore.createInstallmentPlan({
+          purchase_amount: form.value.importo,
+          initial_payment: initialPayment.value || 0,
+          payment_count: paymentCount.value,
+          annual_rate: annualRate.value || 0,
+          first_due_date: form.value.data,
+          category: form.value.categoria,
+          account_id: form.value.conto_id,
+          description: form.value.descrizione,
+        });
+        messaggio = 'Piano a rate creato!';
+      } else {
+        await movimentiStore.createMovimento(buildUpdatePayload());
+        messaggio = form.value.ricorrente ? 'Movimento programmato!' : 'Movimento salvato!';
+      }
     }
 
     // Da qui in poi il movimento è già registrato sul server. Ricaricare saldi
     // e patrimonio serve solo a ciò che si vede: se fallisce, il salvataggio
     // resta valido e va comunicato come riuscito, altrimenti l'utente lo
     // ripete credendo che non sia andato a buon fine.
-    const vistaAggiornata = await refreshAfterWrite(
-      () => contiStore.fetchConti(),
-      () => contiStore.fetchPatrimonio(),
+    const selectedAccount = contiStore.contiAttivi.find((account) => account.id === form.value.conto_id);
+    const transferUsesBettingAccount = isTrasferimento.value && [
+      trasferimentoForm.value.conto_origine_id,
+      trasferimentoForm.value.conto_destinazione_id,
+    ].some((id) => contiStore.contiAttivi.find((account) => account.id === id)?.tipo === 'scommesse');
+    const vistaAggiornata = await contiStore.refreshDopoScrittura(
+      transferUsesBettingAccount || selectedAccount?.tipo === 'scommesse',
     );
 
     toastStore.success(messaggio);
@@ -223,7 +339,7 @@ const cambiaRicorrenza = async (stato) => {
   loading.value = true;
   try {
     await api.patch(`/movimenti/${props.movimento.id}/ricorrenza/stato`, { stato });
-    toastStore.success(stato === 'sospesa' ? 'Ricorrenza sospesa' : stato === 'attiva' ? 'Ricorrenza riattivata' : 'Ricorrenza terminata');
+    toastStore.success(stato === 'sospesa' ? 'Programmazione sospesa' : stato === 'attiva' ? 'Programmazione riattivata' : 'Programmazione terminata');
     emit('saved');
     emit('close');
   } catch (err) {
@@ -240,7 +356,17 @@ const canSave = computed(() => {
       && trasferimentoForm.value.importo > 0
       && !saldoInsufficiente.value;
   }
-  return form.value.importo > 0 && form.value.categoria && form.value.conto_id;
+  const baseValid = form.value.importo > 0 && form.value.categoria && form.value.conto_id;
+  if (!baseValid) return false;
+  if (scheduleMode.value === 'installments') {
+    return !!installmentPreview.value && form.value.data >= dayjs().format('YYYY-MM-DD');
+  }
+  if (form.value.ricorrente && form.value.ricorrente_frequenza === 'mensile' && !senzaTermine.value) {
+    return Number.isInteger(form.value.ricorrente_occorrenze_rimanenti)
+      && form.value.ricorrente_occorrenze_rimanenti >= 1
+      && form.value.ricorrente_occorrenze_rimanenti <= 600;
+  }
+  return scheduleMode.value !== 'scheduled' || form.value.data >= dayjs().format('YYYY-MM-DD');
 });
 
 /** Nessun conto disponibile: il movimento non avrebbe dove essere registrato. */
@@ -343,10 +469,63 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
       </div>
 
       <div v-if="step === 2 || isEdit">
+        <div v-if="!isEdit && modalitaProgrammate" class="field">
+          <label>Come vuoi programmarlo?</label>
+          <div class="programmazione-grid" role="group" aria-label="Tipo di programmazione">
+            <button v-for="opzione in [
+              { id: 'una_volta', label: 'Una data', detail: 'Un solo pagamento futuro' },
+              { id: 'mensile', label: 'Ogni mese', detail: 'Ripeti ogni mese' },
+              { id: 'settimanale', label: 'Ogni settimana', detail: 'Ripeti ogni settimana' },
+              { id: 'annuale', label: 'Ogni anno', detail: 'Ripeti ogni anno' },
+              ...(form.tipo === 'uscita' ? [{ id: 'rate', label: 'A rate', detail: 'Dividi in più pagamenti' }] : []),
+            ]" :key="opzione.id" type="button" class="programmazione-option" :class="{ 'programmazione-option--active': programmazione === opzione.id }" @click="selectProgrammazione(opzione.id)">
+              <strong>{{ opzione.label }}</strong><span>{{ opzione.detail }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div v-if="!isEdit && !modalitaProgrammate" class="field">
+          <button type="button" class="programmazione-toggle" :aria-expanded="mostraProgrammazione" @click="toggleMostraProgrammazione">
+            {{ mostraProgrammazione ? 'Nascondi programmazione' : 'Programmare questo movimento' }}
+          </button>
+          <select v-if="mostraProgrammazione" id="programmazione-movimento" :value="programmazione" class="form-select" @change="selectProgrammazione($event.target.value)">
+            <option value="nessuna">Solo questo movimento</option>
+            <option value="una_volta">Una volta, in una data futura</option>
+            <option value="mensile">Ogni mese</option>
+            <option value="settimanale">Ogni settimana</option>
+            <option value="annuale">Ogni anno</option>
+            <option v-if="form.tipo === 'uscita'" value="rate">A rate</option>
+          </select>
+        </div>
+
         <div class="field">
-          <label>Importo €</label>
+          <label>{{ scheduleMode === 'installments' ? 'Costo totale €' : 'Importo €' }}</label>
           <input v-model.number="form.importo" type="number" min="0" step="0.01" class="form-input form-input--lg" inputmode="decimal" placeholder="0.00" />
         </div>
+
+        <template v-if="scheduleMode === 'installments' && !isEdit">
+          <div class="field">
+            <label>Quanto paghi oggi? €</label>
+            <input v-model.number="initialPayment" type="number" min="0" :max="form.importo || undefined" step="0.01" class="form-input" inputmode="decimal" />
+          </div>
+          <div class="field">
+            <label>Numero totale dei pagamenti</label>
+            <input v-model.number="paymentCount" type="number" min="1" max="600" step="1" class="form-input" />
+            <small v-if="initialPayment > 0">Include il pagamento di oggi.</small>
+          </div>
+          <div class="field">
+            <label>Tasso annuo (%)</label>
+            <input v-model.number="annualRate" type="number" min="0" max="1000" step="0.01" class="form-input" inputmode="decimal" />
+          </div>
+          <div v-if="installmentPreview" class="installment-preview">
+            <strong>Riepilogo rate</strong>
+            <p v-if="Number(installmentPreview.initialPayment) > 0">Oggi: €{{ installmentPreview.initialPayment }}</p>
+            <p v-for="(payment, index) in installmentPreview.payments" :key="index">Rata {{ index + 1 }}: €{{ payment }}</p>
+            <p>Totale da pagare: €{{ installmentPreview.totalRepayment }}</p>
+            <p>Interessi stimati: €{{ installmentPreview.interestTotal }}</p>
+          </div>
+          <p v-else class="error-text">Controlla costo, pagamento iniziale e numero dei pagamenti.</p>
+        </template>
 
         <div class="field">
           <label>Categoria</label>
@@ -381,17 +560,17 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
           />
         </div>
 
-        <div class="field">
-          <label>Data</label>
-          <input v-model="form.data" type="date" class="form-input" />
+        <div v-if="scheduleMode === 'scheduled' || scheduleMode === 'installments' || isEdit" class="field">
+          <label>{{ scheduleMode === 'installments' ? 'Data della prima rata' : scheduleMode === 'scheduled' ? 'Data del pagamento' : 'Data' }}</label>
+          <input v-model="form.data" type="date" class="form-input" :min="scheduleMode === 'today' ? undefined : dayjs().format('YYYY-MM-DD')" />
         </div>
 
-        <div class="field">
+        <div v-if="scheduleMode !== 'today' || form.ricorrente || isEdit" class="field">
           <label>Note (opzionale)</label>
           <input v-model="form.descrizione" type="text" class="form-input" placeholder="Descrizione..." />
         </div>
 
-        <div v-if="form.tipo === 'entrata'" class="field">
+        <div v-if="form.tipo === 'entrata' && isEdit" class="field">
           <label>Natura dell'entrata</label>
           <select v-model="form.natura_entrata" class="form-select">
             <option value="sconosciuto">Non specificata</option>
@@ -406,28 +585,32 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
           </select>
         </div>
 
-        <div v-if="form.tipo === 'entrata'" class="field">
+        <div v-if="form.tipo === 'entrata' && isEdit" class="field">
           <label>Periodicità dell'entrata</label>
           <select v-model="form.periodicita_entrata" class="form-select">
             <option value="sconosciuta">Non specificata</option>
-            <option value="ricorrente">Ricorrente o prevedibile</option>
+            <option value="ricorrente">Regolare o prevedibile</option>
             <option value="occasionale">Occasionale</option>
           </select>
         </div>
 
-        <div class="field">
+        <div v-if="isEdit" class="field">
           <label class="toggle-label">
             <input v-model="form.ricorrente" type="checkbox" />
-            Movimento ricorrente
+            Movimento programmato
           </label>
-          <div v-if="form.ricorrente" class="ricorrente-fields">
-            <select v-model="form.ricorrente_frequenza" class="form-select ricorrente-fields__frequenza">
+        </div>
+
+        <div v-if="form.ricorrente" class="field">
+          <label v-if="isEdit">Frequenza</label>
+          <div class="ricorrente-fields">
+            <select v-if="isEdit" v-model="form.ricorrente_frequenza" class="form-select ricorrente-fields__frequenza">
               <option value="mensile">Ogni mese</option>
               <option value="settimanale">Ogni settimana</option>
               <option value="annuale">Ogni anno</option>
             </select>
 
-            <select v-if="form.ricorrente_frequenza === 'settimanale'" v-model.number="form.ricorrente_giorno" class="form-select">
+            <select v-if="form.ricorrente_frequenza === 'settimanale'" v-model.number="form.ricorrente_giorno" class="form-select ricorrente-fields__frequenza">
               <option v-for="g in GIORNI_SETTIMANA" :key="g.id" :value="g.id">{{ g.label }}</option>
             </select>
 
@@ -438,9 +621,33 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
               <input v-model.number="form.ricorrente_giorno" type="number" min="1" max="31" class="form-input" placeholder="Giorno (es. 1)" />
             </template>
 
-            <input v-else v-model.number="form.ricorrente_giorno" type="number" min="1" max="31" class="form-input" placeholder="Giorno del mese (es. 1)" />
           </div>
-          <HelpNote topic="movimento-ricorrenza" label="Come funziona la ricorrenza" />
+          <template v-if="form.ricorrente_frequenza === 'mensile'">
+            <MonthlySchedulePicker
+              v-model="form.ricorrente_giorno"
+              :occurrences="form.ricorrente_occorrenze_rimanenti"
+              :unlimited="senzaTermine"
+            />
+            <div class="monthly-count">
+              <label for="movimento-ricorrenza-occorrenze">Numero di scadenze future</label>
+              <input
+                id="movimento-ricorrenza-occorrenze"
+                v-model.number="form.ricorrente_occorrenze_rimanenti"
+                type="number"
+                min="1"
+                max="600"
+                step="1"
+                class="form-input"
+                :disabled="senzaTermine"
+                inputmode="numeric"
+              />
+              <label v-if="isEdit" class="monthly-count__unlimited">
+                <input v-model="senzaTermine" type="checkbox" />
+                Continua ogni mese finché non la sospendo
+              </label>
+            </div>
+          </template>
+          <HelpNote topic="movimento-ricorrenza" label="Come funziona la programmazione" />
           <div v-if="isEdit && props.movimento.ricorrente" class="ricorrenza-actions">
             <span>Stato: {{ props.movimento.stato_ricorrenza || 'attiva' }}</span>
             <button v-if="props.movimento.stato_ricorrenza === 'sospesa'" type="button" :disabled="loading" @click="cambiaRicorrenza('attiva')">Riprendi</button>
@@ -459,7 +666,16 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
 
 <style scoped>
 .ricorrenza-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-top: 0.75rem; font-size: var(--text-sm); }
+.programmazione-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.programmazione-option { display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; padding: 0.75rem; border: 1px solid var(--glass-interactive-border); border-radius: var(--radius-md); background: var(--glass-interactive-bg); color: var(--text-primary); text-align: left; cursor: pointer; }
+.programmazione-option strong { font-size: var(--text-xs); }
+.programmazione-option span { color: var(--text-muted); font-size: var(--text-xs); }
+.programmazione-option--active { border-color: var(--accent-green); background: color-mix(in srgb, var(--accent-green) 10%, transparent); }
+.programmazione-toggle { color: var(--accent-green); font-size: var(--text-xs); font-weight: 600; text-align: left; text-decoration: underline; }
 .ricorrenza-actions button { color: var(--text-primary); text-decoration: underline; }
+.monthly-count { display: grid; gap: 0.4375rem; }
+.monthly-count > label:first-child { color: var(--text-muted); font-size: var(--text-xs); font-weight: 600; }
+.monthly-count__unlimited { display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); font-size: var(--text-xs); }
 .form-space { display: flex; flex-direction: column; gap: 1.125rem; }
 .form-intro { font-size: var(--text-xs); line-height: var(--leading-normal); color: var(--text-muted); }
 .prereq {
@@ -617,4 +833,8 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
 }
 .ricorrente-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.625rem; }
 .ricorrente-fields__frequenza { grid-column: 1 / -1; }
+.installment-preview { padding: 0.875rem; border: 1px solid var(--glass-secondary-border); border-radius: var(--radius-lg); background: var(--glass-secondary-bg); font-size: var(--text-xs); color: var(--text-secondary); }
+.installment-preview strong { color: var(--text-primary); }
+.installment-preview p { margin: 0.35rem 0 0; }
+.field small { color: var(--text-muted); font-size: var(--text-xs); }
 </style>

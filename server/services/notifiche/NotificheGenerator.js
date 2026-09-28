@@ -1,6 +1,6 @@
 const cron = require('node-cron');
 const { Op } = require('sequelize');
-const { User, Movimento, Obiettivo } = require('../../models');
+const { User, Movimento, Obiettivo, ScheduledPayment } = require('../../models');
 const { CATEGORIA_USCITA_DISPLAY } = require('../../constants/categorie');
 const { calcolaStatoBudget } = require('../budgetStato.service');
 const logger = require('../../utils/logger');
@@ -11,6 +11,7 @@ const { inviaNotifichePendenti } = require('./PushService');
 const {
   partiLocali, parseOrario, sommaGiorni, istanteDaOrarioLocale, settimanaIso,
 } = require('./notificheTime');
+const { getRomeDateParts, valutaOccorrenza } = require('../ricorrenti.service');
 
 /**
  * Generatore delle notifiche: contiene le regole di business, una per tipo.
@@ -46,6 +47,10 @@ const troncaDescrizione = (descrizione, max = 60) => {
   if (!testo) return null;
   return testo.length > max ? `${testo.slice(0, max - 1)}…` : testo;
 };
+
+const formattaData = (dataIso, timezone) => new Intl.DateTimeFormat('it-IT', {
+  day: 'numeric', month: 'long', timeZone: timezone,
+}).format(new Date(`${dataIso}T12:00:00.000Z`));
 
 /**
  * Estremi (istanti assoluti) del giorno locale dell'utente: servono per
@@ -177,49 +182,87 @@ const regolaBudget = async ({ userId, preferenze, adesso }) => {
   return esiti;
 };
 
-/**
- * 4) Pagamenti ricorrenti: un solo avviso il giorno prima della scadenza.
- * Replica la regola del cron delle ricorrenti (`ricorrenti.service.js`):
- * solo frequenza mensile e confronto esatto sul giorno del mese.
- */
+/** Avvisi per le scadenze programmate: uscite cinque giorni prima, entrate il giorno stesso. */
 const regolaRicorrenti = async ({ userId, preferenze, adesso }) => {
   if (!preferenze.alert_ricorrenti_attivi) return [];
 
   const locale = partiLocali(adesso, preferenze.timezone);
-  const domani = sommaGiorni(locale.data, 1);
-  const [annoDomani, meseDomani, giornoDomani] = domani.split('-');
-  const periodoDomani = `${annoDomani}-${meseDomani}`;
-  const giornoDelMese = Number(giornoDomani);
-
-  const ricorrenti = await Movimento.findAll({
+  const dataPromemoriaSpese = sommaGiorni(locale.data, 5);
+  const dataPromemoriaParti = getRomeDateParts(new Date(`${dataPromemoriaSpese}T12:00:00.000Z`));
+  const speseProgrammate = await ScheduledPayment.findAll({
     where: {
       user_id: userId,
-      ricorrente: true,
-      ricorrente_frequenza: 'mensile',
-      ricorrente_giorno: giornoDelMese,
-      tipo: { [Op.in]: ['entrata', 'uscita'] },
+      tipo: 'uscita',
+      stato: 'in_attesa',
+      data_scadenza: dataPromemoriaSpese,
     },
   });
-
   const esiti = [];
-  for (const movimento of ricorrenti) {
-    const descrizione = troncaDescrizione(movimento.descrizione);
-    const messaggio = movimento.tipo === 'entrata'
-      ? `Domani è prevista un'entrata ricorrente${descrizione ? `: ${descrizione}` : ''}.`
-      : `Domani è previsto un pagamento ricorrente${descrizione ? `: ${descrizione}` : ''}.`;
-
+  for (const payment of speseProgrammate) {
+    const descrizione = troncaDescrizione(payment.descrizione);
     esiti.push(await creaNotifica({
       userId,
       preferenze,
       adesso,
       tipo: 'ricorrente_imminente',
-      dedupeKey: `ricorrente:${movimento.id}:${periodoDomani}`,
-      titolo: movimento.tipo === 'entrata' ? 'Entrata in arrivo' : 'Pagamento in arrivo',
-      messaggio,
-      link: '/movimenti',
-      // Scadenza imminente: rientra fra gli avvisi importanti.
+      dedupeKey: `spesa-programmata:${payment.id}:5-giorni`,
+      titolo: 'Pagamento tra cinque giorni',
+      messaggio: `Hai una spesa programmata${descrizione ? `: ${descrizione}` : ''} il ${formattaData(payment.data_scadenza, preferenze.timezone)}.`,
+      link: '/ricorrenti',
       priorita: PRIORITA.URGENTE,
-      metadata: { movimento_id: movimento.id, periodo: periodoDomani },
+      metadata: { pagamento_id: payment.id, data_scadenza: payment.data_scadenza },
+    }));
+  }
+
+  // Le uscite periodiche esistono come regole fino al giorno della scadenza.
+  // Valutiamo la ricorrenza sulla data che cade tra cinque giorni.
+  const ricorrentiUscita = await Movimento.findAll({
+    where: {
+      user_id: userId,
+      ricorrente: true,
+      stato_ricorrenza: 'attiva',
+      tipo: 'uscita',
+    },
+  });
+  for (const movimento of ricorrentiUscita) {
+    const { dovuto, periodo } = valutaOccorrenza(movimento, dataPromemoriaParti);
+    if (!dovuto || !periodo) continue;
+    const descrizione = troncaDescrizione(movimento.descrizione);
+    esiti.push(await creaNotifica({
+      userId,
+      preferenze,
+      adesso,
+      tipo: 'ricorrente_imminente',
+      dedupeKey: `ricorrente:${movimento.id}:${periodo}:5-giorni`,
+      titolo: 'Pagamento tra cinque giorni',
+      messaggio: `Hai un pagamento programmato${descrizione ? `: ${descrizione}` : ''} il ${formattaData(dataPromemoriaSpese, preferenze.timezone)}.`,
+      link: '/ricorrenti',
+      priorita: PRIORITA.URGENTE,
+      metadata: { movimento_id: movimento.id, periodo, data_scadenza: dataPromemoriaSpese },
+    }));
+  }
+
+  const entrateDelGiorno = await ScheduledPayment.findAll({
+    where: {
+      user_id: userId,
+      tipo: 'entrata',
+      stato: 'in_attesa',
+      data_scadenza: locale.data,
+    },
+  });
+  for (const payment of entrateDelGiorno) {
+    const descrizione = troncaDescrizione(payment.descrizione);
+    esiti.push(await creaNotifica({
+      userId,
+      preferenze,
+      adesso,
+      tipo: 'ricorrente_imminente',
+      dedupeKey: `entrata-programmata:${payment.id}:scadenza`,
+      titolo: 'Conferma l’entrata prevista',
+      messaggio: `È prevista un'entrata${descrizione ? `: ${descrizione}` : ''}. Segnala se è arrivata o se è in ritardo.`,
+      link: '/ricorrenti',
+      priorita: PRIORITA.URGENTE,
+      metadata: { pagamento_id: payment.id, data_scadenza: payment.data_scadenza, richiede_conferma: true },
     }));
   }
 

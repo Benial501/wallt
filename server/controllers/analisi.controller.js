@@ -38,8 +38,9 @@ const CATEGORIA_DISPLAY = {
 
 /**
  * Distribuzione per categoria di un tipo di movimento (uscita o entrata).
- * I trasferimenti restano fuori per costruzione: hanno tipo proprio e non
- * sono né spesa né entrata.
+ * I trasferimenti restano fuori per costruzione. I depositi scommesse sono
+ * l'eccezione della vista Spese: vengono letti dal registro scommesse perché
+ * il loro movimento nel registro generale è un trasferimento.
  */
 const buildDistribuzione = async (userId, tipo, { da, a }) => {
   const categories = await listCategories(userId, { includeArchived: true });
@@ -54,14 +55,33 @@ const buildDistribuzione = async (userId, tipo, { da, a }) => {
     if (a) where.data[Op.lte] = a;
   }
 
-  const movimenti = await Movimento.findAll({ where, attributes: ['categoria', 'importo', 'ricorrente'] });
+  const [movimenti, depositiScommesse] = await Promise.all([
+    Movimento.findAll({ where, attributes: ['categoria', 'importo', 'ricorrente'] }),
+    tipo === 'uscita'
+      ? MovimentoScommesse.findAll({
+        where: {
+          user_id: userId,
+          tipo: 'deposito',
+          ...(da || a ? { data: { ...(da ? { [Op.gte]: da } : {}), ...(a ? { [Op.lte]: a } : {}) } } : {}),
+        },
+        attributes: ['importo'],
+      })
+      : Promise.resolve([]),
+  ]);
   const map = {};
   // Una ricorrenza (regola) non è una spesa/entrata avvenuta: i grafici delle
   // Analisi contano solo ciò che ha davvero mosso denaro (vedi muoveSaldo).
   movimenti.filter(muoveSaldo).forEach((m) => {
     const cat = m.categoria || (tipo === 'entrata' ? 'altro_entrata' : 'altro_uscita');
+    // Il registro scommesse è la fonte canonica: i vecchi movimenti di
+    // deposito possono essere ancora uscite e non vanno sommati due volte.
+    if (tipo === 'uscita' && cat === 'deposito_scommesse') return;
     map[cat] = (map[cat] || 0) + toNumber(m.importo);
   });
+  if (depositiScommesse.length) {
+    map.deposito_scommesse = (map.deposito_scommesse || 0)
+      + depositiScommesse.reduce((totale, movimento) => totale + toNumber(movimento.importo), 0);
+  }
 
   const totale = Object.values(map).reduce((s, v) => s + v, 0);
   const distribuzione = Object.entries(map)
@@ -121,14 +141,21 @@ const getConfrontoMesi = async (req, res) => {
 
     // Una sola query sull'intero arco invece di una per periodo: con 12
     // intervalli erano 12 round trip al database per disegnare un grafico.
-    const movimenti = await Movimento.findAll({
+    const [movimenti, depositiScommesse] = await Promise.all([Movimento.findAll({
       where: {
         user_id: req.userId,
         data: { [Op.between]: [periodi[0].da, periodi[periodi.length - 1].a] },
         tipo: { [Op.in]: ['entrata', 'uscita'] },
       },
-      attributes: ['data', 'tipo', 'importo', 'ricorrente'],
-    });
+      attributes: ['data', 'tipo', 'importo', 'ricorrente', 'categoria'],
+    }), MovimentoScommesse.findAll({
+      where: {
+        user_id: req.userId,
+        tipo: 'deposito',
+        data: { [Op.between]: [periodi[0].da, periodi[periodi.length - 1].a] },
+      },
+      attributes: ['data', 'importo'],
+    })]);
 
     const totali = new Map(periodi.map((p) => [p.chiave, { entrate: 0, uscite: 0 }]));
 
@@ -143,7 +170,12 @@ const getConfrontoMesi = async (req, res) => {
       if (!periodo) return;
       const acc = totali.get(periodo.chiave);
       if (m.tipo === 'entrata') acc.entrate += toNumber(m.importo);
-      else acc.uscite += toNumber(m.importo);
+      else if (m.categoria !== 'deposito_scommesse') acc.uscite += toNumber(m.importo);
+    });
+    depositiScommesse.forEach((movimento) => {
+      const giorno = String(movimento.data).slice(0, 10);
+      const periodo = periodi.find((p) => giorno >= p.da && giorno <= p.a);
+      if (periodo) totali.get(periodo.chiave).uscite += toNumber(movimento.importo);
     });
 
     const risultato = periodi.map((p) => {
@@ -306,9 +338,16 @@ const getSuggerimenti = async (req, res) => {
       const ultimo = new Date(a, m, 0).getDate();
       const da = `${a}-${String(m).padStart(2, '0')}-01`;
       const fine = `${a}-${String(m).padStart(2, '0')}-${ultimo}`;
-      const movs = await Movimento.findAll({
+      const [movs, depositiScommesse] = await Promise.all([Movimento.findAll({
         where: { user_id: req.userId, tipo: 'uscita', data: { [Op.between]: [da, fine] } },
-      });
+      }), MovimentoScommesse.findAll({
+        where: {
+          user_id: req.userId,
+          tipo: 'deposito',
+          data: { [Op.between]: [da, fine] },
+        },
+        attributes: ['importo'],
+      })]);
       const map = {};
       let tot = 0;
       // Una ricorrenza (regola) non è ancora una spesa avvenuta: contarla
@@ -316,8 +355,14 @@ const getSuggerimenti = async (req, res) => {
       // conto non ha ancora subito (vedi muoveSaldo).
       movs.filter(muoveSaldo).forEach((mv) => {
         const c = mv.categoria || 'altro_uscita';
+        if (c === 'deposito_scommesse') return;
         map[c] = (map[c] || 0) + toNumber(mv.importo);
         tot += toNumber(mv.importo);
+      });
+      depositiScommesse.forEach((deposito) => {
+        const importo = toNumber(deposito.importo);
+        map.deposito_scommesse = (map.deposito_scommesse || 0) + importo;
+        tot += importo;
       });
       return { map, tot };
     };

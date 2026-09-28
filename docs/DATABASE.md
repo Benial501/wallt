@@ -100,11 +100,44 @@ Migrazioni: `npm run migrate` o auto-run all'avvio (`server.js`, disabilitato in
 | `data` | DATEONLY | Data transazione |
 | `ricorrente` | BOOLEAN | |
 | `ricorrente_frequenza` | ENUM | giornaliera/settimanale/mensile/annuale/una_tantum |
-| `ricorrente_giorno` | INTEGER | Giorno del mese (non usato per `una_tantum`) |
+| `ricorrente_giorno` | INTEGER | Giorno della settimana (1-7), del mese o dell'anno secondo la frequenza |
 | `ricorrente_data` | DATEONLY | Solo con `ricorrente_frequenza: 'una_tantum'` (spesa programmata): data fissa dell'addebito unico. `null` per le altre frequenze — nessuna riga la legge se non è `una_tantum`. Vedi CLAUDE.md Regola 11 |
+| `ricorrente_occorrenze_rimanenti` | INTEGER NULL | Scadenze mensili ancora da eseguire (1-600); `null` = senza termine, `0` chiude la programmazione al raggiungimento dell'ultima scadenza |
 | `categoria_automatica` | BOOLEAN | |
 | `categoria_confidenza` | INTEGER | 0-100 |
 | `categoria_modificata` | BOOLEAN | Utente ha corretto |
+
+### `piani_pagamento`
+| Campo | Tipo | Note |
+|---|---|---|
+| `id` | INTEGER PK AI | |
+| `user_id` | INTEGER FK → users | Eliminazione utente a cascata |
+| `conto_id` | INTEGER FK → conti | Conto scelto per l'acquisto |
+| `categoria`, `descrizione` | STRING(100), STRING(500) | Dati del movimento d'acquisto |
+| `importo_acquisto`, `importo_iniziale` | DECIMAL(12,2) | Prezzo e quota registrata subito |
+| `numero_pagamenti` | INTEGER | Comprende l'anticipo se maggiore di zero |
+| `tasso_annuo` | DECIMAL(8,4) | Percentuale annuale inserita dall'utente |
+| `totale_da_restituire`, `interessi_stimati` | DECIMAL(12,2) | Valori calcolati in centesimi |
+| `movimento_iniziale_id` | INTEGER FK → movimenti NULL | Movimento della quota iniziale, se presente |
+| `stato` | STRING(20) | `attivo`, `completato` o `annullato` |
+
+### `pagamenti_programmati`
+| Campo | Tipo | Note |
+|---|---|---|
+| `id` | INTEGER PK AI | |
+| `user_id` | INTEGER FK → users | Eliminazione utente a cascata |
+| `piano_id` | INTEGER FK → piani_pagamento NULL | NULL per pagamento singolo |
+| `ricorrenza_origine_id` | INTEGER FK → movimenti NULL | Regola d'entrata periodica che genera la scadenza |
+| `ricorrenza_periodo` | STRING(20) NULL | Chiave del periodo, unica per regola |
+| `conto_id` | INTEGER FK → conti | Conto coinvolto |
+| `tipo`, `importo` | ENUM / DECIMAL(12,2) | `entrata` o `uscita`, importo positivo |
+| `categoria`, `descrizione` | STRING(100), STRING(500) | Dati del movimento da registrare |
+| `data_scadenza` | DATEONLY | Scadenza prevista |
+| `stato` | STRING(20) | `in_attesa`, `in_ritardo`, `pagato` o `annullato` |
+| `movimento_id` | INTEGER FK → movimenti NULL UNIQUE | Movimento creato alla conferma |
+| `pagato_il` | DATEONLY NULL | Giorno in cui l'utente conferma il pagamento |
+
+Indice lista: `(user_id, stato, data_scadenza)`. L'indice univoco parziale `(user_id, ricorrenza_origine_id, ricorrenza_periodo)` impedisce di creare due scadenze per la stessa entrata periodica. Le programmazioni in attesa o in ritardo non sono movimenti e non aggiornano i saldi. Confermare un pagamento o un'entrata crea il movimento e aggiorna il conto nella stessa transazione; il vincolo univoco impedisce di collegare due pagamenti allo stesso movimento. Entrambe le tabelle hanno RLS attiva e revoca dei privilegi ai ruoli `anon` e `authenticated`.
 
 ### `budget_mensili`
 | Campo | Tipo | Note |
@@ -442,6 +475,9 @@ CategorieRegola (globali, user_id = NULL) — nessuna FK
 | `20260917000025-harden-debiti-access.js` | RLS + revoca privilegi ruoli pubblici su debiti (follow-up hardening, additiva) |
 | `20260925000033-add-nascosto-e-spese-programmate.js` | conti.nascosto (BOOLEAN, default false) + movimenti.ricorrente_data (DATEONLY) |
 | `20260926000034-add-mesi-sicurezza-target.js` | conti.mesi_sicurezza_target (INTEGER NULL) + indice parziale conti_un_solo_fondo_emergenza |
+| `20260927000037-create-pagamenti-programmati.js` | Piani a rate e scadenze programmate |
+| `20260928000038-programmate-entrate-ricorrenti.js` | Scadenze per entrate ricorrenti e stato `in_ritardo` |
+| `20260928000039-add-limite-occorrenze-ricorrenti.js` | Numero di scadenze mensili rimanenti |
 
 ## Query importanti
 

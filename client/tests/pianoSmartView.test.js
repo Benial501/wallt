@@ -2,12 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-test('Piano Smart apre in Aiuto la guida interattiva', async () => {
+test('Piano Smart apre la guida interattiva dalla pagina', async () => {
   const source = await readFile(new URL('../src/views/PianoSmartView.vue', import.meta.url), 'utf8');
   assert.match(source, /class="info-button"/);
   assert.match(source, /aria-label="Apri la guida di Piano Smart"/);
-  assert.match(source, /Apri la guida completa in Aiuto/);
-  assert.match(source, /query: \{ argomento: 'piano-smart'/);
+  assert.match(source, /title="Apri la guida completa di Piano Smart"/);
+  assert.match(source, /@click="apriGuida\('cos-e'\)"/);
+  assert.match(source, /:open="guidaSpiegazioneAperta"/);
 });
 
 test('Piano Smart espone timeline accessibile, radar e obiettivi dalla situazione del server', async () => {

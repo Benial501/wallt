@@ -322,6 +322,17 @@ const validateMovimento = [
     .optional({ values: 'null' })
     .isInt({ min: 1, max: 12 })
     .withMessage('Mese ricorrente non valido'),
+  body('ricorrente_occorrenze_rimanenti')
+    .optional({ values: 'null' })
+    .isInt({ min: 1, max: 600 })
+    .withMessage('Il numero di scadenze deve essere compreso tra 1 e 600')
+    .custom((value, { req }) => {
+      if (value !== undefined && value !== null && req.body.ricorrente_frequenza
+        && req.body.ricorrente_frequenza !== 'mensile') {
+        throw new Error('Il numero di scadenze si applica solo alle programmazioni mensili');
+      }
+      return true;
+    }),
   // La data vale solo per le spese programmate: accettarla su una frequenza
   // periodica significherebbe salvare un campo che nessuno leggerà mai.
   body('ricorrente_data')
@@ -419,6 +430,17 @@ const validateUpdateMovimento = [
     .optional({ values: 'null' })
     .isInt({ min: 1, max: 12 })
     .withMessage('Mese ricorrente non valido'),
+  body('ricorrente_occorrenze_rimanenti')
+    .optional({ values: 'null' })
+    .isInt({ min: 1, max: 600 })
+    .withMessage('Il numero di scadenze deve essere compreso tra 1 e 600')
+    .custom((value, { req }) => {
+      if (value !== undefined && value !== null && req.body.ricorrente_frequenza
+        && req.body.ricorrente_frequenza !== 'mensile') {
+        throw new Error('Il numero di scadenze si applica solo alle programmazioni mensili');
+      }
+      return true;
+    }),
   // La data vale solo per le spese programmate: accettarla su una frequenza
   // periodica significherebbe salvare un campo che nessuno leggerà mai.
   // In modifica una data passata resta ammessa: serve a correggere un
@@ -1485,6 +1507,64 @@ const validateUpdateFondoEmergenza = [
   validate,
 ];
 
+const importoProgrammazione = (campo) => body(campo)
+  .isFloat({ gt: 0, max: 9999999999.99 })
+  .withMessage('L’importo deve essere maggiore di zero')
+  .custom((value) => /^\d+(\.\d{1,2})?$/.test(String(value)))
+  .withMessage('L’importo può avere al massimo due decimali')
+  .toFloat();
+const dataProgrammata = (campo) => body(campo)
+  .isISO8601({ strict: true })
+  .withMessage('Data non valida')
+  .custom((value) => {
+    if (value < oggiLocale(FUSO_DEFAULT)) throw new Error('La data non può essere nel passato');
+    return true;
+  });
+const descrizioneProgrammata = () => body('description')
+  .optional({ values: 'null' })
+  .isString().trim().isLength({ max: 500 })
+  .withMessage('La descrizione può contenere al massimo 500 caratteri');
+const categoriaProgrammata = () => body('category')
+  .isString().trim().notEmpty().isLength({ max: 100 })
+  .withMessage('Categoria non valida');
+const contoProgrammata = () => body('account_id')
+  .isInt({ min: 1 }).toInt()
+  .withMessage('Conto non valido');
+
+const validateCreateScheduledPayment = [
+  body('type').isIn(['entrata', 'uscita']).withMessage('Tipo di movimento non valido'),
+  importoProgrammazione('amount'),
+  categoriaProgrammata(),
+  contoProgrammata(),
+  descrizioneProgrammata(),
+  dataProgrammata('due_date'),
+  validate,
+];
+
+const validateCreateInstallmentPlan = [
+  importoProgrammazione('purchase_amount'),
+  body('initial_payment')
+    .isFloat({ min: 0, max: 9999999999.99 })
+    .withMessage('Il pagamento iniziale non è valido')
+    .custom((value) => /^\d+(\.\d{1,2})?$/.test(String(value)))
+    .withMessage('Il pagamento iniziale può avere al massimo due decimali')
+    .toFloat(),
+  body('payment_count').isInt({ min: 1, max: 600 }).toInt().withMessage('Numero di pagamenti non valido'),
+  body('annual_rate')
+    .isFloat({ min: 0, max: 1000 })
+    .withMessage('Il tasso annuo deve essere zero o maggiore')
+    .custom((value) => /^\d+(\.\d{1,4})?$/.test(String(value)))
+    .withMessage('Il tasso annuo può avere al massimo quattro decimali')
+    .toFloat(),
+  dataProgrammata('first_due_date'),
+  categoriaProgrammata(),
+  contoProgrammata(),
+  descrizioneProgrammata(),
+  validate,
+];
+
+const validateScheduledPaymentId = [idParam, validate];
+
 module.exports = {
   validate,
   handleValidation: validate,
@@ -1545,4 +1625,7 @@ module.exports = {
   validatePianoSmartActionId,
   validateCreateFondoEmergenza,
   validateUpdateFondoEmergenza,
+  validateCreateScheduledPayment,
+  validateCreateInstallmentPlan,
+  validateScheduledPaymentId,
 };

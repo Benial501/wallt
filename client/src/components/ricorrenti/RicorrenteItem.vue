@@ -80,11 +80,14 @@ const importoFormattato = computed(() => new Intl.NumberFormat('it-IT', {
       <dl class="ricorrente-card__dati">
         <div>
           <dt><Calendar :size="15" aria-hidden="true" /> Frequenza</dt>
-          <dd>
-            {{ movimento.ricorrente_frequenza === 'una_tantum' && presentazione.prossimaEsecuzione
-              ? formatData(presentazione.prossimaEsecuzione, 'medio')
-              : presentazione.frequenzaLabel }}
-          </dd>
+      <dd>
+        {{ movimento.ricorrente_frequenza === 'una_tantum' && presentazione.prossimaEsecuzione
+          ? formatData(presentazione.prossimaEsecuzione, 'medio')
+          : presentazione.frequenzaLabel }}
+        <span v-if="movimento.ricorrente_frequenza === 'mensile' && movimento.ricorrente_occorrenze_rimanenti != null">
+          · {{ movimento.ricorrente_occorrenze_rimanenti }} scadenze rimanenti
+        </span>
+      </dd>
         </div>
         <div v-if="presentazione.prossimaEsecuzione && movimento.ricorrente_frequenza !== 'una_tantum'">
           <dt><Calendar :size="15" aria-hidden="true" /> Prossima esecuzione</dt>

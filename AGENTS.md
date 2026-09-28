@@ -148,7 +148,7 @@ Express API (/api/*)
 8. **Feature flags utente**: `mostra_scommesse`, `mostra_investimenti` controllano visibilità UI (oltre alle restrizioni profilo).
 9. **Reset account** (`POST /api/impostazioni/reset-account`): **unico endpoint standalone** di reset, implementato da `deleteAllTransactions`. Elimina solo movimenti/operazioni e azzera i saldi dei conti, mantenendo conti, profilo e account utente. Non esiste un endpoint separato "reset transazioni": è la stessa operazione. **Delete account** (`DELETE /api/impostazioni/account`) è l'unica operazione che elimina anche l'utente stesso; usa internamente `deleteAllUserData` (cancellazione dati finanziari più ampia — scommesse, investimenti, budget, obiettivi) come step interno della cancellazione completa, ma `deleteAllUserData` **non è esposta come endpoint standalone**.
 10. **Categorizzazione import**: pipeline a cascata (Revolut → regole merchant personali → regole utente → regole globali → matcher a parole chiave legacy → storico → AI locale). OpenAI (opzionale) non è uno step sequenziale: viene applicato in post-processing, in batch, solo ai risultati con confidenza bassa (<55). Il fallback a categoria generica scatta solo per dati di input mancanti, non come step finale della cascata.
-11. **Spese ricorrenti**: cron giornaliero 09:00 Europe/Rome, ma **solo frequenza `mensile`** è processata.
+11. **Spese/entrate programmate**: il cron ricorrenti giornaliero (09:00 Europe/Rome) processa frequenze settimanali, mensili, annuali e una tantum. Le uscite periodiche vengono registrate alla scadenza; le entrate periodiche diventano scadenze in attesa e aggiornano il saldo solo dopo conferma.
 12. **Patrimonio totale**: somma saldi conti attivi + investimenti attivi.
 13. **JWT invalidation**: token emessi prima di `password_changed_at` vengono rifiutati.
 
@@ -213,7 +213,7 @@ Comunicazione: Axios con `baseURL = VITE_API_URL` (default `http://localhost:300
 ## Known Issues
 
 1. **Dual import architecture**: `services/import/` e `services/importazioni/` con re-export — rischio di modificare il file sbagliato.
-2. ~~**Cron ricorrenti processa solo `mensile`**~~ — **Risolto**: API/validazione ora accettano solo `ricorrente_frequenza: 'mensile'` (l'unica realmente processata dal cron), coerente con la UI. La colonna DB resta un ENUM a 4 valori per retrocompatibilità con eventuali righe storiche, ma non è più possibile crearne di nuove con `giornaliera`/`settimanale`/`annuale`. Corretto anche un bug per cui il controllo anti-duplicazione del cron confrontava la descrizione sbagliata e non preveniva mai un doppio addebito in caso di doppia esecuzione nello stesso giorno (vedi `docs/SECURITY.md`).
+2. ~~**Cron ricorrenti processa solo `mensile`**~~ — **Risolto**: il cron processa le frequenze settimanali, mensili, annuali e una tantum. Un indice univoco sulla regola e sul periodo previene doppie occorrenze; gli incassi ricorrenti sono scadenze manuali e non aggiornano il saldo prima della conferma.
 3. **Merchant lookup providers**: tutti stub (Google Places, Foursquare, OSM).
 4. **Codice morto**: `minorRestriction.middleware.js`, componenti dashboard non usati, `PlaceholderView.vue`.
 5. ~~**`.env.test` non in `.gitignore`**~~ — **Risolto**: aggiunto a `.gitignore` e rimosso dal tracking git. Era stato committato in 2 commit con una password DB reale (locale/dev): quella password va considerata compromessa e ruotata prima del lancio (MANUAL ACTION, vedi `docs/SECURITY.md`).

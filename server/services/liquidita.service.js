@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Conto, Obiettivo, Movimento } = require('../models');
+const { Conto, Obiettivo, Movimento, ScheduledPayment } = require('../models');
 const {
   getRomeDateParts, FREQUENZE_SUPPORTATE, periodoPerRicorrenza, whereRicorrenzaAttiva,
 } = require('./ricorrenti.service');
@@ -158,6 +158,26 @@ async function calcolaLiquidita(userId, { data, transaction } = {}) {
       tipo: movimento.ricorrente_frequenza === 'una_tantum' ? 'programmata' : 'ricorrente',
       data: movimento.ricorrente_frequenza === 'una_tantum' ? movimento.ricorrente_data : null,
     }));
+  const pagamentiProgrammati = await ScheduledPayment.findAll({
+    where: {
+      user_id: userId,
+      stato: 'in_attesa',
+      tipo: 'uscita',
+      data_scadenza: { [Op.lte]: limiteProgrammateISO },
+    },
+    attributes: ['id', 'conto_id', 'categoria', 'importo', 'descrizione', 'data_scadenza'],
+    transaction,
+  });
+  pagamentiProgrammati.forEach((payment) => impegni.push({
+    movimento_id: null,
+    pagamento_programmato_id: payment.id,
+    conto_id: payment.conto_id,
+    categoria: payment.categoria,
+    importo: round2(toNumber(payment.importo)),
+    giorno: Number(payment.data_scadenza.slice(8, 10)),
+    tipo: 'programmata_manuale',
+    data: payment.data_scadenza,
+  }));
   const impegni_pertinenti = round2(impegni.reduce((sum, i) => sum + i.importo, 0));
 
   const liquidita_libera = round2(saldo_conti - liquidita_allocata - impegni_pertinenti);

@@ -2,11 +2,11 @@
 
 /**
  * I depositi e i prelievi su una piattaforma di scommesse erano registrati
- * come uscite ed entrate: comparivano quindi fra le spese e le entrate del
- * mese, pur essendo solo spostamenti di denaro fra due conti dell'utente.
- * Li convertiamo in trasferimenti, ricostruendo il conto di destinazione dal
- * collegamento piattaforma → conto. Il budget "scommesse" continua a contarli
- * (vedi services/budgetStato.service.js).
+ * come uscite ed entrate. Li convertiamo in trasferimenti per mantenere
+ * corretti i saldi dei conti; la pagina Analisi conteggia comunque i depositi
+ * come uscite usando il registro `movimenti_scommesse`, evitando duplicati.
+ * Il budget "scommesse" continua a contarli (vedi
+ * services/budgetStato.service.js).
  *
  * @type {import('sequelize-cli').Migration}
  */
@@ -42,8 +42,9 @@ module.exports = {
     `);
 
     // Movimenti di cui non si riesce a ricostruire la piattaforma (nome
-    // cambiato, piattaforma eliminata): restano fuori dalle analisi comunque,
-    // senza conto di destinazione.
+    // cambiato, piattaforma eliminata): restano trasferimenti senza conto di
+    // destinazione. I depositi presenti nel registro dedicato restano visibili
+    // nella distribuzione spese di Analisi.
     await queryInterface.sequelize.query(`
       UPDATE movimenti
       SET tipo = 'trasferimento'

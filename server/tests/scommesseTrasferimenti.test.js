@@ -83,16 +83,20 @@ describe('Depositi e prelievi scommesse come trasferimenti', () => {
     expect(parseFloat(contoGioco.saldo)).toBe(50);
   });
 
-  test('il deposito non compare fra le spese analizzate', async () => {
+  test('il deposito compare fra le spese analizzate senza alterare il tipo trasferimento', async () => {
     await movimento('deposito', 50, { conto_collegato_id: contoBanca.id });
+    await movimento('deposito', 20);
 
     const spese = await request(app)
       .get('/api/analisi/distribuzione-spese')
       .set(authHeader(token));
 
     expect(spese.status).toBe(200);
-    expect(spese.body.totale).toBe(0);
-    expect(spese.body.distribuzione.map((c) => c.categoria)).not.toContain('deposito_scommesse');
+    expect(spese.body.totale).toBe(70);
+    expect(spese.body.distribuzione).toContainEqual(expect.objectContaining({
+      categoria: 'deposito_scommesse',
+      importo: 70,
+    }));
   });
 
   test('il prelievo non compare fra le entrate analizzate', async () => {

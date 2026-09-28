@@ -265,7 +265,6 @@ const handleLogout = async () => {
       >
         <span class="bottom-nav__icon-wrap">
           <component :is="resolveAppIcon(item.icon)" class="bottom-nav__icon-svg" :stroke-width="1.75" />
-          <span v-if="item.path === 'altro'" class="bottom-nav__badge" />
         </span>
         <span v-if="item.label" class="bottom-nav__label">{{ item.label }}</span>
       </button>
@@ -469,7 +468,7 @@ const handleLogout = async () => {
   min-width: 0;
   min-height: 58px;
   border-radius: var(--radius-pill);
-  font-size: 0.625rem;
+  font-size: var(--text-xs);
   font-weight: 550;
   letter-spacing: 0;
   transition:
@@ -510,16 +509,6 @@ const handleLogout = async () => {
   white-space: nowrap;
   hyphens: none;
 }
-.bottom-nav__badge {
-  position: absolute;
-  top: 1px;
-  right: 7px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent-green);
-}
-
 /* --- Sheet: griglie di azioni e funzionalita' --------------------------- */
 .action-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.625rem; }
 .action-btn {

@@ -6,6 +6,7 @@ import { ChevronRight } from '@/utils/appIcons';
 
 const props = defineProps({
   movimento: { type: Object, required: true },
+  readonly: { type: Boolean, default: false },
 });
 
 defineEmits(['click']);
@@ -37,7 +38,7 @@ const segno = computed(() => (isEntrata.value ? '+' : '-'));
 </script>
 
 <template>
-  <button type="button" class="analisi-mov-row" @click="$emit('click', movimento)">
+  <button type="button" class="analisi-mov-row" :disabled="readonly" @click="$emit('click', movimento)">
     <div class="analisi-mov-row__body">
       <div class="analisi-mov-row__top">
         <span class="analisi-mov-row__date">{{ dataLabel }}</span>
@@ -49,7 +50,7 @@ const segno = computed(() => (isEntrata.value ? '+' : '-'));
       <p class="analisi-mov-row__title">{{ titolo }}</p>
       <p v-if="sottotitolo" class="analisi-mov-row__meta">{{ sottotitolo }}</p>
     </div>
-    <span class="analisi-mov-row__edit" aria-hidden="true">
+    <span v-if="!readonly" class="analisi-mov-row__edit" aria-hidden="true">
       <ChevronRight :size="16" :stroke-width="1.75" />
     </span>
   </button>
@@ -74,6 +75,10 @@ const segno = computed(() => (isEntrata.value ? '+' : '-'));
 .analisi-mov-row:hover {
   background: var(--bg-card-hover, var(--bg-card));
   border-color: color-mix(in srgb, var(--accent-green) 35%, var(--border));
+}
+
+.analisi-mov-row:disabled {
+  cursor: default;
 }
 
 .analisi-mov-row:focus-visible {

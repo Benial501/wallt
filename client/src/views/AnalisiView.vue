@@ -62,6 +62,21 @@ const loadCategoryMovimenti = async (categoria) => {
   loadingCategoryMovimenti.value = true;
   try {
     const { da, a } = getDateRange();
+    if (categoria === 'deposito_scommesse' && activeTab.value === 'spese') {
+      const { data } = await api.get('/scommesse/movimenti', {
+        params: { tipo: 'deposito', da, a },
+      });
+      categoryMovimenti.value = (data.movimenti || []).map((movimento) => ({
+        ...movimento,
+        id: `scommesse-${movimento.id}`,
+        tipo: 'uscita',
+        categoria,
+        descrizione: `Deposito ${movimento.piattaforma?.nome || 'scommesse'}`,
+        conto: { nome: 'Sezione Scommesse' },
+        origine_scommesse: true,
+      }));
+      return;
+    }
     const { data } = await api.get('/movimenti', {
       params: {
         categoria,
@@ -119,7 +134,7 @@ const categoryMovimentiGrouped = computed(() => {
 });
 
 const apriFormModifica = (mov) => {
-  if (!mov || mov.tipo === 'trasferimento') return;
+  if (!mov || mov.tipo === 'trasferimento' || mov.origine_scommesse) return;
   formTipo.value = mov.tipo === 'entrata' ? 'entrata' : 'uscita';
   movimentoEdit.value = mov;
   formOpen.value = true;
@@ -427,7 +442,9 @@ const esportaDati = async () => {
               <div>
                 <p class="cat-transactions__title">{{ cat.nome_display }}</p>
                 <p class="cat-transactions__hint">
-                  {{ loadingCategoryMovimenti ? 'Caricamento…' : `${categoryMovimenti.length} transazioni · tocca per modificare` }}
+                  {{ loadingCategoryMovimenti ? 'Caricamento…' : highlightCat === 'deposito_scommesse'
+                    ? `${categoryMovimenti.length} depositi registrati nella sezione Scommesse`
+                    : `${categoryMovimenti.length} transazioni · tocca per modificare` }}
                 </p>
               </div>
               <button type="button" class="cat-transactions__close" aria-label="Chiudi" @click.stop="closeCategoryPanel">
@@ -451,6 +468,7 @@ const esportaDati = async () => {
                     v-for="mov in gruppo.items"
                     :key="mov.id"
                     :movimento="mov"
+                    :readonly="mov.origine_scommesse"
                     @click="apriFormModifica"
                   />
                 </section>

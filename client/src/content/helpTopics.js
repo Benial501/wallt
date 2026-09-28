@@ -75,24 +75,26 @@ const TOPICS = [
   {
     id: 'movimento-ricorrenza',
     title: 'Movimenti ricorrenti',
-    summary: 'Una ricorrenza è una regola: il movimento lo registra WALLT a ogni scadenza.',
+    summary: 'Imposti una cadenza e WALLT prepara ogni scadenza da gestire.',
     paragraphs: [
-      'Segnando un movimento come ricorrente crei una regola, pensata per affitto, abbonamenti e bollette a importo fisso. Il movimento vero lo registra WALLT a ogni scadenza, ed è in quel momento che il saldo del conto cambia: salvare la regola non addebita nulla subito, nemmeno se la scadenza è oggi.',
-      'Il controllo passa una volta al giorno. Per una ricorrenza mensile, se il giorno del mese è già passato quando crei la regola, il primo addebito arriva al controllo successivo senza saltare il mese.',
+      'Una programmazione periodica serve per affitto, abbonamenti, bollette o entrate regolari. Le uscite ricorrenti vengono registrate alla scadenza; per le entrate WALLT prepara una scadenza in attesa e aggiorna il saldo solo quando confermi che l’incasso è arrivato.',
+      'Per una ricorrenza mensile scegli il giorno dal calendario e il numero di scadenze future. Le date previste sono evidenziate; la programmazione termina dopo l’ultima. Puoi anche lasciarla senza termine.',
+      'Il controllo passa una volta al giorno. Per una ricorrenza mensile, se il giorno del mese è già passato quando crei la regola, la prima scadenza arriva il mese successivo. Nei mesi più corti, il pagamento cade nell’ultimo giorno del mese.',
       'Intanto l\'uscita è già visibile in home nel saldo effettivo, come impegno: il denaro è ancora sul conto, ma sai che è promesso.',
-      'Puoi ripetere il movimento ogni mese, ogni settimana o ogni anno. Dalla pagina Ricorrenti puoi anche programmare un\'uscita una sola volta, in una data precisa.',
+      'Puoi ripetere il movimento ogni settimana, mese o anno e cambiare il giorno proposto. Nella sezione Programmate ricevi un promemoria cinque giorni prima delle spese; nel giorno previsto di un’entrata puoi confermare l’incasso o segnalarla in ritardo. Un’entrata segnata in ritardo non genera altri avvisi.',
     ],
   },
   {
     id: 'ricorrenti-gestione',
-    title: 'Gestire i movimenti ricorrenti',
-    summary: 'Controlla le ricorrenze mensili, la prossima esecuzione e il conto coinvolto.',
+    title: 'Spese/entrate programmate',
+    summary: 'Gestisci pagamenti futuri, rate e regole ricorrenti.',
     paragraphs: [
-      'La pagina Ricorrenti raccoglie in un solo posto i movimenti mensili già configurati. Per ciascuno mostra importo, conto, giorno del mese e prossima esecuzione prevista.',
+      'La sezione Programmate raccoglie pagamenti futuri in attesa, rate e movimenti periodici. Per le rate puoi inserire il costo, l’anticipo, il numero dei pagamenti e il tasso annuo: WALLT mostra le rate e gli interessi stimati.',
+      'Quando paghi una scadenza o ricevi un’entrata, scegli la conferma corrispondente: solo allora WALLT crea il movimento e aggiorna il saldo. Se un’entrata non arriva, puoi segnarla in ritardo; resta visibile nella sezione senza altri avvisi. Annullando una rata viene annullato il piano intero; gli importi già pagati restano nello storico.',
       'Puoi modificare i dati della ricorrenza, sospenderla o terminarla. Una ricorrenza sospesa o terminata non viene più addebitata e smette di pesare sul saldo effettivo: sospendila per fermarla senza perderne lo storico, e riprendila quando ti servirà di nuovo. Riprendendola non arrivano arretrati.',
       'Se il giorno scelto non esiste in un mese, la prossima esecuzione cade nell\'ultimo giorno disponibile di quel mese.',
     ],
-    link: { label: 'Vai a Ricorrenti', to: '/ricorrenti' },
+    link: { label: 'Vai alle programmate', to: '/ricorrenti' },
     related: ['movimento-ricorrenza'],
   },
   {
@@ -250,7 +252,7 @@ const TOPICS = [
     summary: 'Su computer sono nella barra laterale; su mobile nel menu Funzionalità.',
     paragraphs: [
       'Su schermi ampi le sezioni di WALLT sono raccolte nella barra laterale. Su mobile le destinazioni principali restano in basso e il pulsante “Funzionalità” apre l\'elenco completo.',
-      'Le due navigazioni mostrano le stesse sezioni disponibili per il tuo profilo, comprese Ricorrenti, Notifiche e Impostazioni.',
+      'Le due navigazioni mostrano le stesse sezioni disponibili per il tuo profilo, comprese Programmate, Notifiche e Impostazioni.',
     ],
     link: { label: 'Resta in Aiuto', to: '/aiuto' },
   },

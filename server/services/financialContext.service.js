@@ -13,7 +13,7 @@
  * non ricalcola.
  */
 const { Op } = require('sequelize');
-const { Obiettivo, Investimento, Movimento, ProfiloUtente } = require('../models');
+const { Obiettivo, Investimento, Movimento, ProfiloUtente, ScheduledPayment } = require('../models');
 const { FUSO_DEFAULT, oggiLocale, fineMese, sommaGiorni } = require('../utils/dateRome');
 const { elencoMesi, classificaFinestra } = require('./finestraMesi.service');
 const { calcolaPatrimonioNetto } = require('./financialSummary.service');
@@ -105,6 +105,25 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date()) {
       }
     }
   });
+
+  const programmate = await ScheduledPayment.findAll({
+    where: {
+      user_id: userId,
+      stato: 'in_attesa',
+      data_scadenza: { [Op.between]: [oggi.date, termineFlussi] },
+    },
+    attributes: ['id', 'descrizione', 'importo', 'data_scadenza', 'tipo'],
+  });
+  programmate.forEach((payment) => cashFlowItems.push({
+    id: payment.id,
+    occurrenceKey: `programmata:${payment.id}`,
+    description: payment.descrizione,
+    amount: toNumber(payment.importo),
+    dueDate: payment.data_scadenza,
+    direction: payment.tipo,
+    frequency: 'una_tantum',
+    reserved: payment.tipo === 'uscita' && payment.data_scadenza === oggi.date,
+  }));
 
   const riepilogo = {
     active: conteggi.attiva,

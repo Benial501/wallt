@@ -31,7 +31,7 @@ test('tipo e stato restano comprensibili senza affidarsi al colore', async () =>
 
   assert.match(html, /Entrata<\/p>/);
   assert.match(html, /Attiva<\/span>/);
-  assert.match(html, /Movimento ricorrente/);
+  assert.match(html, /Movimento programmato/);
   assert.match(html, /Conto non disponibile/);
 });
 

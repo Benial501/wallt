@@ -131,7 +131,7 @@ describe('Sistema di notifiche', () => {
     await Movimento.create({
       user_id: userId, conto_id: conto.id, tipo: 'uscita', importo: 20,
       categoria: 'bollette', descrizione: 'Abbonamento', data: '2026-03-01',
-      ricorrente: true, ricorrente_frequenza: 'mensile', ricorrente_giorno: 11,
+      ricorrente: true, ricorrente_frequenza: 'mensile', ricorrente_giorno: 15,
     });
 
     await processaNotifiche(SERA_ROMA);
@@ -271,7 +271,7 @@ describe('Sistema di notifiche', () => {
 
     const avvisi = await notifichePerTipo('ricorrente_imminente');
     expect(avvisi).toHaveLength(1);
-    expect(avvisi[0].titolo).toBe('Pagamento in arrivo');
+    expect(avvisi[0].titolo).toBe('Pagamento tra cinque giorni');
     expect(avvisi[0].priorita).toBe('urgente');
     // In app il dettaglio è ammesso, l'importo no.
     expect(avvisi[0].messaggio).toContain('Abbonamento streaming');
@@ -282,7 +282,7 @@ describe('Sistema di notifiche', () => {
     expect(await notifichePerTipo('ricorrente_imminente')).toHaveLength(2);
   });
 
-  it('7b) nessun avviso ricorrente se la scadenza non è domani', async () => {
+  it('7b) nessun avviso ricorrente se la scadenza non è tra cinque giorni', async () => {
     await Movimento.create({
       user_id: userId, conto_id: conto.id, tipo: 'uscita', importo: 20,
       categoria: 'abbonamenti', descrizione: 'Palestra', data: '2026-02-25',

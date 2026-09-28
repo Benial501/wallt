@@ -11,9 +11,10 @@ import { ArrowDownCircle, ArrowUpCircle, Repeat2 } from '@/utils/appIcons';
 import { useRouter } from 'vue-router';
 import { refreshAfterWrite, VISTA_NON_AGGIORNATA } from '@/utils/afterWrite';
 import { GIORNI_SETTIMANA, MESI_ANNO, normalizzaFrequenza } from '@/utils/ricorrenti';
+import MonthlySchedulePicker from '@/components/ricorrenti/MonthlySchedulePicker.vue';
 import dayjs from 'dayjs';
 
-// Form dedicata a chi arriva dalla sezione Ricorrenti: qui la ricorrenza non è
+// Form dedicata a chi arriva dalla sezione Programmate: qui la ricorrenza non è
 // un'opzione in fondo a un form di movimento, è il motivo per cui si è aperta
 // questa form. Niente checkbox "ricorrente" (è sempre true) e niente campo
 // data: la data del movimento "regola" è oggi, la schedulazione vera è
@@ -33,6 +34,7 @@ const router = useRouter();
 
 const step = ref(1);
 const loading = ref(false);
+const senzaTermine = ref(false);
 
 const form = ref({
   tipo: 'uscita',
@@ -46,6 +48,7 @@ const form = ref({
   ricorrente_giorno: 1,
   ricorrente_mese: 1,
   ricorrente_data: null,
+  ricorrente_occorrenze_rimanenti: 12,
 });
 
 const oggiISO = dayjs().format('YYYY-MM-DD');
@@ -75,6 +78,9 @@ const contiSelezionabili = computed(() => {
 
 const buildPayload = () => {
   const payload = { ...form.value, ricorrente: true };
+  payload.ricorrente_occorrenze_rimanenti = payload.ricorrente_frequenza === 'mensile' && !senzaTermine.value
+    ? payload.ricorrente_occorrenze_rimanenti
+    : null;
   if (payload.ricorrente_frequenza !== 'annuale') payload.ricorrente_mese = null;
   if (payload.ricorrente_frequenza === 'una_tantum') {
     payload.ricorrente_giorno = null;
@@ -113,7 +119,9 @@ const resetForm = () => {
     ricorrente_giorno: 1,
     ricorrente_mese: 1,
     ricorrente_data: null,
+    ricorrente_occorrenze_rimanenti: 12,
   };
+  senzaTermine.value = false;
   step.value = isEdit.value ? 2 : 1;
 };
 
@@ -133,7 +141,10 @@ watch(() => props.open, (val) => {
         ricorrente_giorno: props.movimento.ricorrente_giorno || 1,
         ricorrente_mese: props.movimento.ricorrente_mese || 1,
         ricorrente_data: props.movimento.ricorrente_data || null,
+        ricorrente_occorrenze_rimanenti: props.movimento.ricorrente_occorrenze_rimanenti ?? 12,
       };
+      senzaTermine.value = props.movimento.ricorrente_frequenza === 'mensile'
+        && props.movimento.ricorrente_occorrenze_rimanenti == null;
     }
   }
 });
@@ -166,7 +177,7 @@ const salva = async () => {
       () => contiStore.fetchPatrimonio(),
     );
 
-    toastStore.success(isEdit.value ? 'Ricorrenza aggiornata!' : 'Ricorrenza creata!');
+    toastStore.success(isEdit.value ? 'Programmazione aggiornata!' : 'Programmazione creata!');
     if (!vistaAggiornata) toastStore.warning(VISTA_NON_AGGIORNATA);
 
     emit('saved');
@@ -179,7 +190,11 @@ const salva = async () => {
 };
 
 const canSave = computed(() => form.value.importo > 0 && form.value.categoria && form.value.conto_id
-  && (form.value.ricorrente_frequenza !== 'una_tantum' || Boolean(form.value.ricorrente_data)));
+  && (form.value.ricorrente_frequenza !== 'una_tantum' || Boolean(form.value.ricorrente_data))
+  && (form.value.ricorrente_frequenza !== 'mensile' || senzaTermine.value
+    || (Number.isInteger(form.value.ricorrente_occorrenze_rimanenti)
+      && form.value.ricorrente_occorrenze_rimanenti >= 1
+      && form.value.ricorrente_occorrenze_rimanenti <= 600)));
 
 /** Nessun conto disponibile: la regola non avrebbe dove essere registrata. */
 const senzaConti = computed(() => contiSelezionabili.value.length === 0);
@@ -189,7 +204,7 @@ const vaiAiConti = () => {
   router.push('/conti');
 };
 
-const titolo = computed(() => (isEdit.value ? 'Modifica ricorrenza' : 'Nuova ricorrenza'));
+const titolo = computed(() => (isEdit.value ? 'Modifica programmazione' : 'Nuova programmazione'));
 
 const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
 </script>
@@ -204,7 +219,8 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
       <div v-if="senzaConti" class="prereq">
         <p class="prereq__text">
           Serve prima un conto: è la “tasca” su cui viene registrata la regola e di cui
-          viene aggiornato il saldo a ogni addebito automatico. Aprendo I miei conti
+          viene aggiornato alle scadenze. Le entrate periodiche restano in attesa
+          della tua conferma. Aprendo I miei conti
           questa form si chiude e quanto hai già scritto qui non viene salvato.
         </p>
         <WButton variant="secondary" size="sm" @click="vaiAiConti">Crea un conto</WButton>
@@ -224,17 +240,18 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
       <div v-if="step === 2 || isEdit">
         <div class="regola-intro">
           <span class="regola-intro__icon"><Repeat2 :size="18" :stroke-width="1.75" /></span>
-          <p>Crei una regola: WALLT registra da sola il movimento a ogni scadenza.</p>
+          <p v-if="form.tipo === 'entrata'">Imposti la cadenza dell’entrata. Alla scadenza WALLT ti chiederà di confermare se l’incasso è arrivato.</p>
+          <p v-else>Imposti quando registrare questa uscita: a una data precisa o con una cadenza regolare.</p>
         </div>
 
         <div class="field">
-          <label>Ogni quanto si ripete</label>
+          <label>Quando registrarlo</label>
           <div class="ricorrente-fields">
             <select v-model="form.ricorrente_frequenza" class="form-select ricorrente-fields__frequenza">
               <option value="mensile">Ogni mese</option>
               <option value="settimanale">Ogni settimana</option>
               <option value="annuale">Ogni anno</option>
-              <option value="una_tantum">Spesa programmata (data precisa)</option>
+              <option value="una_tantum">Una volta, in una data precisa</option>
             </select>
 
             <select v-if="form.ricorrente_frequenza === 'settimanale'" v-model.number="form.ricorrente_giorno" class="form-select">
@@ -254,8 +271,32 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
               :min="isEdit ? undefined : oggiISO"
             >
 
-            <input v-else v-model.number="form.ricorrente_giorno" type="number" min="1" max="31" class="form-input" placeholder="Giorno del mese (es. 1)" />
           </div>
+          <template v-if="form.ricorrente_frequenza === 'mensile'">
+            <MonthlySchedulePicker
+              v-model="form.ricorrente_giorno"
+              :occurrences="form.ricorrente_occorrenze_rimanenti"
+              :unlimited="senzaTermine"
+            />
+            <div class="monthly-count">
+              <label for="ricorrenza-occorrenze">Numero di scadenze future</label>
+              <input
+                id="ricorrenza-occorrenze"
+                v-model.number="form.ricorrente_occorrenze_rimanenti"
+                type="number"
+                min="1"
+                max="600"
+                step="1"
+                class="form-input"
+                :disabled="senzaTermine"
+                inputmode="numeric"
+              />
+              <label class="monthly-count__unlimited">
+                <input v-model="senzaTermine" type="checkbox" />
+                Continua ogni mese finché non la sospendo
+              </label>
+            </div>
+          </template>
         </div>
 
         <div class="field">
@@ -316,13 +357,13 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
           <label>Periodicità dell'entrata</label>
           <select v-model="form.periodicita_entrata" class="form-select">
             <option value="sconosciuta">Non specificata</option>
-            <option value="ricorrente">Ricorrente o prevedibile</option>
+            <option value="ricorrente">Regolare o prevedibile</option>
             <option value="occasionale">Occasionale</option>
           </select>
         </div>
 
         <WButton variant="primary" size="lg" :loading="loading" :disabled="!canSave" @click="salva">
-          {{ isEdit ? 'Salva' : 'Crea ricorrenza' }}
+          {{ isEdit ? 'Salva' : 'Crea programmazione' }}
         </WButton>
       </div>
     </div>
@@ -331,6 +372,9 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
 
 <style scoped>
 .form-space { display: flex; flex-direction: column; gap: 1.125rem; }
+.monthly-count { display: grid; gap: 0.4375rem; }
+.monthly-count > label:first-child { color: var(--text-muted); font-size: var(--text-xs); font-weight: 600; }
+.monthly-count__unlimited { display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); font-size: var(--text-xs); }
 .prereq {
   display: flex;
   flex-direction: column;

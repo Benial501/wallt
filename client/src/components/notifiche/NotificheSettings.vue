@@ -42,8 +42,8 @@ const CATEGORIE = [
   },
   {
     campo: 'alert_ricorrenti_attivi',
-    etichetta: 'Pagamenti ricorrenti',
-    descrizione: 'Un avviso il giorno prima di una spesa ricorrente.',
+    etichetta: 'Scadenze programmate',
+    descrizione: 'Promemoria per le spese cinque giorni prima e per confermare le entrate nel giorno previsto.',
   },
   {
     campo: 'alert_obiettivi_attivi',

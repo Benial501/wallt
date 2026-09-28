@@ -315,7 +315,7 @@ notifiche dell'utente autenticato.
 
 ### POST /api/movimenti
 - **Auth**: Sì
-- **Body**: `{ tipo, importo, categoria, conto_id, data, descrizione?, ricorrente?, ricorrente_frequenza?, ricorrente_giorno?, ricorrente_mese?, ricorrente_data? }` — `ricorrente_frequenza: 'una_tantum'` è una **spesa programmata**: richiede `ricorrente_data` (non nel passato, verificato da `validateMovimento`) e ignora `ricorrente_giorno`/`ricorrente_mese`
+- **Body**: `{ tipo, importo, categoria, conto_id, data, descrizione?, ricorrente?, ricorrente_frequenza?, ricorrente_giorno?, ricorrente_mese?, ricorrente_data?, ricorrente_occorrenze_rimanenti? }` — per le regole mensili il campo indica le scadenze future da eseguire (1-600); `null` mantiene la ricorrenza senza termine. `ricorrente_frequenza: 'una_tantum'` è una **spesa programmata**: richiede `ricorrente_data` (non nel passato, verificato da `validateMovimento`) e ignora `ricorrente_giorno`/`ricorrente_mese`
 - **Validazione**: `validateMovimento`
 - **Risposta**: `{ movimento }`
 - **Azione**: Una spesa programmata (`una_tantum`) **non** scala subito il conto: è una promessa, non un movimento avvenuto. Il saldo si muove solo quando il cron la addebita alla sua data (`muoveSaldo`, CLAUDE.md Regola 11). Il controllo di saldo insufficiente su un'uscita si applica comunque in fase di creazione, indipendentemente dalla frequenza.
@@ -325,7 +325,7 @@ notifiche dell'utente autenticato.
 
 ### PUT /api/movimenti/:id
 - **Auth**: Sì
-- **Body**: Campi opzionali (importo, categoria, data, descrizione, conto_id, tipo, ricorrente, ricorrente_frequenza, ricorrente_giorno, ricorrente_mese, ricorrente_data)
+- **Body**: Campi opzionali (importo, categoria, data, descrizione, conto_id, tipo, ricorrente, ricorrente_frequenza, ricorrente_giorno, ricorrente_mese, ricorrente_data, ricorrente_occorrenze_rimanenti)
 - **Validazione**: `validateUpdateMovimento`
 - **Azione**: Ricalcola saldo conto (vecchio e nuovo se conto cambia), ma solo per la parte che `muoveSaldo` considera denaro realmente mosso: convertire una spesa programmata (`una_tantum`) in una ricorrenza normale (o viceversa) NON sposta il saldo, perché `muoveSaldo` vale `false` per entrambe (sono entrambe `ricorrente: true`) — resta una regola, non un movimento avvenuto, in entrambi i casi
 - **File**: `movimenti.controller.js`
@@ -349,7 +349,25 @@ notifiche dell'utente autenticato.
 - **Auth**: Sì
 - **Risposta**: `{ movimenti[] }` (ricorrente=true)
 - **File**: `movimenti.controller.js`
-- **Frontend**: `movimenti.store.js` (`fetchRicorrenti` — **non chiamato da nessuna view**)
+- **Frontend**: `movimenti.store.js` → sezione Programmate
+
+### Spese/entrate programmate e piani a rate
+
+Tutte le rotte richiedono autenticazione e limitano letture e scritture all'utente autenticato. Le scadenze singole e le rate restano fuori dallo storico e non aggiornano i saldi fino alla conferma manuale. Le entrate periodiche generano una scadenza in attesa alla data prevista; anche queste aggiornano il saldo solo dopo conferma. Le uscite periodiche continuano a essere registrate alla scadenza.
+
+| Metodo e percorso | Corpo | Risposta |
+|---|---|---|
+| `GET /api/movimenti/programmate` | — | `{ payments[] }`, in ordine di scadenza; include quelle in attesa e le entrate segnate in ritardo |
+| `POST /api/movimenti/programmate` | `{ type, amount, category, account_id, description?, due_date }` | `201 { payment }` |
+| `POST /api/movimenti/installment-plans` | `{ purchase_amount, initial_payment, payment_count, annual_rate, first_due_date, category, account_id, description? }` | `201 { plan, payments[], account }` |
+| `POST /api/movimenti/programmate/:id/conferma` | — | `{ payment, movement, account }`; il movimento usa la data effettiva di conferma |
+| `PATCH /api/movimenti/programmate/:id/ritardo` | — | `{ payment }`; disponibile solo per entrate in attesa, non crea movimenti né avvisi successivi |
+| `PATCH /api/movimenti/programmate/:id/annulla` | — | `{ payment }`; vale per pagamenti singoli |
+| `PATCH /api/movimenti/installment-plans/:id/annulla` | — | `{ plan }`; annulla tutte le rate ancora in attesa |
+
+Il numero dei pagamenti include l'anticipo quando è maggiore di zero. Il tasso annuo viene diviso per 12 per calcolare rate mensili costanti; l'ultima rata assorbe gli arrotondamenti ai centesimi. Con tasso zero il capitale residuo viene diviso in quote uguali. L'anticipo crea subito un movimento e aggiorna il conto; ogni rata successiva richiede «Segna come pagata».
+
+Saldo insufficiente alla conferma: `400`. Risorsa non trovata: `404`. Pagamento già elaborato o piano non più attivo: `409`.
 
 ---
 

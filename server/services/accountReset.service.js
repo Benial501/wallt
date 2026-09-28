@@ -17,15 +17,19 @@ const {
   PreferenzeNotifiche,
   PushSubscription,
   PianoSmart,
+  PaymentPlan,
+  ScheduledPayment,
 } = require('../models');
 
 const isOAuthProvider = (authProvider) => !!authProvider && authProvider !== 'local';
 
 /**
- * Elimina solo le transazioni (movimenti) e azzera i saldi dei conti.
- * I conti restano attivi con nome, icona e colore invariati.
+ * Elimina movimenti, pagamenti programmati e piani a rate, poi azzera i
+ * saldi dei conti. I conti restano attivi con nome, icona e colore invariati.
  */
 const deleteAllTransactions = async (userId, transaction) => {
+  await ScheduledPayment.destroy({ where: { user_id: userId }, transaction });
+  await PaymentPlan.destroy({ where: { user_id: userId }, transaction });
   await Movimento.destroy({ where: { user_id: userId }, transaction });
   await Conto.update(
     { saldo: 0 },
@@ -43,6 +47,8 @@ const deleteAllTransactions = async (userId, transaction) => {
  * Non elimina: account, credenziali, preferenze utente, profilo/onboarding.
  */
 const deleteAllUserData = async (userId, transaction) => {
+  await ScheduledPayment.destroy({ where: { user_id: userId }, transaction });
+  await PaymentPlan.destroy({ where: { user_id: userId }, transaction });
   await MovimentoScommesse.destroy({ where: { user_id: userId }, transaction });
   await PiattaformaScommesse.destroy({ where: { user_id: userId }, transaction });
 

@@ -8,6 +8,7 @@
 const {
   request, registerUser, authHeader, Conto, Movimento, createApp,
 } = require('./setup');
+const { ScheduledPayment } = require('../models');
 const { processaRicorrenti } = require('../services/ricorrenti.service');
 
 describe('Spese ricorrenti (cron mensile)', () => {
@@ -152,7 +153,7 @@ describe('Spese ricorrenti (cron mensile)', () => {
     expect(automatici).toHaveLength(0);
   });
 
-  it('un\'entrata ricorrente aumenta correttamente il saldo', async () => {
+  it('un\'entrata ricorrente attende la conferma prima di aggiornare il saldo', async () => {
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'setInterval', 'setTimeout', 'clearImmediate', 'clearInterval', 'clearTimeout'] }).setSystemTime(new Date(2026, 2, 5));
     await creaRicorrente({
       tipo: 'entrata', categoria: 'stipendio', descrizione: 'Stipendio', importo: 1500,
@@ -161,7 +162,11 @@ describe('Spese ricorrenti (cron mensile)', () => {
     await processaRicorrenti();
 
     await conto.reload();
-    expect(Number(conto.saldo)).toBe(2500);
+    expect(Number(conto.saldo)).toBe(1000);
+    const pagamenti = await ScheduledPayment.findAll({ where: { user_id: userId, tipo: 'entrata' } });
+    expect(pagamenti).toHaveLength(1);
+    expect(Number(pagamenti[0].importo)).toBe(1500);
+    expect(pagamenti[0].stato).toBe('in_attesa');
   });
 
   it('gestisce correttamente fine febbraio in un anno bisestile (idempotenza a cavallo di mese)', async () => {

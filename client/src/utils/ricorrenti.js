@@ -76,7 +76,7 @@ const calcolaProssimaEsecuzione = (movimento, oggi) => {
 };
 
 export const presentaRicorrente = (movimento, oggi = dayjs()) => ({
-  descrizione: movimento.descrizione?.trim() || 'Movimento ricorrente',
+  descrizione: movimento.descrizione?.trim() || 'Movimento programmato',
   tipoLabel: movimento.tipo === 'entrata' ? 'Entrata' : 'Uscita',
   frequenzaLabel: FREQUENZA_LABELS[movimento.ricorrente_frequenza] || 'Ogni mese',
   contoLabel: movimento.conto?.nome || 'Conto non disponibile',

@@ -180,6 +180,7 @@ const createMovimento = async (req, res, next) => {
     const {
       tipo, importo, categoria, conto_id, data,
       descrizione, ricorrente, ricorrente_frequenza, ricorrente_giorno, ricorrente_mese, ricorrente_data,
+      ricorrente_occorrenze_rimanenti,
       natura_entrata, periodicita_entrata,
     } = req.body;
 
@@ -244,6 +245,9 @@ const createMovimento = async (req, res, next) => {
       ricorrente_giorno: ricorrente && ricorrente_frequenza !== 'una_tantum' ? ricorrente_giorno : null,
       ricorrente_mese: ricorrente && ricorrente_frequenza === 'annuale' ? ricorrente_mese : null,
       ricorrente_data: ricorrente && ricorrente_frequenza === 'una_tantum' ? ricorrente_data : null,
+      ricorrente_occorrenze_rimanenti: ricorrente && ricorrente_frequenza === 'mensile'
+        ? ricorrente_occorrenze_rimanenti ?? null
+        : null,
     }, { transaction: t });
 
     // Una spesa programmata non tocca il saldo adesso: lo farà il cron alla
@@ -302,6 +306,7 @@ const updateMovimento = async (req, res, next) => {
     const {
       tipo, importo, categoria, conto_id, data,
       descrizione, ricorrente, ricorrente_frequenza, ricorrente_giorno, ricorrente_mese, ricorrente_data,
+      ricorrente_occorrenze_rimanenti,
       natura_entrata, periodicita_entrata,
     } = req.body;
 
@@ -407,6 +412,11 @@ const updateMovimento = async (req, res, next) => {
       ricorrente_giorno: ricorrente && nuovaFrequenza !== 'una_tantum' ? (ricorrente_giorno ?? movimento.ricorrente_giorno) : null,
       ricorrente_mese: nuovaFrequenza === 'annuale' ? (ricorrente_mese ?? movimento.ricorrente_mese) : null,
       ricorrente_data: nuovaFrequenza === 'una_tantum' ? (ricorrente_data ?? movimento.ricorrente_data) : null,
+      ricorrente_occorrenze_rimanenti: nuovoRicorrente && nuovaFrequenza === 'mensile'
+        ? (ricorrente_occorrenze_rimanenti !== undefined
+          ? ricorrente_occorrenze_rimanenti
+          : movimento.ricorrente_occorrenze_rimanenti)
+        : null,
       categoria_automatica: categoriaCambiata ? false : (movimento.categoria_automatica ?? oldCategoriaAutomatica),
       categoria_fonte: categoriaCambiata ? 'user' : movimento.categoria_fonte,
       categoria_modificata: categoriaCambiata ? true : (movimento.categoria_modificata ?? false),

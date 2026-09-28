@@ -16,7 +16,8 @@ Funzionalità realmente implementate e collegate end-to-end (frontend + backend)
 | Gestione conti CRUD | ContiView | conti.controller | — |
 | Trasferimenti tra conti | MovimentoForm (trasferimento) | conti.controller.trasferimento | — |
 | Movimenti CRUD | MovimentiView, MovimentoForm | movimenti.controller | security.test.js (parziale) |
-| Movimenti ricorrenti (mensile) | MovimentoForm (flag ricorrente) | ricorrenti.service (cron) | — |
+| Movimenti periodici (settimanale, mensile, annuale) | MovimentoForm, procedura Programmate | ricorrenti.service; conferma manuale per le entrate | Suite non aggiunte in questa sessione |
+| Spese/entrate programmate e acquisti a rate | Procedura guidata nella sezione Programmate | API programmazioni, piani, conferma e stato in ritardo | Suite non aggiunte in questa sessione |
 | Budget mensile | BudgetView | budget.controller | — |
 | Obiettivi risparmio | ObiettiviView | obiettivi.controller | — |
 | Analisi spese/patrimonio | AnalisiView | analisi.controller | — |
@@ -40,17 +41,17 @@ Funzionalità realmente implementate e collegate end-to-end (frontend + backend)
 | Categoria trasferimento_denaro | categorie.js | constants/categorie.js | — |
 | Saldo effettivo (quanto è davvero spendibile) | WOverviewCarousel.vue (slide patrimonio in DashboardView) | conti.controller (`getPatrimonioTotale`, delega) → `services/liquidita.service.js` | `saldoEffettivo.test.js` |
 | Conti nascosti (fuori dallo spendibile, dentro il patrimonio) | ContiView | conti.controller, `services/liquidita.service.js` | `saldoEffettivo.test.js` |
-| Spese programmate (`una_tantum`: addebito unico a data fissa, con recupero e chiusura automatica del promemoria) | RicorrenteForm.vue (non in MovimentoForm.vue, che offre solo mensile/settimanale/annuale) | `services/ricorrenti.service.js` (cron), `muoveSaldo` | `ricorrenti.test.js`, `saldoEffettivo.test.js` |
+| Spese programmate legacy (`una_tantum`) | RicorrenteForm.vue, sezione Programmate | `services/ricorrenti.service.js` (cron), `muoveSaldo` | `ricorrenti.test.js`, `saldoEffettivo.test.js` |
 
 ## Partially Implemented Features
 
 | Feature | Stato | Dettaglio |
 |---|---|---|
-| Spese ricorrenti | Parziale | Solo `mensile` è supportata (API/UI ora limitate a questa, coerenti col cron — vedi Known Bugs risolti). Colonna DB resta ENUM a 4 valori per retrocompatibilità storica, ma non più raggiungibile via API. |
+| Spese ricorrenti | Implementata | Cadenze settimanali, mensili e annuali; le uscite si registrano alla scadenza, le entrate restano in attesa di conferma. |
 | Merchant Intelligence | Parziale | Dizionario locale + regole personali funzionanti; lookup esterni (Google Places, Foursquare, OSM) sono stub |
 | Apple OAuth | Parziale | Endpoint `/providers` restituisce `apple: false`; nessuna implementazione |
 | Budget suggerito da profilo | Parziale | API `GET /profilo/budget-suggerito` esiste; frontend non la chiama |
-| Movimenti ricorrenti UI | Parziale | API `GET /movimenti/ricorrenti` esiste; nessuna view la usa |
+| Sezione Programmate | Implementata | Procedura guidata unificata, pagamenti futuri manuali, rate, regole ricorrenti e promemoria; le entrate possono essere confermate o segnate in ritardo. |
 | CI/CD | Base | `.github/workflows/ci.yml`: test backend + build frontend su ogni push/PR verso `main`. Deploy resta manuale. |
 | Test coverage | Parziale | 44 suite; 542 test. Isolamento cross-user, coerenza finanziaria (saldo/trasferimenti/race condition), step-up Google, cron ricorrenti, config produzione coperti. Non coperta: logica di business di budget/obiettivi/investimenti/scommesse (solo isolamento) |
 
@@ -236,16 +237,8 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 - **Risk of modification**: Low
 - **Priority**: P1
 
-### P-6: Cron ricorrenti incompleto
-- **Severity**: Medium
-- **Area**: Backend
-- **Files**: `server/services/ricorrenti.service.js`
-- **Description**: Modello supporta 4 frequenze, cron processa solo mensile.
-- **Why it is a problem**: Utente può creare ricorrenti giornaliere/settimanali/annuali che non vengono mai eseguite.
-- **Possible consequences**: Aspettativa utente non soddisfatta.
-- **Recommended solution**: Implementare tutte le frequenze o limitare UI a mensile.
-- **Risk of modification**: Medium
-- **Priority**: P2
+### P-6: Cron ricorrenti incompleto — RISOLTO
+- Il cron supporta le cadenze settimanali, mensili, annuali e una tantum; le entrate periodiche attendono la conferma manuale.
 
 ### P-7: Session reset incompleto — RISOLTO
 - **Severity**: Medium (era aperto).
@@ -337,7 +330,7 @@ automaticamente perché lo schema non contiene il legame tra i due insiemi.
 |---|---|---|---|---|---|
 | Consolidare import pipeline | Unificare import/ e importazioni/ | `server/services/` | High | High | Test import (P1) |
 | ~~Fix session reset~~ | ~~Pulire `recentiHome` (movimenti.store) e `panoramica`/`analisi` (scommesse.store)~~ | `session.js` | — | — | **Risolto** (`f565764`) |
-| Cron tutte le frequenze | O implementare o limitare UI | `ricorrenti.service.js` | Medium | Medium | — |
+| ~~Cron tutte le frequenze~~ | ~~Supportare le cadenze esposte dalla UI~~ | `ricorrenti.service.js` | — | — | **Risolto** |
 | Rimuovere codice morto | Pulizia componenti e middleware | client + server | Low | Low | — |
 | Migrazioni come step deploy | Rimuovere auto-migrate | `server.js` | Low | Low | CI/CD (P1) |
 | Allineare password policy | Carattere speciale anche su change | `validation.middleware.js` | Low | Low | — |

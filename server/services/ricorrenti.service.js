@@ -1,6 +1,6 @@
 const cron = require('node-cron');
 const { Op } = require('sequelize');
-const { Movimento, Conto, sequelize } = require('../models');
+const { Movimento, Conto, ScheduledPayment, sequelize } = require('../models');
 const logger = require('../utils/logger');
 
 const ROME_TIME_ZONE = 'Europe/Rome';
@@ -95,6 +95,9 @@ const getRomeDateParts = (date) => {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
   }).formatToParts(date);
   const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
   const year = Number(values.year);
@@ -110,6 +113,8 @@ const getRomeDateParts = (date) => {
 
   return {
     day,
+    hour: Number(values.hour),
+    minute: Number(values.minute),
     month,
     year,
     weekday,
@@ -146,6 +151,15 @@ const periodoPerRicorrenza = (movimento, current) => (
     : periodoPerFrequenza(movimento.ricorrente_frequenza, current)
 );
 
+/** Consuma una delle scadenze future e chiude la regola all'ultima. */
+const consumaScadenzaMensile = async (origine, transaction) => {
+  if (origine.ricorrente_frequenza !== 'mensile' || origine.ricorrente_occorrenze_rimanenti == null) return;
+  const rimanenti = Math.max(0, Number(origine.ricorrente_occorrenze_rimanenti) - 1);
+  origine.ricorrente_occorrenze_rimanenti = rimanenti;
+  if (rimanenti === 0) origine.stato_ricorrenza = 'terminata';
+  await origine.save({ transaction });
+};
+
 /** Ultimo giorno del mese civile, con `month` espresso da 1 a 12. */
 const ultimoGiornoDelMese = (year, month) => new Date(Date.UTC(year, month, 0)).getUTCDate();
 
@@ -164,26 +178,42 @@ const valutaOccorrenza = (movimento, current) => {
   if (movimento.ricorrente_frequenza === 'una_tantum') {
     return { dovuto: Boolean(periodo) && current.date >= periodo, periodo };
   }
-  // Come una spesa programmata, una mensile è dovuta dal suo giorno in poi e
-  // non solo quel giorno: il cron gira alle 09:00, quindi una regola creata
-  // dopo (o un mese saltato per deploy, downtime o saldo insufficiente) non
-  // avrebbe mai l'addebito del mese in corso. Il periodo (YYYY-MM) resta la
-  // chiave che lo limita a uno: l'indice unico
-  // (ricorrenza_origine_id, ricorrenza_periodo) non può lasciarne passare due.
-  // Settimanale e annuale restano sull'uguaglianza: lì una finestra "dal
-  // giorno in poi" non ha un significato altrettanto definito.
+  // La mensile è recuperata dal giorno configurato in poi se il cron salta
+  // l'esecuzione. Se la regola viene creata quando il giorno del mese è già
+  // passato, la prima scadenza è il mese successivo. Il periodo (YYYY-MM)
+  // resta la chiave che la limita a una sola occorrenza.
   if (movimento.ricorrente_frequenza === 'mensile') {
     const giornoConfigurato = movimento.ricorrente_giorno || 1;
     const giornoTarget = Math.min(giornoConfigurato, ultimoGiornoDelMese(current.year, current.month));
+    const creazione = movimento.createdAt ? getRomeDateParts(new Date(movimento.createdAt)) : null;
+    if (creazione?.period === current.period
+      && (creazione.day > giornoTarget
+        || (creazione.day === giornoTarget && creazione.hour >= 9))) {
+      return { dovuto: false, periodo };
+    }
     return { dovuto: current.day >= giornoTarget, periodo };
   }
   if (movimento.ricorrente_frequenza === 'annuale') {
     const giornoTarget = movimento.ricorrente_giorno || 1;
     const meseTarget = movimento.ricorrente_mese || 1;
+    const creazione = movimento.createdAt ? getRomeDateParts(new Date(movimento.createdAt)) : null;
+    if (creazione?.year === current.year
+      && (creazione.month > meseTarget
+        || (creazione.month === meseTarget
+          && (creazione.day > giornoTarget
+            || (creazione.day === giornoTarget && creazione.hour >= 9))))) {
+      return { dovuto: false, periodo };
+    }
     return { dovuto: current.day === giornoTarget && current.month === meseTarget, periodo };
   }
   if (movimento.ricorrente_frequenza === 'settimanale') {
     const giornoTarget = movimento.ricorrente_giorno || 1;
+    const creazione = movimento.createdAt ? getRomeDateParts(new Date(movimento.createdAt)) : null;
+    if (creazione?.periodoSettimanale === current.periodoSettimanale
+      && (creazione.weekday > giornoTarget
+        || (creazione.weekday === giornoTarget && creazione.hour >= 9))) {
+      return { dovuto: false, periodo };
+    }
     return { dovuto: current.weekday === giornoTarget, periodo };
   }
   return { dovuto: false, periodo: null };
@@ -230,6 +260,27 @@ async function runProcessaRicorrenti(now) {
         });
         if (existing) return 'skipped';
 
+        if (movimento.tipo === 'entrata') {
+          const existingPayment = await ScheduledPayment.findOne({
+            where: { ricorrenza_origine_id: movimento.id, ricorrenza_periodo: periodo },
+            transaction,
+          });
+          if (existingPayment) return 'skipped';
+          await ScheduledPayment.create({
+            user_id: movimento.user_id,
+            ricorrenza_origine_id: movimento.id,
+            ricorrenza_periodo: periodo,
+            conto_id: movimento.conto_id,
+            tipo: 'entrata',
+            importo: movimento.importo,
+            categoria: movimento.categoria,
+            descrizione: movimento.descrizione,
+            data_scadenza: current.date,
+          }, { transaction });
+          await consumaScadenzaMensile(origine, transaction);
+          return 'processed';
+        }
+
         const saldo = Number(conto.saldo);
         const importo = Number(movimento.importo);
         if (movimento.tipo === 'uscita' && conto.tipo !== 'carta_credito' && saldo < importo) {
@@ -257,6 +308,8 @@ async function runProcessaRicorrenti(now) {
           ricorrenza_origine_id: movimento.id,
           ricorrenza_periodo: periodo,
         }, { transaction });
+
+        await consumaScadenzaMensile(origine, transaction);
 
         // Una spesa programmata si esegue una volta sola: chiuderla qui,
         // nella stessa transazione del movimento, la toglie dagli impegni

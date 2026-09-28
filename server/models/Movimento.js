@@ -77,6 +77,10 @@ const Movimento = sequelize.define('Movimento', {
     type: DataTypes.DATEONLY,
     allowNull: true,
   },
+  ricorrente_occorrenze_rimanenti: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
   ricorrenza_origine_id: {
     type: DataTypes.INTEGER,
     allowNull: true,
