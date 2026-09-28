@@ -131,10 +131,8 @@ const isDashboard = computed(() => route.path === '/dashboard');
 const mobileNav = computed(() => [
   { path: '/dashboard', icon: Home, label: 'Home' },
   { path: '/movimenti', icon: ArrowLeftRight, label: 'Transazioni' },
-  { path: '/obiettivi', icon: NAV_ICON_MAP.obiettivi, label: 'Obiettivi' },
-  ...(mostraInvestimenti.value && canAccessInvestimentiFeature.value
-    ? [{ path: '/investimenti', icon: NAV_ICON_MAP.investimenti, label: 'Investimenti' }]
-    : []),
+  { path: '/funzionalita/piano-smart', icon: NAV_ICON_MAP.pianoSmart, label: 'Piano Smart' },
+  { path: '/analisi', icon: NAV_ICON_MAP.analisi, label: 'Analisi' },
   { path: 'altro', icon: LayoutGrid, label: 'Altro' },
 ]);
 
