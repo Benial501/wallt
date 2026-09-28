@@ -5,7 +5,8 @@
 const {
   request, registerUser, createApp, authHeader, Conto, Movimento, User,
 } = require('./setup');
-const { ProfiloUtente } = require('../models');
+const { ProfiloUtente, PiattaformaScommesse } = require('../models');
+const sinon = require('sinon');
 
 describe('Depositi e prelievi scommesse come trasferimenti', () => {
   let app;
@@ -59,6 +60,23 @@ describe('Depositi e prelievi scommesse come trasferimenti', () => {
     expect(movimenti[0].categoria).toBe('deposito_scommesse');
     expect(movimenti[0].conto_id).toBe(contoBanca.id);
     expect(movimenti[0].conto_destinazione_id).toBe(contoScommesseId);
+  });
+
+  test('un errore di rilettura non fa apparire fallito un deposito già committato', async () => {
+    const erroreRilettura = sinon.stub(PiattaformaScommesse.prototype, 'reload').rejects(new Error('lettura temporaneamente non disponibile'));
+
+    let res;
+    try {
+      res = await movimento('deposito', 50, { conto_collegato_id: contoBanca.id });
+    } finally {
+      erroreRilettura.restore();
+    }
+
+    expect(res.status).toBe(201);
+    const contoGioco = await Conto.findByPk(contoScommesseId);
+    expect(Number(contoGioco.saldo)).toBe(50);
+    await contoBanca.reload();
+    expect(Number(contoBanca.saldo)).toBe(950);
   });
 
   test('il prelievo genera un trasferimento nella direzione opposta', async () => {

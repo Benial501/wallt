@@ -437,8 +437,10 @@ const updateMovimento = async (req, res, next) => {
     }
 
     await t.commit();
-    await movimento.reload();
-    await contoNuovo.reload();
+    // `update()` ha già aggiornato le istanze in memoria. Una rilettura dopo
+    // il commit può fallire per un problema transitorio e trasformare una
+    // scrittura riuscita in una risposta HTTP di errore: il client inviterebbe
+    // così a ripetere un'operazione già registrata.
 
     if (nuovoTipo === 'uscita') await valutaBudgetDopoMovimento(req.userId);
 

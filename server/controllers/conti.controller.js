@@ -350,9 +350,6 @@ const trasferimento = async (req, res) => {
 
     await t.commit();
 
-    await contoOrigine.reload();
-    await contoDestinazione.reload();
-
     res.json({
       success: true,
       conto_origine: contoOrigine,

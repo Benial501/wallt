@@ -5,6 +5,7 @@ const {
   request, createApp, registerUser, authHeader, Conto, Movimento,
 } = require('./setup');
 const { PiattaformaScommesse } = require('../models');
+const sinon = require('sinon');
 
 describe('Coerenza finanziaria', () => {
   let app;
@@ -77,6 +78,27 @@ describe('Coerenza finanziaria', () => {
       expect(updateRes.status).toBe(200);
       await conto.reload();
       expect(Number(conto.saldo)).toBe(850); // 1000 - 150, non 1000 - 100 - 150
+    });
+
+    it('non segnala errore se il movimento è aggiornato ma la rilettura successiva non è disponibile', async () => {
+      const conto = await creaConto(1000);
+      const createRes = await request(app).post('/api/movimenti').set(authHeader(token)).send({
+        conto_id: conto.id, tipo: 'uscita', importo: 100, categoria: 'cibo_spesa', data: oggi(),
+      });
+      const movimentoId = createRes.body.movimento.id;
+      const erroreRilettura = sinon.stub(Movimento.prototype, 'reload').rejects(new Error('lettura temporaneamente non disponibile'));
+
+      let updateRes;
+      try {
+        updateRes = await request(app).put(`/api/movimenti/${movimentoId}`).set(authHeader(token)).send({ importo: 150 });
+      } finally {
+        erroreRilettura.restore();
+      }
+
+      expect(updateRes.status).toBe(200);
+      expect(Number(updateRes.body.movimento.importo)).toBe(150);
+      await conto.reload();
+      expect(Number(conto.saldo)).toBe(850);
     });
 
     it('cambiare il tipo di un movimento da uscita a entrata inverte correttamente l\'impatto sul saldo', async () => {
@@ -167,6 +189,29 @@ describe('Coerenza finanziaria', () => {
       expect(Number(contoA.saldo)).toBe(800);
       expect(Number(contoB.saldo)).toBe(700);
       expect(Number(contoA.saldo) + Number(contoB.saldo)).toBe(patrimonioPrima);
+    });
+
+    it('conferma il trasferimento già committato anche se le riletture dei conti falliscono', async () => {
+      const contoA = await creaConto(1000, { nome: 'Conto A' });
+      const contoB = await creaConto(500, { nome: 'Conto B' });
+      const erroreRilettura = sinon.stub(Conto.prototype, 'reload').rejects(new Error('lettura temporaneamente non disponibile'));
+
+      let res;
+      try {
+        res = await request(app).post('/api/conti/trasferimento').set(authHeader(token)).send({
+          conto_origine_id: contoA.id, conto_destinazione_id: contoB.id, importo: 200, data: oggi(),
+        });
+      } finally {
+        erroreRilettura.restore();
+      }
+
+      expect(res.status).toBe(200);
+      expect(Number(res.body.conto_origine.saldo)).toBe(800);
+      expect(Number(res.body.conto_destinazione.saldo)).toBe(700);
+      await contoA.reload();
+      await contoB.reload();
+      expect(Number(contoA.saldo)).toBe(800);
+      expect(Number(contoB.saldo)).toBe(700);
     });
 
     it('un trasferimento con saldo insufficiente viene rifiutato e nessun conto viene toccato', async () => {
