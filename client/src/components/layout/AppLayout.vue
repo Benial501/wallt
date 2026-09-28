@@ -468,7 +468,7 @@ const handleLogout = async () => {
   min-width: 0;
   min-height: 58px;
   border-radius: var(--radius-pill);
-  font-size: var(--text-xs);
+  font-size: 0.625rem;
   font-weight: 550;
   letter-spacing: 0;
   transition:
