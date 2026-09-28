@@ -133,7 +133,8 @@ Identità: `docs/superpowers/plans/2026-09-28-semplificazione-ux.md`.
 - Attività 1: completa; aggiunti Conti al foglio “Altro” e Piano Smart alla sidebar desktop, mantenuti i cinque slot mobili invariati.
 - Attività 2: completa; dashboard e movimenti condividono un foglio di scelta, il tipo esplicito salta il passaggio duplicato e l’assenza di conti porta a `/conti`.
 - Attività 3: completa; i controlli del carosello hanno etichette italiane e stato attivo accessibile.
-- Attività 4: completa; build Vite passata in `/private/tmp/wallt-ux-simplification-build`, `git diff --check` senza errori; verifica visuale via browser non eseguita.
+- Attività 4: completa; build Vite passata dopo la correzione in `/private/tmp/wallt-ux-simplification-review-build`, `git diff --check` senza errori; verifica visuale via browser non eseguita.
 - Ruling: non aggiungo né avvio test automatici in conformità alle istruzioni operative; costo se errato: regressioni di interazione non coperte da test automatizzati.
 - Revisione: il revisore ha segnalato che il nuovo foglio non offriva una chiusura da tastiera; il turno di revisione si è poi interrotto per limite di utilizzo. Ho esteso il `BottomSheet` condiviso con semantica dialogo, tasto Esc, chiusura, focus confinato e ripristino.
 - Ruling: applico la correzione accessibile al `BottomSheet` condiviso, così tutte le sue istanze ricevono lo stesso comportamento modale — riduce la divergenza fra fogli; costo se errato: la gestione del focus tocca anche fogli già esistenti.
+- Revisione finale: autocontrollo del diff completo dopo l’interruzione del revisore per limite di utilizzo; l’unico rilievo ricevuto è stato corretto e ricompilato.
