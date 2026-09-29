@@ -24,6 +24,7 @@
     "node": ">=22"
   },
   "dependencies": {
+    "@sentry/node": "^11.1.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "csv-parse": "^7.0.1",

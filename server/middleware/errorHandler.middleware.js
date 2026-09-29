@@ -6,6 +6,7 @@ const {
   BadRequestError,
 } = require('../utils/AppError');
 const { logError, logWarn, sanitizeMeta } = require('../utils/logger');
+const { segnalaErrore } = require('../services/monitoraggio.service');
 
 const GENERIC_ERROR = 'Si è verificato un errore. Riprova più tardi.';
 
@@ -98,6 +99,9 @@ const errorHandler = (err, req, res, _next) => {
       sql: err?.original?.sql || err?.parent?.sql,
       sqlMessage: err?.original?.sqlMessage || err?.parent?.sqlMessage,
     }));
+    // Solo i 5xx: un 404 o un 400 sono risposte previste, non guasti, e
+    // riempirebbero il monitoraggio di rumore fino a nasconderci i guasti veri.
+    segnalaErrore(err, meta);
   } else {
     logWarn('Request rejected', meta);
   }

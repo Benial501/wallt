@@ -20,6 +20,7 @@ const pianoSmartRoutes = require('./routes/pianoSmart.routes');
 const pianoSmartV2Routes = require('./routes/pianoSmartV2.routes');
 const fondoEmergenzaRoutes = require('./routes/fondoEmergenza.routes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler.middleware');
+const { inizializzaMonitoraggio } = require('./services/monitoraggio.service');
 const {
   apiLimiter,
   authLimiter,
@@ -27,6 +28,10 @@ const {
 } = require('./middleware/rateLimit.middleware');
 
 const createApp = (options = {}) => {
+  // Prima di qualunque rotta, e una volta sola per istanza: su Vercel ogni
+  // avvio a freddo ricrea l'app, ed e' li' che nascono gli errori peggiori.
+  inizializzaMonitoraggio();
+
   const {
     enableRateLimit = true,
   } = options;
