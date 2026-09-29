@@ -20,8 +20,17 @@ const authStore = useAuthStore();
 const toastStore = useToastStore();
 const { formatValuta } = useValuta();
 
+/**
+ * Tre schermate, non cinque piu' un riepilogo.
+ *
+ * I campi raccolti sono gli stessi di prima (il profilo finanziario alimenta
+ * Piano Smart e non si tocca): cambia solo come sono raggruppati, per tema
+ * anziche' uno per pagina. Il riepilogo non e' piu' una schermata a se': e'
+ * la conferma in fondo all'ultimo passo, dove serve davvero.
+ */
+const TOTALE_STEP = 3;
+
 const currentStep = ref(1);
-const showRiepilogo = ref(false);
 const slideDirection = ref('forward');
 const saving = ref(false);
 
@@ -123,31 +132,35 @@ const isMinorUser = computed(() => isMinor(form.value.fascia_eta));
 
 const canProceed = computed(() => {
   switch (currentStep.value) {
+    // 1 - Chi sei: eta' (obbligatoria, e' anche il gate per i minori),
+    // lavoro, entrata.
     case 1:
-      return !!form.value.fascia_eta;
-    case 2:
+      if (!form.value.fascia_eta) return false;
       if (!form.value.situazione_lavorativa) return false;
       if (form.value.entrata_fissa && !form.value.entrata_mensile) return false;
       return true;
-    case 3:
+    // 2 - Dove vivi: abitazione, con gli importi solo quando li chiede.
+    case 2:
       if (!form.value.situazione_abitativa) return false;
       if (richiedeCostoAbitazione.value && !form.value.costo_abitazione) return false;
       if (richiedeStimaBollette.value && !form.value.stima_bollette) return false;
       return true;
-    case 4:
+    // 3 - Come gestisci: trasporti, spese extra e abitudini. Per un minore
+    // investimenti e scommesse non vengono chiesti (sono forzati a 'no'
+    // dal watch sulla fascia d'eta'), quindi non possono essere richiesti.
+    case 3:
       if (richiedeBenzina.value && !form.value.spesa_benzina) return false;
       if (richiedeMezzi.value && !form.value.spesa_mezzi) return false;
       if (form.value.ha_spese_extra && !form.value.spese_fisse_extra) return false;
-      return true;
-    case 5:
-      if (isMinorUser.value) {
-        return !!form.value.risparmia;
-      }
-      return !!(form.value.risparmia && form.value.ha_investimenti && form.value.fa_scommesse);
+      if (!form.value.risparmia) return false;
+      if (isMinorUser.value) return true;
+      return !!(form.value.ha_investimenti && form.value.fa_scommesse);
     default:
       return true;
   }
 });
+
+const isUltimoStep = computed(() => currentStep.value === TOTALE_STEP);
 
 const getLabel = (list, id) => list.find((i) => i.id === id)?.label || id;
 const getIcon = (list, id) => list.find((i) => i.id === id)?.icon || Package;
@@ -190,8 +203,8 @@ const buildPayload = (onboardingCompletato = true) => ({
 
 const nextStep = async () => {
   if (!canProceed.value) return;
-  if (currentStep.value === 5 && !showRiepilogo.value) {
-    showRiepilogo.value = true;
+  if (isUltimoStep.value) {
+    await completaOnboarding();
     return;
   }
   slideDirection.value = 'forward';
@@ -217,10 +230,6 @@ const completaOnboarding = async () => {
 };
 
 const prevStep = () => {
-  if (showRiepilogo.value) {
-    showRiepilogo.value = false;
-    return;
-  }
   if (currentStep.value > 1) {
     slideDirection.value = 'back';
     currentStep.value--;
@@ -307,7 +316,6 @@ watch(() => form.value.paga_bollette, (val) => {
             </span>
           </div>
           <button
-            v-if="currentStep < 5 || !showRiepilogo"
             @click="handleSkipOnboarding"
             class="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             :disabled="saving || !form.fascia_eta"
@@ -320,7 +328,7 @@ watch(() => form.value.paga_bollette, (val) => {
         <!-- Progress -->
         <div class="flex items-center justify-center gap-2 px-6 py-4">
           <div
-            v-for="step in 5"
+            v-for="step in TOTALE_STEP"
             :key="step"
             class="progress-dot"
             :class="{ active: step <= currentStep, current: step === currentStep }"
@@ -330,7 +338,7 @@ watch(() => form.value.paga_bollette, (val) => {
         <!-- Steps container -->
         <div class="step-container px-6 pb-6">
           <Transition :name="slideDirection === 'forward' ? 'slide-forward' : 'slide-back'" mode="out-in">
-            <!-- STEP 1 -->
+            <!-- STEP 1 - Chi sei: eta', lavoro, entrata -->
             <div v-if="currentStep === 1" key="step1" class="step-content">
               <h2 class="step-title">
                 <Sparkles :size="20" :stroke-width="1.75" />
@@ -352,16 +360,12 @@ watch(() => form.value.paga_bollette, (val) => {
                   {{ fascia.label }}
                 </button>
               </div>
-            </div>
 
-            <!-- STEP 2 -->
-            <div v-else-if="currentStep === 2" key="step2" class="step-content">
-              <h2 class="step-title">
-                <Briefcase :size="20" :stroke-width="1.75" />
-                La tua situazione
-              </h2>
-              <p class="text-sm text-[var(--text-secondary)] mb-6">Come lavori?</p>
+              <div class="step-divider" />
 
+              <p class="text-sm font-medium text-[var(--text-secondary)] mb-3">
+                Come lavori? <span class="text-red-400">*</span>
+              </p>
               <div class="space-y-2 mb-6">
                 <button
                   v-for="lavoro in SITUAZIONI_LAVORO"
@@ -404,14 +408,17 @@ watch(() => form.value.paga_bollette, (val) => {
               </div>
             </div>
 
-            <!-- STEP 3 -->
-            <div v-else-if="currentStep === 3" key="step3" class="step-content">
+            <!-- STEP 2 - Dove vivi: abitazione e bollette -->
+            <div v-else-if="currentStep === 2" key="step2" class="step-content">
               <h2 class="step-title">
                 <House :size="20" :stroke-width="1.75" />
                 Dove vivi?
               </h2>
-              <p class="text-sm text-[var(--text-secondary)] mb-6">Situazione abitativa</p>
+              <p class="text-sm text-[var(--text-secondary)] mb-6">Situazione abitativa e bollette</p>
 
+              <p class="text-sm font-medium text-[var(--text-secondary)] mb-3">
+                Dove abiti <span class="text-red-400">*</span>
+              </p>
               <div class="space-y-2 mb-6">
                 <button
                   v-for="abit in SITUAZIONI_ABITATIVE"
@@ -461,14 +468,19 @@ watch(() => form.value.paga_bollette, (val) => {
               </div>
             </div>
 
-            <!-- STEP 4 -->
-            <div v-else-if="currentStep === 4" key="step4" class="step-content">
+            <!-- STEP 3 - Come gestisci: trasporti, spese extra, abitudini.
+                 Il riepilogo chiude questo passo invece di occuparne uno suo. -->
+            <div v-else-if="currentStep === 3" key="step3" class="step-content">
               <h2 class="step-title">
-                <Car :size="20" :stroke-width="1.75" />
-                Come ti muovi?
+                <Coins :size="20" :stroke-width="1.75" />
+                Come gestisci i tuoi soldi
               </h2>
-              <p class="text-sm text-[var(--text-secondary)] mb-6">Puoi selezionare più opzioni</p>
+              <p class="text-sm text-[var(--text-secondary)] mb-6">
+                Trasporti, spese fisse e abitudini
+              </p>
 
+              <p class="text-sm font-medium text-[var(--text-secondary)] mb-1">Come ti muovi?</p>
+              <p class="text-xs text-[var(--text-muted)] mb-3">Puoi selezionare più opzioni</p>
               <div class="flex flex-wrap gap-2 mb-6">
                 <button
                   v-for="t in TRASPORTI"
@@ -531,16 +543,11 @@ watch(() => form.value.paga_bollette, (val) => {
                   />
                 </div>
               </div>
-            </div>
 
-            <!-- STEP 5 -->
-            <div v-else-if="currentStep === 5 && !showRiepilogo" key="step5" class="step-content">
-              <h2 class="step-title">
-                <Coins :size="20" :stroke-width="1.75" />
-                Le tue abitudini
-              </h2>
-              <p class="text-sm text-[var(--text-secondary)] mb-6">
-                {{ isMinorUser ? 'Ultima domanda sul risparmio' : 'Aiutaci a capire meglio' }}
+              <div class="step-divider" />
+
+              <p class="text-sm font-medium text-[var(--text-secondary)] mb-3">
+                {{ isMinorUser ? 'Come te la cavi con il risparmio?' : 'Le tue abitudini' }}
               </p>
 
               <div class="space-y-5">
@@ -592,39 +599,30 @@ watch(() => form.value.paga_bollette, (val) => {
                   </div>
                 </div>
               </div>
-            </div>
 
-            <!-- Riepilogo finale -->
-            <div v-else-if="currentStep === 5 && showRiepilogo" key="step5-riepilogo" class="step-content">
-              <h2 class="step-title">
-                <CheckCircle2 :size="20" :stroke-width="1.75" />
-                Perfetto! Ecco il tuo profilo
-              </h2>
-              <p class="text-sm text-[var(--text-secondary)] mb-4">Riepilogo delle tue scelte</p>
-
-              <div class="bg-[var(--bg-input)] rounded-xl p-4 mb-6 space-y-2">
-                <div
-                  v-for="(item, i) in riepilogoItems"
-                  :key="i"
-                  class="flex items-center gap-2 text-sm text-[var(--text-primary)]"
-                >
-                  <component :is="item.icon" class="option-icon" :size="16" :stroke-width="1.75" />
-                  <span>{{ item.text }}</span>
+              <!-- Conferma: compare quando il profilo e' completo, cosi' l'ultima
+                   cosa che si vede prima di entrare e' cosa WALLT ha capito. -->
+              <Transition name="riepilogo">
+                <div v-if="canProceed" class="riepilogo-box">
+                  <p class="riepilogo-box__titolo">
+                    <CheckCircle2 :size="16" :stroke-width="1.75" />
+                    Ecco il tuo profilo
+                  </p>
+                  <div
+                    v-for="(item, i) in riepilogoItems"
+                    :key="i"
+                    class="riepilogo-box__riga"
+                  >
+                    <component :is="item.icon" class="option-icon" :size="16" :stroke-width="1.75" />
+                    <span>{{ item.text }}</span>
+                  </div>
                 </div>
-              </div>
-
-              <button
-                @click="completaOnboarding"
-                class="wallt-btn-primary"
-                :disabled="saving"
-              >
-                Inizia a usare WALLT →
-              </button>
+              </Transition>
             </div>
           </Transition>
 
           <!-- Navigation (steps 1-5, non riepilogo) -->
-          <div v-if="currentStep <= 5 && !showRiepilogo" class="flex items-center justify-between mt-6 pt-4 border-t border-[var(--border)]">
+          <div class="flex items-center justify-between mt-6 pt-4 border-t border-[var(--border)]">
             <button
               v-if="currentStep > 1"
               @click="prevStep"
@@ -637,9 +635,9 @@ watch(() => form.value.paga_bollette, (val) => {
             <button
               @click="nextStep"
               class="nav-btn-next"
-              :disabled="!canProceed || profiloStore.loading"
+              :disabled="!canProceed || profiloStore.loading || saving"
             >
-              Avanti →
+              {{ isUltimoStep ? 'Il tuo WALLT è pronto →' : 'Avanti →' }}
             </button>
           </div>
         </div>
@@ -654,6 +652,63 @@ watch(() => form.value.paga_bollette, (val) => {
    un'animazione infinita di 8 secondi sempre in esecuzione. */
 .onboarding-bg {
   background: transparent;
+}
+
+/* Separatore fra due gruppi di domande nella stessa schermata: da quando i
+   passi sono tre, ogni schermata contiene piu' di un tema e senza una riga
+   di stacco sembrerebbero un unico elenco. */
+.step-divider {
+  height: 1px;
+  margin: 1.5rem 0;
+  background: var(--border);
+}
+
+/* Riepilogo in fondo all'ultimo passo. */
+.riepilogo-box {
+  margin-top: 1.5rem;
+  padding: 0.875rem 1rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.riepilogo-box__titolo {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0 0 0.25rem;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.riepilogo-box__titolo svg { stroke: var(--accent-green); flex-shrink: 0; }
+
+.riepilogo-box__riga {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.riepilogo-enter-active,
+.riepilogo-leave-active {
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+
+.riepilogo-enter-from,
+.riepilogo-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .riepilogo-enter-active,
+  .riepilogo-leave-active { transition: none; }
 }
 
 .progress-dot {

@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
-import { formatData } from '@/utils/formatters';
+import { formatData, formatValuta } from '@/utils/formatters';
 import { presentaRicorrente } from '@/utils/ricorrenti';
 import {
   ArrowDownCircle,
@@ -48,12 +48,9 @@ const badgeCalendario = computed(() => {
   }
   return { cifra: props.movimento.ricorrente_giorno || 1, etichetta: 'ogni mese' };
 });
-const importoFormattato = computed(() => new Intl.NumberFormat('it-IT', {
-  style: 'currency',
-  currency: props.valuta,
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-}).format(Number(props.movimento.importo) || 0));
+const importoFormattato = computed(
+  () => formatValuta(props.movimento.importo, props.valuta)
+);
 </script>
 
 <template>

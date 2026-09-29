@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import api from '@/utils/axios';
 import { creaRisorsa } from '@/utils/risorsa';
+import { formatValuta } from '@/utils/formatters';
 import { FILTRI_INIZIALI } from '@/utils/filtriMovimenti';
 import { mergeGruppi, ordinePerImporto } from '@/utils/movimentiGruppi';
 import { creaRisorsaRicorrenti } from '@/utils/ricorrenti';
@@ -11,8 +12,13 @@ const PAGE_SIZE = 100;
 const saldoInsufficienteMsg = (err) => {
   const data = err.response?.data;
   if (data?.error === 'Saldo insufficiente') {
-    const saldo = parseFloat(data.saldo_disponibile || 0).toFixed(2);
-    return `Saldo insufficiente: disponibili €${saldo}`;
+    // Formattato come ogni altro importo dell'app: e' il messaggio che si
+    // legge nel momento peggiore, non il posto per una cifra scritta a mano.
+    // Valuta lasciata al default: importare l'auth store qui chiuderebbe un
+    // ciclo (auth.store -> session.js -> movimenti.store), e il simbolo era
+    // comunque fisso anche prima.
+    const saldo = formatValuta(data.saldo_disponibile || 0);
+    return `Saldo insufficiente: disponibili ${saldo}`;
   }
   return data?.messaggio || data?.message || data?.error || 'Errore';
 };

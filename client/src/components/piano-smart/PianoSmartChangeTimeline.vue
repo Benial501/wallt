@@ -1,4 +1,5 @@
 <script setup>
+import { formatValuta } from '@/utils/formatters';
 import { computed, ref, watch } from 'vue';
 import { CATEGORIE_USCITA } from '@/utils/categorie';
 
@@ -9,7 +10,7 @@ watch(points, (next) => { indice.value = Math.max(next.findIndex((point) => poin
 const point = computed(() => points.value[indice.value] || null);
 const euro = (amount) => amount === null || amount === undefined
   ? '—'
-  : new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(Number(amount));
+  : formatValuta(amount);
 const variazione = (amount) => amount === null || amount === undefined
   ? '—'
   : `${Number(amount) > 0 ? '+' : Number(amount) < 0 ? '−' : ''}${euro(Math.abs(Number(amount)))}`;

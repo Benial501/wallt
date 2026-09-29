@@ -3,13 +3,14 @@ import { ref, computed, onMounted } from 'vue';
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import WModal from '@/components/common/WModal.vue';
+import AppDialog from '@/components/common/AppDialog.vue';
 import WConfetti from '@/components/common/WConfetti.vue';
 import DataState from '@/components/common/DataState.vue';
 import { useObiettiviStore } from '@/stores/obiettivi.store';
 import { useToastStore } from '@/stores/toast.store';
 import { useValuta } from '@/composables/useValuta';
 import { formatData } from '@/utils/formatters';
-import { Target, Calendar, Trophy, LightbulbIcon } from '@/utils/appIcons';
+import { Target, Calendar, Trophy, LightbulbIcon, AlertTriangle } from '@/utils/appIcons';
 import { OBIETTIVO_ICON_OPTIONS, resolveObiettivoIcon } from '@/utils/obiettivoIcons';
 import dayjs from 'dayjs';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
@@ -92,11 +93,30 @@ const aggiungiContributo = async () => {
   }
 };
 
-const eliminaObiettivo = async () => {
-  if (!obiettivoSelezionato.value || !confirm('Eliminare questo obiettivo?')) return;
-  await obiettiviStore.deleteObiettivo(obiettivoSelezionato.value.id);
-  showDettaglio.value = false;
-  toastStore.success('Obiettivo eliminato');
+const showElimina = ref(false);
+const deleteLoading = ref(false);
+
+/** Apre la conferma: l'eliminazione e' definitiva e porta via i contributi. */
+const eliminaObiettivo = () => {
+  if (!obiettivoSelezionato.value) return;
+  showElimina.value = true;
+};
+
+const confermaElimina = async () => {
+  if (!obiettivoSelezionato.value) return;
+  deleteLoading.value = true;
+  try {
+    await obiettiviStore.deleteObiettivo(obiettivoSelezionato.value.id);
+    toastStore.success('Obiettivo eliminato');
+    showElimina.value = false;
+    showDettaglio.value = false;
+  } catch {
+    // Prima il toast di successo partiva comunque: un obiettivo ancora al suo
+    // posto veniva annunciato come eliminato.
+    toastStore.error('Non e\u0300 stato possibile eliminare l\u0027obiettivo. Riprova.');
+  } finally {
+    deleteLoading.value = false;
+  }
 };
 
 onMounted(() => obiettiviStore.fetchObiettivi());
@@ -233,6 +253,38 @@ onMounted(() => obiettiviStore.fetchObiettivi());
       </div>
     </WModal>
 
+    <!-- Conferma eliminazione: AppDialog e' un <dialog> nativo, quindi entra nel
+         top layer e resta sopra il WModal del dettaglio senza giochi di z-index. -->
+    <AppDialog :open="showElimina" title="Eliminare l'obiettivo?" @close="showElimina = false">
+      <div v-if="obiettivoSelezionato" class="delete-modal">
+        <div class="delete-modal__alert">
+          <AlertTriangle :size="18" :stroke-width="1.75" />
+          <p>Stai per eliminare <strong>{{ obiettivoSelezionato.nome }}</strong>.</p>
+        </div>
+
+        <p class="delete-modal__hint">
+          <template v-if="obiettivoSelezionato.contributi?.length === 1">
+            Verra&#768; eliminato anche il contributo registrato.
+          </template>
+          <template v-else-if="obiettivoSelezionato.contributi?.length">
+            Verranno eliminati anche i
+            {{ obiettivoSelezionato.contributi.length }} contributi registrati.
+          </template>
+          Questa operazione non puo&#768; essere annullata. I soldi restano sui tuoi
+          conti: cambia solo la quota che risultava messa da parte.
+        </p>
+
+        <div class="delete-modal__actions">
+          <WButton variant="secondary" size="lg" :disabled="deleteLoading" @click="showElimina = false">
+            Annulla
+          </WButton>
+          <WButton variant="danger" size="lg" :loading="deleteLoading" @click="confermaElimina">
+            Elimina obiettivo
+          </WButton>
+        </div>
+      </div>
+    </AppDialog>
+
     <!-- Modal Contributo -->
     <WModal :open="showContributo" title="Aggiungi soldi" @close="showContributo = false">
       <div class="form-space">
@@ -365,5 +417,25 @@ onMounted(() => obiettiviStore.fetchObiettivi());
 .link-btn { background: none; border: none; cursor: pointer; font-size: var(--text-xs); color: var(--text-muted); }
 .link-btn.danger { color: var(--negative); }
 .link-btn:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
+.delete-modal { display: flex; flex-direction: column; gap: 1rem; }
+.delete-modal__alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 71, 87, 0.1);
+  border: 1px solid rgba(255, 71, 87, 0.25);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+.delete-modal__alert svg { flex-shrink: 0; stroke: var(--negative); margin-top: 0.125rem; }
+.delete-modal__alert p { margin: 0; }
+.delete-modal__alert strong { color: var(--text-primary); }
+.delete-modal__hint { font-size: var(--text-xs); color: var(--text-muted); line-height: 1.5; margin: 0; }
+.delete-modal__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; margin-top: 0.25rem; }
+@media (max-width: 420px) {
+  .delete-modal__actions { grid-template-columns: 1fr; }
+}
 .mb-6 { margin-bottom: 1.5rem; }
 </style>

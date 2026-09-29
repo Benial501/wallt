@@ -1,5 +1,6 @@
 import { computed } from 'vue';
 import { useAuthStore } from '@/stores/auth.store';
+import { formatValuta as formatValutaBase } from '@/utils/formatters';
 
 export function useValuta() {
   const authStore = useAuthStore();
@@ -17,19 +18,12 @@ export function useValuta() {
     return simboli[valuta.value] || '€';
   });
 
-  const formatValuta = (importo) => {
-    const currency = valuta.value;
-    if (importo === null || importo === undefined) {
-      return new Intl.NumberFormat('it-IT', {
-        style: 'currency',
-        currency,
-      }).format(0);
-    }
-    return new Intl.NumberFormat('it-IT', {
-      style: 'currency',
-      currency,
-    }).format(parseFloat(importo) || 0);
-  };
+  /**
+   * Delega a `utils/formatters`: qui si aggiunge solo la valuta dell'utente.
+   * `null`/`undefined` diventano zero gia' dentro `formatValuta`, quindi il
+   * ramo separato che c'era prima non serviva e poteva divergere da solo.
+   */
+  const formatValuta = (importo) => formatValutaBase(importo, valuta.value);
 
   return { valuta, simbolo, formatValuta };
 }

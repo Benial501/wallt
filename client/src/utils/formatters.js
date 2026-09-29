@@ -3,12 +3,21 @@ import 'dayjs/locale/it';
 
 dayjs.locale('it');
 
+/**
+ * Unico punto in cui un importo diventa testo.
+ *
+ * I decimali sono sempre due, mai zero: con `minimumFractionDigits: 0` lo
+ * stesso saldo si leggeva "1.250,5" qui e "1.250,50" altrove, e un importo a
+ * cui manca una cifra sembra un importo diverso. Chi ha bisogno della valuta
+ * dell'utente non chiama questa funzione a mano ma passa da `useValuta`, che
+ * la inietta e delega qui: l'algoritmo resta uno solo.
+ */
 export const formatValuta = (importo, valuta = 'EUR') => {
   const num = parseFloat(importo) || 0;
   return new Intl.NumberFormat('it-IT', {
     style: 'currency',
     currency: valuta,
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(num);
 };

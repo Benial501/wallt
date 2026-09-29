@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import api from '@/utils/axios';
 import { refreshAfterWrite } from '@/utils/afterWrite';
 import { creaRisorsa } from '@/utils/risorsa';
+import { formatValuta } from '@/utils/formatters';
 
 export const useContiStore = defineStore('conti', () => {
   const authStore = useAuthStore();
@@ -44,10 +45,9 @@ export const useContiStore = defineStore('conti', () => {
 
   const contiAttivi = computed(() => conti.value.filter((c) => c.attivo));
 
-  const patrimonioFormattato = computed(() => {
-    const valuta = authStore.user?.valuta || 'EUR';
-    return new Intl.NumberFormat('it-IT', { style: 'currency', currency: valuta }).format(patrimonioTotale.value || 0);
-  });
+  const patrimonioFormattato = computed(
+    () => formatValuta(patrimonioTotale.value || 0, authStore.user?.valuta || 'EUR')
+  );
 
   /**
    * Le tre voci mostrate sotto il totale. Il server le manda già entrambe
@@ -119,8 +119,8 @@ export const useContiStore = defineStore('conti', () => {
     } catch (err) {
       const data = err.response?.data;
       if (data?.error === 'Saldo insufficiente') {
-        const saldo = parseFloat(data.saldo_disponibile || 0).toFixed(2);
-        const error = new Error(`Saldo insufficiente: disponibili €${saldo}`);
+        const saldo = formatValuta(data.saldo_disponibile || 0, authStore.user?.valuta || 'EUR');
+        const error = new Error(`Saldo insufficiente: disponibili ${saldo}`);
         error.response = err.response;
         throw error;
       }
