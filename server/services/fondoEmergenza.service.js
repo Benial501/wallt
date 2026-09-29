@@ -1,4 +1,11 @@
 const { Conto } = require('../models');
+// Il vocabolario (tipo di conto, soglie, nome di partenza, predicato) sta in
+// `constants/fondoEmergenza.js`, un file senza dipendenze: il test-contratto
+// del client lo importa da lì, dove Sequelize non c'è. Qui viene solo
+// ri-esportato, perché chi già chiamava il service continui a funzionare.
+const {
+  TIPO_CONTO_FONDO, MESI_TARGET_AMMESSI, MESI_TARGET_DEFAULT, NOME_DEFAULT, isContoFondo,
+} = require('../constants/fondoEmergenza');
 const { calcolaMesiCopertura } = require('./fondoSicurezza.service');
 
 /**
@@ -23,25 +30,8 @@ const { calcolaMesiCopertura } = require('./fondoSicurezza.service');
  * docs/superpowers/specs/2026-09-26-fondo-emergenza-design.md.
  */
 
-// Il discriminante del fondo. Segue la convenzione già in uso per i conti
-// 'scommesse' (Regola 5) invece di aggiungere una colonna booleana.
-const TIPO_CONTO_FONDO = 'emergenza';
-
-// Le soglie proponibili, in mesi di spese essenziali. Un elenco chiuso: sono
-// le uniche scelte offerte dall'interfaccia, e la validazione non ne accetta
-// altre.
-const MESI_TARGET_AMMESSI = [3, 6, 12];
-const MESI_TARGET_DEFAULT = 3;
-
-const NOME_DEFAULT = 'Fondo di emergenza';
-
 const toNumber = (val) => parseFloat(val) || 0;
 const round2 = (val) => Math.round(val * 100) / 100;
-
-/** Vero se questo conto è il fondo di emergenza. Unico predicato: chi deve
- * applicare i vincoli del fondo (niente entrate/uscite dirette, `nascosto`
- * non disattivabile) lo interroga invece di confrontare la stringa a mano. */
-const isContoFondo = (conto) => !!conto && conto.tipo === TIPO_CONTO_FONDO;
 
 /** Il conto fondo dell'utente, o null. Solo fra i conti attivi: un fondo
  * soft-eliminato (attivo: false) non è più il fondo, e non deve impedire di
