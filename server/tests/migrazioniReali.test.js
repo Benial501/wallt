@@ -216,6 +216,23 @@ describe('migrazioni reali — schema creato da zero dalla catena completa', () 
     expect(rows[0].relrowsecurity).toBe(true);
   });
 
+  it('nessuna tabella resta senza RLS: l\'hardening Supabase copre tutto lo schema', async () => {
+    // Il controllo qui sopra guarda una tabella per volta, ed è proprio così
+    // che `piani_smart_azioni` è sfuggita: la sua migrazione di creazione ha
+    // dimenticato l'hardening e nessun test se ne è accorto, finché il security
+    // advisor Supabase non l'ha segnalata come `rls_disabled_in_public` su un
+    // database con dati reali. Questa asserzione vale per ogni tabella presente
+    // e per ogni tabella futura, senza dover ricordarsi di aggiungerla a un
+    // elenco (stesso principio di `corsMetodi`).
+    const { rows } = await c.query(
+      `SELECT rel.relname FROM pg_class rel
+       JOIN pg_namespace n ON n.oid = rel.relnamespace
+       WHERE n.nspname = 'public' AND rel.relkind = 'r' AND NOT rel.relrowsecurity
+       ORDER BY rel.relname`,
+    );
+    expect(rows.map((r) => r.relname)).toEqual([]);
+  });
+
   it('categorie_default_essenzialita vincola i tre livelli validi', async () => {
     const definizioni = (await vincoliCheck(c, 'categorie_default_essenzialita'))
       .map((r) => r.definizione).join(' ');
