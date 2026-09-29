@@ -43,6 +43,18 @@ const thirdPartyServices = [
     data: 'Tutti i dati dell\'account, su server nell\'Unione Europea',
     legal: 'Contratto (sub-responsabile del trattamento)',
   },
+  {
+    name: 'Sentry',
+    purpose: 'Diagnosi degli errori tecnici dell\'applicazione',
+    data: 'Messaggio ed evento tecnico dell\'errore, pagina, browser e identificativo numerico dell\'utente. Importi, saldi, categorie, descrizioni ed email vengono rimossi prima dell\'invio.',
+    legal: 'Interesse legittimo (sicurezza e corretto funzionamento del servizio)',
+  },
+  {
+    name: 'Vercel Web Analytics',
+    purpose: 'Statistiche aggregate di utilizzo delle pagine',
+    data: 'Pagina visitata, tipo di dispositivo e provenienza, in forma aggregata. Non usa cookie né profilazione e non raccoglie dati finanziari.',
+    legal: 'Interesse legittimo (misurazione aggregata del servizio)',
+  },
 ];
 
 const gdprRights = [
@@ -250,6 +262,12 @@ const backLabel = computed(() => (
           <p class="mt-4 text-sm text-[var(--text-muted)]">
             OpenAI non riceve dati se non hai attivato esplicitamente la categorizzazione AI
             nelle impostazioni del tuo account.
+          </p>
+          <p class="mt-2 text-sm text-[var(--text-muted)]">
+            Le segnalazioni di errore inviate a Sentry sono ripulite prima di partire:
+            importi, saldi, categorie, descrizioni dei movimenti, indirizzi email e
+            credenziali non escono da WALLT. Le statistiche di Vercel Web Analytics sono
+            aggregate e non usano cookie, quindi non trovi banner di consenso.
           </p>
         </section>
 
