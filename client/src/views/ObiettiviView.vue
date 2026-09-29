@@ -113,7 +113,7 @@ const confermaElimina = async () => {
   } catch {
     // Prima il toast di successo partiva comunque: un obiettivo ancora al suo
     // posto veniva annunciato come eliminato.
-    toastStore.error('Non e\u0300 stato possibile eliminare l\u0027obiettivo. Riprova.');
+    toastStore.error('Non è stato possibile eliminare l\'obiettivo. Riprova.');
   } finally {
     deleteLoading.value = false;
   }
@@ -264,13 +264,13 @@ onMounted(() => obiettiviStore.fetchObiettivi());
 
         <p class="delete-modal__hint">
           <template v-if="obiettivoSelezionato.contributi?.length === 1">
-            Verra&#768; eliminato anche il contributo registrato.
+            Verrà eliminato anche il contributo registrato.
           </template>
           <template v-else-if="obiettivoSelezionato.contributi?.length">
             Verranno eliminati anche i
             {{ obiettivoSelezionato.contributi.length }} contributi registrati.
           </template>
-          Questa operazione non puo&#768; essere annullata. I soldi restano sui tuoi
+          Questa operazione non può essere annullata. I soldi restano sui tuoi
           conti: cambia solo la quota che risultava messa da parte.
         </p>
 

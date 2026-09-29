@@ -245,7 +245,7 @@ const confermaElimina = async () => {
   } catch (err) {
     // Il successo non si annuncia prima di averlo: il server disattiva
     // piattaforma e conto collegato in transazione, o nessuno dei due.
-    toastStore.error(err.response?.data?.message || 'Non e\u0300 stato possibile eliminare la piattaforma. Riprova.');
+    toastStore.error(err.response?.data?.message || 'Non è stato possibile eliminare la piattaforma. Riprova.');
   } finally {
     deleteLoading.value = false;
   }
@@ -459,8 +459,8 @@ const getPiattaformaPan = (id) => pan.value.piattaforme?.find((p) => p.id === id
         </div>
 
         <p class="delete-modal__hint">
-          Verra&#768; disattivato anche il conto collegato a questa piattaforma.
-          Le operazioni gia&#768; registrate restano nello storico.
+          Verrà disattivato anche il conto collegato a questa piattaforma.
+          Le operazioni già registrate restano nello storico.
         </p>
 
         <div class="delete-modal__actions">
