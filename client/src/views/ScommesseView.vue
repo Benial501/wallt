@@ -7,6 +7,7 @@ import {
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import WModal from '@/components/common/WModal.vue';
+import AppDialog from '@/components/common/AppDialog.vue';
 import DataState from '@/components/common/DataState.vue';
 import { useScommesseStore } from '@/stores/scommesse.store';
 import { useContiStore } from '@/stores/conti.store';
@@ -223,10 +224,31 @@ const confermaMovimento = async () => {
   }
 };
 
-const eliminaPiattaforma = async (p) => {
-  if (!confirm(`Eliminare ${p.nome}?`)) return;
-  await scommesseStore.deletePiattaforma(p.id);
-  toastStore.success('Piattaforma eliminata');
+const piattaformaDaEliminare = ref(null);
+const deleteLoading = ref(false);
+
+const eliminaPiattaforma = (p) => {
+  piattaformaDaEliminare.value = p;
+};
+
+const chiudiElimina = () => {
+  piattaformaDaEliminare.value = null;
+};
+
+const confermaElimina = async () => {
+  if (!piattaformaDaEliminare.value) return;
+  deleteLoading.value = true;
+  try {
+    await scommesseStore.deletePiattaforma(piattaformaDaEliminare.value.id);
+    toastStore.success('Piattaforma eliminata');
+    chiudiElimina();
+  } catch (err) {
+    // Il successo non si annuncia prima di averlo: il server disattiva
+    // piattaforma e conto collegato in transazione, o nessuno dei due.
+    toastStore.error(err.response?.data?.message || 'Non e\u0300 stato possibile eliminare la piattaforma. Riprova.');
+  } finally {
+    deleteLoading.value = false;
+  }
 };
 
 const getPiattaformaPan = (id) => pan.value.piattaforme?.find((p) => p.id === id);
@@ -423,6 +445,34 @@ const getPiattaformaPan = (id) => pan.value.piattaforme?.find((p) => p.id === id
         <WButton variant="primary" size="lg" :loading="loading" @click="confermaMovimento">Conferma</WButton>
       </div>
     </WModal>
+
+    <!-- Conferma eliminazione piattaforma -->
+    <AppDialog
+      :open="!!piattaformaDaEliminare"
+      title="Eliminare la piattaforma?"
+      @close="chiudiElimina"
+    >
+      <div v-if="piattaformaDaEliminare" class="delete-modal">
+        <div class="delete-modal__alert">
+          <AlertTriangle :size="18" :stroke-width="1.75" />
+          <p>Stai per eliminare <strong>{{ piattaformaDaEliminare.nome }}</strong>.</p>
+        </div>
+
+        <p class="delete-modal__hint">
+          Verra&#768; disattivato anche il conto collegato a questa piattaforma.
+          Le operazioni gia&#768; registrate restano nello storico.
+        </p>
+
+        <div class="delete-modal__actions">
+          <WButton variant="secondary" size="lg" :disabled="deleteLoading" @click="chiudiElimina">
+            Annulla
+          </WButton>
+          <WButton variant="danger" size="lg" :loading="deleteLoading" @click="confermaElimina">
+            Elimina piattaforma
+          </WButton>
+        </div>
+      </div>
+    </AppDialog>
   </div>
 </template>
 
@@ -490,5 +540,25 @@ const getPiattaformaPan = (id) => pan.value.piattaforme?.find((p) => p.id === id
 .tipo-grid button.active { border-color: var(--accent-green); color: var(--accent-text); background: var(--accent-light); }
 .tipo-grid button:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
 .hint { font-size: var(--text-xs); color: var(--text-muted); }
+.delete-modal { display: flex; flex-direction: column; gap: 1rem; }
+.delete-modal__alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 71, 87, 0.1);
+  border: 1px solid rgba(255, 71, 87, 0.25);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+.delete-modal__alert svg { flex-shrink: 0; stroke: var(--negative); margin-top: 0.125rem; }
+.delete-modal__alert p { margin: 0; }
+.delete-modal__alert strong { color: var(--text-primary); }
+.delete-modal__hint { font-size: var(--text-xs); color: var(--text-muted); line-height: 1.5; margin: 0; }
+.delete-modal__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; margin-top: 0.25rem; }
+@media (max-width: 420px) {
+  .delete-modal__actions { grid-template-columns: 1fr; }
+}
 .mt-4 { margin-top: 1rem; }
 </style>
