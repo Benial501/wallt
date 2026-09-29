@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import api from '@/utils/axios';
 import { performLogout } from '@/utils/session';
+import { identificaUtente } from '@/utils/monitoraggio';
 import { isOnboardingComplete } from '@/utils/onboarding';
 import { canShowScommesse, canShowInvestimenti, canAccessScommesse, canAccessInvestimenti } from '@/utils/featureAccess';
 
@@ -68,6 +69,9 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = newToken;
     localStorage.setItem('wallt_token', newToken);
     persistUser(newUser);
+    // Un solo punto per login, registrazione e OAuth: agli errori viene
+    // associato l'id, mai nome o email (vedi utils/monitoraggio.js).
+    identificaUtente(newUser?.id);
   };
 
   const clearSession = () => {
@@ -75,6 +79,7 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null;
     localStorage.removeItem('wallt_token');
     localStorage.removeItem('wallt_user');
+    identificaUtente(null);
   };
 
   const init = async () => {

@@ -9,6 +9,7 @@ import WModal from '@/components/common/WModal.vue';
 
 import { useImportazioniStore } from '@/stores/importazioni.store';
 import { useToastStore } from '@/stores/toast.store';
+import { tracciaEvento } from '@/utils/monitoraggio';
 import { useContiStore } from '@/stores/conti.store';
 import { useMovimentiStore } from '@/stores/movimenti.store';
 
@@ -268,6 +269,8 @@ const onConfirm = async () => {
     ? `${importati} transazioni importate (${saltati} saltate)`
     : `${importati} transazioni importate`;
   toastStore.success(msg);
+  // Solo conteggi: quante righe, quante scartate. Nessun importo.
+  tracciaEvento('import_riuscito', { importati, saltati });
   if (!vistaAggiornata) toastStore.warning(VISTA_NON_AGGIORNATA);
 
   resetState();

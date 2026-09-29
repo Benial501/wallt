@@ -7,6 +7,7 @@ import { useToastStore } from '@/stores/toast.store';
 import { useValuta } from '@/composables/useValuta';
 import { isOnboardingComplete } from '@/utils/onboarding';
 import { isMinor } from '@/utils/ageRestriction';
+import { tracciaEvento } from '@/utils/monitoraggio';
 import {
   Sparkles, Briefcase, House, Car, Coins, CheckCircle2, User, Banknote,
   GraduationCap, Building2, Search, Package, Key, Users, Bike, Bus, Footprints, Smartphone,
@@ -220,6 +221,10 @@ const completaOnboarding = async () => {
     if (!isOnboardingComplete(profilo)) {
       throw new Error('Onboarding non salvato correttamente');
     }
+
+    // Quanti arrivano in fondo ai tre passi: e' la meta' mancante del dato,
+    // perche' le visite alla pagina si contano gia' da sole.
+    tracciaEvento('onboarding_completato');
 
     await router.replace('/dashboard');
   } catch (err) {

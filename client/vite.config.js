@@ -11,6 +11,20 @@ export default defineConfig(({ mode }) => {
   const apiUrl = normalizeApiUrl(env.VITE_API_URL, { isProduction: mode === 'production' })
   const apiCspSources = `${apiUrl} ${apiUrl}/`
 
+  // Sentry invia i report al proprio host di ingest: senza questa source la
+  // CSP li blocca in silenzio e il monitoraggio sembra solo "non arrivare
+  // mai". L'origin si ricava dal DSN invece di essere scritto a mano, cosi'
+  // cambiare progetto Sentry non richiede di ricordarsi anche di questa riga.
+  const sentryCspSource = (() => {
+    const dsn = env.VITE_SENTRY_DSN?.trim()
+    if (!dsn) return ''
+    try {
+      return ` ${new URL(dsn).origin}`
+    } catch {
+      throw new Error('VITE_SENTRY_DSN non e\' un URL valido.')
+    }
+  })()
+
   return {
     plugins: [
       vue(),
@@ -18,7 +32,7 @@ export default defineConfig(({ mode }) => {
       {
         name: 'wallt-api-csp-source',
         transformIndexHtml(html) {
-          return html.replaceAll('__WALLT_API_CSP_SOURCES__', apiCspSources)
+          return html.replaceAll('__WALLT_API_CSP_SOURCES__', apiCspSources + sentryCspSource)
         },
       },
     ],

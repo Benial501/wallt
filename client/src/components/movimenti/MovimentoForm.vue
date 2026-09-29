@@ -7,6 +7,7 @@ import { useValuta } from '@/composables/useValuta';
 import { isContoFondo } from '@/utils/fondoEmergenza';
 import { useMovimentiStore } from '@/stores/movimenti.store';
 import { useToastStore } from '@/stores/toast.store';
+import { tracciaEvento } from '@/utils/monitoraggio';
 import { CATEGORIE_ENTRATA, CATEGORIE_USCITA, CATEGORIE_ARCHIVIATE } from '@/utils/categorie';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
 import HelpNote from '@/components/help/HelpNote.vue';
@@ -328,6 +329,8 @@ const salva = async () => {
     ].some((id) => contiStore.contiAttivi.find((account) => account.id === id)?.tipo === 'scommesse');
     toastStore.success(messaggio);
     emit('saved');
+    // Solo il tipo, che e' una categoria: nessun importo lascia l'app.
+    tracciaEvento('movimento_creato', { tipo: props.tipo || form.value.tipo });
     emit('close');
 
     // Il server ha già confermato la scrittura: la ricarica dei dati può
@@ -352,6 +355,8 @@ const cambiaRicorrenza = async (stato) => {
     const messaggio = stato === 'sospesa' ? 'Programmazione sospesa' : stato === 'attiva' ? 'Programmazione riattivata' : 'Programmazione terminata';
     feedback.value = { type: 'success', message: messaggio };
     emit('saved');
+    // Solo il tipo, che e' una categoria: nessun importo lascia l'app.
+    tracciaEvento('movimento_creato', { tipo: props.tipo || form.value.tipo });
     emit('close');
     toastStore.success(messaggio);
   } catch (err) {
