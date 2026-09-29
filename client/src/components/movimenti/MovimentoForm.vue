@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import AppDialog from '@/components/common/AppDialog.vue';
 import WButton from '@/components/common/WButton.vue';
 import { useContiStore } from '@/stores/conti.store';
+import { useValuta } from '@/composables/useValuta';
 import { isContoFondo } from '@/utils/fondoEmergenza';
 import { useMovimentiStore } from '@/stores/movimenti.store';
 import { useToastStore } from '@/stores/toast.store';
@@ -30,6 +31,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saved']);
 
 const contiStore = useContiStore();
+const { formatValuta } = useValuta();
 const movimentiStore = useMovimentiStore();
 const toastStore = useToastStore();
 const scheduledPaymentsStore = useScheduledPaymentsStore();
@@ -436,7 +438,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
         <label>Da</label>
         <select v-model="trasferimentoForm.conto_origine_id" class="form-select">
           <option v-for="c in contiStore.contiAttivi" :key="c.id" :value="c.id">
-            {{ c.nome }} (€{{ parseFloat(c.saldo).toFixed(2) }})
+            {{ c.nome }} ({{ formatValuta(c.saldo) }})
           </option>
         </select>
       </div>
@@ -572,7 +574,7 @@ const shellProps = computed(() => ({ open: props.open, title: titolo.value }));
           <label>Conto</label>
           <select v-model="form.conto_id" class="form-select">
             <option v-for="c in contiSelezionabili" :key="c.id" :value="c.id">
-              {{ c.nome }} — €{{ parseFloat(c.saldo).toFixed(2) }}
+              {{ c.nome }} — {{ formatValuta(c.saldo) }}
             </option>
           </select>
           <HelpNote

@@ -1,8 +1,9 @@
 <script setup>
+import { formatValuta } from '@/utils/formatters';
 const props = defineProps({ goals: { type: Array, default: () => [] } });
 const euro = (amount) => amount === null || amount === undefined
   ? '—'
-  : new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(Number(amount));
+  : formatValuta(amount);
 const data = (value) => value
   ? new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`))
   : 'nessuna scadenza';
