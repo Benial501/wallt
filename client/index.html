@@ -31,7 +31,7 @@
       esplicitamente. Deve restare compatibile con Google Identity Services
       (step-up) — accounts.google.com in script-src/frame-src/connect-src —
       senza consentire script-src 'unsafe-eval' o 'unsafe-inline'. style-src
-      richiede 'unsafe-inline' per il boot-splash inline sopra e per i
+      richiede 'unsafe-inline' per la splash inline sopra e per i
       binding :style di Vue; è un rischio molto minore di uno script-src
       permissivo. Vedi docs/SECURITY.md.
 
@@ -48,6 +48,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
       .wallt-splash {
+        --wallt-splash-bg: #06060A;
         position: fixed;
         inset: 0;
         z-index: 10000;
@@ -56,121 +57,150 @@
         overflow: hidden;
         padding: max(1.5rem, env(safe-area-inset-top)) max(1.5rem, env(safe-area-inset-right))
           max(1.5rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-left));
-        background: #06060A;
+        background: var(--wallt-splash-bg);
+        color: #FFFFFF;
         font-family: Inter, system-ui, sans-serif;
         isolation: isolate;
-        transition: opacity 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+        transition: opacity 180ms cubic-bezier(0.2, 0.8, 0.2, 1), transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+        will-change: opacity, transform;
       }
-      .wallt-splash--leaving {
-        opacity: 0;
-      }
+      .wallt-splash--leaving { opacity: 0; transform: scale(1.015); }
       .wallt-splash__ambient {
         position: absolute;
-        width: min(112vw, 35rem);
+        width: min(108vw, 36rem);
         aspect-ratio: 1;
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(0, 212, 170, 0.2), rgba(21, 164, 211, 0.08) 38%, transparent 70%);
-        filter: blur(24px);
+        background: radial-gradient(circle, rgba(0, 212, 170, 0.19), rgba(116, 185, 255, 0.08) 42%, transparent 72%);
         opacity: 0;
-        animation: wallt-splash-ambient 1800ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        transform: scale(0.62);
+        animation: wallt-splash-ambient 1100ms cubic-bezier(0.2, 0.72, 0.18, 1) both;
         animation-delay: var(--wallt-splash-delay, 0ms);
         pointer-events: none;
       }
-      .wallt-splash__art {
-        position: relative;
-        width: clamp(13rem, 64vw, 20rem);
-        aspect-ratio: 1;
-        overflow: hidden;
-        border-radius: 24%;
-        box-shadow: 0 30px 100px rgba(0, 0, 0, 0.28);
-        animation: wallt-splash-art 1800ms cubic-bezier(0.16, 0.85, 0.28, 1) both;
-        animation-delay: var(--wallt-splash-delay, 0ms);
-        isolation: isolate;
-        will-change: transform, opacity, filter;
+      .wallt-splash__current {
+        position: absolute;
+        width: min(112vw, 38rem);
+        height: auto;
+        overflow: visible;
+        pointer-events: none;
       }
-      .wallt-splash__logo {
+      .wallt-splash__current-line {
+        fill: none;
+        stroke: url(#wallt-splash-current);
+        stroke-width: 1.15;
+        stroke-linecap: round;
+        stroke-dasharray: 1;
+        stroke-dashoffset: 1;
+        opacity: 0;
+        animation: wallt-splash-current 940ms cubic-bezier(0.38, 0, 0.22, 1) both;
+        animation-delay: var(--wallt-splash-delay, 0ms);
+      }
+      .wallt-splash__lockup {
+        display: flex;
+        align-items: center;
+        gap: clamp(0.7rem, 3vw, 1.15rem);
+        animation: wallt-splash-settle 820ms cubic-bezier(0.18, 0.78, 0.22, 1) both;
+        animation-delay: var(--wallt-splash-delay, 0ms);
+        will-change: transform;
+      }
+      .wallt-splash__mark {
         display: block;
-        width: 100%;
-        height: 100%;
-        border-radius: inherit;
-        object-fit: cover;
-        user-select: none;
+        width: clamp(3.65rem, 17vw, 5.25rem);
+        height: auto;
+        flex: 0 0 auto;
+        overflow: visible;
       }
-      .wallt-splash__sheen {
-        position: absolute;
-        inset: -12%;
-        background: linear-gradient(112deg, transparent 39%, rgba(255, 255, 255, 0.9) 48%, rgba(75, 255, 218, 0.9) 52%, rgba(255, 255, 255, 0.75) 55%, transparent 63%);
-        mix-blend-mode: screen;
+      .wallt-splash__mark-fill {
         opacity: 0;
-        transform: translateX(-120%) rotate(-12deg);
-        animation: wallt-splash-sheen 1800ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        transform: translate3d(-4px, 6px, 0) scale(0.84);
+        transform-origin: 50% 50%;
+        animation: wallt-splash-mark 760ms cubic-bezier(0.18, 0.78, 0.22, 1) both;
         animation-delay: var(--wallt-splash-delay, 0ms);
-        pointer-events: none;
+        will-change: transform, opacity;
       }
-      .wallt-splash__flare {
-        position: absolute;
-        top: -8%;
-        right: 3%;
-        width: 36%;
-        aspect-ratio: 1;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(207, 255, 245, 1) 0%, rgba(0, 212, 170, 0.82) 18%, rgba(0, 212, 170, 0.3) 48%, transparent 72%);
-        filter: blur(5px);
-        mix-blend-mode: screen;
+      .wallt-splash__mark-trace {
+        fill: none;
+        stroke: rgba(228, 255, 249, 0.94);
+        stroke-width: 1.65;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 1;
+        stroke-dashoffset: 1;
         opacity: 0;
-        transform: scale(0.3);
-        animation: wallt-splash-flare 1800ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation: wallt-splash-trace 860ms cubic-bezier(0.38, 0, 0.22, 1) both;
         animation-delay: var(--wallt-splash-delay, 0ms);
-        pointer-events: none;
       }
-      @keyframes wallt-splash-art {
-        0% { opacity: 0; filter: blur(9px); transform: translate3d(0, 18px, 0) scale(0.76) rotate(-7deg); }
-        14% { opacity: 1; filter: blur(0); transform: translate3d(0, -5px, 0) scale(1.045) rotate(1.2deg); }
-        26% { transform: translate3d(0, 1px, 0) scale(0.99) rotate(-0.4deg); }
-        38%, 62% { transform: translate3d(0, 0, 0) scale(1) rotate(0); }
-        74% { transform: translate3d(0, -3px, 0) scale(1.025) rotate(0); }
-        86%, 100% { transform: translate3d(0, 0, 0) scale(1) rotate(0); }
+      .wallt-splash__word {
+        display: inline-flex;
+        align-items: center;
+        color: inherit;
+        font-size: clamp(2.45rem, 10vw, 3.45rem);
+        font-weight: 800;
+        letter-spacing: -0.075em;
+        line-height: 0.92;
+        padding-right: 0.075em;
+      }
+      .wallt-splash__word span {
+        display: block;
+        opacity: 0;
+        transform: translate3d(9px, 0, 0);
+        animation: wallt-splash-letter 460ms cubic-bezier(0.18, 0.78, 0.22, 1) both;
+        animation-delay: calc(var(--wallt-splash-delay, 0ms) + var(--wallt-splash-letter-delay, 260ms));
+        will-change: transform, opacity;
       }
       @keyframes wallt-splash-ambient {
-        0% { opacity: 0; transform: scale(0.38); }
-        20% { opacity: 0.55; transform: scale(0.86); }
-        58% { opacity: 0.48; transform: scale(1.14); }
-        82% { opacity: 0.22; transform: scale(1.3); }
-        100% { opacity: 0.08; transform: scale(1.4); }
+        0% { opacity: 0; transform: scale(0.62); }
+        34% { opacity: 0.34; transform: scale(0.92); }
+        74% { opacity: 0.2; transform: scale(1.13); }
+        100% { opacity: 0.08; transform: scale(1.27); }
       }
-      @keyframes wallt-splash-sheen {
-        0%, 34% { opacity: 0; transform: translateX(-120%) rotate(-12deg); }
-        42% { opacity: 0.95; }
-        72% { opacity: 0.82; transform: translateX(35%) rotate(-12deg); }
-        88%, 100% { opacity: 0; transform: translateX(120%) rotate(-12deg); }
+      @keyframes wallt-splash-current {
+        0% { opacity: 0; stroke-dashoffset: 1; }
+        12% { opacity: 0.78; }
+        72% { opacity: 0.52; stroke-dashoffset: 0; }
+        100% { opacity: 0; stroke-dashoffset: 0; }
       }
-      @keyframes wallt-splash-flare {
-        0%, 58% { opacity: 0; transform: scale(0.3); }
-        68% { opacity: 0.48; transform: scale(0.78); }
-        76% { opacity: 0.95; transform: scale(1.08); }
-        85% { opacity: 0.18; transform: scale(1.7); }
-        100% { opacity: 0; transform: scale(2); }
+      @keyframes wallt-splash-settle {
+        0% { transform: translate3d(0, 10px, 0) scale(0.965); }
+        54% { transform: translate3d(0, -1px, 0) scale(1.012); }
+        76%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+      }
+      @keyframes wallt-splash-mark {
+        0% { opacity: 0; transform: translate3d(-4px, 6px, 0) scale(0.84); }
+        32% { opacity: 0.34; transform: translate3d(-1px, 1px, 0) scale(0.94); }
+        68% { opacity: 1; transform: translate3d(0, 0, 0) scale(1.025); }
+        100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+      }
+      @keyframes wallt-splash-trace {
+        0% { opacity: 0; stroke-dashoffset: 1; }
+        8% { opacity: 0.94; }
+        68% { opacity: 0.8; stroke-dashoffset: 0; }
+        100% { opacity: 0; stroke-dashoffset: 0; }
+      }
+      @keyframes wallt-splash-letter {
+        0% { opacity: 0; transform: translate3d(9px, 0, 0); }
+        100% { opacity: 1; transform: translate3d(0, 0, 0); }
       }
       .wallt-splash--reduced .wallt-splash__ambient,
-      .wallt-splash--reduced .wallt-splash__sheen,
-      .wallt-splash--reduced .wallt-splash__flare {
-        display: none;
-      }
-      .wallt-splash--reduced .wallt-splash__art {
-        animation: none;
+      .wallt-splash--reduced .wallt-splash__current,
+      .wallt-splash--reduced .wallt-splash__mark-trace { display: none; }
+      .wallt-splash--reduced .wallt-splash__lockup,
+      .wallt-splash--reduced .wallt-splash__mark-fill,
+      .wallt-splash--reduced .wallt-splash__word span { animation: none; }
+      .wallt-splash--reduced .wallt-splash__mark-fill,
+      .wallt-splash--reduced .wallt-splash__word span { opacity: 1; transform: none; }
+      html.light .wallt-splash { --wallt-splash-bg: #EEF1F6; color: #161821; }
+      @media (prefers-color-scheme: light) {
+        html:not(.dark) .wallt-splash { --wallt-splash-bg: #EEF1F6; color: #161821; }
       }
       @media (prefers-reduced-motion: reduce) {
         .wallt-splash,
+        .wallt-splash * { animation: none !important; transition: none !important; }
         .wallt-splash__ambient,
-        .wallt-splash__art,
-        .wallt-splash__sheen,
-        .wallt-splash__flare {
-          animation: none;
-          transition: none;
-        }
-      }
-      @media (prefers-color-scheme: light) {
-        .wallt-splash { background: #EEF1F6; }
+        .wallt-splash__current,
+        .wallt-splash__mark-trace { display: none; }
+        .wallt-splash__mark-fill,
+        .wallt-splash__word span { opacity: 1; transform: none; }
       }
     </style>
   </head>
@@ -179,10 +209,31 @@
       <div id="wallt-runtime-error" hidden style="position:fixed;inset:0;z-index:99999;padding:1.5rem;background:#1a0000;color:#ffb4b4;font:14px/1.5 Inter,system-ui,sans-serif;overflow:auto;"></div>
       <div class="wallt-splash" aria-hidden="true">
         <div class="wallt-splash__ambient"></div>
-        <div class="wallt-splash__art">
-          <img class="wallt-splash__logo" src="/brand/wallt-app-icon.png" alt="" width="512" height="512" draggable="false">
-          <span class="wallt-splash__sheen"></span>
-          <span class="wallt-splash__flare"></span>
+        <svg class="wallt-splash__current" viewBox="0 0 360 160" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="wallt-splash-current" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#74B9FF" stop-opacity="0"></stop>
+              <stop offset="0.48" stop-color="#00D4AA" stop-opacity="0.72"></stop>
+              <stop offset="1" stop-color="#74B9FF" stop-opacity="0"></stop>
+            </linearGradient>
+          </defs>
+          <path class="wallt-splash__current-line" d="M-24 119C33 118 36 43 102 41C158 39 193 118 251 113C304 109 307 63 384 47" pathLength="1"></path>
+        </svg>
+        <div class="wallt-splash__lockup">
+          <svg class="wallt-splash__mark" viewBox="0 0 100 100" fill="none">
+            <defs>
+              <linearGradient id="wallt-splash-mark" x1="18" y1="78" x2="86" y2="10" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#2499EE"></stop>
+                <stop offset="0.55" stop-color="#27C7D5"></stop>
+                <stop offset="1" stop-color="#26DB87"></stop>
+              </linearGradient>
+            </defs>
+            <path class="wallt-splash__mark-fill" d="M15 35H28L39 64L50 35H63L72 60L82 32L75 27L96 8L98 37L89 31L76 69H65L56 47L47 69H34L15 35Z" fill="url(#wallt-splash-mark)"></path>
+            <path class="wallt-splash__mark-trace" d="M11 35H28L39 64L50 35H63L72 60L82 32M75 27L96 8L98 37L89 31L76 69H65L56 47L47 69H34L15 35" pathLength="1"></path>
+          </svg>
+          <span class="wallt-splash__word" aria-hidden="true">
+            <span style="--wallt-splash-letter-delay: 260ms">W</span><span style="--wallt-splash-letter-delay: 302ms">A</span><span style="--wallt-splash-letter-delay: 344ms">L</span><span style="--wallt-splash-letter-delay: 386ms">L</span><span style="--wallt-splash-letter-delay: 428ms">T</span>
+          </span>
         </div>
       </div>
     </div>

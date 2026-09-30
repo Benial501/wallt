@@ -5,14 +5,14 @@ import { getStartupSplashTiming } from '../src/utils/startupSplash.js';
 test('la splash Vue continua la sequenza partita nel preloader HTML', () => {
   assert.deepEqual(getStartupSplashTiming(700, 0, false), {
     animationElapsedMs: 700,
-    remainingMs: 1100,
+    remainingMs: 400,
     animate: true,
   });
 });
 
 test('una sequenza già finita non riparte dopo un caricamento lento', () => {
   assert.deepEqual(getStartupSplashTiming(2500, 0, false), {
-    animationElapsedMs: 1800,
+    animationElapsedMs: 1100,
     remainingMs: 0,
     animate: true,
   });
