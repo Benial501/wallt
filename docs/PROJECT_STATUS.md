@@ -134,7 +134,9 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 
 **Lint**: nessun linter configurato (né backend né frontend).
 
-**Verifica ramo iOS**: suite client (244 test), build Vite e sincronizzazione Capacitor verificate; suite server (88 suite, 1133 test) eseguita su PostgreSQL `wallt_test`. La compilazione Xcode e il test su iPhone richiedono un host con Xcode completo e non sono stati eseguiti in questo ambiente. CI: `.github/workflows/ci.yml` esegue suite backend e test/build frontend su ogni push/PR.
+**Verifica ramo iOS e target Android**: suite client (251 test), build Vite e sincronizzazione Capacitor iOS verificate; suite server (88 suite, 1133 test) eseguita su PostgreSQL `wallt_test`. La compilazione Xcode e il test su iPhone richiedono un host con Xcode completo e non sono stati eseguiti in questo ambiente. CI: `.github/workflows/ci.yml` esegue suite backend e test/build frontend su ogni push/PR.
+
+**Target Android nativo**: Capacitor Android è configurato con splash di sistema vettoriale (AnimatedVectorDrawable da Android 12), passaggio alla sequenza SVG/CSS esistente e audio nativo senza gesto. La PWA installata da Chrome e il suo manifest restano invariati; per vedere la nuova apertura va installato il pacchetto Android nativo. Build Gradle e prova su dispositivo restano da eseguire su un ambiente con Android SDK/Android Studio; autenticazione Google/Apple nativa Android non rientra in questa modifica e va verificata prima di una distribuzione pubblica.
 
 ## Production Readiness
 

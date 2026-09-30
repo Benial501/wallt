@@ -8,14 +8,17 @@
     "build": "vite build",
     "test": "node --test tests/*.test.js",
     "preview": "vite preview",
+    "cap:sync:android": "npm run build && cap sync android",
+    "cap:open:android": "cap open android",
     "cap:sync:ios": "npm run build && cap sync ios",
     "cap:open:ios": "cap open ios"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
     "@capacitor/core": "^8.5.2",
     "@capacitor/ios": "^8.5.2",
-    "@wallt/native": "file:plugins/wallt-native",
     "@sentry/vue": "^11.1.0",
+    "@wallt/native": "file:plugins/wallt-native",
     "axios": "^1.18.1",
     "chart.js": "^4.5.1",
     "dayjs": "^1.11.21",

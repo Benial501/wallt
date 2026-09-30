@@ -1,7 +1,7 @@
 {
   "name": "@wallt/native",
   "version": "1.0.0",
-  "description": "Funzionalità native iOS di WALLT",
+  "description": "Funzionalità native Android e iOS di WALLT",
   "type": "module",
   "main": "index.js",
   "module": "index.js",
@@ -9,7 +9,8 @@
     "index.js",
     "web.js",
     "Package.swift",
-    "ios/Sources"
+    "ios/Sources",
+    "android"
   ],
   "peerDependencies": {
     "@capacitor/core": ">=8.0.0"
@@ -17,6 +18,9 @@
   "capacitor": {
     "ios": {
       "src": "ios"
+    },
+    "android": {
+      "src": "android"
     }
   }
 }

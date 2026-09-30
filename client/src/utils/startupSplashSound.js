@@ -82,7 +82,7 @@ export function startStartupSplashSound({
     // Un errore nel rilevamento della piattaforma non deve bloccare l’avvio web.
   }
 
-  if (platform === 'ios') {
+  if (platform === 'ios' || platform === 'android') {
     try {
       Promise.resolve(nativePlugin?.playStartupSound?.({
         notes: STARTUP_SPLASH_SOUND_NOTES,

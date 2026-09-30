@@ -1,0 +1,14 @@
+apply plugin: 'com.android.library'
+
+android {
+    namespace = "com.wallt.nativeplugin"
+    compileSdk = rootProject.ext.compileSdkVersion
+
+    defaultConfig {
+        minSdk = rootProject.ext.minSdkVersion
+    }
+}
+
+dependencies {
+    implementation project(':capacitor-android')
+}

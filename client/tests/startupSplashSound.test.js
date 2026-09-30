@@ -184,6 +184,36 @@ test('su iOS delega il suono al plugin nativo senza gesto né AudioContext web',
   assert.equal(eventTarget.listeners.size, 0);
 });
 
+test('su Android delega il suono al plugin nativo senza gesto né AudioContext web', async () => {
+  assert.ok(soundModule, 'deve esistere il modulo che genera il suono');
+
+  const eventTarget = new FakeEventTarget();
+  const calls = [];
+  let audioContextCreations = 0;
+
+  soundModule.startStartupSplashSound({
+    getPlatform: () => 'android',
+    nativePlugin: {
+      playStartupSound: (options) => {
+        calls.push(options);
+        return Promise.resolve({ started: true });
+      },
+    },
+    createAudioContext: () => {
+      audioContextCreations += 1;
+      return new FakeAudioContext();
+    },
+    eventTarget,
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].notes, soundModule.STARTUP_SPLASH_SOUND_NOTES);
+  assert.equal(calls[0].masterVolume, 0.2);
+  assert.equal(audioContextCreations, 0);
+  assert.equal(eventTarget.listeners.size, 0);
+});
+
 test('un errore del plugin audio iOS non blocca l’avvio dell’app', async () => {
   assert.ok(soundModule, 'deve esistere il modulo che genera il suono');
 
@@ -193,6 +223,26 @@ test('un errore del plugin audio iOS non blocca l’avvio dell’app', async () 
     eventTarget: new FakeEventTarget(),
   }));
   await new Promise((resolve) => setImmediate(resolve));
+});
+
+test('un errore del plugin audio Android non blocca l’avvio dell’app', async () => {
+  assert.doesNotThrow(() => soundModule.startStartupSplashSound({
+    getPlatform: () => 'android',
+    nativePlugin: { playStartupSound: () => Promise.reject(new Error('Audio non disponibile')) },
+    eventTarget: new FakeEventTarget(),
+  }));
+  await new Promise((resolve) => setImmediate(resolve));
+});
+
+test('la modalità senza animazione non avvia il plugin nativo', () => {
+  let calls = 0;
+  assert.doesNotThrow(() => soundModule.startStartupSplashSound({
+    getPlatform: () => 'android',
+    nativePlugin: { playStartupSound: () => { calls += 1; } },
+    unlockWindowMs: 0,
+    eventTarget: new FakeEventTarget(),
+  }));
+  assert.equal(calls, 0);
 });
 
 test('il plugin audio web non simula la riproduzione nativa', async () => {

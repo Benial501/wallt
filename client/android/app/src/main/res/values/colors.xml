@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#27C7D5</color>
+    <color name="colorPrimaryDark">#06060A</color>
+    <color name="colorAccent">#26DB87</color>
+    <color name="wallt_splash_background">#06060A</color>
+</resources>

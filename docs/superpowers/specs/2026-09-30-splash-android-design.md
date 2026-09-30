@@ -1,6 +1,6 @@
 # Specifica: avvio animato nativo Android di WALLT
 
-**Stato:** bozza per revisione dell’utente  
+**Stato:** implementazione richiesta dall’utente; verifica nativa da completare su Android Studio/dispositivo
 **Data:** 30 settembre 2026
 
 ## Contesto
@@ -58,9 +58,12 @@ del WebView. L’animazione completa resta disegnata dal codice, senza immagini.
    dal solo segno, senza il grande lockup grafico e la parola WALLT. Su Android
    12 o successivo il segno è un `AnimatedVectorDrawable`; sulle versioni
    supportate precedenti resta statico, poi parte la sequenza web.
-2. Quando il WebView disegna il primo frame, la schermata nativa termina e
-   l’animazione SVG/CSS già presente in `index.html` e `WalltSplash` appare
-   dalla sua fase iniziale, senza essere già avanzata dietro la splash.
+2. `MainActivity` mantiene la schermata di sistema fino a
+   `onPageCommitVisible` del WebView. Così il passaggio non anticipa il primo
+   contenuto renderizzato e l’animazione SVG/CSS già presente in `index.html`
+   appare dalla sua fase iniziale, senza essere già avanzata dietro la splash.
+   Il tema post-splash usa lo stesso colore di fondo per evitare flash se il
+   WebView deve ancora disegnare.
 3. La splash web mantiene la durata complessiva attuale di circa tre secondi,
    il supporto a `prefers-reduced-motion` e la transizione senza flash fra
    sfondo nativo e web.
@@ -85,20 +88,15 @@ per circa tre secondi.
   non deve bloccare l’apertura.
 - La PWA conserva il percorso Web Audio corrente.
 
-### Accesso e backend
+### Accesso
 
-- Email e password continuano a usare i flussi web esistenti.
-- Il Google Sign-In Android usa Credential Manager con ID token e nonce
-  verificati dal backend. I challenge devono essere legati alla piattaforma
-  Android, riutilizzando le verifiche anti-replay già introdotte per il client
-  nativo iOS.
-- Il login e la registrazione Apple restano disponibili su Android attraverso
-  il flusso web esistente, con verifica sul dispositivo; se il WebView non
-  completa il ritorno OAuth, l’implementazione dovrà usare un ritorno sicuro
-  tramite browser esterno e deep link prima che il target sia considerato
-  pronto.
-- Le modifiche API, se necessarie, mantengono nonce monouso, scadenza,
-  associazione provider/piattaforma e test d’isolamento esistenti.
+- Questa modifica non cambia autenticazione, backend, challenge OAuth o
+  autorizzazioni: restano i flussi web già presenti.
+- La schermata d’avvio può essere verificata separatamente dall’autenticazione.
+  Prima di distribuire pubblicamente il pacchetto Android vanno verificati
+  Google e Apple nel WebView; se il ritorno OAuth non funziona, l’integrazione
+  nativa con Credential Manager e il rientro sicuro tramite browser/deep link
+  richiedono un’attività dedicata.
 
 ## Verifiche e criteri di accettazione
 
@@ -107,8 +105,8 @@ per circa tre secondi.
 - All’avvio a freddo dell’app nativa non compare il grande logo WALLT: la
   schermata nativa usa il segno compatto e passa senza flash all’animazione
   SVG/CSS, che termina in circa tre secondi.
-- Il suono parte senza tocco nell’app Android nativa; il flusso di accesso e
-  registrazione email/password, Google e Apple viene verificato.
+- Il suono parte senza tocco nell’app Android nativa; i flussi di accesso non
+  vengono modificati da questa attività.
 - Con movimento ridotto non vengono riprodotti animazione o suono d’avvio.
 - Il test PWA conferma che icone, manifest, schermata Chrome e animazione web
   restano invariati.
@@ -121,9 +119,9 @@ per circa tre secondi.
 - Android Studio, Android SDK e `adb` non sono installati nell’ambiente attuale;
   la build nativa e la verifica su dispositivo richiederanno tali strumenti o
   una CI Android con un telefono disponibile per il controllo finale.
-- L’accesso Google nativo richiede l’ID client server già configurato e
-  l’associazione del package Android nel progetto Google. La pubblicazione
-  richiederà in seguito firma, account Play e revisione.
+- La verifica su dispositivo dei ritorni OAuth Google/Apple precede una
+  distribuzione pubblica. Pubblicare richiede inoltre firma, account Play e
+  revisione.
 
 ## Riferimenti tecnici
 

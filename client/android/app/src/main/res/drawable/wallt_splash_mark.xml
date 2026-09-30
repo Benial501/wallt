@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <group
+        android:name="mark"
+        android:pivotX="50"
+        android:pivotY="50"
+        android:scaleX="0.72"
+        android:scaleY="0.72"
+        android:translateX="-5"
+        android:translateY="11">
+        <path
+            android:fillColor="#2BC99B"
+            android:pathData="M15,35H28L39,64L50,35H63L72,60L82,32L75,27L96,8L98,37L89,31L76,69H65L56,47L47,69H34L15,35Z" />
+    </group>
+</vector>

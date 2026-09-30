@@ -156,6 +156,26 @@ L'app sarà disponibile su `http://localhost:5173` e l'API su `http://localhost:
 
 Per pubblicare il progetto con Vercel e Supabase, segui [la guida passo passo](docs/DEPLOY_VERCEL_SUPABASE.md).
 
+### App Android nativa
+
+L’app installata da Chrome resta una PWA: Chrome controlla la sua schermata
+iniziale e il sito non può sostituirla con l’animazione. Il target Android nativo
+usa invece la splash vettoriale WALLT e poi l’animazione SVG/CSS già presente
+nell’app. Le icone PWA e launcher derivano dagli asset ufficiali esistenti.
+
+Per preparare il progetto servono Node.js 22.18 o successivo e Android Studio
+con Android SDK. Dalla cartella `client/`:
+
+```bash
+npm install
+npm run cap:sync:android
+npm run cap:open:android
+```
+
+Android Studio apre `client/android`; da lì è possibile eseguire l’app su un
+dispositivo o generare un pacchetto di prova. Il pacchetto nativo si installa
+separatamente dalla PWA: aggiornare il sito non aggiorna l’app Android installata.
+
 ## 📄 Licenza
 
 MIT License — vedi il file LICENSE per i dettagli.
