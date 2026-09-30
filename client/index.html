@@ -47,7 +47,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-      .boot-splash {
+      .wallt-splash {
         position: fixed;
         inset: 0;
         z-index: 10000;
@@ -58,40 +58,131 @@
           max(1.5rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-left));
         background: #06060A;
         font-family: Inter, system-ui, sans-serif;
+        isolation: isolate;
+        transition: opacity 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
       }
-      .boot-splash__brand {
-        display: grid;
-        place-items: center;
-        padding: 0.875rem 1.125rem;
-        border: 1px solid rgba(15, 23, 42, 0.06);
-        border-radius: 18px;
-        background: #fff;
-        animation: boot-splash-arrive 520ms cubic-bezier(0.32, 0.72, 0, 1) both;
+      .wallt-splash--leaving {
+        opacity: 0;
       }
-      .boot-splash__logo {
+      .wallt-splash__ambient {
+        position: absolute;
+        width: min(112vw, 35rem);
+        aspect-ratio: 1;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(0, 212, 170, 0.2), rgba(21, 164, 211, 0.08) 38%, transparent 70%);
+        filter: blur(24px);
+        opacity: 0;
+        animation: wallt-splash-ambient 1800ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: var(--wallt-splash-delay, 0ms);
+        pointer-events: none;
+      }
+      .wallt-splash__art {
+        position: relative;
+        width: clamp(13rem, 64vw, 20rem);
+        aspect-ratio: 1;
+        overflow: hidden;
+        border-radius: 24%;
+        box-shadow: 0 30px 100px rgba(0, 0, 0, 0.28);
+        animation: wallt-splash-art 1800ms cubic-bezier(0.16, 0.85, 0.28, 1) both;
+        animation-delay: var(--wallt-splash-delay, 0ms);
+        isolation: isolate;
+        will-change: transform, opacity, filter;
+      }
+      .wallt-splash__logo {
         display: block;
-        width: clamp(9.5rem, 48vw, 12.5rem);
-        height: auto;
+        width: 100%;
+        height: 100%;
+        border-radius: inherit;
+        object-fit: cover;
         user-select: none;
       }
-      @keyframes boot-splash-arrive {
-        from { opacity: 0; transform: translateY(3px) scale(0.975); }
-        to { opacity: 1; transform: translateY(0) scale(1); }
+      .wallt-splash__sheen {
+        position: absolute;
+        inset: -12%;
+        background: linear-gradient(112deg, transparent 39%, rgba(255, 255, 255, 0.9) 48%, rgba(75, 255, 218, 0.9) 52%, rgba(255, 255, 255, 0.75) 55%, transparent 63%);
+        mix-blend-mode: screen;
+        opacity: 0;
+        transform: translateX(-120%) rotate(-12deg);
+        animation: wallt-splash-sheen 1800ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: var(--wallt-splash-delay, 0ms);
+        pointer-events: none;
       }
-      @media (prefers-color-scheme: light) {
-        .boot-splash { background: #EEF1F6; }
+      .wallt-splash__flare {
+        position: absolute;
+        top: -8%;
+        right: 3%;
+        width: 36%;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(207, 255, 245, 1) 0%, rgba(0, 212, 170, 0.82) 18%, rgba(0, 212, 170, 0.3) 48%, transparent 72%);
+        filter: blur(5px);
+        mix-blend-mode: screen;
+        opacity: 0;
+        transform: scale(0.3);
+        animation: wallt-splash-flare 1800ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: var(--wallt-splash-delay, 0ms);
+        pointer-events: none;
+      }
+      @keyframes wallt-splash-art {
+        0% { opacity: 0; filter: blur(9px); transform: translate3d(0, 18px, 0) scale(0.76) rotate(-7deg); }
+        14% { opacity: 1; filter: blur(0); transform: translate3d(0, -5px, 0) scale(1.045) rotate(1.2deg); }
+        26% { transform: translate3d(0, 1px, 0) scale(0.99) rotate(-0.4deg); }
+        38%, 62% { transform: translate3d(0, 0, 0) scale(1) rotate(0); }
+        74% { transform: translate3d(0, -3px, 0) scale(1.025) rotate(0); }
+        86%, 100% { transform: translate3d(0, 0, 0) scale(1) rotate(0); }
+      }
+      @keyframes wallt-splash-ambient {
+        0% { opacity: 0; transform: scale(0.38); }
+        20% { opacity: 0.55; transform: scale(0.86); }
+        58% { opacity: 0.48; transform: scale(1.14); }
+        82% { opacity: 0.22; transform: scale(1.3); }
+        100% { opacity: 0.08; transform: scale(1.4); }
+      }
+      @keyframes wallt-splash-sheen {
+        0%, 34% { opacity: 0; transform: translateX(-120%) rotate(-12deg); }
+        42% { opacity: 0.95; }
+        72% { opacity: 0.82; transform: translateX(35%) rotate(-12deg); }
+        88%, 100% { opacity: 0; transform: translateX(120%) rotate(-12deg); }
+      }
+      @keyframes wallt-splash-flare {
+        0%, 58% { opacity: 0; transform: scale(0.3); }
+        68% { opacity: 0.48; transform: scale(0.78); }
+        76% { opacity: 0.95; transform: scale(1.08); }
+        85% { opacity: 0.18; transform: scale(1.7); }
+        100% { opacity: 0; transform: scale(2); }
+      }
+      .wallt-splash--reduced .wallt-splash__ambient,
+      .wallt-splash--reduced .wallt-splash__sheen,
+      .wallt-splash--reduced .wallt-splash__flare {
+        display: none;
+      }
+      .wallt-splash--reduced .wallt-splash__art {
+        animation: none;
       }
       @media (prefers-reduced-motion: reduce) {
-        .boot-splash__brand { animation: none; }
+        .wallt-splash,
+        .wallt-splash__ambient,
+        .wallt-splash__art,
+        .wallt-splash__sheen,
+        .wallt-splash__flare {
+          animation: none;
+          transition: none;
+        }
+      }
+      @media (prefers-color-scheme: light) {
+        .wallt-splash { background: #EEF1F6; }
       }
     </style>
   </head>
   <body>
     <div id="app">
       <div id="wallt-runtime-error" hidden style="position:fixed;inset:0;z-index:99999;padding:1.5rem;background:#1a0000;color:#ffb4b4;font:14px/1.5 Inter,system-ui,sans-serif;overflow:auto;"></div>
-      <div class="boot-splash" aria-hidden="true">
-        <div class="boot-splash__brand">
-          <img class="boot-splash__logo" src="/brand/wallt-logo-horizontal.svg" alt="" width="743" height="229" draggable="false">
+      <div class="wallt-splash" aria-hidden="true">
+        <div class="wallt-splash__ambient"></div>
+        <div class="wallt-splash__art">
+          <img class="wallt-splash__logo" src="/brand/wallt-app-icon.png" alt="" width="512" height="512" draggable="false">
+          <span class="wallt-splash__sheen"></span>
+          <span class="wallt-splash__flare"></span>
         </div>
       </div>
     </div>

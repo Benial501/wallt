@@ -5,6 +5,7 @@ import WToast from '@/components/common/WToast.vue';
 import LegalFooter from '@/components/layout/LegalFooter.vue';
 import WalltSplash from '@/components/common/WalltSplash.vue';
 import { useTheme } from '@/composables/useTheme';
+import { getStartupSplashTiming, STARTUP_SPLASH_EXIT_MS } from '@/utils/startupSplash';
 
 const route = useRoute();
 const router = useRouter();
@@ -12,6 +13,14 @@ const { init } = useTheme();
 const startupSplashVisible = ref(true);
 const startupSplashLeaving = ref(false);
 const startupNavigationReady = ref(false);
+const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+const navigationStartedAt = window.performance.getEntriesByType('navigation')[0]?.startTime
+  ?? window.performance.now();
+const startupSplashTiming = getStartupSplashTiming(
+  window.performance.now(),
+  navigationStartedAt,
+  prefersReducedMotion,
+);
 
 router.isReady().then(
   () => { startupNavigationReady.value = true; },
@@ -23,7 +32,6 @@ router.isReady().then(
 init();
 
 // Il timer parte dal setup, senza aspettare il caricamento della route iniziale.
-const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 const ricaricaApp = () => window.location.reload();
 let splashExitTimer;
 const splashTimer = window.setTimeout(() => {
@@ -35,8 +43,8 @@ const splashTimer = window.setTimeout(() => {
   startupSplashLeaving.value = true;
   splashExitTimer = window.setTimeout(() => {
     startupSplashVisible.value = false;
-  }, 180);
-}, prefersReducedMotion ? 80 : 1080);
+  }, STARTUP_SPLASH_EXIT_MS);
+}, startupSplashTiming.remainingMs);
 
 const showLegalFooter = computed(() => (
   route.meta.guest === true
@@ -55,6 +63,8 @@ onUnmounted(() => {
   <WalltSplash
     v-if="startupSplashVisible"
     :leaving="startupSplashLeaving"
+    :animation-elapsed-ms="startupSplashTiming.animationElapsedMs"
+    :animate="startupSplashTiming.animate"
   />
   <div
     v-if="!startupSplashVisible && !startupNavigationReady"
