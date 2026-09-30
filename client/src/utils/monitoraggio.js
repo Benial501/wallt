@@ -119,7 +119,12 @@ export const inizializzaSentry = async (app, router) => {
     tracesSampleRate: 0.1,
     integrations: [Sentry.browserTracingIntegration({ router })],
     beforeSend: primaDellInvio,
-    beforeSendTransaction: primaDellInvio,
+    // `beforeSendSpan`, non `beforeSendTransaction`: dalla versione 11 il
+    // tracing lavora in streaming e il secondo viene **ignorato in silenzio**
+    // — Sentry lo dice solo con un avviso in console. Restava quindi un canale
+    // (gli span di performance, che portano gli URL delle chiamate con le
+    // relative query string) su cui il filtro non passava affatto.
+    beforeSendSpan: (span) => rimuoviDatiFinanziari(span),
     beforeBreadcrumb: (breadcrumb) => rimuoviDatiFinanziari(breadcrumb),
   });
   return true;
