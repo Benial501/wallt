@@ -6,7 +6,7 @@
 
 ## Riepilogo
 
-WALLT ha una **baseline di sicurezza matura**: JWT con invalidazione su cambio password, bcrypt, express-validator, rate limiting (incluso fix IPv6), Helmet, CSP (meta tag SPA + Helmet API), CORS configurabile, magic-byte validation su upload, **step-up auth reale per gli account con password locale** (bcrypt) — ⚠️ **non più richiesto per gli account Google**, per scelta esplicita dell'utente (iterazione 4: vedi Step-up authentication e Operazioni sensibili), scoping `user_id` verificato empiricamente con test automatici cross-user su conti, movimenti, trasferimenti, import, budget, obiettivi, investimenti, scommesse, profilo e step-up (nessun IDOR sfruttabile trovato), e coerenza finanziaria (saldo/movimenti/trasferimenti/race condition) verificata con test dedicati.
+WALLT ha una **baseline di sicurezza matura**: JWT con invalidazione su cambio password, bcrypt, express-validator, rate limiting (incluso fix IPv6), Helmet, CSP (meta tag SPA + Helmet API), CORS configurabile, magic-byte validation su upload, **step-up auth reale per tutti gli account** — bcrypt per chi ha una password locale, ID token di Google Identity Services per gli account Google (dal 30 settembre 2026: vedi Step-up authentication e Operazioni sensibili), scoping `user_id` verificato empiricamente con test automatici cross-user su conti, movimenti, trasferimenti, import, budget, obiettivi, investimenti, scommesse, profilo e step-up (nessun IDOR sfruttabile trovato), e coerenza finanziaria (saldo/movimenti/trasferimenti/race condition) verificata con test dedicati.
 
 **Vulnerabilità critiche trovate e corrette in questo audit**:
 1. **Google OAuth account pre-hijacking**: un login Google si collegava automaticamente a un account locale pre-esistente con la stessa email, senza prova di proprietà. Un attaccante poteva pre-registrare l'email di una vittima e ottenere accesso permanente ai suoi dati. **Corretto** — vedi `services/googleAuth.service.js`.
@@ -274,14 +274,20 @@ Ignora: `.env`, `**/.env`, `.env.local`, `.env.production`, `.env.development`, 
 | `server/.env.test.example` | Sì | Placeholder test |
 | `server/.env.test` | **Rimosso dal tracking in questo audit** (era tracciato in 2 commit) | Credenziali test locali |
 
-### Nome problema: .env.test era committato in git con una password DB reale — PARZIALMENTE RISOLTO, AZIONE MANUALE RICHIESTA
+### Nome problema: .env.test era committato in git con una password DB reale — CHIUSO (30 settembre 2026)
 - **Severity**: High.
 - **Priority**: P0 (azione manuale residua).
 - **Files**: `.gitignore`, `server/.env.test`.
 - **Description**: contrariamente a quanto documentato in precedenza, `server/.env.test` **era effettivamente tracciato in git** (commit `ef77e88` e `6968646`), non ignorato. Il valore di `DB_PASSWORD` nel file coincide con quello reale usato in `server/.env` (verificato per confronto, valore non riportato qui). `JWT_SECRET`, `RESEND_API_KEY`, `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` nel file sembrano invece valori placeholder/test distinti da quelli reali.
 - **Impact**: la password del database MySQL locale/di sviluppo è stata esposta nella history del repository. Se questo repository è (o diventa) pubblico, o se chiunque ne ha clonato una copia, quella password deve considerarsi compromessa.
 - **Fix applicata in questo audit**: `server/.env.test` rimosso dal tracking (`git rm --cached`, file locale conservato), `.gitignore` aggiornato con `.env.test` e `**/.env.test`. Questo impedisce che il problema si ripeta da qui in avanti, **ma non rimuove il valore dalla history esistente**.
-- **ROTATE REQUIRED**: cambiare la password dell'utente MySQL usato in sviluppo/test (`DB_PASSWORD` in `server/.env` e `server/.env.test`) prima del lancio, indipendentemente da dove sia ospitato il DB di produzione (che deve comunque avere credenziali proprie, mai condivise con dev/test).
+- **Rotazione eseguita il 30 settembre 2026.** Due precisazioni rispetto a come il problema era descritto qui sopra:
+  1. **Il database non è più MySQL.** Dal 4 settembre 2026 lo sviluppo gira su PostgreSQL: la password MySQL originariamente esposta non apre più nulla di questo progetto.
+  2. **I commit `ef77e88` e `6968646` non esistono in questo repository**, che nasce dalla pubblicazione sanitizzata `6213708`. La history pubblica su GitHub è stata riscansionata per intero: contiene solo file `.example` con segnaposto. Il repository originale non esiste più.
+
+  La password del ruolo PostgreSQL locale è stata comunque cambiata e allineata in `server/.env` e `server/.env.test`, incluso il valore dentro `TEST_DATABASE_URL`.
+- **Quanto conta davvero, in locale**: `pg_hba.conf` usa `trust` per le connessioni da `127.0.0.1`, quindi PostgreSQL **non verifica alcuna password** in sviluppo. Cambiare `DB_PASSWORD` non protegge l'ambiente locale: a proteggerlo (o no) è quel file. Per un ambiente locale realmente autenticato occorre passare a `scram-sha-256` in `pg_hba.conf` e riavviare il servizio — modifica alla configurazione della macchina, non del progetto.
+- **Produzione non toccata**: `server/.env` non contiene `DATABASE_URL` e punta a `127.0.0.1`. Le credenziali Supabase esistono solo come variabili d'ambiente su Vercel e non sono mai transitate da questi file.
 - **Azione manuale opzionale**: se questo repository ha mai avuto un remote pubblico o condiviso con terzi, valutare una pulizia della history (`git filter-repo` o BFG Repo-Cleaner) per rimuovere il valore dai commit `ef77e88` e `6968646`. Non eseguito automaticamente in questo audit (richiede riscrittura history, esplicitamente esclusa dal mandato).
 - **Modification risk della fix applicata**: Low — nessun impatto sul comportamento dell'app; i test continuano a leggere `server/.env.test` dal filesystem locale indipendentemente dal tracking git.
 

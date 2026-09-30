@@ -195,16 +195,19 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 - **Risk of modification**: Low — nessuna modifica alla logica finanziaria di `resetAccount()`/`deleteAllTransactions`.
 - **Priority**: ~~P0~~ chiuso lato codice; resta la configurazione Google Cloud + variabile d'ambiente, senza le quali non va pubblicato.
 
-### P-2: .env.test committato in git con password DB reale — TRACKING RISOLTO, ROTAZIONE MANUALE RICHIESTA
+### P-2: .env.test committato in git con password DB reale — CHIUSO (30 settembre 2026)
 - **Severity**: High (era documentato Medium sottostimando l'impatto: il file era effettivamente tracciato, non solo a rischio).
 - **Area**: Sicurezza / Secrets
 - **Files**: `.gitignore`, `server/.env.test`
 - **Description**: `server/.env.test` era tracciato in git (2 commit), con un `DB_PASSWORD` identico a quello reale usato in `server/.env`.
 - **Why it is a problem**: quella password del database deve considerarsi compromessa se il repository è mai stato o diventa condiviso/pubblico.
 - **Fix applicata**: rimosso dal tracking (`git rm --cached`), `.gitignore` aggiornato.
-- **MANUAL ACTION REQUIRED**: ruotare la password DB usata in dev/test prima del lancio (vedi `docs/SECURITY.md`).
+- **Verifica del 30 settembre 2026**: i due commit citati (`ef77e88`, `6968646`) **non esistono in questo repository**, che nasce da `6213708` ("publish sanitized WALLT project"). La scansione dell'intera history non trova alcun valore reale: gli unici file d'ambiente mai tracciati sono `.example`, con segnaposto (`postgres`, `test_jwt_secret…`, `test_resend…`). Il repository GitHub è pubblico, quindi il controllo era dovuto — ed è pulito. Il repository originale, dove quei commit esistevano, non esiste più.
+- **Rotazione eseguita comunque**: la password del ruolo PostgreSQL locale è stata cambiata e allineata in `.env` e `.env.test` (compreso `TEST_DATABASE_URL`, dove la password compare dentro l'URL). Suite completa verde dopo il cambio: 86 suite, 1116 test.
+- **Nota sull'efficacia reale**: il PostgreSQL locale usa `trust` in `pg_hba.conf` per tutte le connessioni da 127.0.0.1, quindi **nessuna password viene verificata** in sviluppo — la vecchia continua a "funzionare" come qualunque altra stringa. La rotazione ha cambiato la password del ruolo (rilevante se il metodo passasse a `scram-sha-256`), non il livello di protezione dell'ambiente locale, che dipende da `pg_hba.conf`.
+- **Credenziali di produzione**: non sono toccate. `server/.env` non contiene `DATABASE_URL` e punta a `127.0.0.1`; le credenziali Supabase vivono solo nelle variabili d'ambiente su Vercel.
 - **Risk of modification**: Low
-- **Priority**: P0 (azione manuale residua, non più codice)
+- **Priority**: ~~P0~~ chiuso.
 
 ### P-3: Dual import pipeline
 - **Severity**: High
