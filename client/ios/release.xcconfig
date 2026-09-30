@@ -1,0 +1,3 @@
+// Configurazione per archivio/TestFlight/App Store.
+#include? "ios.local.xcconfig"
+CAPACITOR_DEBUG = false

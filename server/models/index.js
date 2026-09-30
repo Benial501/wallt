@@ -25,6 +25,7 @@ const CategorieRegola = require('./CategorieRegola');
 const RegolaPersonaleMerchant = require('./RegolaPersonaleMerchant');
 const PasswordResetToken = require('./PasswordResetToken');
 const AuthRateLimit = require('./AuthRateLimit');
+const OAuthChallenge = require('./OAuthChallenge');
 const Notifica = require('./Notifica');
 const PreferenzeNotifiche = require('./PreferenzeNotifiche');
 const PushSubscription = require('./PushSubscription');
@@ -84,6 +85,9 @@ MovimentoInvestimento.belongsTo(Investimento, { foreignKey: 'investimento_id', a
 User.hasMany(PasswordResetToken, { foreignKey: 'user_id', as: 'passwordResetTokens' });
 PasswordResetToken.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
+User.hasMany(OAuthChallenge, { foreignKey: 'user_id', as: 'oauthChallenges', onDelete: 'CASCADE' });
+OAuthChallenge.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
 User.hasMany(Notifica, { foreignKey: 'user_id', as: 'notifiche' });
 Notifica.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
@@ -142,6 +146,7 @@ module.exports = {
   RegolaPersonaleMerchant,
   PasswordResetToken,
   AuthRateLimit,
+  OAuthChallenge,
   Notifica,
   PreferenzeNotifiche,
   PushSubscription,

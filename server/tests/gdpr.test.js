@@ -191,7 +191,7 @@ describe('GDPR API', () => {
       const userId = res.body.user.id;
 
       const expiredStepUpToken = jwt.sign(
-        { userId, type: 'step_up' },
+        { userId, type: 'step_up', auth_provider: 'local' },
         process.env.JWT_SECRET,
         { expiresIn: -10 },
       );

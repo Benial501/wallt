@@ -29,7 +29,7 @@ Funzionalità realmente implementate e collegate end-to-end (frontend + backend)
 | Scommesse ↔ Conti sync | ContiView, ScommesseView | scommesseContoSync.service | — |
 | Investimenti (portafoglio) | InvestimentiView | investimenti.controller | — |
 | Reset password (Resend) | ForgotPassword, ResetPassword | passwordReset.service | auth.test.js |
-| Step-up auth: bcrypt per gli account con password locale; ⚠️ **saltato** per gli account Google (`requireStepUpUnlessOAuth`, iterazione 4) | ImpostazioniView | verifyPassword.controller, stepUp.middleware | auth.test.js, gdpr.test.js, googleStepUp.test.js |
+| Step-up auth: password locale oppure riverifica Google/Apple nativa o web | ImpostazioniView | verifyPassword.controller, googleStepUp.controller, appleStepUp.controller | auth.test.js, gdpr.test.js, googleStepUp.test.js, appleAuth.test.js |
 | Export dati GDPR | ImpostazioniView | impostazioni.controller | gdpr.test.js |
 | Delete account | ImpostazioniView | accountReset.service | gdpr.test.js |
 | Reset account (unico endpoint, elimina movimenti e azzera saldi conti, protetto da step-up) | ImpostazioniView | accountReset.service (`deleteAllTransactions`) | gdpr.test.js |
@@ -108,7 +108,6 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 |---|---|---|
 | `server/middleware/minorRestriction.middleware.js` | Dead code | Mai importato da route |
 | `client/src/views/PlaceholderView.vue` | Dead code | Non nel router |
-| `client/src/composables/useGoogleStepUp.js` | Inutilizzato **di proposito** | Non più importato da nessuna view dopo l'iterazione 4 (rimozione step-up Google). **Non rimuovere senza chiedere**: è tenuto insieme al backend `googleStepUp.*` per poter riattivare lo step-up con una modifica minima. Vedi `docs/DECISIONS.md` |
 | `client/src/components/dashboard/SummaryCards.vue` | Dead code | Mai importato |
 | `client/src/components/dashboard/CategoryCarousel.vue` | Dead code | Mai importato |
 | `client/src/components/dashboard/CategoryCard.vue` | Dead code | Solo usato da CategoryCarousel (anch'esso morto) |
@@ -135,7 +134,7 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 
 **Lint**: nessun linter configurato (né backend né frontend).
 
-**Build**: `npm run build` in client/ (verificato — nessun errore). `npm test` in server/ (542 test, richiede PostgreSQL test DB). CI: `.github/workflows/ci.yml` esegue entrambi su ogni push/PR.
+**Verifica ramo iOS**: suite client (244 test), build Vite e sincronizzazione Capacitor verificate; suite server (88 suite, 1133 test) eseguita su PostgreSQL `wallt_test`. La compilazione Xcode e il test su iPhone richiedono un host con Xcode completo e non sono stati eseguiti in questo ambiente. CI: `.github/workflows/ci.yml` esegue suite backend e test/build frontend su ogni push/PR.
 
 ## Production Readiness
 
@@ -144,15 +143,15 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 | Criterio | Voto | Note |
 |---|---|---|
 | Funzionalità core | 8/10 | Tutte le feature principali implementate |
-| Sicurezza | 6/10 | Step-up reale solo per gli account con password locale (⚠️ saltato per Google, rischio accettato); rate limit dedicato; CSP SPA; residui: riverifica identità Google, rotazione password DB (.env.test in history), xlsx senza fix upstream (mitigato) |
-| Test | 6/10 | 44 suite backend incluso isolamento cross-user, coerenza finanziaria e race condition; nessun test frontend |
+| Sicurezza | 7/10 | Step-up con provider per tutti gli account; rate limit dedicato; CSP SPA; residui: rotazione credenziali infrastrutturali dove necessaria, xlsx senza fix upstream (mitigato) |
+| Test | 7/10 | 88 suite backend incluso isolamento cross-user, coerenza finanziaria e race condition; 244 test client; build web verificata |
 | DevOps | 2/10 | No CI/CD, no Docker, no backup, deploy manuale |
 | Documentazione | 6/10 | README + report interni; ora docs/ completa |
 | Performance | 5/10 | Nessun caching, dashboard fa 8+ API call |
 | Monitoring | 1/10 | Solo Winston file log, nessun APM/uptime |
 | Scalabilità | 4/10 | Monolite Node, cron interno, no worker |
 
-**Motivazione**: L'app è funzionalmente solida per il lancio: isolamento cross-user, coerenza finanziaria (incluse race condition) verificati con test automatici, CI/CD di base presente. ⚠️ Lo step-up reale copre però i soli account con password locale: per gli account Google le operazioni distruttive non hanno riverifica di identità (rischio accettato, iterazione 4). Restano azioni infrastrutturali esterne al codice (rotazione password DB, **origini JavaScript autorizzate nel client OAuth Google Cloud**, config hosting produzione, backup, monitoring) e test di logica di business su budget/obiettivi/investimenti/scommesse (oggi coperti solo per isolamento). Vedi `docs/SECURITY.md` per il report completo del final production hardening.
+**Motivazione**: isolamento cross-user, coerenza finanziaria e step-up provider-verified coperti da test automatici; CI/CD di base presente. Per distribuire iOS restano prerequisiti esterni: account Apple Developer e Google Cloud, identificativi OAuth e configurazione Vercel/produzione, compilazione/firma Xcode, test su iPhone, valutazione App Store e icona ufficiale 1024×1024. Restano inoltre backup/monitoraggio e test di logica di business su budget/obiettivi/investimenti/scommesse.
 
 ---
 
@@ -166,8 +165,8 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 | Backend | 7/10 | Pattern controller→service solido, gap test e import duale |
 | Database | 7/10 | Schema coerente, migrazioni duplicate, no backup |
 | API | 7/10 | 98 endpoint ben organizzati, gap validazione GET |
-| Autenticazione | 7/10 | JWT + OAuth + step-up reale per i soli account con password locale (⚠️ nessuna riverifica per gli account Google) + invalidazione password |
-| Sicurezza | 6/10 | Baseline solida, ma nessuna riverifica di identità sulle operazioni distruttive per gli account Google (rischio accettato); rate limit dedicato, CSP SPA, config produzione validata all'avvio; residuo rotazione password DB |
+| Autenticazione | 8/10 | JWT + OAuth Google/Apple + step-up provider-verified per account OAuth + invalidazione password |
+| Sicurezza | 7/10 | Step-up provider-verified per operazioni sensibili; rate limit dedicato, CSP SPA e config produzione validata all'avvio; restano prerequisiti infrastrutturali e rilascio iOS |
 | Performance | 5/10 | Nessun caching, troppe API call per pagina |
 | UX | 7/10 | UI italiana completa, responsive, tema dark/light |
 | Gestione errori | 7/10 | Centralizzata backend, frontend con toast ma inconsistente |
@@ -182,18 +181,17 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 
 ## Problemi trovati
 
-### P-1: reset-account/delete-account/export senza riverifica identità per Google — CHIUSO (30 settembre 2026)
-- **Severity**: High per gli account Google (nessun impatto sugli account con password locale).
+### P-1: reset-account/delete-account/export senza riverifica identità per OAuth — CHIUSO (30 settembre 2026)
+- **Severity**: High; il rischio è chiuso nel codice di questo ramo.
 - **Area**: Sicurezza
 - **Files**: `server/middleware/stepUp.middleware.js`, `server/routes/impostazioni.routes.js`, `client/src/views/ImpostazioniView.vue`.
-- **Stato attuale**: le tre rotte usano `requireStepUp` per tutti. Gli account con password locale riverificano con bcrypt, quelli Google con un ID token fresco di Google Identity Services. La conferma testuale `ELIMINA`/`RESETTA` resta come dichiarazione d'intenzione, non come autorizzazione.
+- **Stato attuale**: le tre rotte usano `requireStepUp` per tutti. Gli account con password locale riverificano con bcrypt; quelli Google e Apple con un token fresco verificato dal backend, ottenuto via SDK nativo su iOS o integrazione web. La conferma testuale `ELIMINA`/`RESETTA` resta come dichiarazione d'intenzione, non come autorizzazione.
 - **Quanto era concreto**: alla chiusura, in produzione esistevano 3 account Google e 2 locali; i 3 Google non avevano alcuna password, quindi erano esattamente e solamente loro gli account esposti.
-- **Ordine di attivazione (importante)**: il codice va in produzione solo dopo `VITE_GOOGLE_CLIENT_ID` su Vercel e origine JavaScript registrata in Google Cloud. Invertire l'ordine non riapre il buco ma blocca quei 3 account su export, reset ed eliminazione.
-- **Storia**: ri-autenticazione Google implementata → rimossa per semplicità → reimplementata nel final production hardening → **rimossa di nuovo su richiesta esplicita** (iterazione 4). Causa scatenante: il client OAuth in Google Cloud non ha origini JavaScript autorizzate, quindi Google Identity Services risponde `401 invalid_client — no registered origin` e lo step-up era inutilizzabile. Vedi `docs/DECISIONS.md` per il record completo delle quattro iterazioni.
-- **Come richiudere**: registrare `http://localhost:5173` e il dominio di produzione tra le origini JavaScript autorizzate del client OAuth, poi rimettere `requireStepUp` sulle tre rotte e ripristinare il pulsante Google nei modali. Backend, composable e test del meccanismo sono stati mantenuti apposta.
-- **Verificato con**: `server/tests/googleStepUp.test.js` (18 test, 4 dei quali fissano il comportamento attuale) + `auth.test.js`, `gdpr.test.js`.
+- **Storia**: la verifica Google è stata in passato rimossa dopo un errore `invalid_client` di Google Identity Services. Questo ramo la ripristina con verifica nativa iOS e web, aggiunge Apple e challenge persistenti condivisi tra istanze. Il record storico è in `docs/DECISIONS.md`.
+- **Prerequisiti di rilascio**: configurare gli identificativi Google e Apple negli ambienti corretti e applicare la migrazione prima di pubblicare il backend/app. Per i dettagli vedere `docs/DEPLOY_VERCEL_SUPABASE.md`.
+- **Verificato con**: suite `googleStepUp.test.js`, `appleAuth.test.js`, `nativeOAuth.test.js`, `auth.test.js`, `gdpr.test.js` e test PostgreSQL delle migrazioni.
 - **Risk of modification**: Low — nessuna modifica alla logica finanziaria di `resetAccount()`/`deleteAllTransactions`.
-- **Priority**: ~~P0~~ chiuso lato codice; resta la configurazione Google Cloud + variabile d'ambiente, senza le quali non va pubblicato.
+- **Priority**: ~~P0~~ chiuso lato codice; restano configurazione dei provider, migrazione e gates App Store.
 
 ### P-2: .env.test committato in git con password DB reale — CHIUSO (30 settembre 2026)
 - **Severity**: High (era documentato Medium sottostimando l'impatto: il file era effettivamente tracciato, non solo a rischio).
@@ -317,7 +315,7 @@ automaticamente perché lo schema non contiene il legame tra i due insiemi.
 
 | Task | Obiettivo | File/Area | Difficoltà | Rischio | Dipendenze |
 |---|---|---|---|---|---|
-| Step-up su reset-account/delete-account/export | Proteggere operazioni distruttive | `impostazioni.routes.js`, `verifyPassword.controller.js`, `googleStepUp.*` | Low | Low | **RIAPERTO, rischio accettato** (reale per i soli account con password locale; saltato per Google — vedi P-1) |
+| Step-up su reset-account/delete-account/export | Proteggere operazioni distruttive | `impostazioni.routes.js`, `verifyPassword.controller.js`, `googleStepUp.*`, `appleStepUp.controller.js` | Medium | Low | **CHIUSO** nel ramo iOS (vedi P-1) |
 | ~~.env.test in .gitignore~~ | ~~Prevenire leak credenziali~~ | `.gitignore` | — | — | **Risolto** (tracking; rotazione password DB resta MANUAL ACTION) |
 
 ### P1 — High Priority

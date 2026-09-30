@@ -12,6 +12,7 @@ import { useTheme } from '@/composables/useTheme';
 import { useToastStore } from '@/stores/toast.store';
 import { useGoogleStepUp } from '@/composables/useGoogleStepUp';
 import { resolveContoIcon } from '@/utils/contoIcons';
+import { useAppleStepUp } from '@/composables/useAppleStepUp';
 import { useValuta } from '@/composables/useValuta';
 import api from '@/utils/axios';
 import { performLogout, resetPiniaStores } from '@/utils/session';
@@ -56,15 +57,9 @@ const showPasswordModal = ref(false);
 const showResetModal = ref(false);
 const showDeleteModal = ref(false);
 
-/**
- * Verifica Google per le tre operazioni distruttive.
- *
- * Prima, per un account Google, l'unica barriera oltre al token di sessione
- * era una parola digitata (ELIMINA/RESETTA) — pubblica, scritta nel codice
- * del sito — e l'export non aveva nemmeno quella. Ora anche questi account
- * riprovano la propria identita', con un ID token fresco di Google.
- */
+/** Verifica l'identità col provider collegato prima delle operazioni sensibili. */
 const { renderGoogleStepUpButton, verifying: verificaGoogleInCorso } = useGoogleStepUp();
+const { verifyAppleIdentity, prepareAppleStepUp, verifying: verificaAppleInCorso } = useAppleStepUp();
 const contenitoreGoogleReset = ref(null);
 const contenitoreGoogleDelete = ref(null);
 const contenitoreGoogleExport = ref(null);
@@ -78,6 +73,14 @@ const showExportGoogleModal = ref(false);
  */
 const verificaConGoogle = async (contenitore) => {
   erroreGoogle.value = '';
+  if (isAppleAccount.value) {
+    try {
+      return await verifyAppleIdentity();
+    } catch (err) {
+      erroreGoogle.value = err.response?.data?.message || 'Verifica Apple non riuscita. Riprova.';
+      return null;
+    }
+  }
   await nextTick();
   try {
     return await renderGoogleStepUpButton(contenitore.value);
@@ -98,15 +101,14 @@ const resetConfirmText = ref('');
 const deletePassword = ref('');
 const deleteConfirmText = ref('');
 
+const isAppleAccount = computed(() => authStore.user?.auth_provider === 'apple');
+const providerLabel = computed(() => (isAppleAccount.value ? 'Apple' : 'Google'));
+
 const isOAuthAccount = computed(() => {
   const provider = authStore.user?.auth_provider;
   return !!provider && provider !== 'local';
 });
 
-// Account Google: nessuna ri-autenticazione: lo step-up è richiesto ai soli
-// account con password locale (vedi requireStepUpUnlessOAuth lato server e
-// docs/DECISIONS.md, iterazione 4). Per gli account OAuth l'unica barriera
-// sulle operazioni sensibili è la conferma testuale ELIMINA/RESETTA.
 const useAiCategorization = computed(() => authStore.user?.use_ai_categorization === true);
 
 const VALUTE = [
@@ -191,6 +193,7 @@ onMounted(async () => {
   reminder.value = authStore.user?.reminder ?? true;
   contiStore.fetchConti();
   contiStore.fetchPatrimonio();
+  if (isAppleAccount.value) prepareAppleStepUp().catch(() => {});
 
   // Arrivo da "Impostazioni notifiche" (campanella o pagina notifiche):
   // la sezione si apre già espansa. Allo scroll pensa il router
@@ -322,9 +325,8 @@ const eseguiExport = async (stepUpToken) => {
 };
 
 /**
- * L'export porta fuori tutti i dati finanziari: prima per un account Google
- * partiva immediatamente, senza nemmeno la conferma testuale. Ora entrambi i
- * tipi di account passano da una riverifica — password oppure Google.
+ * L'export porta fuori tutti i dati finanziari e richiede una riverifica
+ * dell'identità: password per gli account locali, provider collegato per OAuth.
  */
 const esportaDati = async () => {
   if (isOAuthAccount.value) {
@@ -419,7 +421,7 @@ const resetAccount = async () => {
 };
 
 /**
- * Ramo account Google: la parola "RESETTA" resta come conferma
+ * Ramo account Google o Apple: la parola "RESETTA" resta come conferma
  * dell'intenzione, ma non e' piu' cio' che autorizza l'operazione — quella
  * e' la verifica Google, che il server pretende.
  */
@@ -467,7 +469,7 @@ const eliminaAccount = async () => {
   }
 };
 
-/** Ramo account Google: come sopra, la parola conferma ma non autorizza. */
+/** Ramo account Google o Apple: come sopra, la parola conferma ma non autorizza. */
 const eliminaAccountOAuth = async () => {
   if (!isOAuthAccount.value || deleteConfirmText.value !== 'ELIMINA') return;
   const token = await verificaConGoogle(contenitoreGoogleDelete);
@@ -773,7 +775,7 @@ const eliminaAccountOAuth = async () => {
           <WButton
             variant="danger"
             size="lg"
-            :loading="loading || verificaGoogleInCorso"
+            :loading="loading || verificaGoogleInCorso || verificaAppleInCorso"
             :disabled="resetConfirmText !== 'RESETTA'"
             @click="resetAccountOAuth"
           >
@@ -781,10 +783,10 @@ const eliminaAccountOAuth = async () => {
           </WButton>
           <!-- Google disegna qui il proprio pulsante: e' un requisito del
                servizio, il pulsante non puo' essere ridisegnato da noi. -->
-          <div ref="contenitoreGoogleReset" class="google-verifica" />
+          <div v-if="!isAppleAccount" ref="contenitoreGoogleReset" class="google-verifica" />
           <p v-if="erroreGoogle" class="danger-text danger-text--inline">{{ erroreGoogle }}</p>
           <p v-else class="hint hint--inline">
-            Per procedere conferma la tua identita&#768; con Google.
+            Per procedere conferma la tua identita&#768; con {{ providerLabel }}.
           </p>
         </template>
         <template v-else>
@@ -817,7 +819,7 @@ const eliminaAccountOAuth = async () => {
           <WButton
             variant="danger"
             size="lg"
-            :loading="loading || verificaGoogleInCorso"
+            :loading="loading || verificaGoogleInCorso || verificaAppleInCorso"
             :disabled="deleteConfirmText !== 'ELIMINA'"
             @click="eliminaAccountOAuth"
           >
@@ -825,10 +827,10 @@ const eliminaAccountOAuth = async () => {
           </WButton>
           <!-- Google disegna qui il proprio pulsante: e' un requisito del
                servizio, il pulsante non puo' essere ridisegnato da noi. -->
-          <div ref="contenitoreGoogleDelete" class="google-verifica" />
+          <div v-if="!isAppleAccount" ref="contenitoreGoogleDelete" class="google-verifica" />
           <p v-if="erroreGoogle" class="danger-text danger-text--inline">{{ erroreGoogle }}</p>
           <p v-else class="hint hint--inline">
-            Per procedere conferma la tua identita&#768; con Google.
+            Per procedere conferma la tua identita&#768; con {{ providerLabel }}.
           </p>
         </template>
         <template v-else>
@@ -846,7 +848,7 @@ const eliminaAccountOAuth = async () => {
       </div>
     </WModal>
 
-    <!-- Export per account Google: prima partiva senza alcuna verifica. -->
+    <!-- Export per account Google o Apple: prima partiva senza alcuna verifica. -->
     <WModal
       :open="showExportGoogleModal"
       title="Verifica identità"
@@ -855,9 +857,9 @@ const eliminaAccountOAuth = async () => {
       <div class="form-space">
         <p class="hint hint--inline">
           L'esportazione contiene tutti i tuoi dati finanziari. Conferma la tua
-          identita&#768; con Google per procedere.
+          identita&#768; con {{ providerLabel }} per procedere.
         </p>
-        <div ref="contenitoreGoogleExport" class="google-verifica" />
+        <div v-if="!isAppleAccount" ref="contenitoreGoogleExport" class="google-verifica" />
         <p v-if="erroreGoogle" class="danger-text danger-text--inline">{{ erroreGoogle }}</p>
       </div>
     </WModal>

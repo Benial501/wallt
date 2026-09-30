@@ -55,7 +55,12 @@ Autenticazione API basata su JWT Bearer senza sessioni server-side.
 
 ---
 
-## Decision: Step-up Google — implementato, rimosso, reimplementato, poi rimosso di nuovo
+## Decisione storica: Step-up Google — implementato, rimosso, reimplementato, poi rimosso di nuovo
+
+> **Stato storico, superato il 30 settembre 2026:** l'iterazione 4 qui descritta non
+> rappresenta più il comportamento corrente. Il ramo iOS ripristina la riverifica
+> Google, aggiunge Apple e usa challenge persistenti in PostgreSQL. Lo stato attuale
+> è descritto in `docs/SECURITY.md` e `docs/PROJECT_STATUS.md`.
 
 ### Context
 Le operazioni sensibili (reset-account, delete-account, export dati) richiedono `requireStepUp`. Per gli utenti locali lo step-up verifica bcrypt sulla password reale. Per gli utenti Google OAuth (senza password) l'alternativa più semplice è accettare una stringa pubblica concordata (CONFERMA/ELIMINA/RESETTA) — non una vera autenticazione, solo una conferma testuale.
@@ -77,7 +82,7 @@ Reimplementazione (ricostruita da zero, il design dell'iterazione 1 era stato in
 - `client/src/views/ImpostazioniView.vue`: i tre modali (step-up generico/reset/delete) mostrano di nuovo il pulsante Google per gli account OAuth invece del solo campo testuale.
 - `client/.env.example`: `VITE_GOOGLE_CLIENT_ID` ripristinato.
 
-### Iterazione 4 — rimozione definitiva su richiesta esplicita (stato attuale)
+### Iterazione 4 — rimozione su richiesta esplicita (stato storico, poi superato)
 
 **Causa scatenante, tecnica e verificata.** Testando l'app, lo step-up Google falliva con `Errore 401: invalid_client — no registered origin`. Diagnosi: il client OAuth in Google Cloud ha il **redirect URI** registrato (il login Google infatti funziona, verificato aprendo `/api/auth/google`: Google mostra la normale schermata "Continua su wallt") ma **nessuna origine JavaScript autorizzata**, che è ciò che Google Identity Services valida. Lo step-up era quindi inutilizzabile in pratica, non per un bug del codice.
 

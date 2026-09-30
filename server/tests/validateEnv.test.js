@@ -4,6 +4,7 @@ describe('collectProductionConfigErrors (validazione config produzione)', () => 
   const ENV_KEYS = [
     'JWT_SECRET', 'DATABASE_URL', 'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'CORS_ORIGINS', 'CRON_SECRET',
     'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_CALLBACK_URL', 'API_URL',
+    'APPLE_CLIENT_ID', 'APPLE_SERVICE_ID', 'APPLE_TEAM_ID', 'APPLE_KEY_ID', 'APPLE_PRIVATE_KEY', 'APPLE_REDIRECT_URI',
   ];
   let originalEnv;
 
@@ -11,7 +12,14 @@ describe('collectProductionConfigErrors (validazione config produzione)', () => 
     for (const key of ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME']) delete process.env[key];
   };
 
+  const clearAppleParams = () => {
+    for (const name of ['APPLE_CLIENT_ID', 'APPLE_SERVICE_ID', 'APPLE_TEAM_ID', 'APPLE_KEY_ID', 'APPLE_PRIVATE_KEY', 'APPLE_REDIRECT_URI']) {
+      delete process.env[name];
+    }
+  };
+
   const validCompleteEnv = () => {
+    clearAppleParams();
     process.env.JWT_SECRET = 'a'.repeat(40);
     process.env.DATABASE_URL = 'postgresql://wallt:secret@db.example.com:6543/postgres';
     process.env.CORS_ORIGINS = 'https://app.wallt.example';
@@ -159,4 +167,28 @@ describe('collectProductionConfigErrors (validazione config produzione)', () => 
 
     expect(collectProductionConfigErrors()).toEqual([]);
   });
+  it('accetta la configurazione Apple completa senza valori hardcoded', () => {
+    validCompleteEnv();
+    process.env.APPLE_CLIENT_ID = 'com.wallt.app';
+    process.env.APPLE_SERVICE_ID = 'it.wallt.web';
+    process.env.APPLE_TEAM_ID = 'TEAM123456';
+    process.env.APPLE_KEY_ID = 'KEY1234567';
+    process.env.APPLE_PRIVATE_KEY = 'chiave-p8-test';
+    process.env.APPLE_REDIRECT_URI = 'https://wallt.example/apple/callback';
+
+    expect(collectProductionConfigErrors()).toEqual([]);
+  });
+
+  it('rifiuta una configurazione Apple parziale senza stampare segreti', () => {
+    validCompleteEnv();
+    process.env.APPLE_TEAM_ID = 'TEAM123456';
+    process.env.APPLE_PRIVATE_KEY = 'chiave-p8-riservata';
+
+    const errors = collectProductionConfigErrors();
+    expect(errors.some((message) => message.includes('Incomplete Sign in with Apple'))).toBe(true);
+    expect(errors.join(' ')).toContain('APPLE_CLIENT_ID');
+    expect(errors.join(' ')).toContain('APPLE_REDIRECT_URI');
+    expect(errors.join(' ')).not.toContain('chiave-p8-riservata');
+  });
+
 });

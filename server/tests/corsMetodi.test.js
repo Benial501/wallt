@@ -59,3 +59,25 @@ describe('CORS: metodi consentiti', () => {
     expect(mancanti).toEqual([]);
   });
 });
+
+
+describe('CORS: app iOS Capacitor', () => {
+  test('consente l’origine locale precisa di Capacitor', async () => {
+    const res = await request(app)
+      .options('/api/auth/providers')
+      .set('Origin', 'capacitor://localhost')
+      .set('Access-Control-Request-Method', 'POST');
+
+    expect(res.headers['access-control-allow-origin']).toBe('capacitor://localhost');
+    expect(res.headers['access-control-allow-credentials']).toBe('true');
+  });
+
+  test('non consente origini arbitrarie', async () => {
+    const res = await request(app)
+      .options('/api/auth/providers')
+      .set('Origin', 'capacitor://attacker.example')
+      .set('Access-Control-Request-Method', 'POST');
+
+    expect(res.headers['access-control-allow-origin']).toBeUndefined();
+  });
+});

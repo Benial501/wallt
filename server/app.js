@@ -43,9 +43,10 @@ const createApp = (options = {}) => {
     app.set('trust proxy', 1);
   }
 
-  const corsOrigins = process.env.CORS_ORIGINS
-    ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
+  const configuredCorsOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
     : ['http://localhost:5173'];
+  const corsOrigins = [...new Set([...configuredCorsOrigins, 'capacitor://localhost'])];
 
   app.use(helmet({
     contentSecurityPolicy: false,
@@ -106,6 +107,12 @@ const createApp = (options = {}) => {
     app.use('/api/auth/verify-password', stepUpLimiter);
     app.use('/api/auth/google/challenge', stepUpLimiter);
     app.use('/api/auth/verify-google', stepUpLimiter);
+    app.use('/api/auth/apple/step-up/challenge', stepUpLimiter);
+    app.use('/api/auth/apple/step-up/verify', stepUpLimiter);
+    app.use('/api/auth/google/native/challenge', authLimiter);
+    app.use('/api/auth/google/native/verify', authLimiter);
+    app.use('/api/auth/apple/challenge', authLimiter);
+    app.use('/api/auth/apple/verify', authLimiter);
     app.use('/api', apiLimiter);
   }
 

@@ -9,8 +9,8 @@
 | Limiter | Scope | Limite |
 |---|---|---|
 | `apiLimiter` | Tutte `/api/*` | 1200 req / 15 min per user/IP (IPv6-safe) |
-| `authLimiter` | login, register, forgot/reset password | 10 / 15 min per IP (IPv6-safe, persistente PostgreSQL tra istanze Vercel) |
-| `stepUpLimiter` | verify-password, google/challenge, verify-google | 20 / 15 min per user |
+| `authLimiter` | login, register, OAuth Google/Apple nativo e Apple web, forgot/reset password | 10 / 15 min per IP (IPv6-safe, persistente PostgreSQL tra istanze Vercel) |
+| `stepUpLimiter` | verify-password, challenge/verifica Google e Apple per step-up | 20 / 15 min per user |
 | `exportLimiter` | export dati | 3 / ora per user |
 | `deleteAccountLimiter` | delete account | 3 / ora per user |
 | `importUploadLimiter` | upload import | 30 / 15 min per user |
@@ -117,8 +117,7 @@ notifiche dell'utente autenticato.
 
 ### GET /api/auth/providers
 - **Auth**: No
-- **Risposta**: `{ google: boolean, apple: false }`
-- **File**: `auth.routes.js` → inline
+- **Risposta**: `{ google: boolean, apple: boolean }`; Apple è `true` solo quando la configurazione server è completa.
 
 ### POST /api/auth/register
 - **Auth**: No
@@ -140,6 +139,28 @@ notifiche dell'utente autenticato.
 - **File**: `auth.controller.js` → `login`
 - **Frontend**: `auth.store.js` → `LoginView.vue`
 
+### POST /api/auth/google/native/challenge
+- **Auth**: No + authLimiter
+- **Body**: nessuno
+- **Risposta**: `{ nonce, challenge, expires_in }`; challenge e nonce sono casuali e validi per 120 secondi.
+
+### POST /api/auth/google/native/verify
+- **Auth**: No + authLimiter
+- **Body**: `{ credential, challenge, use_ai_categorization? }`
+- **Azione**: verifica ID token Google, audience server `GOOGLE_CLIENT_ID`, nonce, firma, issuer, email verificata e freschezza; poi applica la politica account Google già esistente.
+- **Risposta**: `{ token, onboarding, user }`
+
+### POST /api/auth/apple/challenge
+- **Auth**: No + authLimiter
+- **Body**: `{ platform: 'ios' | 'web' }`
+- **Risposta**: `{ nonce, challenge, expires_in }`; i valori sono legati a provider, scopo, piattaforma e TTL 120 secondi.
+
+### POST /api/auth/apple/verify
+- **Auth**: No + authLimiter
+- **Body**: `{ platform, credential, authorization_code, challenge, name?, privacy_accepted_at?, terms_accepted_at?, use_ai_categorization? }`
+- **Azione**: scambia il codice con Apple; verifica entrambi gli ID token, firma, issuer, audience della piattaforma, nonce, freschezza e identità coerente. Alla prima registrazione richiede email verificata e consensi; non collega account esistenti per sola email.
+- **Risposta**: `{ token, onboarding, user }`
+
 ### GET /api/auth/me
 - **Auth**: Sì
 - **Risposta**: `{ user }` (con profilo, feature flags, age masking)
@@ -148,43 +169,41 @@ notifiche dell'utente autenticato.
 
 ### POST /api/auth/verify-password
 - **Auth**: Sì + `stepUpLimiter` (20/15min per utente)
-- **Solo utenti locali** (con password). Un utente Google che chiama questo endpoint riceve **400** (`code: 'google_stepup_required'`) — deve usare il flusso Google sotto.
+- **Solo utenti locali** (con password). Gli account Google e Apple ricevono **400** (`code: 'oauth_stepup_required'`) e devono ri-autenticarsi col provider collegato.
 - **Body**: `{ password }` — verificata con `bcrypt.compare` contro l'hash reale.
-- **Validazione**: `validateVerifyPassword` (valida solo `body('password')`)
-- **Risposta**: `{ step_up_token }` (JWT 5 min, type: step_up)
-- **Errori**: 400 (account Google), 401 (password non valida), 404 (utente non trovato)
-- **File**: `verifyPassword.controller.js`
-- **Frontend**: `ImpostazioniView.vue` (export, delete, reset — ramo locale)
+- **Risposta**: `{ step_up_token }` (JWT 5 min, type: step_up e provider associato)
 
 ### POST /api/auth/google/challenge
 - **Auth**: Sì + `stepUpLimiter`
-- **Solo utenti Google OAuth** (primo passo dello step-up Google, prima del pulsante "Continua con Google").
-- **Body**: nessuno.
-- **Risposta**: `{ nonce, challenge, expires_in }` — `challenge` è un JWT firmato (`type: google_stepup_challenge`, legato a `req.userId`, scadenza 2 minuti) che incapsula `nonce`; `nonce` va passato a Google Identity Services.
-- **Errori**: 400 se l'utente non è un account Google collegato.
-- **File**: `googleStepUp.controller.js` → `getGoogleStepUpChallenge`
-- **Frontend**: `useGoogleStepUp.js`
+- **Body**: `{ platform?: 'ios' | 'web' }` (default `web`)
+- **Solo account Google collegati.** Il server salva digest SHA-256 di challenge e nonce in PostgreSQL, legati a utente/provider/scopo/piattaforma e scadenza 120 secondi.
+- **Risposta**: `{ nonce, challenge, expires_in }`; il client passa il nonce a Google Identity Services sul web o al Google Sign-In SDK su iOS.
 
 ### POST /api/auth/verify-google
 - **Auth**: Sì + `stepUpLimiter`
-- **Body**: `{ credential, challenge }` — `credential` è l'ID token JWT restituito da Google Identity Services, `challenge` è il valore ottenuto da `google/challenge`.
-- **Validazione**: `validateGoogleStepUpVerify` (entrambi i campi stringa non vuota)
-- **Azione**: verifica il challenge (firma/scadenza/type/userId), verifica che il nonce non sia già stato consumato (single-use in-memory), verifica crittograficamente l'ID token con `google-auth-library` (firma, audience, issuer, scadenza), verifica `payload.nonce` contro il challenge, verifica freschezza (`iat` recente), verifica `payload.sub === user.google_id` (utente caricato da `req.userId`, mai dal body).
-- **Risposta**: `{ step_up_token }` (stesso formato/durata del flusso locale)
-- **Errori**: 400 (account non Google/credenziale mancante), 401 (credenziale non valida/scaduta/nonce errato/non recente), 403 (challenge non valido/scaduto/già usato/di un altro utente, oppure identità Google non corrispondente)
-- **File**: `googleStepUp.controller.js` → `verifyGoogleStepUp`
-- **Frontend**: `useGoogleStepUp.js`
+- **Body**: `{ credential, challenge, platform? }`
+- **Azione**: verifica il challenge persistente, token Google (firma, audience, issuer), nonce, freschezza e `payload.sub === user.google_id`; il challenge si consuma con un aggiornamento atomico monouso.
+- **Risposta**: `{ step_up_token }`
+
+### POST /api/auth/apple/step-up/challenge
+- **Auth**: Sì + `stepUpLimiter`
+- **Body**: `{ platform: 'ios' | 'web' }`
+- **Solo account Apple collegati.** Il challenge persistente è legato all’utente autenticato.
+
+### POST /api/auth/apple/step-up/verify
+- **Auth**: Sì + `stepUpLimiter`
+- **Body**: `{ platform, credential, authorization_code, challenge }`
+- **Azione**: ripete il code exchange e la verifica Apple; oltre al binding utente/provider verifica che `sub` coincida con l’Apple ID già collegato all’account.
+- **Risposta**: `{ step_up_token }`
 
 ### GET /api/auth/google
 - **Auth**: No
 - **Query**: `origin` (frontend URL per popup relay)
-- **Azione**: Redirect a Google OAuth
-- **File**: `auth.routes.js` → Passport
+- **Azione**: Redirect a Google OAuth web tramite Passport.
 
 ### GET /api/auth/google/callback
 - **Auth**: No
-- **Azione**: Callback Google → JWT → HTML popup con hash payload
-- **File**: `auth.routes.js` → Passport callback
+- **Azione**: Callback Google → JWT → HTML popup con hash payload.
 
 ### POST /api/auth/forgot-password
 - **Auth**: No
@@ -768,22 +787,22 @@ conserva uno storico dei saldi.
 
 ### GET /api/impostazioni/esporta
 ### POST /api/impostazioni/esporta
-- **Auth**: Sì + **requireStepUpUnlessOAuth** + exportLimiter
-- **Header**: `X-Step-Up-Token` — richiesto **solo** per gli utenti con password locale. Gli account Google esportano con il solo JWT (iterazione 4, vedi `docs/SECURITY.md`).
+- **Auth**: Sì + **requireStepUp** + exportLimiter
+- **Header**: `X-Step-Up-Token` — obbligatorio per tutti gli account; il token deve corrispondere a utente e provider autenticati.
 - **Risposta**: JSON completo dati utente (GDPR export)
 - **Frontend**: `ImpostazioniView.vue`
 
 ### POST /api/impostazioni/reset-account
-- **Auth**: Sì + **requireStepUpUnlessOAuth** (step-up via `verify-password` per gli utenti con password locale; **saltato** per gli account Google — vedi `docs/SECURITY.md`)
-- **Header**: `X-Step-Up-Token` — solo utenti locali
-- **Body**: `{ password }` (locali) o `{ conferma: "RESETTA" }` (OAuth) — il campo si chiama `conferma`, non `frase`. Per gli account Google la conferma testuale è l'unica barriera oltre al JWT.
+- **Auth**: Sì + **requireStepUp** (step-up tramite password locale o identità Google/Apple)
+- **Header**: `X-Step-Up-Token` — obbligatorio per tutti gli account
+- **Body**: `{ password }` (locali) o `{ conferma: "RESETTA" }` (OAuth). La conferma testuale resta UX e non sostituisce lo step-up.
 - **Validazione**: `validateResetAccount`
 - **Azione**: **Unico endpoint standalone di reset.** Implementato da `deleteAllTransactions`: elimina movimenti/operazioni e azzera i saldi dei conti, mantenendo conti, profilo e account. Non esiste un endpoint separato "reset transazioni" — è la stessa operazione.
 - **Frontend**: `ImpostazioniView.vue`
 
 ### DELETE /api/impostazioni/account
-- **Auth**: Sì + **requireStepUpUnlessOAuth** + deleteAccountLimiter (step-up **saltato** per gli account Google)
-- **Body**: `{ password }` (locali) o `{ conferma: "ELIMINA" }` (OAuth) — il campo si chiama `conferma`, non `frase`
+- **Auth**: Sì + **requireStepUp** + deleteAccountLimiter
+- **Body**: `{ password }` (locali) o `{ conferma: "ELIMINA" }` (OAuth)
 - **Validazione**: `validateDeleteAccount`
 - **Azione**: Cancellazione completa account + dati. Internamente usa `deleteAllUserData` (cancellazione dati finanziari più ampia: scommesse, investimenti, budget, obiettivi) come step prima di eliminare `ProfiloUtente` e `User`. `deleteAllUserData` non è esposta come endpoint standalone.
 - **Frontend**: `ImpostazioniView.vue`
@@ -801,7 +820,7 @@ conserva uno storico dei saldi.
 
 | Problema | Gravità | Dettaglio |
 |---|---|---|
-| `reset-account`/`delete-account`/`esporta` senza riverifica identità per gli account Google | High (rischio accettato) | Step-up bcrypt reale per gli utenti locali; per gli account Google `requireStepUpUnlessOAuth` lo salta e resta solo la stringa pubblica `RESETTA`/`ELIMINA` (nessuna conferma sull'export). Scelta esplicita, iterazione 4 — vedi `docs/SECURITY.md` e `docs/DECISIONS.md` |
+| ~~`reset-account`/`delete-account`/`esporta` senza riverifica identità per gli account OAuth~~ | — | **Risolto**: `requireStepUp` è obbligatorio per tutti; gli account locali verificano la password, gli account Google/Apple si autenticano col provider collegato. |
 | ~~`verify-password`/`google/challenge`/`verify-google` senza rate limit dedicato~~ | — | **Risolto**: `stepUpLimiter` (20/15min per utente) |
 | Password change policy inconsistente | Low | Register richiede carattere speciale, change password no |
 | `GET /obiettivi/:id/proiezione` senza validateIdParam | Low | ID non validato come intero |

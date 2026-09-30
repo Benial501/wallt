@@ -4,15 +4,15 @@ const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const { isOAuthProvider } = require('../services/accountReset.service');
 
-const generateStepUpToken = (userId) => jwt.sign(
-  { userId, type: 'step_up' },
+const generateStepUpToken = (userId, authProvider = 'local') => jwt.sign(
+  { userId, type: 'step_up', auth_provider: authProvider },
   process.env.JWT_SECRET,
   { expiresIn: '5m' },
 );
 
 /**
  * Step-up per utenti con password locale: verifica bcrypt reale contro
- * l'hash in DB. Gli utenti Google OAuth non hanno una password e NON possono
+ * l'hash in DB. Gli utenti OAuth non hanno una password e NON possono
  * ottenere uno step_up_token da questo endpoint (le vecchie frasi pubbliche
  * CONFERMA/ELIMINA/RESETTA non sono più una prova di identità): devono
  * usare il flusso dedicato POST /api/auth/google/challenge +
@@ -34,8 +34,8 @@ const verifyPassword = async (req, res) => {
 
     if (isOAuthProvider(user.auth_provider) || !user.password) {
       return res.status(400).json({
-        message: 'Gli account Google richiedono la verifica tramite Google',
-        code: 'google_stepup_required',
+        message: 'Gli account Google o Apple richiedono la verifica tramite il provider collegato',
+        code: 'oauth_stepup_required',
       });
     }
 
@@ -44,7 +44,7 @@ const verifyPassword = async (req, res) => {
       return res.status(401).json({ message: 'Password non corretta' });
     }
 
-    const stepUpToken = generateStepUpToken(user.id);
+    const stepUpToken = generateStepUpToken(user.id, user.auth_provider);
     return res.json({ step_up_token: stepUpToken });
   } catch (error) {
     logger.error('Errore verifyPassword', { err: error });

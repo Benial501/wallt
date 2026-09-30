@@ -57,6 +57,7 @@ const TABLES = [
   'notifiche',
   'push_subscriptions',
   'preferenze_notifiche',
+  'oauth_challenges',
   'auth_rate_limits',
   'password_reset_tokens',
   'regole_personali_merchant',

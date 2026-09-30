@@ -1,5 +1,7 @@
 import AVFoundation
+import AuthenticationServices
 import Capacitor
+import GoogleSignIn
 
 private struct StartupSoundNote {
     let frequency: Double
@@ -9,16 +11,157 @@ private struct StartupSoundNote {
 }
 
 @objc(WalltNativePlugin)
-public class WalltNativePlugin: CAPPlugin, CAPBridgedPlugin {
+public class WalltNativePlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
     public let identifier = "WalltNativePlugin"
     public let jsName = "WalltNative"
     public let pluginMethods: [CAPPluginMethod] = [
-        CAPPluginMethod(name: "playStartupSound", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "playStartupSound", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "signInGoogle", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "signInApple", returnType: CAPPluginReturnPromise)
     ]
 
     private let audioQueue = DispatchQueue(label: "com.wallt.native.startup-audio")
     private var audioEngine: AVAudioEngine?
     private var audioPlayerNode: AVAudioPlayerNode?
+    private var appleAuthorizationCall: CAPPluginCall?
+    private var appleAuthorizationController: ASAuthorizationController?
+    private var googleOpenURLObserver: NSObjectProtocol?
+
+    @objc override public func load() {
+        super.load()
+        googleOpenURLObserver = NotificationCenter.default.addObserver(
+            forName: .capacitorOpenURL,
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard
+                let payload = notification.object as? [String: Any],
+                let url = payload["url"] as? URL
+            else { return }
+            _ = GIDSignIn.sharedInstance.handle(url)
+        }
+    }
+
+    deinit {
+        if let googleOpenURLObserver {
+            NotificationCenter.default.removeObserver(googleOpenURLObserver)
+        }
+    }
+
+    @objc func signInGoogle(_ call: CAPPluginCall) {
+        guard
+            let nonce = call.getString("nonce"),
+            let iosClientID = call.getString("iosClientId"),
+            let serverClientID = call.getString("serverClientId"),
+            !nonce.isEmpty,
+            !iosClientID.isEmpty,
+            !serverClientID.isEmpty,
+            let presenter = bridge?.viewController
+        else {
+            call.reject("Configurazione Google iOS incompleta.", "GOOGLE_NOT_CONFIGURED")
+            return
+        }
+
+        DispatchQueue.main.async {
+            GIDSignIn.sharedInstance.configuration = GIDConfiguration(
+                clientID: iosClientID,
+                serverClientID: serverClientID
+            )
+            GIDSignIn.sharedInstance.signIn(
+                withPresenting: presenter,
+                hint: nil,
+                additionalScopes: [],
+                nonce: nonce
+            ) { result, error in
+                if let error {
+                    let nsError = error as NSError
+                    let cancelled = nsError.domain == "com.google.GIDSignIn" && nsError.code == -5
+                    call.reject(
+                        cancelled ? "Accesso Google annullato." : "Accesso Google non riuscito.",
+                        cancelled ? "AUTH_CANCELLED" : "GOOGLE_SIGN_IN_FAILED",
+                        error
+                    )
+                    return
+                }
+                guard let credential = result?.user.idToken?.tokenString else {
+                    call.reject("Google non ha restituito una credenziale valida.", "GOOGLE_TOKEN_MISSING")
+                    return
+                }
+                call.resolve(["credential": credential])
+            }
+        }
+    }
+
+    @objc func signInApple(_ call: CAPPluginCall) {
+        guard let nonce = call.getString("nonce"), !nonce.isEmpty else {
+            call.reject("Challenge Apple mancante.", "APPLE_CHALLENGE_MISSING")
+            return
+        }
+        DispatchQueue.main.async {
+            guard self.appleAuthorizationCall == nil else {
+                call.reject("È già in corso una verifica Apple.", "AUTH_IN_PROGRESS")
+                return
+            }
+            let request = ASAuthorizationAppleIDProvider().createRequest()
+            request.requestedScopes = [.email, .fullName]
+            request.nonce = nonce
+
+            let controller = ASAuthorizationController(authorizationRequests: [request])
+            self.appleAuthorizationCall = call
+            self.appleAuthorizationController = controller
+            controller.delegate = self
+            controller.presentationContextProvider = self
+            controller.performRequests()
+        }
+    }
+
+    public func authorizationController(
+        controller: ASAuthorizationController,
+        didCompleteWithAuthorization authorization: ASAuthorization
+    ) {
+        guard let call = appleAuthorizationCall,
+              let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+              let tokenData = credential.identityToken,
+              let token = String(data: tokenData, encoding: .utf8),
+              let codeData = credential.authorizationCode,
+              let authorizationCode = String(data: codeData, encoding: .utf8) else {
+            appleAuthorizationCall?.reject("Apple non ha restituito credenziali valide.", "APPLE_TOKEN_MISSING")
+            clearAppleAuthorization()
+            return
+        }
+
+        var result: [String: Any] = ["credential": token, "authorizationCode": authorizationCode]
+        if let fullName = credential.fullName {
+            let name = PersonNameComponentsFormatter().string(from: fullName).trimmingCharacters(in: .whitespacesAndNewlines)
+            if !name.isEmpty { result["name"] = name }
+        }
+        call.resolve(result)
+        clearAppleAuthorization()
+    }
+
+    public func authorizationController(
+        controller: ASAuthorizationController,
+        didCompleteWithError error: Error
+    ) {
+        let nsError = error as NSError
+        let cancelled = nsError.domain == ASAuthorizationError.errorDomain
+            && nsError.code == ASAuthorizationError.canceled.rawValue
+        appleAuthorizationCall?.reject(
+            cancelled ? "Accesso Apple annullato." : "Accesso Apple non riuscito.",
+            cancelled ? "AUTH_CANCELLED" : "APPLE_SIGN_IN_FAILED",
+            error
+        )
+        clearAppleAuthorization()
+    }
+
+    public func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        bridge?.viewController?.view.window ?? UIWindow()
+    }
+
+    private func clearAppleAuthorization() {
+        appleAuthorizationCall = nil
+        appleAuthorizationController = nil
+    }
 
     @objc func playStartupSound(_ call: CAPPluginCall) {
         guard

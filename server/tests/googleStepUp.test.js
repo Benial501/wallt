@@ -325,7 +325,7 @@ describe('Step-up Google OAuth (challenge/nonce + ID token)', () => {
     await seedUserFinanceData(googleUser.id, 'G5');
 
     const stepUpToken = jwt.sign(
-      { userId: googleUser.id, type: 'step_up' },
+      { userId: googleUser.id, type: 'step_up', auth_provider: 'google' },
       process.env.JWT_SECRET,
       { expiresIn: '5m' },
     );

@@ -1,0 +1,4 @@
+/* Copia in ios.local.xcconfig e inserisci gli ID OAuth pubblici del progetto. */
+GOOGLE_IOS_CLIENT_ID = sostituisci-con-client-id-ios.apps.googleusercontent.com
+GOOGLE_SERVER_CLIENT_ID = sostituisci-con-client-id-web.apps.googleusercontent.com
+GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.sostituisci-con-client-id-ios

@@ -307,3 +307,60 @@ ruoli `anon`/`authenticated`.
 - [Vercel Hobby](https://vercel.com/docs/plans/hobby)
 - [Limiti Vercel Cron](https://vercel.com/docs/cron-jobs/usage-and-pricing)
 - [Protezione Vercel Cron](https://vercel.com/docs/cron-jobs/manage-cron-jobs)
+
+### Accesso nativo iOS e accesso Apple
+
+Per la build iOS Google usa due client OAuth pubblici: il client **iOS** è
+associato al Bundle ID, mentre il client **Web** è il destinatario (`audience`)
+del token verificato dall’API. Nel progetto Vercel del sito imposta:
+
+```env
+VITE_GOOGLE_CLIENT_ID=<client_id_google_web>
+VITE_GOOGLE_IOS_CLIENT_ID=<client_id_google_ios>
+VITE_APPLE_SERVICE_ID=<services_id_apple>
+VITE_APPLE_REDIRECT_URI=https://<dominio-wallt-web>/
+```
+
+`VITE_GOOGLE_CLIENT_ID` deve coincidere con `GOOGLE_CLIENT_ID` impostato
+sull’API. `VITE_GOOGLE_IOS_CLIENT_ID` deve coincidere con il client OAuth iOS
+del Bundle ID definitivo. Gli ID sono pubblici. Non mettere
+`GOOGLE_CLIENT_SECRET` nel progetto sito.
+
+In Apple Developer registra l’App ID iOS con la capability **Sign in with
+Apple**, crea un Services ID per il dominio PWA e registra esattamente la
+return URL impostata sopra. Nel progetto API configura:
+
+```env
+APPLE_CLIENT_ID=<bundle_id_ios>
+APPLE_SERVICE_ID=<services_id_apple>
+APPLE_TEAM_ID=<team_id>
+APPLE_KEY_ID=<key_id>
+APPLE_PRIVATE_KEY=<contenuto_pem_della_chiave_p8>
+APPLE_REDIRECT_URI=https://<dominio-wallt-web>/
+```
+
+La chiave `.p8` è un segreto: salvala solo nelle variabili server-side di
+Vercel. `APPLE_CLIENT_ID` deve essere il Bundle ID iOS; il Services ID e la
+return URL devono corrispondere ai valori registrati nel team Apple. Il server
+usa la configurazione completa per abilitare Apple su entrambe le piattaforme.
+
+Per Google nativo, copia `client/ios/ios.local.xcconfig.example` in
+`client/ios/ios.local.xcconfig` e inserisci i due Client ID e il reversed
+Client ID forniti da Google Cloud. Il file locale è ignorato da Git. Sia Debug
+sia Release caricano questa configurazione; prima di distribuire controlla nel
+pannello Xcode che il Bundle ID, il Team di firma e la capability Apple siano
+quelli definitivi.
+
+Dopo aver configurato i provider, applica prima la migrazione PostgreSQL
+`20260930000041-add-native-oauth.js` con `DATABASE_MIGRATION_URL` e
+`npm run migrate:production`, poi distribuisci l’API. Il server aggiunge
+`capacitor://localhost` alla allowlist CORS senza wildcard. Il client web si
+aggiorna come sempre con `npm run build`; la build iOS va sincronizzata con
+`npm run cap:sync:ios`, aperta con `npm run cap:open:ios` e archiviata in Xcode.
+
+**Gate prima dell’App Store:** serve confermare l’idoneità del titolare e di
+WALLT ai sensi della [regola Apple 3.2.1(viii)](https://developer.apple.com/app-store/review/guidelines/it/),
+attivare App Store Connect e la firma, completare la verifica su iPhone di
+suono, login e operazioni sensibili, e fornire un’icona App Store ufficiale
+1024×1024. Le icone sono rimaste fuori da questa modifica come richiesto: il
+progetto non va inviato finché l’asset ufficiale non è disponibile.

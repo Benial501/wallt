@@ -1,18 +1,18 @@
 # WALLT — Security Audit
 
 > Audit di sicurezza basato sul codice del repository (agosto 2026).
-> Ultimo aggiornamento: FINAL PRODUCTION HARDENING — verifica dello stato reale del codice (non dei report precedenti, che contenevano descrizioni contraddittorie sullo step-up Google), test automatici cross-user (USER_A/USER_B), test di coerenza finanziaria e race condition, ricostruzione dello step-up Google reale, CSP, validazione config produzione, CI/CD.
+> Ultimo aggiornamento: 30 settembre 2026 — verifica del backend OAuth iOS, Sign in with Apple, challenge persistenti e step-up provider-verified; Xcode e i test su iPhone non sono disponibili in questo ambiente.
 > Nessun penetration test eseguito contro infrastruttura reale. Nessun valore di secret riportato.
 
 ## Riepilogo
 
-WALLT ha una **baseline di sicurezza matura**: JWT con invalidazione su cambio password, bcrypt, express-validator, rate limiting (incluso fix IPv6), Helmet, CSP (meta tag SPA + Helmet API), CORS configurabile, magic-byte validation su upload, **step-up auth reale per tutti gli account** — bcrypt per chi ha una password locale, ID token di Google Identity Services per gli account Google (dal 30 settembre 2026: vedi Step-up authentication e Operazioni sensibili), scoping `user_id` verificato empiricamente con test automatici cross-user su conti, movimenti, trasferimenti, import, budget, obiettivi, investimenti, scommesse, profilo e step-up (nessun IDOR sfruttabile trovato), e coerenza finanziaria (saldo/movimenti/trasferimenti/race condition) verificata con test dedicati.
+WALLT ha una **baseline di sicurezza matura**: JWT con invalidazione su cambio password, bcrypt, express-validator, rate limiting (incluso fix IPv6), Helmet, CSP (meta tag SPA + Helmet API), CORS configurabile, magic-byte validation su upload, **step-up auth reale per tutti gli account** — bcrypt per chi ha una password locale, ID token fresco Google o Apple per gli account OAuth, con challenge persistenti monouso in PostgreSQL, scoping `user_id` verificato empiricamente con test automatici cross-user su conti, movimenti, trasferimenti, import, budget, obiettivi, investimenti, scommesse, profilo e step-up (nessun IDOR sfruttabile trovato), e coerenza finanziaria (saldo/movimenti/trasferimenti/race condition) verificata con test dedicati.
 
 **Vulnerabilità critiche trovate e corrette in questo audit**:
 1. **Google OAuth account pre-hijacking**: un login Google si collegava automaticamente a un account locale pre-esistente con la stessa email, senza prova di proprietà. Un attaccante poteva pre-registrare l'email di una vittima e ottenere accesso permanente ai suoi dati. **Corretto** — vedi `services/googleAuth.service.js`.
 2. **Cron ricorrenti: duplicazione di movimenti/doppio addebito**: il controllo anti-duplicazione del job mensile confrontava la descrizione sbagliata e non trovava mai un "già creato", quindi una riesecuzione nello stesso giorno duplicava il movimento e scalava il saldo due volte. **Corretto** — vedi `services/ricorrenti.service.js`.
 
-**Aree di miglioramento principali residue**: rate limit dedicato su verify-password/google-challenge/verify-google presente ma non testabile end-to-end su infrastruttura reale; `xlsx` (parsing import) senza fix upstream pubblicato per ReDoS/prototype pollution (mitigato con cap righe/dimensione); nessuna verifica email alla registrazione locale (mitigata solo per il vettore Google); test di logica di business (non solo isolamento) mancanti su budget/obiettivi/investimenti/scommesse.
+**Aree di miglioramento principali residue**: test su provider Apple/Google reali, Xcode e iPhone ancora da eseguire dopo la configurazione degli account esterni; `xlsx` (parsing import) senza fix upstream pubblicato per ReDoS/prototype pollution (mitigato con cap righe/dimensione); nessuna verifica email alla registrazione locale (mitigata solo per il vettore Google); test di logica di business (non solo isolamento) mancanti su budget/obiettivi/investimenti/scommesse.
 
 ---
 
@@ -31,11 +31,12 @@ WALLT ha una **baseline di sicurezza matura**: JWT con invalidazione su cambio p
 - Policy cambio password (`validatePassword`): min 8, maiuscola, cifra — **senza carattere speciale** (inconsistenza).
 
 ### OAuth
-- Google OAuth 2.0 via Passport (`passport-google-oauth20`).
-- `session: false` (stateless).
-- Popup flow con origin allowlist (`oauthPopup.js`).
-- COOP `unsafe-none` su route Google per compatibilità popup.
-- Apple OAuth: placeholder (`providers` restituisce `apple: false`), **non implementato**.
+- Google web OAuth 2.0 via Passport (`passport-google-oauth20`), stateless e popup con origin allowlist (`oauthPopup.js`).
+- Google iOS usa il Google Sign-In SDK ufficiale e invia al server un ID token verificato con l’audience del client OAuth web configurato come `GOOGLE_CLIENT_ID`.
+- Apple usa Authentication Services su iOS e Sign in with Apple JS sul web/PWA. Il server scambia l’authorization code e verifica firma, issuer, audience, nonce, scadenza e coerenza del `sub`.
+- L’identità Apple è conservata in `users.apple_id` univoco; non viene collegata a un account per il solo match email. Alla prima registrazione sono richiesti email verificata e consensi.
+- Apple compare in `/auth/providers` solo se la configurazione server Apple è completa.
+- Le sfide OAuth sono salvate come digest SHA-256 in PostgreSQL, vincolate a provider/scopo/piattaforma/utente e scadenza; il consumo è atomico e monouso anche tra istanze Vercel.
 
 ### Nome problema: Google OAuth account pre-hijacking — RISOLTO
 - **Severity**: Critical (era exploitable pre-fix).
@@ -51,37 +52,18 @@ WALLT ha una **baseline di sicurezza matura**: JWT con invalidazione su cambio p
 
 ### Step-up authentication
 
-> ✅ **Stato attuale (30 settembre 2026): lo step-up si applica a tutti gli account.** Le tre operazioni sensibili (delete account, reset transazioni, export dati) usano `requireStepUp` senza esenzioni. Gli account con password locale riverificano con bcrypt; quelli Google con un ID token fresco di Google Identity Services (`POST /api/auth/google/challenge` → `POST /api/auth/verify-google`). La conferma testuale `ELIMINA`/`RESETTA` resta nei modali come dichiarazione d'intenzione, ma non autorizza più nulla: è una stringa pubblica, presente nel bundle che chiunque può scaricare.
->
-> **Prerequisito operativo**: il flusso Google funziona solo con `VITE_GOOGLE_CLIENT_ID` impostata nel progetto Vercel del client e con l'origine JavaScript del dominio registrata nel client OAuth di Google Cloud. È la condizione la cui assenza aveva reso lo step-up Google inutilizzabile fra l'iterazione 4 e oggi. Pubblicare il codice senza quella configurazione non riapre il buco, ma impedisce agli account Google di esportare, resettare ed eliminare.
+Lo step-up si applica a tutte le operazioni sensibili: export dati, reset transazioni e cancellazione account. Il token temporaneo è un JWT `type: step_up`, valido 5 minuti e vincolato sia a `userId` sia ad `auth_provider`; `requireStepUp` rifiuta token di altro utente/provider o scaduti.
 
-Protegge le operazioni finanziarie distruttive con una riverifica recente dell'identità prima di agire, distinta dal semplice possesso di un JWT. Lo `step_up_token` (JWT, `type: step_up`, **5 minuti**, verificato via header `X-Step-Up-Token`, legato a `userId`) resta invariato nel formato.
+- **Account locali**: `POST /api/auth/verify-password` verifica la password con bcrypt.
+- **Account Google**: `POST /api/auth/google/challenge` → `POST /api/auth/verify-google`; il client web usa Google Identity Services, iOS l’SDK nativo. Il server controlla firma, audience, issuer, nonce, freschezza e `sub` già collegato all’utente.
+- **Account Apple**: `POST /api/auth/apple/step-up/challenge` → `POST /api/auth/apple/step-up/verify`; il server controlla code exchange, entrambi gli ID token, firma, audience, nonce, freschezza e `sub` uguale all’identità Apple già collegata.
+- I challenge e i nonce non sono conservati in chiaro: PostgreSQL conserva solo SHA-256, con binding a provider, scopo, piattaforma, utente (per step-up) e TTL di 120 secondi. L’aggiornamento di consumo è atomico, quindi richieste concorrenti e istanze serverless non possono usare due volte lo stesso challenge.
+- `POST /api/auth/verify-password` rifiuta account OAuth con `oauth_stepup_required`; questi account non possono ottenere uno step-up digitando solo la password o una conferma testuale.
+- `ELIMINA` e `RESETTA` restano conferme UX richieste dal controller, ma non sostituiscono la prova d’identità.
 
-**Utenti locali** — `POST /api/auth/verify-password`:
-- `bcrypt.compare(password, user.password)` contro l'hash reale in DB.
-- Un utente Google (senza password) che chiama questo endpoint riceve **400** (`code: 'google_stepup_required'`): non c'è modo di ottenere lo step-up locale su un account Google.
+La verifica Google web richiede `VITE_GOOGLE_CLIENT_ID` sul client e il dominio registrato come origine JavaScript nel client OAuth Google Cloud. L’accesso Apple richiede la configurazione Apple completa lato server, servizi e chiavi descritti in `docs/DEPLOY_VERCEL_SUPABASE.md`. Senza configurazione provider l’endpoint non emette token e le operazioni sensibili restano protette.
 
-**Utenti Google OAuth** — ⚠️ **non più richiesto sulle operazioni sensibili**. Il meccanismo descritto qui sotto resta implementato e testato (endpoint `POST /api/auth/google/challenge` e `POST /api/auth/verify-google` attivi, composable `useGoogleStepUp.js` presente ma non più usato dalla UI): è stato solo **disattivato come requisito**, così che riattivarlo sia una modifica di una riga nelle rotte. Descrizione del meccanismo, per riferimento:
-1. `POST /api/auth/google/challenge` (autenticato): genera un nonce casuale (192 bit) incapsulato in un JWT "challenge" (`type: google_stepup_challenge`, legato a `req.userId`, scadenza **2 minuti**). Rifiuta (400) se l'utente non è un account Google collegato.
-2. Il frontend (`useGoogleStepUp.js`) inizializza Google Identity Services con quel nonce e mostra il **pulsante ufficiale "Continua con Google"** — richiede sempre un click esplicito, nessun One Tap silenzioso.
-3. Google restituisce un ID token JWT firmato che incorpora il nonce.
-4. `POST /api/auth/verify-google { credential, challenge }` (`googleStepUp.controller.js` + `googleStepUp.service.js`) verifica, in ordine:
-   - il `challenge` (firma, scadenza, `type`, `userId === req.userId`) — mai fidarsi di valori dal body per l'identità;
-   - che il nonce del challenge **non sia già stato consumato** (single-use, tracking in-memory — vedi limite noto sotto);
-   - l'ID token con `google-auth-library` (`verifyIdToken`): firma RS256 contro le chiavi pubbliche di Google, `audience === GOOGLE_CLIENT_ID`, issuer, scadenza — verificati dalla libreria ufficiale;
-   - `payload.nonce === nonce del challenge`;
-   - `payload.iat` non più vecchio di 120s e non nel futuro oltre 10s di clock-skew (freschezza della credenziale);
-   - `payload.sub === user.google_id`, dove `user` è caricato da `req.userId` (JWT WALLT già autenticato) — **mai** da valori inviati nel body.
-5. Solo dopo tutti i controlli il nonce viene marcato consumato ed emesso lo `step_up_token`.
-
-**Le stringhe `ELIMINA`/`RESETTA` non sono un meccanismo di autenticazione**: sono stringhe pubbliche, note a chiunque legga la UI. Proteggono dall'azione accidentale, non da un attaccante. Dall'iterazione 4 sono però, per gli account Google, l'**unica** barriera oltre al JWT su reset e delete — vedi il rischio accettato qui sotto.
-
-**Limite noto — challenge single-use solo in-memory**: il tracking dei nonce consumati (`googleStepUp.service.js`) vive in una `Map` del processo Node corrente, non in DB/Redis (scelta deliberata, coerente con lo store in-memory già usato da `express-rate-limit`). Conseguenze: un riavvio del server azzera lo stato (non una regressione, solo un ritorno temporaneo al comportamento "nessun nonce già visto"); un deploy multi-istanza (oggi non presente — single process) non condividerebbe il tracking tra istanze. Non blocca l'uso attuale.
-
-**Storia di questa decisione**: implementata inizialmente in questa forma, poi rimossa su richiesta esplicita per semplicità (tornando alle sole frasi pubbliche), poi **reimplementata in questo audit** esattamente in questa forma dopo una nuova richiesta esplicita di hardening pre-produzione. Vedi `docs/DECISIONS.md` per il record completo, incluse le motivazioni di ciascuna fase.
-
-- Usato per: export dati, delete account, **reset account**.
-- **NON usato per**: cambio password, trasferimenti (per design — non distruttivi o già protetti da altri controlli).
+**Limiti di verifica di questo audit**: i test backend verificano challenge, binding, replay, provider e identità; l’accesso ai sistemi Apple/Google, Xcode, firma e verifica su iPhone richiede le configurazioni e gli account esterni e non è stato effettuato qui.
 
 ---
 
@@ -160,7 +142,7 @@ object-src 'none'; base-uri 'self'; form-action 'self'
 |---|---|---|---|
 | apiLimiter | `/api/*` | 1200 / 15 min | userId o IP (IPv6-safe) |
 | authLimiter | login, register, forgot/reset | 10 / 15 min | IP normalizzato e hashato; contatore PostgreSQL condiviso tra istanze |
-| stepUpLimiter | verify-password, google/challenge, verify-google | 20 / 15 min | userId |
+| stepUpLimiter | verify-password, challenge/verifica Google e Apple step-up | 20 / 15 min | userId |
 | exportLimiter | export | 3 / ora | userId |
 | deleteAccountLimiter | delete account | 3 / ora | userId |
 | importUploadLimiter | upload | 30 / 15 min | userId |
@@ -168,7 +150,7 @@ object-src 'none'; base-uri 'self'; form-action 'self'
 
 Tutti i limiter con fallback IP (`apiLimiter`, `authLimiter`) usano l'helper ufficiale `ipKeyGenerator` di `express-rate-limit` per normalizzare gli indirizzi IPv6. Per le rotte auth pubbliche la chiave viene trasformata in SHA-256 e il contatore viene incrementato atomicamente nella tabella `auth_rate_limits`; l'IP non è salvato in chiaro e il limite non si azzera cambiando istanza Vercel.
 
-### Nome problema: verify-password/google-challenge/verify-google senza rate limit dedicato — RISOLTO
+### Nome problema: endpoint step-up senza rate limit dedicato — RISOLTO
 - **Severity**: era Medium.
 - **Files**: `server/middleware/rateLimit.middleware.js`, `server/app.js`.
 - **Description**: nessuno dei tre endpoint di step-up aveva un rate limiter dedicato — solo l'`apiLimiter` globale (1200/15min) si applicava.
@@ -319,26 +301,18 @@ Ignora: `.env`, `**/.env`, `.env.local`, `.env.production`, `.env.development`, 
 
 | Operazione | Protezioni | Gap |
 |---|---|---|
-| Delete account | **Locali**: JWT + step-up bcrypt + rate limit + password. **Google**: JWT + conferma `ELIMINA` + rate limit | ⚠️ Account Google: nessuna riverifica di identità (iterazione 4) |
-| Export dati | **Locali**: JWT + step-up bcrypt + rate limit. **Google**: JWT + rate limit | ⚠️ Account Google: nessuna riverifica di identità, e nessuna conferma testuale |
-| Reset account (unico endpoint, elimina movimenti e azzera saldi) | **Locali**: JWT + step-up bcrypt + password. **Google**: JWT + conferma `RESETTA` | ⚠️ Account Google: nessuna riverifica di identità. Inoltre nessun rate limit dedicato sull'endpoint stesso |
+| Delete account | JWT + step-up provider-verified + deleteAccountLimiter + conferma d’intenzione | Richiede configurazione del provider per gli account OAuth |
+| Export dati | JWT + step-up provider-verified + exportLimiter | Richiede configurazione del provider per gli account OAuth |
+| Reset account | JWT + step-up provider-verified + conferma d’intenzione | Usa il rate limit API generale oltre allo step-up |
 | Cambio password | JWT + password attuale | Invalida JWT precedenti |
 | Trasferimento | JWT + validazione + ownership + row-level locking (verificato con test di race condition) | No step-up (per design — non distruttivo, reversibile con un altro trasferimento) |
 | Import | JWT + rate limit + file validation + ownership per-conto | No step-up (per design) |
 
-### Nome problema: reset-account/delete-account/export senza riverifica di identità per utenti Google — RISCHIO ACCETTATO (riaperto)
-- **Severity**: High per gli account Google. Non applicabile agli account locali, che mantengono lo step-up bcrypt reale.
-- **Files**: `server/middleware/stepUp.middleware.js` (`requireStepUp`), `server/routes/impostazioni.routes.js`, `client/src/views/ImpostazioniView.vue`, `client/src/composables/useGoogleStepUp.js`.
-- **Chiuso il 30 settembre 2026.** In produzione erano esposti 3 account Google reali, nessuno con password locale.
-- **Storia**: risolto nell'audit precedente con la ri-autenticazione Google, poi **riaperto deliberatamente** su richiesta esplicita dell'utente (iterazione 4, vedi `docs/DECISIONS.md`). Causa scatenante: il client OAuth in Google Cloud non ha origini JavaScript autorizzate, quindi Google Identity Services rispondeva `401 invalid_client — no registered origin` e lo step-up era inutilizzabile in pratica. L'utente ha scelto la rimozione invece della configurazione dell'origin.
-- **Impatto**: chi ottiene un JWT WALLT valido di un utente Google (XSS, furto del token da `localStorage`, sessione lasciata aperta su un dispositivo condiviso) può esportare tutti i dati finanziari, azzerare le transazioni ed eliminare l'account senza possedere le credenziali Google. Le stringhe `ELIMINA`/`RESETTA` sono pubbliche e non costituiscono un ostacolo per un attaccante.
-- **Mitigazioni residue**: `deleteAccountLimiter` (3/15min), `exportLimiter`, scadenza JWT 7 giorni, invalidazione su `password_changed_at`.
-- **Come richiudere il gap** (tre passi, tutti necessari):
-  1. Registrare `http://localhost:5173` e il dominio di produzione tra le **origini JavaScript autorizzate** del client OAuth in Google Cloud (il redirect URI è già a posto: il login Google funziona).
-  2. Aggiungere `https://accounts.google.com` a **`style-src`** nella CSP di `client/index.html`. Verificato in questo intervento: con la CSP attuale il foglio di stile del pulsante GIS (`https://accounts.google.com/gsi/style`) viene bloccato — `script-src`, `frame-src` e `connect-src` lo consentono già, `style-src` no.
-  3. Rimettere `requireStepUp` al posto di `requireStepUpUnlessOAuth` sulle tre rotte in `impostazioni.routes.js` e ripristinare il pulsante Google nei tre modali di `ImpostazioniView.vue`. Backend, composable `useGoogleStepUp.js` e test del meccanismo sono rimasti in essere.
-- **Verificato con**: `server/tests/googleStepUp.test.js` (18 test — il meccanismo Google resta coperto; 4 test nuovi fissano il comportamento attuale: account Google reset/delete senza step-up, conferma errata comunque rifiutata, utenti locali ancora sotto step-up).
-- **Modification risk**: Low — nessuna modifica alla logica finanziaria di `resetAccount()`/`deleteAllTransactions`/`deleteAllUserData`.
+### Nome problema: operazioni sensibili senza riverifica per account OAuth — RISOLTO
+
+Le tre rotte applicano `requireStepUp` a utenti locali, Google e Apple. Gli account sociali riverificano l’identità con il provider; challenge, nonce e step-up sono vincolati all’utente e al provider. Per Apple, il `sub` autenticato deve essere quello già collegato. Le stringhe `ELIMINA` e `RESETTA` non autorizzano mai da sole un’operazione.
+
+**Verificato con**: suite backend completa e test specifici Google/Apple, challenge concorrenti, binding identità e provider, endpoint sensibili.
 
 ---
 
@@ -384,7 +358,7 @@ Ignora: `.env`, `**/.env`, `.env.local`, `.env.production`, `.env.development`, 
 - **Google OAuth account pre-hijacking** (Critical, risolto): vedi sezione OAuth sopra.
 - **`piani_smart_azioni` esposta alla Data API Supabase** (Critical, risolto il 29 settembre 2026): la migrazione `20260924000032-create-piano-smart-azioni` è l'unica creazione di tabella del progetto che ha dimenticato l'hardening applicato da tutte le altre (`20260830000010`, `20260907000017`, `20260917000024/25`, e la gemella `20260924000031-create-piani-smart`). La tabella è rimasta cinque giorni su un database con dati reali con RLS **disattiva** e `anon`/`authenticated` in possesso di tutti i privilegi — `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE` — quindi leggibile e distruggibile da chiunque avesse la chiave anon, che è pubblica per definizione. Contiene `user_id`, importi e testi delle azioni consigliate dei piani. Segnalata dal security advisor Supabase come `rls_disabled_in_public` (ERROR). Risolto applicando `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` + `REVOKE ALL` su Supabase e portando lo stesso hardening nella migrazione di creazione (per i database nuovi) e in `20260929000040-harden-piano-smart-azioni-access` (per quelli già migrati). La causa vera non era la singola dimenticanza ma il fatto che nessun test la intercettasse: il controllo RLS esistente guardava una tabella per volta, ora `migrazioniReali.test.js` asserisce l'assenza di tabelle senza RLS in tutto lo schema, così ogni tabella futura è coperta senza doverla aggiungere a un elenco (stesso principio di `corsMetodi` per CORS).
 - **`quotes`: privilegi Data API su una tabella estranea a WALLT** (Low, risolto il 29 settembre 2026): tabella non prodotta da nessuna migrazione né modello del progetto (`id`, `text`, `author`, `created_at`, `is_favorite`, 294 righe), residuo di un altro uso dello stesso progetto Supabase. RLS era già attiva — quindi nessun dato è mai stato leggibile via Data API — ma `anon`/`authenticated` conservavano i privilegi, e la tabella era discoverable nello schema GraphQL (lint `pg_graphql_anon_table_exposed`). Privilegi revocati subito; la tabella è stata poi **eliminata** su richiesta esplicita (`DROP TABLE public.quotes`, senza `CASCADE`, così una dipendenza inattesa avrebbe fatto fallire l'operazione invece di propagarla). Le righe risalivano al 23-24 settembre **2025**, un anno prima che WALLT nascesse su questo database, ed erano dati generati (`Questa è la citazione numero N` / `Autore N`). Backup completo con `pg_dump` (schema + 294 righe) prodotto prima del drop e consegnato fuori dal repository: un dump di dati altrui non va committato.
-- **Step-up Google OAuth**: reimplementato in questo audit, poi **rimosso di nuovo su richiesta esplicita** (iterazione 4). Torna a essere un rischio accettato per gli account Google — vedi sezione Step-up authentication e Operazioni sensibili.
+- **Step-up Google/Apple OAuth**: il flusso Google era stato rimosso nella decisione storica dell’iterazione 4; questo ramo lo ripristina e aggiunge Apple. Le operazioni sensibili richiedono ora una riverifica provider-verified per entrambi.
 - **Cron ricorrenti: doppio addebito su riesecuzione stesso giorno** (Medium/data-integrity, risolto): `ricorrenti.service.js` confrontava la descrizione sbagliata nel controllo anti-duplicazione (quella originale del movimento ricorrente, non quella generata `${descrizione} (automatico)`), quindi il controllo "già creato" non trovava mai nulla e ogni riesecuzione del job nello stesso giorno duplicava il movimento automatico e scalava il saldo due volte. Aggiunta anche una guardia di rientranza (`isRunning`) contro esecuzioni sovrapposte del job. Riprodotto e corretto con `server/tests/ricorrenti.test.js` (8 test, incluso un test esplicito di doppia esecuzione).
 - **Frequenze ricorrenti promesse dalla UI ma ignorate dal backend** (Medium/onestà funzionale, risolto): la UI offriva `giornaliera`/`settimanale`/`mensile`/`annuale`, ma il cron processa solo `mensile` (le altre tre richiederebbero campi schema non esistenti — giorno della settimana, mese dell'anno — per essere implementate correttamente). Corretto restringendo UI e validazione API a `mensile`, l'unica realmente supportata, invece di lasciare un'illusione di funzionalità.
 - **Rate limit IPv6 bypass** (Medium, risolto): vedi sezione Rate Limiting sopra.
@@ -403,9 +377,9 @@ Ignora: `.env`, `**/.env`, `.env.local`, `.env.production`, `.env.development`, 
 | Severity | Count | Esempi |
 |---|---|---|
 | Critical | 0 | — (erano Critical, entrambi **risolti**: Google OAuth account pre-hijacking; `piani_smart_azioni` esposta alla Data API Supabase, 24→29 settembre 2026) |
-| High | 2 | `.env.test` con password DB reale committata in history (tracking risolto, **rotazione manuale ancora richiesta** — vedi Secrets); nessuna riverifica di identità sulle operazioni distruttive per gli account Google (**rischio accettato esplicitamente**, iterazione 4) |
-| Medium | 2 | `xlsx` senza fix upstream (ReDoS/prototype pollution, mitigato); reset-account senza rate limit dedicato sull'endpoint stesso (solo sullo step-up che lo precede) |
+| High | 1 | `.env.test` con password DB reale nella history Git (tracking risolto, **rotazione manuale ancora richiesta** — vedi Secrets) |
+| Medium | 1 | `xlsx` senza fix upstream (ReDoS/prototype pollution, mitigato) |
 | Low | 4 | Password policy inconsistente, stack trace dev, no query validation GET, no antivirus upload |
 | Info | 2 | CORS config, OAuth-only email reveal |
 
-**Risolti cumulativamente (tutte le sessioni)**: Google OAuth account pre-hijacking (Critical), step-up Google non reale (era High), doppio addebito cron ricorrenti (Medium), frequenze ricorrenti promesse ma ignorate (Medium), rate limit IPv6 bypass (Medium), rate limit step-up assente (Medium), crash import su conto_id non valido (Medium), auto-migrate in produzione (Medium), config validation produzione assente (Medium), CSP SPA assente (Medium), CI/CD assente, 3 dipendenze npm vulnerabili con fix non-breaking. **Aperto con azione manuale**: rotazione password DB (`.env.test` in history). **Riaperto per scelta di prodotto**: step-up Google (iterazione 4) — richiudibile registrando l'origin JavaScript in Google Cloud e ripristinando `requireStepUp` sulle tre rotte.
+**Risolti cumulativamente (tutte le sessioni)**: Google OAuth account pre-hijacking (Critical), step-up provider-verified Google/Apple per operazioni sensibili, doppio addebito cron ricorrenti (Medium), frequenze ricorrenti promesse ma ignorate (Medium), rate limit IPv6 bypass (Medium), rate limit step-up assente (Medium), crash import su conto_id non valido (Medium), auto-migrate in produzione (Medium), config validation produzione assente (Medium), CSP SPA assente (Medium), CI/CD assente, 3 dipendenze npm vulnerabili con fix non-breaking. **Aperto con azione manuale**: rotazione password DB (`.env.test` in history). **Richiuso nel ramo iOS**: step-up Google e Apple è obbligatorio sulle operazioni sensibili; le sfide sono persistenti e monouso.

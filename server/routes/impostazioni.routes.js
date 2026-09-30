@@ -7,8 +7,8 @@ const authMiddleware = require('../middleware/auth.middleware');
 // requireStepUp, non la variante che esentava gli account OAuth: queste tre
 // operazioni cancellano o fanno uscire tutti i dati di una persona, e la
 // riverifica dell'identita' non puo' dipendere da come si e' registrata.
-// Per gli account Google la seconda prova e' un ID token fresco di Google
-// Identity Services (POST /auth/verify-google), non una stringa digitata.
+// Gli account Google e Apple riverificano il provider collegato; le stringhe
+// di conferma non sostituiscono lo step-up.
 const { requireStepUp } = require('../middleware/stepUp.middleware');
 const { exportLimiter, deleteAccountLimiter, avatarLimiter } = require('../middleware/rateLimit.middleware');
 const {

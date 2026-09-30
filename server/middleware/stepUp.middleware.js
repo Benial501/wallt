@@ -1,11 +1,8 @@
 const jwt = require('jsonwebtoken');
-const logger = require('../utils/logger');
-const { User } = require('../models');
-const { isOAuthProvider } = require('../services/accountReset.service');
 
 /**
  * Richiede uno step_up_token valido (JWT `type: 'step_up'`, 5 minuti,
- * emesso da POST /api/auth/verify-password dopo una verifica bcrypt reale).
+ * emesso da una riverifica bcrypt o dal provider OAuth collegato).
  */
 const requireStepUp = (req, res, next) => {
   const stepUpToken = req.headers['x-step-up-token'];
@@ -21,7 +18,7 @@ const requireStepUp = (req, res, next) => {
       return res.status(403).json({ message: 'Autenticazione aggiuntiva richiesta' });
     }
 
-    if (decoded.userId !== req.userId) {
+    if (decoded.userId !== req.userId || decoded.auth_provider !== req.authProvider) {
       return res.status(403).json({ message: 'Autenticazione aggiuntiva richiesta' });
     }
 
@@ -33,41 +30,11 @@ const requireStepUp = (req, res, next) => {
 };
 
 /**
- * Step-up richiesto SOLO agli account con password locale.
- *
- * Gli account OAuth (Google) non hanno una password da riverificare: dopo la
- * rimozione della ri-autenticazione Google (vedi docs/DECISIONS.md,
- * iterazione 4) per loro non esiste più alcun secondo fattore, quindi lo
- * step-up viene saltato e l'unica barriera resta la conferma testuale
- * ELIMINA/RESETTA validata dai controller. Scelta di prodotto esplicita:
- * il trade-off di sicurezza è documentato in docs/SECURITY.md.
- *
- * Il criterio è "l'utente ha una password locale utilizzabile", non il solo
- * `auth_provider`, così un account Google che in futuro impostasse una
- * password tornerebbe automaticamente sotto step-up reale.
+ * Compatibilità con eventuali import legacy. Gli account OAuth non vengono
+ * esentati: anche questo alias richiede uno step-up provider-verified.
+ * Le nuove route devono importare `requireStepUp` direttamente.
  */
-const requireStepUpUnlessOAuth = async (req, res, next) => {
-  let user;
-  try {
-    user = await User.findByPk(req.userId, {
-      attributes: ['id', 'password', 'auth_provider'],
-    });
-  } catch (error) {
-    logger.error('Errore requireStepUpUnlessOAuth', { err: error });
-    return res.status(500).json({ message: 'Errore nella verifica identità' });
-  }
-
-  if (!user) {
-    return res.status(401).json({ message: 'Utente non trovato' });
-  }
-
-  if (isOAuthProvider(user.auth_provider) || !user.password) {
-    req.stepUpSkippedOAuth = true;
-    return next();
-  }
-
-  return requireStepUp(req, res, next);
-};
+const requireStepUpUnlessOAuth = requireStepUp;
 
 module.exports = {
   requireStepUp,

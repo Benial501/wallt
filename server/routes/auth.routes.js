@@ -2,6 +2,7 @@ const logger = require('../utils/logger');
 const express = require('express');
 const passport = require('../config/passport');
 const { isGoogleAuthEnabled } = require('../config/passport');
+const { isAppleAuthEnabled } = require('../services/appleAuth.service');
 const { isOnboardingComplete } = require('../utils/onboarding');
 const {
   sendOAuthSuccess,
@@ -22,6 +23,10 @@ const {
   validateLogin,
   validateVerifyPassword,
   validateGoogleStepUpVerify,
+  validateOAuthChallenge,
+  validateOptionalPlatform,
+  validateNativeGoogleVerify,
+  validateAppleVerify,
 } = require('../middleware/validation.middleware');
 const passwordResetRoutes = require('./passwordReset.routes');
 const { verifyPassword } = require('../controllers/verifyPassword.controller');
@@ -29,13 +34,23 @@ const {
   getGoogleStepUpChallenge,
   verifyGoogleStepUp,
 } = require('../controllers/googleStepUp.controller');
+const {
+  getGoogleNativeChallenge,
+  verifyGoogleNative,
+  getAppleLoginChallenge,
+  verifyAppleLogin,
+} = require('../controllers/nativeOAuth.controller');
+const {
+  getAppleStepUpChallenge,
+  verifyAppleStepUp,
+} = require('../controllers/appleStepUp.controller');
 
 const router = express.Router();
 
 const getProviders = (_req, res) => {
   res.json({
-    google: isGoogleAuthEnabled(),
-    apple: false,
+    google: isGoogleAuthEnabled() || Boolean(process.env.GOOGLE_CLIENT_ID),
+    apple: isAppleAuthEnabled(),
   });
 };
 
@@ -45,8 +60,14 @@ router.post('/register', validateRegister, register);
 router.post('/login', validateLogin, login);
 router.use('/', passwordResetRoutes);
 router.post('/verify-password', authMiddleware, validateVerifyPassword, verifyPassword);
-router.post('/google/challenge', authMiddleware, getGoogleStepUpChallenge);
+router.post('/google/native/challenge', getGoogleNativeChallenge);
+router.post('/google/native/verify', validateNativeGoogleVerify, verifyGoogleNative);
+router.post('/apple/challenge', validateOAuthChallenge, getAppleLoginChallenge);
+router.post('/apple/verify', validateAppleVerify, verifyAppleLogin);
+router.post('/google/challenge', authMiddleware, validateOptionalPlatform, getGoogleStepUpChallenge);
 router.post('/verify-google', authMiddleware, validateGoogleStepUpVerify, verifyGoogleStepUp);
+router.post('/apple/step-up/challenge', authMiddleware, validateOAuthChallenge, getAppleStepUpChallenge);
+router.post('/apple/step-up/verify', authMiddleware, validateAppleVerify, verifyAppleStepUp);
 router.get('/me', authMiddleware, me);
 
 router.get('/google', (req, res, next) => {

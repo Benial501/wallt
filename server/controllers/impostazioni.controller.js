@@ -380,8 +380,8 @@ const resetAccount = async (req, res) => {
       return res.status(404).json({ message: 'Utente non trovato' });
     }
 
-    const isGoogle = user.auth_provider === 'google' || !user.password;
-    if (isGoogle) {
+    const isOAuth = isOAuthProvider(user.auth_provider) || !user.password;
+    if (isOAuth) {
       if (conferma !== 'RESETTA') {
         await t.rollback();
         return res.status(400).json({ message: 'Digita RESETTA per confermare il reset' });

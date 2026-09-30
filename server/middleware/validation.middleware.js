@@ -241,15 +241,44 @@ const validateVerifyPassword = [
   validate,
 ];
 
+const validatePlatform = (field = 'platform') => body(field)
+  .isIn(['ios', 'web'])
+  .withMessage('Piattaforma non valida');
+
+const validateChallenge = () => body('challenge')
+  .isString()
+  .isLength({ min: 32, max: 512 })
+  .withMessage('Challenge non valido');
+
 const validateGoogleStepUpVerify = [
-  body('credential')
-    .isString()
-    .notEmpty()
-    .withMessage('Credenziale Google obbligatoria'),
-  body('challenge')
-    .isString()
-    .notEmpty()
-    .withMessage('Challenge obbligatorio'),
+  body('credential').isString().notEmpty().isLength({ max: 12_000 }).withMessage('Credenziale Google non valida'),
+  validateChallenge(),
+  body('platform').optional().isIn(['ios', 'web']).withMessage('Piattaforma non valida'),
+  validate,
+];
+
+const validateOAuthChallenge = [validatePlatform(), validate];
+const validateOptionalPlatform = [
+  body('platform').optional().isIn(['ios', 'web']).withMessage('Piattaforma non valida'),
+  validate,
+];
+const validateNativeGoogleVerify = [
+  body('credential').isString().notEmpty().isLength({ max: 12_000 }).withMessage('Credenziale Google non valida'),
+  validateChallenge(),
+  body('use_ai_categorization').optional().isBoolean().withMessage('Preferenza AI non valida'),
+  validate,
+];
+const validateAppleVerify = [
+  validatePlatform(),
+  body('credential').isString().notEmpty().isLength({ max: 12_000 }).withMessage('Credenziale Apple non valida'),
+  body('authorization_code').isString().isLength({ min: 10, max: 2_048 }).withMessage('Codice Apple non valido'),
+  validateChallenge(),
+  body('name').optional({ values: 'null' }).custom((value) => (
+    typeof value === 'string' || (value && typeof value === 'object' && !Array.isArray(value))
+  )).withMessage('Nome Apple non valido'),
+  body('privacy_accepted_at').optional().isISO8601().withMessage('Data consenso privacy non valida'),
+  body('terms_accepted_at').optional().isISO8601().withMessage('Data consenso termini non valida'),
+  body('use_ai_categorization').optional().isBoolean().withMessage('Preferenza AI non valida'),
   validate,
 ];
 
@@ -1582,6 +1611,10 @@ module.exports = {
   validateVerifyResetToken,
   validateVerifyPassword,
   validateGoogleStepUpVerify,
+  validateOAuthChallenge,
+  validateOptionalPlatform,
+  validateNativeGoogleVerify,
+  validateAppleVerify,
   validateMovimento,
   validateUpdateMovimento,
   validateDeleteMovimento,

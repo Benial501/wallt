@@ -1,5 +1,6 @@
 import { ref } from 'vue';
 import api from '@/utils/axios';
+import { authenticateGoogleStepUpNative, isNativeIOS } from '@/utils/nativeOAuth';
 
 const GSI_SCRIPT_SRC = 'https://accounts.google.com/gsi/client';
 const GSI_SCRIPT_ID = 'wallt-google-identity-services';
@@ -42,6 +43,19 @@ export function useGoogleStepUp() {
   const error = ref('');
 
   const renderGoogleStepUpButton = (containerEl) => new Promise((resolve, reject) => {
+    if (isNativeIOS()) {
+      verifying.value = true;
+      error.value = '';
+      authenticateGoogleStepUpNative({ apiClient: api })
+        .then(resolve)
+        .catch((err) => {
+          error.value = err.response?.data?.message || 'Verifica Google non riuscita.';
+          reject(err);
+        })
+        .finally(() => { verifying.value = false; });
+      return;
+    }
+
     if (!containerEl) {
       reject(new Error('missing_container'));
       return;

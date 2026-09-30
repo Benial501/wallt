@@ -152,7 +152,9 @@ describe('migrazioni compatibili con PostgreSQL e Supabase', () => {
       'conti',
       'movimenti',
       'password_reset_tokens',
+      'oauth_challenges',
     ]));
+    expect(userColumns.apple_id).toBeDefined();
     expect(userColumns.password.allowNull).toBe(true);
     expect(userColumns.auth_provider).toBeDefined();
     expect(userColumns.google_id).toBeDefined();

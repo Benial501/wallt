@@ -6,7 +6,7 @@
 
 **Architettura:** Capacitor 8 carica il bundle Vue locale; un plugin Swift sintetizza il suono con `AVAudioSession.Category.ambient`. Google Sign-In nativo e Sign in with Apple nativo/web ottengono credenziali verificabili; il backend le scambia o verifica e rilascia l’attuale JWT WALLT. PostgreSQL conserva challenge hashati e ne consuma uno solo con aggiornamento atomico.
 
-**Stack:** Vue 3, Vite, Capacitor 8, Swift, Google Sign-In iOS SDK, Authentication Services, Sign in with Apple JS, Express 5, Sequelize, PostgreSQL, `google-auth-library`, `jose`.
+**Stack:** Vue 3, Vite, Capacitor 8, Swift, Google Sign-In iOS SDK, Authentication Services, Sign in with Apple JS, Express 5, Sequelize, PostgreSQL, `google-auth-library`, `jsonwebtoken` e `crypto` di Node.js.
 
 **Specifica:** `docs/superpowers/specs/2026-09-30-audio-splash-ios-design.md`
 
@@ -48,9 +48,9 @@
 - Produce una configurazione Capacitor che serve la build locale da `dist`, usa il nome WALLT e imposta l’identificatore iniziale `com.wallt.app`.
 - Produce script ripetibili `cap:sync:ios` e `cap:open:ios`; la compilazione ordinaria Vite/PWA non dipende da Xcode.
 
-- [x] **Passo 1: creare un ramo senza il commit locale delle icone**
+- [x] **Passo 1: creare un ramo dedicato e riallinearlo a `main`**
 
-  Creare `codex/wallt-ios-splash-auth` partendo da `origin/main`. Tenere intatto il ramo locale `main` con il commit icone e non portarlo nel ramo di lavoro. Aggiungere a questo ramo solo la specifica e il piano approvati.
+  Il ramo di lavoro è stato inizialmente creato da `412d749`; dopo l’approvazione dell’utente è stato riallineato all’ultimo `origin/main`, che include gli aggiornamenti alle icone dei conti e alle impostazioni. Tali commit fanno parte della base e non della modifica iOS. Non sono stati ridisegnati gli asset del brand; l’icona Capacitor generata nel nuovo scaffold iOS è provvisoria e va sostituita prima della pubblicazione.
 
 - [x] **Passo 2: bloccare la configurazione base in un test**
 
@@ -140,43 +140,43 @@ test('Capacitor usa il bundle locale e identifica WALLT', async () => {
 - Per step-up Apple: `POST /api/auth/apple/step-up/challenge` e `POST /api/auth/apple/step-up/verify`; per Google usare il flusso esistente dopo aver spostato il consumo challenge su PostgreSQL.
 - `OAuthChallenge` memorizza `challenge_hash`, `nonce_hash`, `provider`, `purpose`, `platform`, `user_id`, `expires_at`, `consumed_at`; non conserva i challenge in chiaro.
 
-- [ ] **Passo 1: testare challenge hashati e consumo atomico**
+- [x] **Passo 1: testare challenge hashati e consumo atomico**
 
   Aggiungere test di servizio per scadenza, provider/scopo/utente diversi, riuso dopo consumo e due richieste concorrenti che tentano il consumo. Verificare che al massimo una richiesta ottenga `consumed: true` e che nessun valore grezzo del challenge sia persistito.
 
-- [ ] **Passo 2: eseguire i test mirati per verificare il fallimento**
+- [x] **Passo 2: eseguire i test mirati per verificare il fallimento**
 
   Eseguire `cd server && npx jest tests/nativeOAuth.test.js --runInBand`. Atteso: fallimento per modello e servizio mancanti.
 
-- [ ] **Passo 3: aggiungere modello, migrazione e servizio atomico**
+- [x] **Passo 3: aggiungere modello, migrazione e servizio atomico**
 
   Aggiungere `OAuthChallenge` e la migrazione con indici univoci sul digest, lookup per scadenza e foreign key `user_id` nullable. Implementare challenge casuali base64url, digest SHA-256, TTL di 120 secondi e consumo in transazione tramite `UPDATE ... WHERE consumed_at IS NULL AND expires_at > NOW()`; cancellare i record scaduti quando si genera un nuovo challenge.
 
-- [ ] **Passo 4: verificare Google nativo usando il client OAuth server già esistente**
+- [x] **Passo 4: verificare Google nativo usando il client OAuth server già esistente**
 
   Verificare ID token con `google-auth-library`, audience `GOOGLE_CLIENT_ID`, nonce del challenge, firma, issuer, freschezza di 120 secondi e `email_verified`. Convertire i claim verificati nel profilo richiesto da `resolveGoogleUser`, mantenendo la regola di collegamento attuale, poi generare il JWT con `generateToken` e restituire `formatUser`/onboarding.
 
-- [ ] **Passo 5: testare Apple code exchange, identità e collisioni**
+- [x] **Passo 5: testare Apple code exchange, identità e collisioni**
 
-  Mockare JWKS e `fetch` Apple. Coprire code scaduto/riutilizzato, audience errata, firma, issuer, nonce, `sub`, email non verificata alla prima registrazione, login successivo tramite `apple_id` senza user object, collisione email e token Apple errato per la piattaforma. Il client secret Apple va firmato ES256 con `APPLE_TEAM_ID`, `APPLE_KEY_ID` e `APPLE_PRIVATE_KEY`; il code va scambiato su `https://appleid.apple.com/auth/token`; verificare il JWT restituito usando `jose` e le chiavi pubbliche Apple.
+  Mockare JWKS e `fetch` Apple. Coprire code scaduto/riutilizzato, audience errata, firma, issuer, nonce, `sub`, email non verificata alla prima registrazione, login successivo tramite `apple_id` senza user object, collisione email e token Apple errato per la piattaforma. Il client secret Apple va firmato ES256 con `APPLE_TEAM_ID`, `APPLE_KEY_ID` e `APPLE_PRIVATE_KEY`; il code va scambiato su `https://appleid.apple.com/auth/token`; verificare il JWT restituito con `jsonwebtoken` e le chiavi pubbliche Apple convertite da JWK.
 
-- [ ] **Passo 6: aggiungere identità Apple e configurazione controllata**
+- [x] **Passo 6: aggiungere identità Apple e configurazione controllata**
 
   Aggiungere `apple_id` univoco a modello e migrazione; includere `apple` tra i valori `auth_provider`. Implementare `resolveAppleUser`: prima ricerca per `sub`; al primo accesso richiedere email verificata; rifiutare collisioni con email esistente senza collegamento automatico; usare il nome solo come profilo, mai come prova d’identità. Validare la configurazione opzionale completa Apple (`APPLE_CLIENT_ID`, `APPLE_SERVICE_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`) senza stampare i valori. Riutilizzare il messaggio password-reset Apple già presente.
 
-- [ ] **Passo 7: aggiungere route, validazione e rate limit**
+- [x] **Passo 7: aggiungere route, validazione e rate limit**
 
   Registrare endpoint challenge/verify Google e Apple con validazione `express-validator`. Applicare `authLimiter` ai challenge pubblici e `stepUpLimiter` ai challenge autenticati/verifiche; le verifiche login non devono richiedere JWT preesistente. Aggiornare `/providers` per segnalare Apple soltanto se la configurazione server necessaria è completa.
 
-- [ ] **Passo 8: portare lo step-up Google su storage condiviso e aggiungere Apple**
+- [x] **Passo 8: portare lo step-up Google su storage condiviso e aggiungere Apple**
 
   Modificare `googleStepUp.service.js` per creare e consumare `OAuthChallenge` con provider Google, scopo `step_up` e `user_id`. Aggiungere verifica Apple con la stessa freschezza, binding utente/provider, scambio code e challenge monouso. Selezionare il metodo in `ImpostazioniView` tramite provider JWT; password locale conserva la verifica bcrypt. Nessuna conferma testuale sostituisce lo step-up.
 
-- [ ] **Passo 9: aggiornare i test di sicurezza e migrazione**
+- [x] **Passo 9: aggiornare i test di sicurezza e migrazione**
 
   Eseguire i test mirati `googleStepUp.test.js`, `validateEnv.test.js` e `migrations.postgres.test.js` con `TEST_DATABASE_URL`/`DB_NAME_TEST=wallt_test`. Atteso: challenge concorrenti consumati una sola volta; audience o provider incrociati respinti; migrazione presente nel database di test; configurazione server Apple incompleta rifiutata senza rivelare valori.
 
-- [ ] **Passo 10: registrare il backend OAuth**
+- [x] **Passo 10: registrare il backend OAuth**
 
   Creare il commit italiano `Aggiunge accesso Apple e challenge OAuth persistenti`.
 
@@ -184,8 +184,8 @@ test('Capacitor usa il bundle locale e identifica WALLT', async () => {
 
 **File:**
 - Creare: `client/src/utils/nativeOAuth.js`, `client/src/composables/useAppleAuth.js`, `client/src/composables/useNativeGoogleAuth.js`, `client/src/composables/useAppleStepUp.js`
-- Modificare: `client/plugins/wallt-native/Package.swift`, `client/plugins/wallt-native/ios/Sources/WalltNativePlugin/WalltNativePlugin.swift`, `client/src/composables/useOAuthPopup.js`, `client/src/composables/useGoogleStepUp.js`, `client/src/views/auth/LoginView.vue`, `client/src/views/auth/RegisterView.vue`, `client/src/views/ImpostazioniView.vue`, `client/.env.example`, `client/index.html`
-- Test: `client/tests/oauthPopup.test.js`, `client/tests/nativeOAuth.test.js`, `client/tests/appleAuth.test.js`, `client/tests/googleStepUp.test.js`
+- Modificare: `client/plugins/wallt-native/Package.swift`, `client/plugins/wallt-native/ios/Sources/WalltNativePlugin/WalltNativePlugin.swift`, `client/src/composables/useGoogleStepUp.js`, `client/src/views/auth/LoginView.vue`, `client/src/views/auth/RegisterView.vue`, `client/src/views/ImpostazioniView.vue`, `client/.env.example`, `client/index.html`
+- Test: `client/tests/nativeOAuth.test.js`, `client/tests/iosReleaseConfig.test.js`, `client/tests/oauthPopup.test.js`; `server/tests/appleAuth.test.js`, `server/tests/googleStepUp.test.js`
 
 **Interfacce:**
 - `WalltNative.signInGoogle({ nonce }): Promise<{ credential: string }>` usa `serverClientID = VITE_GOOGLE_CLIENT_ID`.
@@ -193,35 +193,35 @@ test('Capacitor usa il bundle locale e identifica WALLT', async () => {
 - `completeOAuthLogin(token, user)` resta l’unico ingresso nella sessione Pinia.
 - Google web continua con `useOAuthPopup`; Apple web usa Apple JS con Services ID, redirect URL registrato, `state` e nonce dal backend.
 
-- [ ] **Passo 1: scrivere test per i client di scambio token**
+- [x] **Passo 1: scrivere test per i client di scambio token**
 
   Testare `nativeOAuth.js` con richieste mockate: ogni provider deve inviare challenge e credential; errori/cancel Google o Apple non devono chiamare `completeOAuthLogin`; successo deve passare il JWT WALLT ricevuto allo store.
 
-- [ ] **Passo 2: implementare il bridge Google Sign-In iOS**
+- [x] **Passo 2: implementare il bridge Google Sign-In iOS**
 
-  Aggiungere Google Sign-In iOS SDK `9.0.0` come dipendenza Swift Package, configurare URL scheme dal client ID iOS pubblico e inoltrare URL callback prima del fallback `ApplicationDelegateProxy` in `AppDelegate.swift`. Usare `GOOGLE_CLIENT_ID` web come server client ID per emettere credential con audience verificabile dal backend.
+  Aggiungere Google Sign-In iOS SDK `9.2.0` come dipendenza Swift Package, configurare URL scheme dal client ID iOS pubblico e inoltrare gli URL dell’host Capacitor al plugin tramite la notifica `capacitorOpenURL`. Usare `GOOGLE_CLIENT_ID` web come server client ID per emettere credential con audience verificabile dal backend.
 
-- [ ] **Passo 3: implementare il bridge Sign in with Apple iOS**
+- [x] **Passo 3: implementare il bridge Sign in with Apple iOS**
 
   Aggiungere Authentication Services nel plugin, creare una richiesta con scope email/name e nonce challenge, restituire `identityToken`, `authorizationCode` e nome ricevuto al primo accesso. Aggiungere la capability e configurare il Bundle ID. Gestire annullamento e token mancanti come errori localizzati dal client.
 
-- [ ] **Passo 4: implementare il client web Apple**
+- [x] **Passo 4: implementare il client web Apple**
 
   Caricare Apple JS solo quando `APPLE_SERVICE_ID` e redirect URL sono configurati. Chiedere un challenge al backend prima di `AppleID.auth.signIn()`, impostare state/nonce, inviare authorization code e ID token al backend, quindi completare sessione/onboarding con lo stesso store. Rimuovere listener e stato anche su annullamento.
 
-- [ ] **Passo 5: integrare login e registrazione**
+- [x] **Passo 5: integrare login e registrazione**
 
   Aggiungere provider Apple con pulsante conforme alle linee Apple in `LoginView.vue` e `RegisterView.vue`; mostrare Apple solo quando provider disponibile. In iOS instradare Google/Apple al bridge; nel browser mantenere Google popup esistente e usare Apple JS. Riutilizzare messaggi errore italiani per collisioni email e provider non configurato.
 
-- [ ] **Passo 6: integrare step-up in Impostazioni**
+- [x] **Passo 6: integrare step-up in Impostazioni**
 
   Mantenere Google Identity Services sul web. In iOS chiamare Google Sign-In con nonce del challenge; per Apple richiedere e verificare challenge Apple sia su web che iOS. Il modal continua a eseguire reset, eliminazione o export solo con `step_up_token` valido.
 
-- [ ] **Passo 7: testare fallback e route esistente**
+- [x] **Passo 7: testare fallback e route esistente**
 
-  Eseguire `node --test tests/nativeOAuth.test.js`, `node --test tests/appleAuth.test.js`, `node --test tests/googleStepUp.test.js` e `node --test tests/oauthPopup.test.js` in `client/`. Atteso: Apple login è nascosto senza configurazione, PWA non carica plugin nativi e Google OAuth web non cambia comportamento.
+  Eseguire la suite client (`npm test`) e i test server `appleAuth.test.js` e `googleStepUp.test.js` sul DB PostgreSQL temporaneo. Atteso: Apple login è nascosto senza configurazione, PWA non carica plugin nativi e Google OAuth web non cambia comportamento.
 
-- [ ] **Passo 8: registrare i flussi client**
+- [x] **Passo 8: registrare i flussi client**
 
   Creare il commit italiano `Integra accesso Apple e Google nell’app iOS`.
 
@@ -231,33 +231,33 @@ test('Capacitor usa il bundle locale e identifica WALLT', async () => {
 - Modificare: `docs/API.md`, `docs/SECURITY.md`, `docs/DEPLOY_VERCEL_SUPABASE.md`, `server/.env.example`, `client/.env.example`, `.gitignore`
 - Test: `server/tests/corsMetodi.test.js`, suite `client/tests/`, suite backend
 
-- [ ] **Passo 1: consentire solo l’origine Capacitor prevista**
+- [x] **Passo 1: consentire solo l’origine Capacitor prevista**
 
   Aggiornare `server/app.js` per includere l’origine esatta `capacitor://localhost` alla allowlist CORS esistente, senza `*`, mantenendo credential, metodi e header attuali. Aggiungere test `OPTIONS` che verifica l’origine Capacitor consentita e una seconda origine arbitraria respinta.
 
-- [ ] **Passo 2: documentare variabili e setup account esterni**
+- [x] **Passo 2: documentare variabili e setup account esterni**
 
   Documentare `VITE_GOOGLE_IOS_CLIENT_ID`, `VITE_APPLE_SERVICE_ID`, `VITE_APPLE_REDIRECT_URI`, `APPLE_CLIENT_ID`, `APPLE_SERVICE_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID` e `APPLE_PRIVATE_KEY`; specificare quali sono pubblici e quali server-only. Documentare Bundle ID e capability Apple, dominio/return URL, client OAuth Google, origine CORS e migrazione. Non inserire credenziali reali nei file.
 
-- [ ] **Passo 3: controllare esclusioni locali**
+- [x] **Passo 3: controllare esclusioni locali**
 
   Aggiungere `.env` iOS e file di firma/certificati a `.gitignore`; verificare che `.p8`, provisioning profile, chiavi e token non entrino nel diff. Verificare che i file icona preesistenti non compaiano tra le modifiche.
 
-- [ ] **Passo 4: eseguire tutte le verifiche ripetibili disponibili**
+- [x] **Passo 4: eseguire tutte le verifiche ripetibili disponibili**
 
   Eseguire `cd client && npm test && npm run build`, poi `cd server && npm test` con il database `wallt_test`. Controllare `git diff --check`, elenco file e `git diff --stat`. Non eseguire migrazioni sul database personale o produzione.
 
-- [ ] **Passo 5: verificare disponibilità degli strumenti iOS**
+- [x] **Passo 5: verificare disponibilità degli strumenti iOS**
 
   Eseguire `xcodebuild -version` e `xcode-select -p`. Se Xcode completo non è installato, non dichiarare compilazione iOS riuscita: riportare che Capacitor richiede Xcode 26+, completare build e test audio/login su iPhone quando l’host è pronto.
 
-- [ ] **Passo 6: controllare gate esterni per App Store**
+- [x] **Passo 6: controllare gate esterni per App Store**
 
   Non inviare l’app né cambiare configurazioni remote. Documentare come prerequisiti: approvazione dell’idoneità WALLT ai sensi Apple 3.2.1(viii), account Apple Developer/Google Cloud, Bundle ID definitivo, client e key provisioning, migrazione produzione, firma Xcode, icona 1024×1024 fornita separatamente e review guideline 4.2. Questi elementi non si possono completare dal repository e il lavoro sulle icone è escluso.
 
-- [ ] **Passo 7: registrare verifica e commit finale**
+- [x] **Passo 7: registrare verifica e commit finale**
 
-  Creare il commit italiano `Documenta build iOS e prerequisiti App Store`, controllare che il ramo derivi da `origin/main` senza il commit icone e pubblicare solo il ramo `codex/wallt-ios-splash-auth` se il push è consentito dall’ambiente.
+  Verifiche concluse prima del riallineamento: 244 test client, 88 suite/1133 test backend sul DB `wallt_test`, build e sincronizzazione Capacitor, controlli plist/Swift. Dopo il riallineamento a `origin/main`, il conflitto in `ImpostazioniView.vue` è stato risolto mantenendo sia le icone dei conti e i gruppi delle impostazioni già presenti su `main`, sia il nuovo step-up Apple. Il confronto `origin/main...HEAD` contiene solo il lavoro iOS/audio/autenticazione e la relativa documentazione.
 
 ## Controllo di copertura della specifica
 

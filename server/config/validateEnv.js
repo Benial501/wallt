@@ -112,6 +112,16 @@ const collectProductionConfigErrors = () => {
     errors.push('GOOGLE_CALLBACK_URL (or API_URL) is required when GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET are set');
   }
 
+  const appleNames = [
+    'APPLE_CLIENT_ID', 'APPLE_SERVICE_ID', 'APPLE_TEAM_ID', 'APPLE_KEY_ID',
+    'APPLE_PRIVATE_KEY', 'APPLE_REDIRECT_URI',
+  ];
+  const appleConfigured = appleNames.filter(isSet);
+  if (appleConfigured.length > 0 && appleConfigured.length !== appleNames.length) {
+    const missing = appleNames.filter((name) => !isSet(name));
+    errors.push(`Incomplete Sign in with Apple configuration: missing ${missing.join(', ')}`);
+  }
+
   return errors;
 };
 

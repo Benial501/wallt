@@ -7,7 +7,10 @@ xcuserdata
 
 # Cordova plugins for Capacitor
 capacitor-cordova-ios-plugins
-
 # Generated Config files
 App/App/capacitor.config.json
 App/App/config.xml
+ios.local.xcconfig
+*.p8
+*.mobileprovision
+*.provisionprofile

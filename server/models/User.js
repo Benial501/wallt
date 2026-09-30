@@ -52,10 +52,15 @@ const User = sequelize.define('User', {
     defaultValue: true,
   },
   auth_provider: {
-    type: DataTypes.ENUM('local', 'google'),
+    type: DataTypes.ENUM('local', 'google', 'apple'),
     defaultValue: 'local',
   },
   google_id: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    unique: true,
+  },
+  apple_id: {
     type: DataTypes.STRING(255),
     allowNull: true,
     unique: true,

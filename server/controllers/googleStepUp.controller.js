@@ -20,7 +20,8 @@ const getGoogleStepUpChallenge = async (req, res) => {
       return res.status(400).json({ message: 'Solo per account Google' });
     }
 
-    const { nonce, challenge, expires_in: expiresIn } = generateChallenge(req.userId);
+    const platform = req.body?.platform || 'web';
+    const { nonce, challenge, expires_in: expiresIn } = await generateChallenge(req.userId, platform);
     return res.json({ nonce, challenge, expires_in: expiresIn });
   } catch (error) {
     logger.error('Errore getGoogleStepUpChallenge', { err: error });
@@ -35,7 +36,7 @@ const getGoogleStepUpChallenge = async (req, res) => {
  */
 const verifyGoogleStepUpHandler = async (req, res) => {
   try {
-    const { credential, challenge } = req.body;
+    const { credential, challenge, platform = 'web' } = req.body;
 
     const user = await User.findByPk(req.userId);
     if (!user) {
@@ -50,9 +51,10 @@ const verifyGoogleStepUpHandler = async (req, res) => {
       challenge,
       userId: req.userId,
       googleId: user.google_id,
+      platform,
     });
 
-    const stepUpToken = generateStepUpToken(user.id);
+    const stepUpToken = generateStepUpToken(user.id, user.auth_provider);
     return res.json({ step_up_token: stepUpToken });
   } catch (error) {
     if (error instanceof GoogleStepUpError) {

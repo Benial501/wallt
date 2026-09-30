@@ -42,7 +42,7 @@
       con slash finale, che abilita il match per prefisso su /api/*
       (piu' stretta dell'intera origin).
     -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' __WALLT_API_CSP_SOURCES__ https://accounts.google.com; frame-src https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com https://appleid.cdn-apple.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com https://appleid.cdn-apple.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' __WALLT_API_CSP_SOURCES__ https://accounts.google.com https://appleid.apple.com; frame-src https://accounts.google.com https://appleid.apple.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
