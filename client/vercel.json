@@ -1,8 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "_commento_rewrites": "La SPA serve index.html per ogni percorso, ma non per /_vercel/*: quelli sono endpoint della piattaforma (lo script di Web Analytics e l'invio degli eventi). Senza l'esclusione il catch-all li dirotta sulla pagina, il browser riceve text/html dove si aspetta JavaScript e rifiuta di eseguirlo — Analytics resta muto anche quando risulta abilitato nel pannello.",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!_vercel/).*)",
       "destination": "/index.html"
     }
   ],
