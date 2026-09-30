@@ -51,6 +51,17 @@ Le migrazioni abilitano RLS e revocano l’accesso ai ruoli pubblici `anon` e `a
 
 Importa la stessa repository GitHub due volte da [Vercel Dashboard](https://vercel.com/dashboard).
 
+### App iOS Capacitor
+
+La cartella `client/ios` è il contenitore iOS dell’app, mentre Vercel continua
+a pubblicare la PWA dalla stessa cartella `client`. Per aggiornare il bundle
+nativo dopo una modifica frontend, eseguire `npm run cap:sync:ios` da `client`
+e aprire il progetto con `npm run cap:open:ios`. La build locale usa `dist`;
+non impostare `server.url` nel file `capacitor.config.json`.
+
+Il Bundle ID iniziale è `com.wallt.app` e va confermato nel team Apple prima
+della registrazione dei client OAuth e della firma della build.
+
 ### Progetto API
 
 - Nome suggerito: `wallt-api`
