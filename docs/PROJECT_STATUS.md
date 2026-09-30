@@ -182,16 +182,18 @@ Deducibili da codice, commenti o documentazione esistente ma **non implementati*
 
 ## Problemi trovati
 
-### P-1: reset-account/delete-account/export senza riverifica identità per Google — RIAPERTO, RISCHIO ACCETTATO
+### P-1: reset-account/delete-account/export senza riverifica identità per Google — CHIUSO (30 settembre 2026)
 - **Severity**: High per gli account Google (nessun impatto sugli account con password locale).
 - **Area**: Sicurezza
 - **Files**: `server/middleware/stepUp.middleware.js`, `server/routes/impostazioni.routes.js`, `client/src/views/ImpostazioniView.vue`.
-- **Stato attuale**: le tre rotte usano `requireStepUpUnlessOAuth`. Gli utenti con password locale mantengono lo step-up bcrypt reale; per gli account Google lo step-up è saltato e resta solo la conferma testuale `ELIMINA`/`RESETTA` (l'export non ha nemmeno quella).
+- **Stato attuale**: le tre rotte usano `requireStepUp` per tutti. Gli account con password locale riverificano con bcrypt, quelli Google con un ID token fresco di Google Identity Services. La conferma testuale `ELIMINA`/`RESETTA` resta come dichiarazione d'intenzione, non come autorizzazione.
+- **Quanto era concreto**: alla chiusura, in produzione esistevano 3 account Google e 2 locali; i 3 Google non avevano alcuna password, quindi erano esattamente e solamente loro gli account esposti.
+- **Ordine di attivazione (importante)**: il codice va in produzione solo dopo `VITE_GOOGLE_CLIENT_ID` su Vercel e origine JavaScript registrata in Google Cloud. Invertire l'ordine non riapre il buco ma blocca quei 3 account su export, reset ed eliminazione.
 - **Storia**: ri-autenticazione Google implementata → rimossa per semplicità → reimplementata nel final production hardening → **rimossa di nuovo su richiesta esplicita** (iterazione 4). Causa scatenante: il client OAuth in Google Cloud non ha origini JavaScript autorizzate, quindi Google Identity Services risponde `401 invalid_client — no registered origin` e lo step-up era inutilizzabile. Vedi `docs/DECISIONS.md` per il record completo delle quattro iterazioni.
 - **Come richiudere**: registrare `http://localhost:5173` e il dominio di produzione tra le origini JavaScript autorizzate del client OAuth, poi rimettere `requireStepUp` sulle tre rotte e ripristinare il pulsante Google nei modali. Backend, composable e test del meccanismo sono stati mantenuti apposta.
 - **Verificato con**: `server/tests/googleStepUp.test.js` (18 test, 4 dei quali fissano il comportamento attuale) + `auth.test.js`, `gdpr.test.js`.
 - **Risk of modification**: Low — nessuna modifica alla logica finanziaria di `resetAccount()`/`deleteAllTransactions`.
-- **Priority**: P0 da richiudere prima del lancio con dati reali.
+- **Priority**: ~~P0~~ chiuso lato codice; resta la configurazione Google Cloud + variabile d'ambiente, senza le quali non va pubblicato.
 
 ### P-2: .env.test committato in git con password DB reale — TRACKING RISOLTO, ROTAZIONE MANUALE RICHIESTA
 - **Severity**: High (era documentato Medium sottostimando l'impatto: il file era effettivamente tracciato, non solo a rischio).

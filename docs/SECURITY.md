@@ -51,7 +51,9 @@ WALLT ha una **baseline di sicurezza matura**: JWT con invalidazione su cambio p
 
 ### Step-up authentication
 
-> ⚠️ **Stato attuale (iterazione 4): lo step-up si applica SOLO agli account con password locale.** Su richiesta esplicita dell'utente, la ri-autenticazione Google è stata rimossa da tutte e tre le operazioni sensibili (delete account, reset transazioni, export dati). Il middleware in uso su quelle rotte è `requireStepUpUnlessOAuth`, che **salta** lo step-up quando l'utente non ha una password locale. Per gli account Google l'unica barriera oltre al JWT è ora la conferma testuale `ELIMINA`/`RESETTA` (e nessuna conferma sull'export). Il rischio accettato è descritto sotto; il record della decisione è in `docs/DECISIONS.md`.
+> ✅ **Stato attuale (30 settembre 2026): lo step-up si applica a tutti gli account.** Le tre operazioni sensibili (delete account, reset transazioni, export dati) usano `requireStepUp` senza esenzioni. Gli account con password locale riverificano con bcrypt; quelli Google con un ID token fresco di Google Identity Services (`POST /api/auth/google/challenge` → `POST /api/auth/verify-google`). La conferma testuale `ELIMINA`/`RESETTA` resta nei modali come dichiarazione d'intenzione, ma non autorizza più nulla: è una stringa pubblica, presente nel bundle che chiunque può scaricare.
+>
+> **Prerequisito operativo**: il flusso Google funziona solo con `VITE_GOOGLE_CLIENT_ID` impostata nel progetto Vercel del client e con l'origine JavaScript del dominio registrata nel client OAuth di Google Cloud. È la condizione la cui assenza aveva reso lo step-up Google inutilizzabile fra l'iterazione 4 e oggi. Pubblicare il codice senza quella configurazione non riapre il buco, ma impedisce agli account Google di esportare, resettare ed eliminare.
 
 Protegge le operazioni finanziarie distruttive con una riverifica recente dell'identità prima di agire, distinta dal semplice possesso di un JWT. Lo `step_up_token` (JWT, `type: step_up`, **5 minuti**, verificato via header `X-Step-Up-Token`, legato a `userId`) resta invariato nel formato.
 
@@ -320,7 +322,8 @@ Ignora: `.env`, `**/.env`, `.env.local`, `.env.production`, `.env.development`, 
 
 ### Nome problema: reset-account/delete-account/export senza riverifica di identità per utenti Google — RISCHIO ACCETTATO (riaperto)
 - **Severity**: High per gli account Google. Non applicabile agli account locali, che mantengono lo step-up bcrypt reale.
-- **Files**: `server/middleware/stepUp.middleware.js` (`requireStepUpUnlessOAuth`), `server/routes/impostazioni.routes.js`, `client/src/views/ImpostazioniView.vue`.
+- **Files**: `server/middleware/stepUp.middleware.js` (`requireStepUp`), `server/routes/impostazioni.routes.js`, `client/src/views/ImpostazioniView.vue`, `client/src/composables/useGoogleStepUp.js`.
+- **Chiuso il 30 settembre 2026.** In produzione erano esposti 3 account Google reali, nessuno con password locale.
 - **Storia**: risolto nell'audit precedente con la ri-autenticazione Google, poi **riaperto deliberatamente** su richiesta esplicita dell'utente (iterazione 4, vedi `docs/DECISIONS.md`). Causa scatenante: il client OAuth in Google Cloud non ha origini JavaScript autorizzate, quindi Google Identity Services rispondeva `401 invalid_client — no registered origin` e lo step-up era inutilizzabile in pratica. L'utente ha scelto la rimozione invece della configurazione dell'origin.
 - **Impatto**: chi ottiene un JWT WALLT valido di un utente Google (XSS, furto del token da `localStorage`, sessione lasciata aperta su un dispositivo condiviso) può esportare tutti i dati finanziari, azzerare le transazioni ed eliminare l'account senza possedere le credenziali Google. Le stringhe `ELIMINA`/`RESETTA` sono pubbliche e non costituiscono un ostacolo per un attaccante.
 - **Mitigazioni residue**: `deleteAccountLimiter` (3/15min), `exportLimiter`, scadenza JWT 7 giorni, invalidazione su `password_changed_at`.

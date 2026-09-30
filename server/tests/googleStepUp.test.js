@@ -18,8 +18,9 @@ jest.mock('google-auth-library', () => ({
 
 const {
   request, createApp, createGoogleUser, registerUser, authHeader, seedUserFinanceData,
-  getStepUpToken, defaultRegisterPayload, User,
+  getStepUpToken, defaultRegisterPayload, User, Movimento,
 } = require('./setup');
+const jwt = require('jsonwebtoken');
 const { generateToken } = require('../controllers/auth.controller');
 
 describe('Step-up Google OAuth (challenge/nonce + ID token)', () => {
@@ -155,7 +156,6 @@ describe('Step-up Google OAuth (challenge/nonce + ID token)', () => {
   });
 
   it('rifiuta un challenge scaduto', async () => {
-    const jwt = require('jsonwebtoken');
     const googleUser = await createGoogleUser();
     const token = tokenFor(googleUser);
 
@@ -275,10 +275,12 @@ describe('Step-up Google OAuth (challenge/nonce + ID token)', () => {
   });
 
   // --- Iterazione 4: rimozione della ri-autenticazione Google ---
-  // Gli account OAuth non hanno più alcuno step-up sulle operazioni sensibili:
-  // resta solo la conferma testuale. Vedi docs/DECISIONS.md e docs/SECURITY.md.
+  // Anche gli account Google devono riprovare la propria identita' sulle tre
+  // operazioni distruttive. La conferma testuale RESETTA/ELIMINA resta, ma
+  // dichiara l'intenzione: non e' piu' cio' che autorizza l'operazione, perche'
+  // e' una stringa pubblica che chiunque legga il codice del sito conosce.
 
-  it('un account Google resetta le transazioni con la sola conferma RESETTA, senza step-up', async () => {
+  it('un account Google non resetta le transazioni con la sola conferma RESETTA', async () => {
     const googleUser = await createGoogleUser();
     await seedUserFinanceData(googleUser.id, 'G3');
 
@@ -287,10 +289,13 @@ describe('Step-up Google OAuth (challenge/nonce + ID token)', () => {
       .set(authHeader(tokenFor(googleUser)))
       .send({ conferma: 'RESETTA' });
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(403);
+    // I movimenti devono essere ancora li': un 403 che cancella comunque
+    // sarebbe il difetto peggiore di tutti.
+    expect(await Movimento.count({ where: { user_id: googleUser.id } })).toBeGreaterThan(0);
   });
 
-  it('un account Google elimina l\'account con la sola conferma ELIMINA, senza step-up', async () => {
+  it('un account Google non elimina l\'account con la sola conferma ELIMINA', async () => {
     const googleUser = await createGoogleUser();
     await seedUserFinanceData(googleUser.id, 'G4');
 
@@ -299,21 +304,39 @@ describe('Step-up Google OAuth (challenge/nonce + ID token)', () => {
       .set(authHeader(tokenFor(googleUser)))
       .send({ conferma: 'ELIMINA' });
 
-    expect(res.status).toBe(200);
-    expect(await User.findByPk(googleUser.id)).toBeNull();
+    expect(res.status).toBe(403);
+    expect(await User.findByPk(googleUser.id)).not.toBeNull();
   });
 
-  it('un account Google senza la conferma corretta viene comunque rifiutato', async () => {
+  it('un account Google non esporta i dati senza riverifica', async () => {
+    const googleUser = await createGoogleUser();
+    await seedUserFinanceData(googleUser.id, 'G6');
+
+    const res = await request(app)
+      .post('/api/impostazioni/esporta')
+      .set(authHeader(tokenFor(googleUser)));
+
+    // Era il caso peggiore dei tre: l'export non chiedeva nemmeno la stringa.
+    expect(res.status).toBe(403);
+  });
+
+  it('con uno step-up token valido l\'account Google completa l\'operazione', async () => {
     const googleUser = await createGoogleUser();
     await seedUserFinanceData(googleUser.id, 'G5');
 
-    const res = await request(app)
-      .delete('/api/impostazioni/account')
-      .set(authHeader(tokenFor(googleUser)))
-      .send({ conferma: 'ELIMIN' });
+    const stepUpToken = jwt.sign(
+      { userId: googleUser.id, type: 'step_up' },
+      process.env.JWT_SECRET,
+      { expiresIn: '5m' },
+    );
 
-    expect(res.status).toBe(400);
-    expect(await User.findByPk(googleUser.id)).not.toBeNull();
+    const res = await request(app)
+      .post('/api/impostazioni/reset-account')
+      .set(authHeader(tokenFor(googleUser)))
+      .set('X-Step-Up-Token', stepUpToken)
+      .send({ conferma: 'RESETTA' });
+
+    expect(res.status).toBe(200);
   });
 
   it('un utente locale continua a richiedere lo step-up sulle operazioni sensibili', async () => {

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, nextTick, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import WCard from '@/components/common/WCard.vue';
@@ -10,6 +10,7 @@ import { useContiStore } from '@/stores/conti.store';
 import { useMovimentiStore } from '@/stores/movimenti.store';
 import { useTheme } from '@/composables/useTheme';
 import { useToastStore } from '@/stores/toast.store';
+import { useGoogleStepUp } from '@/composables/useGoogleStepUp';
 import { useValuta } from '@/composables/useValuta';
 import api from '@/utils/axios';
 import { performLogout, resetPiniaStores } from '@/utils/session';
@@ -53,6 +54,39 @@ const themeAnimating = ref(false);
 const showPasswordModal = ref(false);
 const showResetModal = ref(false);
 const showDeleteModal = ref(false);
+
+/**
+ * Verifica Google per le tre operazioni distruttive.
+ *
+ * Prima, per un account Google, l'unica barriera oltre al token di sessione
+ * era una parola digitata (ELIMINA/RESETTA) — pubblica, scritta nel codice
+ * del sito — e l'export non aveva nemmeno quella. Ora anche questi account
+ * riprovano la propria identita', con un ID token fresco di Google.
+ */
+const { renderGoogleStepUpButton, verifying: verificaGoogleInCorso } = useGoogleStepUp();
+const contenitoreGoogleReset = ref(null);
+const contenitoreGoogleDelete = ref(null);
+const contenitoreGoogleExport = ref(null);
+const erroreGoogle = ref('');
+const showExportGoogleModal = ref(false);
+
+/**
+ * Mostra il pulsante di Google nel contenitore e attende che la persona
+ * completi la verifica. Il token che ne esce vale cinque minuti ed e' la
+ * chiave che il server pretende per l'operazione.
+ */
+const verificaConGoogle = async (contenitore) => {
+  erroreGoogle.value = '';
+  await nextTick();
+  try {
+    return await renderGoogleStepUpButton(contenitore.value);
+  } catch (err) {
+    erroreGoogle.value = err?.message === 'missing_client_id'
+      ? 'La verifica con Google non è configurata in questo ambiente.'
+      : 'Verifica con Google non riuscita. Riprova.';
+    return null;
+  }
+};
 const showStepUpModal = ref(false);
 const stepUpPassword = ref('');
 const stepUpLoading = ref(false);
@@ -286,10 +320,18 @@ const eseguiExport = async (stepUpToken) => {
   }
 };
 
-// Gli account OAuth non hanno password da riverificare: l'export parte subito.
-const esportaDati = () => {
+/**
+ * L'export porta fuori tutti i dati finanziari: prima per un account Google
+ * partiva immediatamente, senza nemmeno la conferma testuale. Ora entrambi i
+ * tipi di account passano da una riverifica — password oppure Google.
+ */
+const esportaDati = async () => {
   if (isOAuthAccount.value) {
-    eseguiExport(null);
+    showExportGoogleModal.value = true;
+    const token = await verificaConGoogle(contenitoreGoogleExport);
+    if (!token) return;
+    showExportGoogleModal.value = false;
+    await eseguiExport(token);
     return;
   }
   openStepUpModal(eseguiExport);
@@ -375,11 +417,16 @@ const resetAccount = async () => {
   }
 };
 
-// Ramo account OAuth: nessuno step-up, la conferma testuale "RESETTA" è
-// l'unica barriera (validata anche lato server da resetAccount).
+/**
+ * Ramo account Google: la parola "RESETTA" resta come conferma
+ * dell'intenzione, ma non e' piu' cio' che autorizza l'operazione — quella
+ * e' la verifica Google, che il server pretende.
+ */
 const resetAccountOAuth = async () => {
   if (!isOAuthAccount.value || resetConfirmText.value !== 'RESETTA') return;
-  await performResetAccount(null, { conferma: 'RESETTA' });
+  const token = await verificaConGoogle(contenitoreGoogleReset);
+  if (!token) return;
+  await performResetAccount(token, { conferma: 'RESETTA' });
 };
 
 const handleLogout = async () => {
@@ -419,11 +466,12 @@ const eliminaAccount = async () => {
   }
 };
 
-// Ramo account OAuth: nessuno step-up, la conferma testuale "ELIMINA" è
-// l'unica barriera (validata anche lato server da deleteAccount).
+/** Ramo account Google: come sopra, la parola conferma ma non autorizza. */
 const eliminaAccountOAuth = async () => {
   if (!isOAuthAccount.value || deleteConfirmText.value !== 'ELIMINA') return;
-  await performDeleteAccount(null, { conferma: 'ELIMINA' });
+  const token = await verificaConGoogle(contenitoreGoogleDelete);
+  if (!token) return;
+  await performDeleteAccount(token, { conferma: 'ELIMINA' });
 };
 </script>
 
@@ -708,12 +756,19 @@ const eliminaAccountOAuth = async () => {
           <WButton
             variant="danger"
             size="lg"
-            :loading="loading"
+            :loading="loading || verificaGoogleInCorso"
             :disabled="resetConfirmText !== 'RESETTA'"
             @click="resetAccountOAuth"
           >
             Sì, elimina transazioni
           </WButton>
+          <!-- Google disegna qui il proprio pulsante: e' un requisito del
+               servizio, il pulsante non puo' essere ridisegnato da noi. -->
+          <div ref="contenitoreGoogleReset" class="google-verifica" />
+          <p v-if="erroreGoogle" class="danger-text danger-text--inline">{{ erroreGoogle }}</p>
+          <p v-else class="hint hint--inline">
+            Per procedere conferma la tua identita&#768; con Google.
+          </p>
         </template>
         <template v-else>
           <input v-model="resetPassword" type="password" class="form-input" placeholder="Password per confermare" />
@@ -745,12 +800,19 @@ const eliminaAccountOAuth = async () => {
           <WButton
             variant="danger"
             size="lg"
-            :loading="loading"
+            :loading="loading || verificaGoogleInCorso"
             :disabled="deleteConfirmText !== 'ELIMINA'"
             @click="eliminaAccountOAuth"
           >
             Sì, elimina tutto
           </WButton>
+          <!-- Google disegna qui il proprio pulsante: e' un requisito del
+               servizio, il pulsante non puo' essere ridisegnato da noi. -->
+          <div ref="contenitoreGoogleDelete" class="google-verifica" />
+          <p v-if="erroreGoogle" class="danger-text danger-text--inline">{{ erroreGoogle }}</p>
+          <p v-else class="hint hint--inline">
+            Per procedere conferma la tua identita&#768; con Google.
+          </p>
         </template>
         <template v-else>
           <input v-model="deletePassword" type="password" class="form-input" placeholder="Password per confermare" />
@@ -764,6 +826,22 @@ const eliminaAccountOAuth = async () => {
             Sì, elimina tutto
           </WButton>
         </template>
+      </div>
+    </WModal>
+
+    <!-- Export per account Google: prima partiva senza alcuna verifica. -->
+    <WModal
+      :open="showExportGoogleModal"
+      title="Verifica identità"
+      @close="showExportGoogleModal = false"
+    >
+      <div class="form-space">
+        <p class="hint hint--inline">
+          L'esportazione contiene tutti i tuoi dati finanziari. Conferma la tua
+          identita&#768; con Google per procedere.
+        </p>
+        <div ref="contenitoreGoogleExport" class="google-verifica" />
+        <p v-if="erroreGoogle" class="danger-text danger-text--inline">{{ erroreGoogle }}</p>
       </div>
     </WModal>
 
@@ -830,4 +908,15 @@ const eliminaAccountOAuth = async () => {
 .reset-list { margin: 0.25rem 0 0.5rem 1.25rem; color: var(--text-secondary); font-size: var(--text-xs); }
 .reset-list li { margin-bottom: 0.25rem; }
 .form-space { display: flex; flex-direction: column; gap: 0.75rem; }
+
+/* Il pulsante di Google ha misure proprie e non si ridisegna: qui si governa
+   solo lo spazio attorno. */
+.google-verifica {
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: 0.25rem;
+}
+
+.danger-text--inline { font-size: var(--text-xs); margin: 0; }
 </style>
