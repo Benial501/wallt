@@ -51,15 +51,40 @@ class FakeOscillator extends FakeAudioNode {
   }
 }
 
+class FakeBufferSource extends FakeAudioNode {
+  buffer;
+  startTime;
+
+  start(time) {
+    this.startTime = time;
+  }
+}
+
 class FakeAudioContext {
   state = 'running';
   currentTime = 12;
+  sampleRate = 44100;
   destination = {};
   gains = [];
   oscillators = [];
+  bufferSources = [];
   closeCalls = 0;
   resumeCalls = 0;
   resumeOnCall = Infinity;
+
+  get silentTicks() {
+    return this.bufferSources.filter((source) => source.startTime !== undefined).length;
+  }
+
+  createBuffer(channels, length, sampleRate) {
+    return { channels, length, sampleRate };
+  }
+
+  createBufferSource() {
+    const source = new FakeBufferSource();
+    this.bufferSources.push(source);
+    return source;
+  }
 
   createGain() {
     const gain = new FakeAudioNode();
@@ -148,6 +173,36 @@ test('il primo tocco durante la splash sblocca e riproduce il suono', async () =
   assert.equal(context.oscillators.length, 3);
   assert.equal(eventTarget.listeners.size, 0, 'dopo l’avvio rimuove gli ascoltatori');
   context.oscillators.forEach((oscillator) => oscillator.onended());
+});
+
+test('su iOS il contesto nato fuori dal gesto resta muto: al primo tocco ne apre uno nuovo', async () => {
+  assert.ok(soundModule, 'deve esistere il modulo che genera il suono');
+
+  // WebKit lascia sospeso un contesto creato fuori da un gesto e resume() non
+  // lo risveglia: solo un contesto aperto dentro il tocco esce davvero muto.
+  const contexts = [];
+  const createAudioContext = () => {
+    const context = new FakeAudioContext();
+    context.state = contexts.length === 0 ? 'suspended' : 'running';
+    contexts.push(context);
+    return context;
+  };
+  const eventTarget = new FakeEventTarget();
+
+  soundModule.startStartupSplashSound({ createAudioContext, eventTarget });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(contexts.length, 1);
+  assert.equal(contexts[0].oscillators.length, 0, 'l’autoplay iniziale è bloccato');
+
+  eventTarget.dispatch('pointerdown');
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(contexts.length, 2, 'il gesto apre un contesto nuovo');
+  assert.equal(contexts[0].closeCalls, 1, 'chiude il contesto nato sospeso');
+  assert.equal(contexts[1].silentTicks, 1, 'sblocca WebKit con un buffer muto');
+  assert.equal(contexts[1].oscillators.length, 3, 'il suono parte al primo tocco');
+  assert.equal(eventTarget.listeners.size, 0, 'dopo l’avvio rimuove gli ascoltatori');
+  contexts[1].oscillators.forEach((oscillator) => oscillator.onended());
 });
 
 test('App avvia il suono solo quando il movimento ridotto non è attivo', () => {

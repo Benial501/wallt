@@ -23,6 +23,21 @@ function createBrowserAudioContext() {
   return AudioContextConstructor ? new AudioContextConstructor() : null;
 }
 
+// WebKit considera l'uscita audio sbloccata solo dopo che una sorgente è
+// partita davvero dentro il gesto: il solo resume() non basta e lascia muto
+// il primo tocco. Un buffer di un campione è inudibile e fa da chiave.
+function playSilentTick(audioContext) {
+  try {
+    const buffer = audioContext.createBuffer(1, 1, audioContext.sampleRate || 22050);
+    const source = audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioContext.destination);
+    source.start(0);
+  } catch {
+    // Un browser senza buffer source resta comunque sbloccabile con resume.
+  }
+}
+
 export function scheduleStartupSplashSound(audioContext) {
   if (!audioContext || audioContext.state !== 'running') return false;
 
@@ -71,17 +86,20 @@ export function startStartupSplashSound({
 } = {}) {
   if (unlockWindowMs <= 0) return () => {};
 
-  let audioContext;
+  const openAudioContext = () => {
+    try {
+      return createAudioContext() || null;
+    } catch {
+      return null;
+    }
+  };
 
-  try {
-    audioContext = createAudioContext();
-    if (!audioContext) return () => {};
-  } catch {
-    return () => {};
-  }
+  let audioContext = openAudioContext();
+  if (!audioContext) return () => {};
 
   let finished = false;
   let soundScheduled = false;
+  let reopenedInGesture = false;
   let unlockTimer;
 
   const removeUnlockListeners = () => {
@@ -116,8 +134,29 @@ export function startStartupSplashSound({
     }
   };
 
-  function resumeAndSchedule() {
+  // Su iOS un contesto creato prima del gesto resta muto anche dopo resume():
+  // il primo tocco ne apre uno nuovo, perché è l'unico istante in cui WebKit
+  // concede davvero l'uscita audio. Altrove il contesto iniziale basta.
+  const reopenInGesture = () => {
+    if (reopenedInGesture) return;
+    reopenedInGesture = true;
+
+    const previous = audioContext;
+    const fresh = openAudioContext();
+    if (!fresh || fresh === previous) return;
+
+    audioContext = fresh;
+    closeAudioContext(previous);
+  };
+
+  const unlock = (fromGesture) => {
     if (finished) return;
+
+    if (fromGesture && audioContext.state !== 'running') {
+      reopenInGesture();
+      playSilentTick(audioContext);
+    }
+
     if (audioContext.state === 'running') {
       scheduleIfRunning();
       return;
@@ -130,13 +169,17 @@ export function startStartupSplashSound({
     } catch {
       // Un browser che rifiuta resume può ancora sbloccarsi al gesto successivo.
     }
+  };
+
+  function resumeAndSchedule() {
+    unlock(true);
   }
 
   eventTarget?.addEventListener?.('pointerdown', resumeAndSchedule, true);
   eventTarget?.addEventListener?.('keydown', resumeAndSchedule, true);
   eventTarget?.addEventListener?.('touchstart', resumeAndSchedule, true);
   unlockTimer = setTimeout(finishWithoutSound, unlockWindowMs);
-  resumeAndSchedule();
+  unlock(false);
 
   return () => {
     if (!soundScheduled) finishWithoutSound();
