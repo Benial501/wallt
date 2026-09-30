@@ -6,7 +6,7 @@ import LegalFooter from '@/components/layout/LegalFooter.vue';
 import WalltSplash from '@/components/common/WalltSplash.vue';
 import { useTheme } from '@/composables/useTheme';
 import { getStartupSplashTiming, STARTUP_SPLASH_EXIT_MS } from '@/utils/startupSplash';
-import { playStartupSplashSound } from '@/utils/startupSplashSound';
+import { startStartupSplashSound } from '@/utils/startupSplashSound';
 
 const route = useRoute();
 const router = useRouter();
@@ -15,7 +15,6 @@ const startupSplashVisible = ref(true);
 const startupSplashLeaving = ref(false);
 const startupNavigationReady = ref(false);
 const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-if (!prefersReducedMotion) void playStartupSplashSound();
 
 const navigationStartedAt = window.performance.getEntriesByType('navigation')[0]?.startTime
   ?? window.performance.now();
@@ -24,6 +23,12 @@ const startupSplashTiming = getStartupSplashTiming(
   navigationStartedAt,
   prefersReducedMotion,
 );
+let stopSplashSound = () => {};
+if (!prefersReducedMotion) {
+  stopSplashSound = startStartupSplashSound({
+    unlockWindowMs: startupSplashTiming.remainingMs + STARTUP_SPLASH_EXIT_MS,
+  });
+}
 
 router.isReady().then(
   () => { startupNavigationReady.value = true; },
@@ -59,6 +64,7 @@ const showLegalFooter = computed(() => (
 onUnmounted(() => {
   window.clearTimeout(splashTimer);
   window.clearTimeout(splashExitTimer);
+  stopSplashSound();
 });
 </script>
 

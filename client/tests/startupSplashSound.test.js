@@ -58,6 +58,8 @@ class FakeAudioContext {
   gains = [];
   oscillators = [];
   closeCalls = 0;
+  resumeCalls = 0;
+  resumeOnCall = Infinity;
 
   createGain() {
     const gain = new FakeAudioNode();
@@ -73,6 +75,8 @@ class FakeAudioContext {
   }
 
   resume() {
+    this.resumeCalls += 1;
+    if (this.resumeCalls === this.resumeOnCall) this.state = 'running';
     return Promise.resolve();
   }
 
@@ -80,6 +84,25 @@ class FakeAudioContext {
     this.closeCalls += 1;
     this.state = 'closed';
     return Promise.resolve();
+  }
+}
+
+class FakeEventTarget {
+  listeners = new Map();
+
+  addEventListener(type, listener, options) {
+    this.listeners.set(type, { listener, once: options?.once === true });
+  }
+
+  removeEventListener(type) {
+    this.listeners.delete(type);
+  }
+
+  dispatch(type) {
+    const entry = this.listeners.get(type);
+    if (!entry) return;
+    if (entry.once) this.listeners.delete(type);
+    entry.listener();
   }
 }
 
@@ -103,19 +126,31 @@ test('l’effetto sonoro della splash viene generato con tre note ascendenti e m
   assert.equal(context.closeCalls, 1);
 });
 
-test('l’avvio non fallisce se il browser non concede l’audio', async () => {
+test('il primo tocco durante la splash sblocca e riproduce il suono', async () => {
   assert.ok(soundModule, 'deve esistere il modulo che genera il suono');
 
   const context = new FakeAudioContext();
   context.state = 'suspended';
-  assert.equal(await soundModule.playStartupSplashSound(() => context), false);
-  assert.equal(context.oscillators.length, 0);
-  assert.equal(context.closeCalls, 1);
+  context.resumeOnCall = 2;
+  const eventTarget = new FakeEventTarget();
 
-  assert.equal(await soundModule.playStartupSplashSound(() => null), false);
+  soundModule.startStartupSplashSound({
+    createAudioContext: () => context,
+    eventTarget,
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(context.oscillators.length, 0, 'l’autoplay iniziale è bloccato');
+  assert.ok(eventTarget.listeners.has('pointerdown'), 'il gesto resta in ascolto durante la splash');
+
+  eventTarget.dispatch('pointerdown');
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(context.oscillators.length, 3);
+  assert.equal(eventTarget.listeners.size, 0, 'dopo l’avvio rimuove gli ascoltatori');
+  context.oscillators.forEach((oscillator) => oscillator.onended());
 });
 
 test('App avvia il suono solo quando il movimento ridotto non è attivo', () => {
-  assert.match(appSource, /import\s*\{\s*playStartupSplashSound\s*\}\s*from\s*['"]@\/utils\/startupSplashSound['"]/);
-  assert.match(appSource, /if\s*\(!prefersReducedMotion\)\s*void\s+playStartupSplashSound\(\)/);
+  assert.match(appSource, /import\s*\{\s*startStartupSplashSound\s*\}\s*from\s*['"]@\/utils\/startupSplashSound['"]/);
+  assert.match(appSource, /if\s*\(!prefersReducedMotion\)\s*\{[\s\S]*?startStartupSplashSound\(/);
 });

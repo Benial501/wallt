@@ -1,3 +1,5 @@
+import { STARTUP_SPLASH_ANIMATION_MS, STARTUP_SPLASH_EXIT_MS } from './startupSplash.js';
+
 export const STARTUP_SPLASH_SOUND_NOTES = Object.freeze([
   Object.freeze({ frequency: 392, startMs: 80, durationMs: 1120, volume: 0.07 }),
   Object.freeze({ frequency: 523.25, startMs: 310, durationMs: 920, volume: 0.052 }),
@@ -5,7 +7,7 @@ export const STARTUP_SPLASH_SOUND_NOTES = Object.freeze([
 ]);
 
 const MASTER_VOLUME = 0.2;
-const RESUME_TIMEOUT_MS = 180;
+const STARTUP_SPLASH_SOUND_UNLOCK_WINDOW_MS = STARTUP_SPLASH_ANIMATION_MS + STARTUP_SPLASH_EXIT_MS;
 
 function closeAudioContext(audioContext) {
   try {
@@ -19,23 +21,6 @@ function closeAudioContext(audioContext) {
 function createBrowserAudioContext() {
   const AudioContextConstructor = globalThis.AudioContext || globalThis.webkitAudioContext;
   return AudioContextConstructor ? new AudioContextConstructor() : null;
-}
-
-function resumeAudioContext(audioContext) {
-  return new Promise((resolve) => {
-    const timeout = setTimeout(() => resolve(false), RESUME_TIMEOUT_MS);
-
-    Promise.resolve()
-      .then(() => audioContext.resume())
-      .then(() => {
-        clearTimeout(timeout);
-        resolve(audioContext.state === 'running');
-      })
-      .catch(() => {
-        clearTimeout(timeout);
-        resolve(false);
-      });
-  });
 }
 
 export function scheduleStartupSplashSound(audioContext) {
@@ -79,23 +64,81 @@ export function scheduleStartupSplashSound(audioContext) {
   return true;
 }
 
-export async function playStartupSplashSound(createAudioContext = createBrowserAudioContext) {
+export function startStartupSplashSound({
+  createAudioContext = createBrowserAudioContext,
+  eventTarget = globalThis.window,
+  unlockWindowMs = STARTUP_SPLASH_SOUND_UNLOCK_WINDOW_MS,
+} = {}) {
+  if (unlockWindowMs <= 0) return () => {};
+
   let audioContext;
 
   try {
     audioContext = createAudioContext();
-    if (!audioContext) return false;
+    if (!audioContext) return () => {};
+  } catch {
+    return () => {};
+  }
 
-    if (audioContext.state !== 'running' && !(await resumeAudioContext(audioContext))) {
-      closeAudioContext(audioContext);
-      return false;
+  let finished = false;
+  let soundScheduled = false;
+  let unlockTimer;
+
+  const removeUnlockListeners = () => {
+    eventTarget?.removeEventListener?.('pointerdown', resumeAndSchedule, true);
+    eventTarget?.removeEventListener?.('keydown', resumeAndSchedule, true);
+    eventTarget?.removeEventListener?.('touchstart', resumeAndSchedule, true);
+  };
+
+  const finishWithoutSound = () => {
+    if (finished) return;
+    finished = true;
+    clearTimeout(unlockTimer);
+    removeUnlockListeners();
+    closeAudioContext(audioContext);
+  };
+
+  const scheduleIfRunning = () => {
+    if (finished || audioContext.state !== 'running') return;
+
+    try {
+      if (!scheduleStartupSplashSound(audioContext)) {
+        finishWithoutSound();
+        return;
+      }
+
+      soundScheduled = true;
+      finished = true;
+      clearTimeout(unlockTimer);
+      removeUnlockListeners();
+    } catch {
+      finishWithoutSound();
+    }
+  };
+
+  function resumeAndSchedule() {
+    if (finished) return;
+    if (audioContext.state === 'running') {
+      scheduleIfRunning();
+      return;
     }
 
-    if (scheduleStartupSplashSound(audioContext)) return true;
-    closeAudioContext(audioContext);
-    return false;
-  } catch {
-    closeAudioContext(audioContext);
-    return false;
+    try {
+      Promise.resolve(audioContext.resume())
+        .then(scheduleIfRunning)
+        .catch(() => {});
+    } catch {
+      // Un browser che rifiuta resume può ancora sbloccarsi al gesto successivo.
+    }
   }
+
+  eventTarget?.addEventListener?.('pointerdown', resumeAndSchedule, true);
+  eventTarget?.addEventListener?.('keydown', resumeAndSchedule, true);
+  eventTarget?.addEventListener?.('touchstart', resumeAndSchedule, true);
+  unlockTimer = setTimeout(finishWithoutSound, unlockWindowMs);
+  resumeAndSchedule();
+
+  return () => {
+    if (!soundScheduled) finishWithoutSound();
+  };
 }
