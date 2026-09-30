@@ -48,35 +48,41 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
       .boot-splash {
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 1rem;
-        background: #000;
-        color: #fff;
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        padding: max(1.5rem, env(safe-area-inset-top)) max(1.5rem, env(safe-area-inset-right))
+          max(1.5rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-left));
+        background: #06060A;
         font-family: Inter, system-ui, sans-serif;
       }
+      .boot-splash__brand {
+        display: grid;
+        place-items: center;
+        padding: 0.875rem 1.125rem;
+        border: 1px solid rgba(15, 23, 42, 0.06);
+        border-radius: 18px;
+        background: #fff;
+        animation: boot-splash-arrive 520ms cubic-bezier(0.32, 0.72, 0, 1) both;
+      }
       .boot-splash__logo {
-        font-size: 1.75rem;
-        font-weight: 800;
-        letter-spacing: 0.04em;
+        display: block;
+        width: clamp(9.5rem, 48vw, 12.5rem);
+        height: auto;
+        user-select: none;
       }
-      .boot-splash__logo::after {
-        content: 'T';
-        color: #00D4AA;
+      @keyframes boot-splash-arrive {
+        from { opacity: 0; transform: translateY(3px) scale(0.975); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
       }
-      .boot-splash__spinner {
-        width: 28px;
-        height: 28px;
-        border: 2px solid rgba(255, 255, 255, 0.15);
-        border-top-color: #00D4AA;
-        border-radius: 50%;
-        animation: boot-spin 0.8s linear infinite;
+      @media (prefers-color-scheme: light) {
+        .boot-splash { background: #EEF1F6; }
       }
-      @keyframes boot-spin {
-        to { transform: rotate(360deg); }
+      @media (prefers-reduced-motion: reduce) {
+        .boot-splash__brand { animation: none; }
       }
     </style>
   </head>
@@ -84,8 +90,9 @@
     <div id="app">
       <div id="wallt-runtime-error" hidden style="position:fixed;inset:0;z-index:99999;padding:1.5rem;background:#1a0000;color:#ffb4b4;font:14px/1.5 Inter,system-ui,sans-serif;overflow:auto;"></div>
       <div class="boot-splash" aria-hidden="true">
-        <span class="boot-splash__logo">WALLT</span>
-        <span class="boot-splash__spinner" />
+        <div class="boot-splash__brand">
+          <img class="boot-splash__logo" src="/brand/wallt-logo-horizontal.svg" alt="" width="743" height="229" draggable="false">
+        </div>
       </div>
     </div>
     <script type="module" src="/src/main.js"></script>
