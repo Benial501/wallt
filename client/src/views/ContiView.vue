@@ -10,7 +10,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useValuta } from '@/composables/useValuta';
 import { formatData } from '@/utils/formatters';
 import { CONTO_TIPO_ICON_MAP, CreditCard, Repeat2, AlertTriangle } from '@/utils/appIcons';
-import { DEFAULT_EMOJI_BY_TIPO } from '@/utils/contoEmoji';
+import { DEFAULT_ICON_BY_TIPO } from '@/utils/contoIcons';
 import ImportEstrattoHint from '@/components/common/ImportEstrattoHint.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import HelpNote from '@/components/help/HelpNote.vue';
@@ -54,7 +54,7 @@ const tipiDisponibili = computed(() => {
 const COLORI = ['#00D4AA', '#6C5CE7', '#74B9FF', '#FECA57', '#FF4757', '#FF9F43', '#A29BFE', '#FD79A8'];
 
 const nuovoForm = ref({
-  nome: '', tipo: 'banca', saldo_iniziale: 0, icona: '🏦', colore: '#00D4AA',
+  nome: '', tipo: 'banca', saldo_iniziale: 0, icona: 'banca', colore: '#00D4AA',
 });
 
 const editForm = ref({
@@ -63,8 +63,8 @@ const editForm = ref({
 
 
 watch(() => nuovoForm.value.tipo, (tipo) => {
-  if (DEFAULT_EMOJI_BY_TIPO[tipo]) {
-    nuovoForm.value.icona = DEFAULT_EMOJI_BY_TIPO[tipo];
+  if (DEFAULT_ICON_BY_TIPO[tipo]) {
+    nuovoForm.value.icona = DEFAULT_ICON_BY_TIPO[tipo];
   }
 });
 
@@ -105,7 +105,7 @@ const creaConto = async () => {
           : 'Conto creato!',
     );
     showNuovoConto.value = false;
-    nuovoForm.value = { nome: '', tipo: 'banca', saldo_iniziale: 0, icona: '🏦', colore: '#00D4AA' };
+    nuovoForm.value = { nome: '', tipo: 'banca', saldo_iniziale: 0, icona: 'banca', colore: '#00D4AA' };
   } catch (err) {
     toastStore.error(extractApiError(err, 'Errore nella creazione del conto'));
   } finally {

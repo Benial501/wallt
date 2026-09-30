@@ -11,6 +11,7 @@ import { useMovimentiStore } from '@/stores/movimenti.store';
 import { useTheme } from '@/composables/useTheme';
 import { useToastStore } from '@/stores/toast.store';
 import { useGoogleStepUp } from '@/composables/useGoogleStepUp';
+import { resolveContoIcon } from '@/utils/contoIcons';
 import { useValuta } from '@/composables/useValuta';
 import api from '@/utils/axios';
 import { performLogout, resetPiniaStores } from '@/utils/session';
@@ -512,8 +513,7 @@ const eliminaAccountOAuth = async () => {
       <p>{{ authStore.user?.email }}</p>
     </div>
 
-    <WCard class="section-card"><RouterLink to="/impostazioni/categorie" class="section-toggle"><span>Categorie</span><ChevronRight :size="16" /></RouterLink></WCard>
-
+    <h2 class="gruppo">Il tuo account</h2>
     <WCard class="section-card">
       <button class="section-toggle" @click="toggleSection('account')">
         <Shield :size="18" :stroke-width="1.75" />
@@ -525,7 +525,6 @@ const eliminaAccountOAuth = async () => {
         <WButton variant="secondary" size="md" @click="handleLogout">Esci dall'account</WButton>
       </div>
     </WCard>
-
     <WCard class="section-card">
       <button class="section-toggle" @click="toggleSection('profilo')">
         <User :size="18" :stroke-width="1.75" />
@@ -538,7 +537,6 @@ const eliminaAccountOAuth = async () => {
         <WButton variant="primary" size="md" :loading="loading" @click="salvaProfilo">Salva modifiche</WButton>
       </div>
     </WCard>
-
     <WCard class="section-card">
       <button class="section-toggle" @click="toggleSection('finanziario')">
         <ClipboardList :size="18" :stroke-width="1.75" />
@@ -551,46 +549,7 @@ const eliminaAccountOAuth = async () => {
       </div>
     </WCard>
 
-    <WCard class="section-card">
-      <button class="section-toggle" @click="toggleSection('conti')">
-        <Wallet :size="18" :stroke-width="1.75" />
-        <span>I miei conti</span>
-        <component :is="openSections.conti ? ChevronDown : ChevronRight" :size="16" />
-      </button>
-      <div v-if="openSections.conti" class="section-body">
-        <p class="profilo-summary">{{ riepilogoConti }}</p>
-        <ul v-if="contiVisibili.length" class="conti-mini-list">
-          <li v-for="conto in contiVisibili" :key="conto.id">
-            <span class="conti-mini-list__emoji">{{ conto.icona || '💳' }}</span>
-            <span class="conti-mini-list__nome">{{ conto.nome }}</span>
-            <span class="conti-mini-list__saldo">{{ formatValuta(conto.saldo) }}</span>
-          </li>
-        </ul>
-        <p class="hint hint--inline">
-          Aggiungi banche, app di pagamento, contanti e altri conti. Necessari per importare estratti e registrare movimenti.
-        </p>
-        <WButton variant="primary" size="md" @click="router.push('/conti')">
-          Gestisci i miei conti
-        </WButton>
-      </div>
-    </WCard>
-
-    <WCard class="section-card">
-      <button class="section-toggle" @click="toggleSection('importa')">
-        <DownloadIcon :size="18" :stroke-width="1.75" />
-        <span>Importa estratto conto</span>
-        <component :is="openSections.importa ? ChevronDown : ChevronRight" :size="16" />
-      </button>
-      <div v-if="openSections.importa" class="section-body">
-        <p class="hint">
-          Carica il file CSV o Excel del tuo estratto conto. WALLT riconosce i formati delle principali banche italiane.
-        </p>
-        <WButton variant="primary" size="md" @click="router.push('/importa')">
-          Vai all'importazione
-        </WButton>
-      </div>
-    </WCard>
-
+    <h2 class="gruppo">Preferenze</h2>
     <WCard class="section-card">
       <button class="section-toggle" @click="toggleSection('aspetto')">
         <Palette :size="18" :stroke-width="1.75" />
@@ -609,7 +568,6 @@ const eliminaAccountOAuth = async () => {
         </div>
       </div>
     </WCard>
-
     <WCard class="section-card">
       <button class="section-toggle" @click="toggleSection('valuta')">
         <Coins :size="18" :stroke-width="1.75" />
@@ -622,7 +580,6 @@ const eliminaAccountOAuth = async () => {
         </select>
       </div>
     </WCard>
-
     <WCard id="notifiche" class="section-card">
       <button class="section-toggle" @click="toggleSection('notifiche')">
         <Bell :size="18" :stroke-width="1.75" />
@@ -633,7 +590,6 @@ const eliminaAccountOAuth = async () => {
         <NotificheSettings />
       </div>
     </WCard>
-
     <WCard class="section-card">
       <button class="section-toggle" @click="toggleSection('funzionalita')">
         <Settings :size="18" :stroke-width="1.75" />
@@ -677,17 +633,48 @@ const eliminaAccountOAuth = async () => {
       </div>
     </WCard>
 
+    <h2 class="gruppo">I tuoi dati</h2>
     <WCard class="section-card">
-      <button class="section-toggle" @click="toggleSection('sicurezza')">
-        <Lock :size="18" :stroke-width="1.75" />
-        <span>Sicurezza</span>
-        <component :is="openSections.sicurezza ? ChevronDown : ChevronRight" :size="16" />
+      <button class="section-toggle" @click="toggleSection('conti')">
+        <Wallet :size="18" :stroke-width="1.75" />
+        <span>I miei conti</span>
+        <component :is="openSections.conti ? ChevronDown : ChevronRight" :size="16" />
       </button>
-      <div v-if="openSections.sicurezza" class="section-body">
-        <WButton variant="secondary" size="md" @click="showPasswordModal = true">Cambia password</WButton>
+      <div v-if="openSections.conti" class="section-body">
+        <p class="profilo-summary">{{ riepilogoConti }}</p>
+        <ul v-if="contiVisibili.length" class="conti-mini-list">
+          <li v-for="conto in contiVisibili" :key="conto.id">
+            <span class="conti-mini-list__emoji">
+              <component :is="resolveContoIcon(conto.icona)" :size="16" :stroke-width="1.75" />
+            </span>
+            <span class="conti-mini-list__nome">{{ conto.nome }}</span>
+            <span class="conti-mini-list__saldo">{{ formatValuta(conto.saldo) }}</span>
+          </li>
+        </ul>
+        <p class="hint hint--inline">
+          Aggiungi banche, app di pagamento, contanti e altri conti. Necessari per importare estratti e registrare movimenti.
+        </p>
+        <WButton variant="primary" size="md" @click="router.push('/conti')">
+          Gestisci i miei conti
+        </WButton>
       </div>
     </WCard>
-
+    <WCard class="section-card"><RouterLink to="/impostazioni/categorie" class="section-toggle"><span>Categorie</span><ChevronRight :size="16" /></RouterLink></WCard>
+    <WCard class="section-card">
+      <button class="section-toggle" @click="toggleSection('importa')">
+        <DownloadIcon :size="18" :stroke-width="1.75" />
+        <span>Importa estratto conto</span>
+        <component :is="openSections.importa ? ChevronDown : ChevronRight" :size="16" />
+      </button>
+      <div v-if="openSections.importa" class="section-body">
+        <p class="hint">
+          Carica il file CSV o Excel del tuo estratto conto. WALLT riconosce i formati delle principali banche italiane.
+        </p>
+        <WButton variant="primary" size="md" @click="router.push('/importa')">
+          Vai all'importazione
+        </WButton>
+      </div>
+    </WCard>
     <WCard class="section-card">
       <button class="section-toggle" @click="toggleSection('export')">
         <DownloadIcon :size="18" :stroke-width="1.75" />
@@ -699,6 +686,37 @@ const eliminaAccountOAuth = async () => {
       </div>
     </WCard>
 
+    <h2 class="gruppo">Sicurezza</h2>
+    <WCard class="section-card">
+      <button class="section-toggle" @click="toggleSection('sicurezza')">
+        <Lock :size="18" :stroke-width="1.75" />
+        <!-- "Password" e non "Sicurezza": sotto l'intestazione del gruppo
+             omonima, la voce diceva due volte la stessa parola senza dire cosa
+             ci si trova dentro. -->
+        <span>Password</span>
+        <component :is="openSections.sicurezza ? ChevronDown : ChevronRight" :size="16" />
+      </button>
+      <div v-if="openSections.sicurezza" class="section-body">
+        <WButton variant="secondary" size="md" @click="showPasswordModal = true">Cambia password</WButton>
+      </div>
+    </WCard>
+
+    <h2 class="gruppo">Privacy e condizioni</h2>
+    <WCard class="section-card">
+      <RouterLink to="/privacy" class="section-toggle">
+        <Shield :size="18" :stroke-width="1.75" />
+        <span>Informativa privacy</span><ChevronRight :size="16" />
+      </RouterLink>
+    </WCard>
+    <WCard class="section-card">
+      <RouterLink to="/termini" class="section-toggle">
+        <Shield :size="18" :stroke-width="1.75" />
+        <span>Termini di servizio</span><ChevronRight :size="16" />
+      </RouterLink>
+    </WCard>
+
+    <h2 class="gruppo">Operazioni irreversibili</h2>
+    <p class="gruppo__nota">Queste azioni non possono essere annullate.</p>
     <WCard class="section-card section-danger">
       <button class="section-toggle" @click="toggleSection('reset')">
         <RefreshCw :size="18" :stroke-width="1.75" />
@@ -714,7 +732,6 @@ const eliminaAccountOAuth = async () => {
         <WButton variant="danger" size="md" @click="showResetModal = true">Resetta transazioni</WButton>
       </div>
     </WCard>
-
     <WCard class="section-card section-danger">
       <button class="section-toggle" @click="toggleSection('delete')">
         <Trash2 :size="18" :stroke-width="1.75" />
@@ -919,4 +936,25 @@ const eliminaAccountOAuth = async () => {
 }
 
 .danger-text--inline { font-size: var(--text-xs); margin: 0; }
+
+/* Intestazioni dei gruppi.
+   Prima le quattordici schede erano una lista piatta: "Valuta" stava accanto a
+   "Elimina account" con lo stesso peso visivo. I gruppi non aggiungono nulla da
+   leggere, tolgono la necessita' di leggere tutto per trovare una voce. */
+.gruppo {
+  margin: 2rem 0 0.75rem;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.gruppo:first-of-type { margin-top: 1.25rem; }
+
+.gruppo__nota {
+  margin: -0.5rem 0 0.75rem;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
 </style>

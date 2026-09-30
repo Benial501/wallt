@@ -437,7 +437,7 @@ const getPiattaformaPan = (id) => pan.value.piattaforme?.find((p) => p.id === id
         <template v-if="movForm.tipo === 'deposito' || movForm.tipo === 'prelievo'">
           <select v-model="movForm.conto_collegato_id" class="form-input">
             <option :value="null">Nessun conto (solo piattaforma)</option>
-            <option v-for="c in contiStore.contiAttivi" :key="c.id" :value="c.id">{{ c.icona }} {{ c.nome }}</option>
+            <option v-for="c in contiStore.contiAttivi" :key="c.id" :value="c.id">{{ c.nome }}</option>
           </select>
         </template>
         <input v-model="movForm.nota" class="form-input" placeholder="Nota (opzionale)" />

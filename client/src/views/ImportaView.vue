@@ -425,7 +425,7 @@ onMounted(async () => {
               :key="c.id"
               :value="c.id"
             >
-              {{ c.icona }} {{ c.nome }}
+              {{ c.nome }}
             </option>
           </select>
         </div>
@@ -513,7 +513,7 @@ onMounted(async () => {
                       :key="c.id"
                       :value="c.id"
                     >
-                      {{ c.icona }} {{ c.nome }}
+                      {{ c.nome }}
                     </option>
                   </select>
                   <span v-else class="td-muted">—</span>
