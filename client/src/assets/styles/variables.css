@@ -294,6 +294,25 @@ html.light {
   --radius-2xl: 28px;
   --radius-pill: 999px;
 
+  /* --- Punti di rottura ---------------------------------------------------
+     Le media query CSS non possono leggere le custom property: questi token
+     non sono utilizzabili in `@media`, e servono da scala di riferimento —
+     scritta una volta qui invece che ricordata a memoria file per file.
+
+     Nascono da un conteggio: nel client convivevano diciotto soglie diverse,
+     fra cui 360, 370, 380, 390 e 400px, che sono lo stesso telefono scelto
+     cinque volte a caso. Il codice nuovo usa uno di questi quattro valori; i
+     file piu' vecchi ne usano ancora altri, e `client/tests/breakpoint.test.js`
+     sorveglia che quell'elenco si accorci e non si allunghi.
+
+     Le soglie sono espresse come `min-width`. La forma complementare
+     `max-width: (valore - 1)px` e' corretta e attesa: 767px e' il confine
+     inferiore di 768px, non una sesta soglia.                                */
+  --bp-xs: 380px;   /* telefoni piccoli (iPhone SE e simili)                 */
+  --bp-sm: 480px;   /* telefoni                                              */
+  --bp-md: 768px;   /* tablet e finestre strette: la soglia piu' usata       */
+  --bp-lg: 1024px;  /* desktop                                               */
+
   /* --- Sfocatura ---------------------------------------------------------- */
   /* Scala volutamente corta: piu' valori diversi in giro significano solo
      superfici che sembrano appartenere ad app diverse. */
