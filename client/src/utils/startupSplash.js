@@ -1,5 +1,5 @@
-export const STARTUP_SPLASH_ANIMATION_MS = 1100;
-export const STARTUP_SPLASH_EXIT_MS = 180;
+export const STARTUP_SPLASH_ANIMATION_MS = 2750;
+export const STARTUP_SPLASH_EXIT_MS = 250;
 export const STARTUP_SPLASH_REDUCED_MOTION_MS = 80;
 
 export function getStartupSplashTiming(now, startedAt, prefersReducedMotion) {

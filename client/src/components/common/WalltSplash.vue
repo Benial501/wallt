@@ -51,11 +51,11 @@ const markPath = 'M15 35H28L39 64L50 35H63L72 60L82 32L75 27L96 8L98 37L89 31L76
         />
       </svg>
       <span class="wallt-splash__word" aria-hidden="true">
-        <span style="--wallt-splash-letter-delay: 260ms">W</span>
-        <span style="--wallt-splash-letter-delay: 302ms">A</span>
-        <span style="--wallt-splash-letter-delay: 344ms">L</span>
-        <span style="--wallt-splash-letter-delay: 386ms">L</span>
-        <span style="--wallt-splash-letter-delay: 428ms">T</span>
+        <span style="--wallt-splash-letter-delay: 820ms">W</span>
+        <span style="--wallt-splash-letter-delay: 960ms">A</span>
+        <span style="--wallt-splash-letter-delay: 1100ms">L</span>
+        <span style="--wallt-splash-letter-delay: 1240ms">L</span>
+        <span style="--wallt-splash-letter-delay: 1380ms">T</span>
       </span>
     </div>
   </div>
