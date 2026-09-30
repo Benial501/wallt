@@ -1,3 +1,5 @@
+import { Capacitor } from '@capacitor/core';
+import { WalltNative } from '@wallt/native';
 import { STARTUP_SPLASH_ANIMATION_MS, STARTUP_SPLASH_EXIT_MS } from './startupSplash.js';
 
 export const STARTUP_SPLASH_SOUND_NOTES = Object.freeze([
@@ -65,11 +67,33 @@ export function scheduleStartupSplashSound(audioContext) {
 }
 
 export function startStartupSplashSound({
+  getPlatform = () => Capacitor.getPlatform(),
+  nativePlugin = WalltNative,
   createAudioContext = createBrowserAudioContext,
   eventTarget = globalThis.window,
   unlockWindowMs = STARTUP_SPLASH_SOUND_UNLOCK_WINDOW_MS,
 } = {}) {
   if (unlockWindowMs <= 0) return () => {};
+
+  let platform = 'web';
+  try {
+    platform = getPlatform?.() ?? 'web';
+  } catch {
+    // Un errore nel rilevamento della piattaforma non deve bloccare l’avvio web.
+  }
+
+  if (platform === 'ios') {
+    try {
+      Promise.resolve(nativePlugin?.playStartupSound?.({
+        notes: STARTUP_SPLASH_SOUND_NOTES,
+        masterVolume: MASTER_VOLUME,
+      })).catch(() => {});
+    } catch {
+      // Il suono è facoltativo e non deve interferire con la navigazione.
+    }
+
+    return () => {};
+  }
 
   let audioContext;
 

@@ -97,31 +97,31 @@ test('Capacitor usa il bundle locale e identifica WALLT', async () => {
 - Il bridge JavaScript espone `WalltNative.playStartupSound({ notes, masterVolume }): Promise<{ started: boolean }>`.
 - `startStartupSplashSound()` usa il bridge solo quando `Capacitor.getPlatform() === 'ios'`; su web esegue il codice Web Audio esistente.
 
-- [ ] **Passo 1: aggiungere test del dispatch nativo e fallback web**
+- [x] **Passo 1: aggiungere test del dispatch nativo e fallback web**
 
   Estendere `startupSplashSound.test.js` con dipendenze iniettabili per piattaforma e plugin. Il test iOS deve affermare una chiamata a `playStartupSound` senza invocare `addEventListener`; il test web deve continuare a chiamare Web Audio e ad aggiungere i listener di gesto.
 
-- [ ] **Passo 2: verificare che i nuovi test falliscano**
+- [x] **Passo 2: verificare che i nuovi test falliscano**
 
   Eseguire `cd client && node --test tests/startupSplashSound.test.js`. Atteso: i casi iOS falliscono perché non esiste il dispatch nativo.
 
-- [ ] **Passo 3: creare un plugin Capacitor locale con implementazione web neutra**
+- [x] **Passo 3: creare un plugin Capacitor locale con implementazione web neutra**
 
   Aggiungere il package locale `@wallt/native`, dichiarare la sorgente iOS nel metadato `capacitor`, esportare `registerPlugin('WalltNative')` e fornire in `web.js` un metodo che risolve `{ started: false }`. Collegare il package con dipendenza `file:plugins/wallt-native` e sincronizzare Capacitor.
 
-- [ ] **Passo 4: sintetizzare la melodia in Swift**
+- [x] **Passo 4: sintetizzare la melodia in Swift**
 
   In `WalltNativePlugin.swift`, implementare `CAPBridgedPlugin` e `playStartupSound`. Generare buffer PCM per le note ricevute, con inviluppo d’attacco/rilascio e volume master limitato a `[0, 1]`; usare `AVAudioEngine`/`AVAudioPlayerNode`, senza file audio. Configurare `AVAudioSession.sharedInstance().setCategory(.ambient)` e mescolare l’audio. Risolvere la chiamata appena la riproduzione è stata avviata; gli errori restituiscono un rifiuto al bridge ma non devono propagarsi all’app.
 
-- [ ] **Passo 5: collegare l’avvio alla splash senza attese**
+- [x] **Passo 5: collegare l’avvio alla splash senza attese**
 
   In `startupSplashSound.js`, verificare piattaforma e disponibilità plugin, inviare `STARTUP_SPLASH_SOUND_NOTES` e il volume esistente, gestire il rifiuto con un catch silenzioso e non creare `AudioContext` su iOS nativo. In `App.vue`, conservare timing e cleanup attuali.
 
-- [ ] **Passo 6: verificare suite audio e build web**
+- [x] **Passo 6: verificare suite audio e build web**
 
   Eseguire `node --test tests/startupSplashSound.test.js`, `node --test tests/startupSplash.test.js` e `npm run build` in `client/`. Atteso: tutti PASS; la PWA non deve importare un framework nativo a runtime.
 
-- [ ] **Passo 7: registrare l’audio iOS**
+- [x] **Passo 7: registrare l’audio iOS**
 
   Creare il commit italiano `Riproduce la melodia della splash con audio iOS nativo`.
 

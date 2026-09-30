@@ -14,6 +14,7 @@
   "dependencies": {
     "@capacitor/core": "^8.5.2",
     "@capacitor/ios": "^8.5.2",
+    "@wallt/native": "file:plugins/wallt-native",
     "@sentry/vue": "^11.1.0",
     "axios": "^1.18.1",
     "chart.js": "^4.5.1",

@@ -133,8 +133,11 @@ test('il primo tocco durante la splash sblocca e riproduce il suono', async () =
   context.state = 'suspended';
   context.resumeOnCall = 2;
   const eventTarget = new FakeEventTarget();
+  let nativeCalls = 0;
 
   soundModule.startStartupSplashSound({
+    getPlatform: () => 'web',
+    nativePlugin: { playStartupSound: () => { nativeCalls += 1; } },
     createAudioContext: () => context,
     eventTarget,
   });
@@ -146,8 +149,57 @@ test('il primo tocco durante la splash sblocca e riproduce il suono', async () =
   await new Promise((resolve) => setImmediate(resolve));
 
   assert.equal(context.oscillators.length, 3);
+  assert.equal(nativeCalls, 0, 'il browser continua a usare Web Audio');
   assert.equal(eventTarget.listeners.size, 0, 'dopo l’avvio rimuove gli ascoltatori');
   context.oscillators.forEach((oscillator) => oscillator.onended());
+});
+
+test('su iOS delega il suono al plugin nativo senza gesto né AudioContext web', async () => {
+  assert.ok(soundModule, 'deve esistere il modulo che genera il suono');
+
+  const eventTarget = new FakeEventTarget();
+  const calls = [];
+  let audioContextCreations = 0;
+
+  soundModule.startStartupSplashSound({
+    getPlatform: () => 'ios',
+    nativePlugin: {
+      playStartupSound: (options) => {
+        calls.push(options);
+        return Promise.resolve({ started: true });
+      },
+    },
+    createAudioContext: () => {
+      audioContextCreations += 1;
+      return new FakeAudioContext();
+    },
+    eventTarget,
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].notes, soundModule.STARTUP_SPLASH_SOUND_NOTES);
+  assert.equal(calls[0].masterVolume, 0.2);
+  assert.equal(audioContextCreations, 0);
+  assert.equal(eventTarget.listeners.size, 0);
+});
+
+test('un errore del plugin audio iOS non blocca l’avvio dell’app', async () => {
+  assert.ok(soundModule, 'deve esistere il modulo che genera il suono');
+
+  assert.doesNotThrow(() => soundModule.startStartupSplashSound({
+    getPlatform: () => 'ios',
+    nativePlugin: { playStartupSound: () => Promise.reject(new Error('Audio non disponibile')) },
+    eventTarget: new FakeEventTarget(),
+  }));
+  await new Promise((resolve) => setImmediate(resolve));
+});
+
+test('il plugin audio web non simula la riproduzione nativa', async () => {
+  const { WalltNativeWeb } = await import('../plugins/wallt-native/web.js');
+  const plugin = new WalltNativeWeb();
+
+  assert.deepEqual(await plugin.playStartupSound(), { started: false });
 });
 
 test('App avvia il suono solo quando il movimento ridotto non è attivo', () => {
