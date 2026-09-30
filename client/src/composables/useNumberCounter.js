@@ -1,5 +1,16 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 
+/**
+ * Chi ha chiesto meno movimento vede il numero finale, subito.
+ *
+ * Un contatore che scorre e' esattamente il genere di animazione che
+ * `prefers-reduced-motion` esiste per evitare, e su una cifra di denaro
+ * l'attesa non aggiunge nulla: il valore e' il messaggio.
+ */
+const movimentoRidotto = () => typeof window !== 'undefined'
+  && typeof window.matchMedia === 'function'
+  && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 export function useNumberCounter(targetRef, options = {}) {
   const { duration = 1200, decimals = 2 } = options;
   const displayValue = ref(0);
@@ -10,6 +21,15 @@ export function useNumberCounter(targetRef, options = {}) {
 
   const animate = (target) => {
     if (rafId) cancelAnimationFrame(rafId);
+    // Nessuna animazione quando non servirebbe a nessuno: chi ha chiesto meno
+    // movimento, e una scheda in secondo piano. Nel secondo caso non e' solo
+    // inutile: il browser sospende requestAnimationFrame, quindi il contatore
+    // resterebbe fermo sul valore iniziale — uno zero al posto del saldo —
+    // fino al momento in cui la scheda torna in primo piano.
+    if (movimentoRidotto() || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) {
+      displayValue.value = target;
+      return;
+    }
     const from = displayValue.value;
     const start = performance.now();
 

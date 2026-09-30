@@ -134,6 +134,15 @@ const slideCount = computed(() => slides.value.length);
 const patrimonioTarget = computed(() => props.patrimonio || 0);
 const { displayValue: animatedPatrimonio } = useNumberCounter(patrimonioTarget, { duration: 900 });
 
+/**
+ * Anche il saldo effettivo scorre: e' il numero che cambia appena registri un
+ * movimento, e vederlo muoversi collega il gesto al suo effetto. Gli altri
+ * importi della schermata restano fermi — se si animasse tutto, il movimento
+ * non segnalerebbe piu' niente.
+ */
+const saldoEffettivoTarget = computed(() => props.saldoEffettivo ?? 0);
+const { displayValue: animatedSaldoEffettivo } = useNumberCounter(saldoEffettivoTarget, { duration: 700 });
+
 /** Le voci che spiegano la differenza col patrimonio, senza quelle a zero:
  * una riga "− 0 € nascosti" fa sembrare rotto un caso normale. Il segno si
  * decide qui e non nel template, perché un conto nascosto può avere saldo
@@ -295,7 +304,7 @@ defineExpose({
                 {{ etichetta('saldo_effettivo') }}
                 <HelpTrigger topic="saldo-effettivo-come-si-calcola" variant="quiet" />
               </p>
-              <p class="w-overview__effettivo-amount tabular-nums">{{ formatValuta(saldoEffettivo) }}</p>
+              <p class="w-overview__effettivo-amount tabular-nums">{{ formatValuta(animatedSaldoEffettivo) }}</p>
               <p v-if="vociSaldoEffettivo.length" class="w-overview__effettivo-detail">
                 <!-- Il perché della differenza col patrimonio: senza, il
                      numero più basso sembra un errore. Niente riga quando
