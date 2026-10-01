@@ -19,8 +19,11 @@ segnala quando i dati indicano un rischio.
 
 - Il piano riguarda le spese future programmate, non i trasferimenti bancari.
 - Gli accantonamenti sono registrazioni manuali di denaro che l'utente dichiara
-  di aver messo da parte. Non modificano conti, saldi o movimenti e non
-  trasferiscono denaro.
+  di aver messo da parte. Non modificano i saldi registrati dei conti o i
+  movimenti e non trasferiscono denaro.
+- L'accantonamento è una destinazione virtuale: riduce il saldo effettivo e il
+  denaro spendibile, ma non sottrae l'importo dal patrimonio totale o netto.
+  Il denaro resta nei conti registrati e nel patrimonio dell'utente.
 - Ogni accantonamento è legato alla specifica spesa e concorre al suo
   progresso.
 - La quota si ricalcola dinamicamente: saltare una settimana riduce le
@@ -58,6 +61,9 @@ ammessa. La scheda mostra:
 - quota consigliata per la prossima settimana e numero di verifiche rimaste;
 - stato leggibile: “In linea”, “Da recuperare”, “A rischio”, “Dati
   insufficienti”, “Scaduta da confermare” o “Completata”;
+- suggerimenti collegati alle spese per categoria, con spesa media osservata,
+  riduzione ipotizzata in euro e percentuale, e quanto quella scelta
+  contribuirebbe alla quota della spesa futura;
 - azione “Registra accantonamento”, con importo e data, e cronologia delle
   registrazioni;
 - alla scadenza, richiesta esplicita “Hai pagato questa spesa?” con le scelte
@@ -68,6 +74,12 @@ inferiore, superiore o nulla. Nessun addebito o accantonamento viene eseguito
 automaticamente e non serve confermare la quota per continuare a usare
 l'applicazione. Un eventuale promemoria deve essere informativo, senza
 registrare dati finanziari.
+
+I suggerimenti di risparmio sono mostrati sotto la quota da accantonare, come
+scenari modificabili (“Se riduci questa categoria del X%, potresti liberare
+Y € al mese da destinare alla spesa”). L'utente decide se applicarli e registra
+un accantonamento solo quando mette davvero quella somma da parte. Non si
+deduce automaticamente dai movimenti che una riduzione di spesa sia avvenuta.
 
 ## Regole di calcolo
 
@@ -106,6 +118,46 @@ né sceglie quale impegno l'utente debba trascurare. Mostra quote individuali,
 fabbisogno aggregato e deficit stimato, così l'utente può decidere come
 procedere. Non presenta stime euristiche come consulenza professionale o come
 garanzia di pagamento.
+
+### Strategia di risparmio per categoria
+
+Le opportunità di risparmio usano le uscite effettivamente registrate, le
+medie per categoria dei mesi civili completi e la classificazione di
+essenzialità già gestita da WALLT. Le categorie vengono proposte in quest'ordine:
+
+1. **Discrezionali**: prime candidate a scenari di riduzione.
+2. **Semi-essenziali**: scenari più prudenti, dopo aver mostrato le opzioni
+   discrezionali.
+3. **Essenziali**: niente tagli percentuali suggeriti per impostazione
+   predefinita. Si può mostrare la spesa osservata e invitare a verificare
+   eventuali costi fissi o alternative, senza presumere che siano comprimibili.
+4. **Non classificate**: nessuna proposta di riduzione finché la categoria non
+   ha un livello di essenzialità affidabile; la UI invita a classificarla.
+
+Per ogni categoria candidata la UI presenta scenari di confronto con riduzioni
+indicative (per esempio 5%, 10% e 15%) applicate alla media mensile osservata.
+Per ogni scenario espone importo teoricamente liberabile al mese e alla
+settimana (media mensile divisa per 4,33) e quanta parte della quota settimanale
+dell'obiettivo coprirebbe. Le
+percentuali sono ipotesi modificabili, non regole professionali né promesse.
+Le categorie semi-essenziali vengono presentate dopo le discrezionali e con
+linguaggio prudente. Gli scenari non dichiarano che il risparmio sia avvenuto.
+
+Per evitare consigli arbitrari, le proposte numeriche richiedono almeno tre
+mesi civili completi osservati per la categoria, importi validi e classificazione
+disponibile. La base è la media dei mesi completi effettivamente osservati,
+secondo `finestraMesi.service.js`; i mesi non osservati non vengono riempiti con
+zeri e il mese corrente parziale non determina la media. Con storico limitato,
+categoria non classificata o importo non stimabile, la UI spiega il motivo e
+non produce una percentuale di riduzione presentata come raccomandazione.
+
+Gli scenari di più categorie possono essere combinati per mostrare una
+possibile strada fino alla quota settimanale, ordinando prima le spese
+discrezionali e poi quelle semi-essenziali. La somma è uno scenario ipotetico:
+la UI non seleziona tagli per conto dell'utente, non li imposta come budget e
+non sposta denaro. Non si propone di ridurre le categorie essenziali per
+colmare un divario. Se le alternative non coprono la quota, il sistema dichiara
+il residuo non coperto invece di inventare altri tagli.
 
 ## Dati e API
 
@@ -149,12 +201,14 @@ annullata non accetta nuovi contributi.
 ## Integrazione con liquidità e conferma del pagamento
 
 Gli importi registrati nel salvadanaio non sono un trasferimento e non
-modificano il saldo del conto. Per Piano Smart rappresentano tuttavia denaro
-che l'utente dichiara già destinato a quella spesa. Nel calcolo del denaro
-libero si conteggia l'accantonato una sola volta e, per l'impegno della spesa,
-si considera solo il residuo non coperto. La somma protetta per una spesa in
-attesa resta quindi pari al suo importo complessivo, senza sommare due volte
-contributi e impegno.
+modificano il saldo registrato del conto o i movimenti. Per Piano Smart
+rappresentano tuttavia denaro che l'utente dichiara già destinato a quella
+spesa e quindi non più spendibile. Il calcolo sottrae questa destinazione dal
+saldo effettivo, ma il patrimonio totale e netto continua a includere il saldo
+reale del conto: l'accantonamento cambia la disponibilità, non la proprietà del
+denaro. Per la stessa spesa si conteggia l'accantonato una sola volta e si
+considera solo il residuo non coperto; accantonato più residuo protetto resta
+pari all'impegno totale, senza doppio conteggio.
 
 Per spese oltre i 30 giorni, il contributo già registrato resta protetto anche
 se l'impegno residuo non entra ancora nell'orizzonte della liquidità corrente.
@@ -175,7 +229,9 @@ pagamenti, conti o movimenti e mantiene visibile la spesa scaduta.
 - I pagamenti a rate già gestiti tramite `piano_id` non ricevono un secondo
   piano di accantonamento.
 - Il saldo conto rimane il saldo registrato reale; il salvadanaio è un
-  indicatore virtuale basato su dichiarazioni manuali.
+  indicatore virtuale basato su dichiarazioni manuali. Il saldo effettivo
+  diminuisce dell'importo destinato; patrimonio totale e patrimonio netto non
+  diminuiscono per effetto dell'accantonamento.
 - Un accantonamento errato può rappresentare una disponibilità protetta
   inesatta; la UI deve chiamarlo “registrato dall'utente”, non “verificato”.
 - La stima dipende dai movimenti inseriti e non può accertare la completezza
@@ -188,7 +244,11 @@ pagamenti, conti o movimenti e mantiene visibile la spesa scaduta.
 - Test API per validazione, isolamento tra utenti, stato non valido, residuo
   superato e richieste concorrenti.
 - Test di liquidità per spesa oltre 30 giorni e dentro 30 giorni, mostrando che
-  accantonato + residuo sono protetti una sola volta e che il saldo non cambia.
+  accantonato + residuo sono protetti una sola volta, il saldo effettivo
+  diminuisce, il saldo del conto e il patrimonio restano invariati.
+- Test strategia categorie: ordine discrezionale/semi-essenziale/essenziale,
+  uso di tre mesi completi, esclusione degli zeri inventati e delle categorie
+  non classificate, importi percentuali e settimanali coerenti.
 - Test di conferma: nessun movimento prima del “Sì”; un solo movimento dopo la
   conferma; “Non ancora” lascia la scadenza in attesa.
 - Test/build frontend per importi, stati, accessibilità e layout mobile della
