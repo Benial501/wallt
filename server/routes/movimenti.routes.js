@@ -14,6 +14,7 @@ const {
   validateCreateScheduledPayment,
   validateCreateInstallmentPlan,
   validateScheduledPaymentId,
+  validateCreateScheduledPaymentContribution,
 } = require('../middleware/validation.middleware');
 
 const router = express.Router();
@@ -24,6 +25,8 @@ router.get('/programmate', authMiddleware, scheduledPayments.listScheduledPaymen
 router.post('/programmate', authMiddleware, validateCreateScheduledPayment, scheduledPayments.createScheduledPayment);
 router.post('/installment-plans', authMiddleware, validateCreateInstallmentPlan, scheduledPayments.createInstallmentPlan);
 router.post('/programmate/:id/conferma', authMiddleware, validateScheduledPaymentId, scheduledPayments.confirmScheduledPayment);
+router.get('/programmate/:id/accantonamenti', authMiddleware, validateScheduledPaymentId, scheduledPayments.listScheduledPaymentContributions);
+router.post('/programmate/:id/accantonamenti', authMiddleware, validateCreateScheduledPaymentContribution, scheduledPayments.addScheduledPaymentContribution);
 router.patch('/programmate/:id/ritardo', authMiddleware, validateScheduledPaymentId, scheduledPayments.markScheduledIncomeLate);
 router.patch('/programmate/:id/annulla', authMiddleware, validateScheduledPaymentId, scheduledPayments.cancelScheduledPayment);
 router.patch('/installment-plans/:id/annulla', authMiddleware, validateScheduledPaymentId, scheduledPayments.cancelInstallmentPlan);

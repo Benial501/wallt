@@ -1,5 +1,5 @@
 const {
-  sequelize, Conto, Movimento, PaymentPlan, ScheduledPayment,
+  sequelize, Conto, Movimento, PaymentPlan, ScheduledPayment, ScheduledPaymentContribution,
 } = require('../models');
 const { Op } = require('sequelize');
 const { assertCategory } = require('./categorie.service');
@@ -8,6 +8,7 @@ const { isContoFondo } = require('./fondoEmergenza.service');
 const { oggiLocale, sommaMesi } = require('../utils/dateRome');
 const { BadRequestError, NotFoundError, AppError } = require('../utils/AppError');
 const { MAX_CENTESIMI, toCents, fromCents } = require('./pianoSmart/money');
+const { buildExpenseFundingPlan } = require('./pianoSmartV2/expenseFundingPlan.service');
 
 const numero = (value) => Number(value);
 const euro = (cents) => fromCents(cents);
@@ -93,7 +94,7 @@ async function createMovement({ userId, account, type, amount, category, descrip
     tipo: type,
     importo: amountNumber,
     categoria: category,
-    descrizione,
+    descrizione: description,
     data: date,
     ricorrente: false,
     natura_entrata: 'sconosciuto',
@@ -253,6 +254,85 @@ async function cancelInstallmentPlan({ userId, planId }) {
   });
 }
 
+async function listScheduledPaymentContributions({ userId, paymentId }) {
+  const payment = await ScheduledPayment.findOne({ where: { id: paymentId, user_id: userId } });
+  if (!payment) throw new NotFoundError('Pagamento programmato non trovato');
+  const contributions = await ScheduledPaymentContribution.findAll({
+    where: { user_id: userId, pagamento_programmato_id: paymentId },
+    order: [['data_contributo', 'ASC'], ['id', 'ASC']],
+  });
+  const contributedCents = contributions.reduce((sum, contribution) => (
+    sum + centsOf(contribution.importo)
+  ), 0);
+  const plan = buildExpenseFundingPlan({
+    payment,
+    contributedCents,
+    referenceDate: oggiLocale(),
+  });
+  return {
+    paymentId: payment.id,
+    contributed: plan.contributed,
+    remaining: plan.remaining,
+    writesAccountBalance: false,
+    writesMovement: false,
+    contributions: contributions.map((contribution) => ({
+      id: contribution.id,
+      amount: String(contribution.importo),
+      date: contribution.data_contributo,
+    })),
+  };
+}
+
+async function addScheduledPaymentContribution({ userId, paymentId, amount, date }) {
+  const amountCents = centsOf(amount);
+  if (amountCents <= 0) throw new BadRequestError('L’importo da accantonare deve essere maggiore di zero');
+
+  return sequelize.transaction(async (transaction) => {
+    const payment = await ScheduledPayment.findOne({
+      where: { id: paymentId, user_id: userId },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (!payment) throw new NotFoundError('Pagamento programmato non trovato');
+    if (payment.tipo !== 'uscita') throw new AppError('Puoi accantonare solo per una spesa programmata', 409);
+    if (payment.stato !== 'in_attesa') throw new AppError('Questa spesa non è più in attesa', 409);
+    if (payment.piano_id) throw new AppError('Gli accantonamenti sono disponibili solo per spese singole', 409);
+
+    const contributions = await ScheduledPaymentContribution.findAll({
+      where: { user_id: userId, pagamento_programmato_id: payment.id },
+      transaction,
+    });
+    const contributedCents = contributions.reduce((sum, contribution) => (
+      sum + centsOf(contribution.importo)
+    ), 0);
+    const remainingCents = Math.max(centsOf(payment.importo) - contributedCents, 0);
+    if (amountCents > remainingCents) {
+      throw new BadRequestError(`L’importo supera il residuo di €${fromCents(remainingCents)}`);
+    }
+
+    const contribution = await ScheduledPaymentContribution.create({
+      user_id: userId,
+      pagamento_programmato_id: payment.id,
+      importo: fromCents(amountCents),
+      data_contributo: date,
+    }, { transaction });
+    const totalContributedCents = contributedCents + amountCents;
+    const plan = buildExpenseFundingPlan({
+      payment,
+      contributedCents: totalContributedCents,
+      referenceDate: oggiLocale(),
+    });
+    return {
+      paymentId: payment.id,
+      contributed: plan.contributed,
+      remaining: plan.remaining,
+      writesAccountBalance: false,
+      writesMovement: false,
+      contribution: { id: contribution.id, amount: fromCents(amountCents), date: date },
+    };
+  });
+}
+
 module.exports = {
   calculateInstallmentPlan,
   createScheduledPayment,
@@ -262,4 +342,6 @@ module.exports = {
   markScheduledIncomeLate,
   cancelScheduledPayment,
   cancelInstallmentPlan,
+  listScheduledPaymentContributions,
+  addScheduledPaymentContribution,
 };

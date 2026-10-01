@@ -1565,6 +1565,20 @@ const validateCreateInstallmentPlan = [
 
 const validateScheduledPaymentId = [idParam, validate];
 
+const validateCreateScheduledPaymentContribution = [
+  idParam,
+  body('amount')
+    .isDecimal({ decimal_digits: '0,2' })
+    .withMessage('Importo da accantonare non valido')
+    .bail()
+    .custom((value) => Number(value) > 0)
+    .withMessage('L’importo da accantonare deve essere maggiore di zero'),
+  body('date')
+    .isISO8601({ strict: true, strictDelimiter: true })
+    .withMessage('Data di accantonamento non valida'),
+  validate,
+];
+
 module.exports = {
   validate,
   handleValidation: validate,
@@ -1628,4 +1642,5 @@ module.exports = {
   validateCreateScheduledPayment,
   validateCreateInstallmentPlan,
   validateScheduledPaymentId,
+  validateCreateScheduledPaymentContribution,
 };

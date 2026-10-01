@@ -57,6 +57,27 @@ const cancelInstallmentPlan = async (req, res, next) => {
   } catch (error) { return next(error); }
 };
 
+const listScheduledPaymentContributions = async (req, res, next) => {
+  try {
+    const result = await paymentsService.listScheduledPaymentContributions({
+      userId: req.userId, paymentId: req.params.id,
+    });
+    return res.json(result);
+  } catch (error) { return next(error); }
+};
+
+const addScheduledPaymentContribution = async (req, res, next) => {
+  try {
+    const result = await paymentsService.addScheduledPaymentContribution({
+      userId: req.userId,
+      paymentId: req.params.id,
+      amount: req.body.amount,
+      date: req.body.date,
+    });
+    return res.status(201).json(result);
+  } catch (error) { return next(error); }
+};
+
 module.exports = {
   listScheduledPayments,
   createScheduledPayment,
@@ -65,4 +86,6 @@ module.exports = {
   markScheduledIncomeLate,
   cancelScheduledPayment,
   cancelInstallmentPlan,
+  listScheduledPaymentContributions,
+  addScheduledPaymentContribution,
 };
