@@ -4,7 +4,7 @@
 const {
   request, createApp, registerUser, authHeader, Conto, Movimento,
 } = require('./setup');
-const { Obiettivo } = require('../models');
+const { Obiettivo, ScheduledPayment, ScheduledPaymentContribution } = require('../models');
 const { calcolaLiquidita } = require('../services/liquidita.service');
 
 describe('LiquiditaService.calcolaLiquidita', () => {
@@ -29,6 +29,36 @@ describe('LiquiditaService.calcolaLiquidita', () => {
     expect(result.liquidita_allocata).toBe(0);
     expect(result.impegni_pertinenti).toBe(0);
     expect(result.liquidita_libera).toBe(1000);
+  });
+
+  it('protegge una spesa imminente una volta sola anche se una parte è già accantonata', async () => {
+    const payment = await ScheduledPayment.create({
+      user_id: userId, conto_id: conto.id, tipo: 'uscita', importo: '180.00',
+      categoria: 'casa', descrizione: 'Spesa vicina', data_scadenza: '2026-09-30', stato: 'in_attesa',
+    });
+    await ScheduledPaymentContribution.create({
+      user_id: userId, pagamento_programmato_id: payment.id, importo: '30.00', data_contributo: '2026-09-17',
+    });
+
+    const result = await calcolaLiquidita(userId, { data: '2026-09-17' });
+    expect(result.saldo_effettivo).toBe(820);
+    expect(result.impegni_pertinenti).toBe(180);
+    expect(result.saldo_conti).toBe(1000);
+  });
+
+  it('protegge l’accantonato per una spesa oltre trenta giorni senza anticiparne il residuo', async () => {
+    const payment = await ScheduledPayment.create({
+      user_id: userId, conto_id: conto.id, tipo: 'uscita', importo: '180.00',
+      categoria: 'casa', descrizione: 'Spesa lontana', data_scadenza: '2026-11-28', stato: 'in_attesa',
+    });
+    await ScheduledPaymentContribution.create({
+      user_id: userId, pagamento_programmato_id: payment.id, importo: '30.00', data_contributo: '2026-09-17',
+    });
+
+    const result = await calcolaLiquidita(userId, { data: '2026-09-17' });
+    expect(result.saldo_effettivo).toBe(970);
+    expect(result.impegni_pertinenti).toBe(30);
+    expect(result.saldo_conti).toBe(1000);
   });
 
   it('un obiettivo attivo riduce la liquidità libera del suo importo_attuale, uno completato no', async () => {

@@ -1,5 +1,7 @@
 const { Op } = require('sequelize');
-const { Conto, Obiettivo, Movimento, ScheduledPayment } = require('../models');
+const {
+  Conto, Obiettivo, Movimento, ScheduledPayment, ScheduledPaymentContribution,
+} = require('../models');
 const {
   getRomeDateParts, FREQUENZE_SUPPORTATE, periodoPerRicorrenza, whereRicorrenzaAttiva,
 } = require('./ricorrenti.service');
@@ -163,21 +165,46 @@ async function calcolaLiquidita(userId, { data, transaction } = {}) {
       user_id: userId,
       stato: 'in_attesa',
       tipo: 'uscita',
-      data_scadenza: { [Op.lte]: limiteProgrammateISO },
     },
     attributes: ['id', 'conto_id', 'categoria', 'importo', 'descrizione', 'data_scadenza'],
     transaction,
   });
-  pagamentiProgrammati.forEach((payment) => impegni.push({
-    movimento_id: null,
-    pagamento_programmato_id: payment.id,
-    conto_id: payment.conto_id,
-    categoria: payment.categoria,
-    importo: round2(toNumber(payment.importo)),
-    giorno: Number(payment.data_scadenza.slice(8, 10)),
-    tipo: 'programmata_manuale',
-    data: payment.data_scadenza,
-  }));
+  const contributi = pagamentiProgrammati.length
+    ? await ScheduledPaymentContribution.findAll({
+      where: {
+        user_id: userId,
+        pagamento_programmato_id: { [Op.in]: pagamentiProgrammati.map((payment) => payment.id) },
+      },
+      attributes: ['pagamento_programmato_id', 'importo'],
+      transaction,
+    }) : [];
+  const accantonatoPerPagamento = new Map();
+  contributi.forEach((contributo) => {
+    const paymentId = Number(contributo.pagamento_programmato_id);
+    accantonatoPerPagamento.set(paymentId,
+      round2((accantonatoPerPagamento.get(paymentId) || 0) + toNumber(contributo.importo)));
+  });
+  pagamentiProgrammati.forEach((payment) => {
+    const importo = round2(toNumber(payment.importo));
+    const accantonato = Math.min(accantonatoPerPagamento.get(Number(payment.id)) || 0, importo);
+    const entroOrizzonte = payment.data_scadenza <= limiteProgrammateISO;
+    // Entro 30 giorni proteggiamo l'intero pagamento: quota accantonata e
+    // residuo insieme devono equivalere all'impegno originario. Più avanti
+    // proteggiamo soltanto il denaro già destinato.
+    const importoProtetto = entroOrizzonte ? importo : accantonato;
+    if (importoProtetto <= 0) return;
+    impegni.push({
+      movimento_id: null,
+      pagamento_programmato_id: payment.id,
+      conto_id: payment.conto_id,
+      categoria: payment.categoria,
+      importo: importoProtetto,
+      accantonato,
+      giorno: Number(payment.data_scadenza.slice(8, 10)),
+      tipo: 'programmata_manuale',
+      data: payment.data_scadenza,
+    });
+  });
   const impegni_pertinenti = round2(impegni.reduce((sum, i) => sum + i.importo, 0));
 
   const liquidita_libera = round2(saldo_conti - liquidita_allocata - impegni_pertinenti);
