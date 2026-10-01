@@ -41,6 +41,14 @@ test('Piano Smart distingue le tre aree e salva lo scenario V2 selezionato', asy
   assert.match(store, /selectedScenario: selectedScenario\.value/);
 });
 
+test('il riquadro Accantona compare soltanto nei prossimi 30 giorni, non in Analisi', async () => {
+  const source = await readFile(new URL('../src/views/PianoSmartView.vue', import.meta.url), 'utf8');
+  const upcomingStart = source.indexOf('<template v-if="tab === \'upcoming\'">');
+  const funding = source.indexOf('<PianoSmartExpenseFunding');
+  const radar = source.indexOf('<PianoSmartCashFlowRadar', upcomingStart);
+  assert.ok(upcomingStart >= 0 && funding > upcomingStart && funding < radar);
+});
+
 test('Piano Smart apre da Aiuto la sezione richiesta dalla statistica', async () => {
   const help = await readFile(new URL('../src/views/AiutoView.vue', import.meta.url), 'utf8');
   const guide = await readFile(new URL('../src/components/piano-smart/PianoSmartGuide.vue', import.meta.url), 'utf8');

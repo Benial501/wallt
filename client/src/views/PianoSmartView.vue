@@ -467,13 +467,6 @@ onMounted(() => {
           </div>
         </WCard>
 
-        <PianoSmartExpenseFunding
-          :plans="currentSituation.upcomingExpensePlans || []"
-          :busy-payment-id="expenseFundingBusyPaymentId"
-          @add-contribution="registraAccantonamento"
-          @confirm-payment="confermaSpesaProgrammata"
-        />
-
         <template v-if="tab === 'analysis'">
         <div class="analysis-heading"><h2>Cosa è cambiato?</h2><button type="button" class="context-help" @click="apriGuida('analisi')">Che cosa significa?</button></div>
         <PianoSmartChangeTimeline :changes="currentSituation.changes" />
@@ -507,6 +500,13 @@ onMounted(() => {
         </template>
 
         <template v-if="tab === 'upcoming'">
+        <PianoSmartExpenseFunding
+          :plans="currentSituation.upcomingExpensePlans || []"
+          :busy-payment-id="expenseFundingBusyPaymentId"
+          @add-contribution="registraAccantonamento"
+          @confirm-payment="confermaSpesaProgrammata"
+        />
+
         <WCard class="text-card">
           <h2>Uscite entro fine mese</h2>
           <p class="muted">Da oggi al {{ formattaScadenza(currentSituation.upcoming.through) }}.</p>
