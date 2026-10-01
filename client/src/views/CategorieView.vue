@@ -158,13 +158,15 @@ async function ripristina(c) {
             <option v-for="(label, val) in ESSENZIALITA_LABELS" :key="val" :value="val">{{ label }}</option>
           </select>
           <button
-            v-if="cat.isDefault && cat.essenzialitaPersonalizzata"
+            v-if="cat.isDefault"
             type="button"
             class="essenzialita__reset"
-            :disabled="essenzialitaBusy.has(chiave(cat))"
+            :class="{ 'essenzialita__reset--hidden': !cat.essenzialitaPersonalizzata }"
+            :disabled="!cat.essenzialitaPersonalizzata || essenzialitaBusy.has(chiave(cat))"
             :aria-label="`Torna al valore predefinito di ${cat.nome}`"
+            :title="`Torna al valore predefinito di ${cat.nome}`"
             @click="cambiaEssenzialita(cat, null)"
-          >Predefinita</button>
+          >↺</button>
         </div>
         <div v-if="!cat.isDefault" class="actions"><button :aria-label="`Modifica ${cat.nome}`" @click="edit(cat)">Modifica</button></div>
       </WCard>
@@ -297,10 +299,15 @@ small { font-size: var(--text-xs); margin-top: 0.125rem; color: var(--text-muted
   max-width: 9.5rem;
 }
 .essenzialita__reset {
+  width: 1.5rem;
+  height: 1.5rem;
+  display: grid;
+  place-items: center;
   font-size: var(--text-xs);
   color: var(--text-muted);
-  white-space: nowrap;
+  flex-shrink: 0;
 }
+.essenzialita__reset--hidden { visibility: hidden; }
 .essenzialita__reset:hover { color: var(--text-primary); text-decoration: underline; }
 .essenzialita__reset:disabled { opacity: 0.5; }
 .essenzialita__reset:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
