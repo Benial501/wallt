@@ -10,8 +10,10 @@ import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import PianoSmartChangeTimeline from '@/components/piano-smart/PianoSmartChangeTimeline.vue';
 import PianoSmartCashFlowRadar from '@/components/piano-smart/PianoSmartCashFlowRadar.vue';
 import PianoSmartGoalsSummary from '@/components/piano-smart/PianoSmartGoalsSummary.vue';
+import PianoSmartExpenseFunding from '@/components/piano-smart/PianoSmartExpenseFunding.vue';
 import PianoSmartGuide from '@/components/piano-smart/PianoSmartGuide.vue';
 import { usePianoSmartStore } from '@/stores/pianoSmart.store';
+import { useScheduledPaymentsStore } from '@/stores/scheduledPayments.store';
 import { useProfiloStore } from '@/stores/profilo.store';
 import { useToastStore } from '@/stores/toast.store';
 import { CircleHelp, Trash2 } from '@/utils/appIcons';
@@ -39,6 +41,7 @@ import {
  * centesimi interi (vedi lo store).
  */
 const store = usePianoSmartStore();
+const scheduledPaymentsStore = useScheduledPaymentsStore();
 const profiloStore = useProfiloStore();
 const router = useRouter();
 const toast = useToastStore();
@@ -64,6 +67,7 @@ const eliminazioneInCorso = ref(false);
 const simulatoreImporto = ref('');
 const salvaMesiRiservaInCorso = ref(false);
 const spiegazioneImportiAperta = ref(false);
+const expenseFundingBusyPaymentId = ref(null);
 
 const ORIGINI = ORIGINI_SOMMA;
 
@@ -140,6 +144,32 @@ const aggiornaMesiRiserva = async (event) => {
     toast.error('Non è stato possibile aggiornare la copertura. Riprova.');
   } finally {
     salvaMesiRiservaInCorso.value = false;
+  }
+};
+
+const registraAccantonamento = async ({ paymentId, amount, date }) => {
+  expenseFundingBusyPaymentId.value = paymentId;
+  try {
+    await scheduledPaymentsStore.addContribution(paymentId, { amount, date });
+    await store.loadCurrentSituation();
+    toast.success('Accantonamento registrato nel salvadanaio virtuale.');
+  } catch {
+    toast.error('Non è stato possibile registrare l’accantonamento. Riprova.');
+  } finally {
+    expenseFundingBusyPaymentId.value = null;
+  }
+};
+
+const confermaSpesaProgrammata = async (paymentId) => {
+  expenseFundingBusyPaymentId.value = paymentId;
+  try {
+    await scheduledPaymentsStore.confirmPayment(paymentId);
+    await store.loadCurrentSituation();
+    toast.success('Pagamento confermato e registrato nelle analisi.');
+  } catch {
+    toast.error('Non è stato possibile confermare il pagamento. Riprova.');
+  } finally {
+    expenseFundingBusyPaymentId.value = null;
   }
 };
 
@@ -436,6 +466,13 @@ onMounted(() => {
             <div><span>Il tuo limite</span><strong>{{ formattaEuro(currentSituation.current.dailyLimit) }}/giorno</strong></div>
           </div>
         </WCard>
+
+        <PianoSmartExpenseFunding
+          :plans="currentSituation.upcomingExpensePlans || []"
+          :busy-payment-id="expenseFundingBusyPaymentId"
+          @add-contribution="registraAccantonamento"
+          @confirm-payment="confermaSpesaProgrammata"
+        />
 
         <template v-if="tab === 'analysis'">
         <div class="analysis-heading"><h2>Cosa è cambiato?</h2><button type="button" class="context-help" @click="apriGuida('analisi')">Che cosa significa?</button></div>

@@ -7,6 +7,7 @@ export const useScheduledPaymentsStore = defineStore('scheduledPayments', () => 
   const loading = ref(false);
   const error = ref(null);
   const lastUpdated = ref(null);
+  const contributionsByPayment = ref({});
   let generation = 0;
   const fetchPayments = async () => {
     const requestGeneration = ++generation;
@@ -41,6 +42,16 @@ export const useScheduledPaymentsStore = defineStore('scheduledPayments', () => 
     await refreshQuietly();
     return data;
   };
+  const fetchContributions = async (id) => {
+    const { data } = await api.get(`/movimenti/programmate/${id}/accantonamenti`);
+    contributionsByPayment.value = { ...contributionsByPayment.value, [id]: data };
+    return data;
+  };
+  const addContribution = async (id, payload) => {
+    const { data } = await api.post(`/movimenti/programmate/${id}/accantonamenti`, payload);
+    await Promise.all([refreshQuietly(), fetchContributions(id)]);
+    return data;
+  };
   const markIncomeLate = async (id) => {
     const { data } = await api.patch(`/movimenti/programmate/${id}/ritardo`);
     await refreshQuietly();
@@ -56,9 +67,9 @@ export const useScheduledPaymentsStore = defineStore('scheduledPayments', () => 
     await refreshQuietly();
     return data.plan;
   };
-  const reset = () => { generation += 1; payments.value = []; loading.value = false; error.value = null; lastUpdated.value = null; };
+  const reset = () => { generation += 1; payments.value = []; contributionsByPayment.value = {}; loading.value = false; error.value = null; lastUpdated.value = null; };
   return {
-    payments, loading, error, lastUpdated, fetchPayments, createPayment, createInstallmentPlan,
-    confirmPayment, markIncomeLate, cancelPayment, cancelPlan, reset,
+    payments, loading, error, lastUpdated, contributionsByPayment, fetchPayments, createPayment, createInstallmentPlan,
+    confirmPayment, fetchContributions, addContribution, markIncomeLate, cancelPayment, cancelPlan, reset,
   };
 });
