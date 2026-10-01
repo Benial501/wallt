@@ -258,9 +258,9 @@ const inviaAccantonamento = (plan) => {
   width: min(100%, 12rem);
   min-height: 44px;
   padding: 0.6rem 0.75rem;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--surface-primary);
+  background: var(--bg-input);
   color: var(--text-primary);
   font: inherit;
 }

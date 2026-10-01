@@ -24,3 +24,13 @@ test('la scheda richiede una conferma esplicita e non presenta tagli percentuali
   assert.match(store, /\/programmate\/\$\{id\}\/conferma/);
   assert.match(store, /\/programmate\/\$\{id\}\/accantonamenti/);
 });
+
+test('il campo importo usa token grafici definiti e resta riconoscibile', async () => {
+  const component = await readFile(new URL('../src/components/piano-smart/PianoSmartExpenseFunding.vue', import.meta.url), 'utf8');
+  const tokens = await readFile(new URL('../src/assets/styles/variables.css', import.meta.url), 'utf8');
+  const fieldStyle = component.match(/\.expense-funding__form input\s*\{([\s\S]*?)\}/)?.[1] || '';
+  assert.match(tokens, /--bg-input:/);
+  assert.match(tokens, /--border:/);
+  assert.match(fieldStyle, /background:\s*var\(--bg-input\)/);
+  assert.match(fieldStyle, /border:\s*1px solid var\(--border\)/);
+});
