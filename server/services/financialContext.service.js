@@ -42,7 +42,7 @@ const FATTORE_MENSILE = { mensile: 1, settimanale: 52 / 12, annuale: 1 / 12 };
 async function riepilogoRicorrenti(userId, referenceDate = new Date()) {
   const ricorrenti = await Movimento.findAll({
     where: { user_id: userId, ricorrente: true },
-    attributes: ['id', 'descrizione', 'data', 'stato_ricorrenza', 'ricorrente_frequenza', 'ricorrente_giorno', 'ricorrente_mese', 'tipo', 'importo'],
+    attributes: ['id', 'descrizione', 'data', 'stato_ricorrenza', 'ricorrente_frequenza', 'ricorrente_data', 'ricorrente_giorno', 'ricorrente_mese', 'tipo', 'importo'],
   });
 
   const conteggi = Object.fromEntries(STATI_RICORRENZA.map((s) => [s, 0]));
@@ -82,7 +82,10 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date()) {
           dueDate: date,
           direction: r.tipo,
           frequency: r.ricorrente_frequenza,
-          reserved: r.tipo === 'uscita' && periodo === periodoPerFrequenza(r.ricorrente_frequenza, oggi),
+          // La liquidità sottrae già le spese una tantum entro l'orizzonte
+          // di 30 giorni. Il radar deve quindi evitare di sottrarle di nuovo.
+          reserved: r.tipo === 'uscita' && (r.ricorrente_frequenza === 'una_tantum'
+            || periodo === periodoPerFrequenza(r.ricorrente_frequenza, oggi)),
         });
       }
     }
@@ -106,6 +109,8 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date()) {
     }
   });
 
+  // calcolaLiquidita include già nello spendibile tutte le uscite programmate
+  // in attesa entro oggi + 30 giorni: nel radar sono quindi già protette.
   const programmate = await ScheduledPayment.findAll({
     where: {
       user_id: userId,
@@ -122,7 +127,7 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date()) {
     dueDate: payment.data_scadenza,
     direction: payment.tipo,
     frequency: 'una_tantum',
-    reserved: payment.tipo === 'uscita' && payment.data_scadenza === oggi.date,
+    reserved: payment.tipo === 'uscita',
   }));
 
   const riepilogo = {

@@ -1,9 +1,11 @@
-const { Movimento } = require('../models');
+const { Movimento, ScheduledPayment } = require('../models');
 const { riepilogoRicorrenti } = require('../services/financialContext.service');
 
 describe('flussi ricorrenti previsti', () => {
   test('include eventi attivi futuri fino a 30 giorni e conserva gli impegni mensili', async () => {
     const original = Movimento.findAll;
+    const originalProgrammate = ScheduledPayment.findAll;
+    ScheduledPayment.findAll = jest.fn().mockResolvedValue([]);
     Movimento.findAll = jest.fn()
       .mockResolvedValueOnce([
         { id: 1, descrizione: 'Stipendio', data: '2026-09-01', stato_ricorrenza: 'attiva', ricorrente_frequenza: 'mensile', ricorrente_giorno: 30, tipo: 'entrata', importo: 1200 },
@@ -26,6 +28,32 @@ describe('flussi ricorrenti previsti', () => {
       expect(result.commitments).toBe(201.67);
     } finally {
       Movimento.findAll = original;
+      ScheduledPayment.findAll = originalProgrammate;
+    }
+  });
+
+  test('marca come già protette le spese singole incluse nella liquidità a 30 giorni', async () => {
+    const originalMovimenti = Movimento.findAll;
+    const originalProgrammate = ScheduledPayment.findAll;
+    Movimento.findAll = jest.fn()
+      .mockResolvedValueOnce([{
+        id: 5, descrizione: 'Assicurazione', data: '2026-09-01', stato_ricorrenza: 'attiva',
+        ricorrente_frequenza: 'una_tantum', ricorrente_data: '2026-10-10', tipo: 'uscita', importo: 180,
+      }])
+      .mockResolvedValueOnce([]);
+    ScheduledPayment.findAll = jest.fn().mockResolvedValue([{
+      id: 31, descrizione: 'Visita', importo: 180, data_scadenza: '2026-10-12', tipo: 'uscita',
+    }]);
+    try {
+      const result = await riepilogoRicorrenti(42, new Date('2026-09-25T12:00:00Z'));
+      expect(Movimento.findAll.mock.calls[0][0].attributes).toContain('ricorrente_data');
+      expect(result.cashFlowItems).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: 5, dueDate: '2026-10-10', amount: 180, reserved: true }),
+        expect.objectContaining({ id: 31, dueDate: '2026-10-12', amount: 180, reserved: true }),
+      ]));
+    } finally {
+      Movimento.findAll = originalMovimenti;
+      ScheduledPayment.findAll = originalProgrammate;
     }
   });
 });
