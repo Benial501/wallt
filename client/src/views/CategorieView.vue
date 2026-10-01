@@ -264,9 +264,15 @@ h2 {
 
 .hint { margin-top: 1rem; font-size: 0.875rem; line-height: var(--leading-normal); }
 
-.category-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.625rem; }
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+  gap: 0.625rem;
+  container: category-list / inline-size;
+}
 .category-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1.25rem 38px minmax(0, 1fr) auto;
   gap: 0.875rem;
   align-items: center;
   padding: 0.875rem 1rem;
@@ -277,7 +283,8 @@ h2 {
   border-color: color-mix(in srgb, var(--accent-green) 50%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-green) 45%, transparent), var(--glass-highlight);
 }
-.checkbox-placeholder { width: 1.25rem; flex-shrink: 0; }
+.checkbox-placeholder { width: 1.25rem; }
+.category-row > input[type='checkbox'] { margin: 0; justify-self: center; }
 .mark {
   width: 38px;
   height: 38px;
@@ -287,11 +294,11 @@ h2 {
   flex-shrink: 0;
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%);
 }
-.category-name { flex: 1; min-width: 0; }
+.category-name { min-width: 0; }
 strong, small { display: block; }
 strong { font-size: 0.9375rem; font-weight: 600; letter-spacing: var(--tracking-tight); }
 small { font-size: var(--text-xs); margin-top: 0.125rem; color: var(--text-muted); }
-.essenzialita { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+.essenzialita { display: flex; align-items: center; gap: 0.5rem; justify-self: end; }
 .essenzialita__select {
   min-height: 34px;
   padding: 0.3rem 0.6rem;
@@ -359,9 +366,23 @@ small { font-size: var(--text-xs); margin-top: 0.125rem; color: var(--text-muted
 .delete-actions { display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1.5rem; }
 
 @media (max-width: 700px) {
-  .category-grid { grid-template-columns: 1fr; }
   header, .filters { align-items: stretch; flex-direction: column; }
   .filters input { max-width: none; }
   .tabs button { flex: 1; }
+}
+
+@container category-list (max-width: 27rem) {
+  .category-row {
+    grid-template-columns: 1.25rem 38px minmax(0, 1fr);
+    row-gap: 0.625rem;
+  }
+  .essenzialita {
+    grid-column: 2 / -1;
+    justify-self: end;
+  }
+  .actions {
+    grid-column: 3;
+    justify-self: end;
+  }
 }
 </style>
