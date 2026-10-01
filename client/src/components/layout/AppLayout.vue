@@ -90,6 +90,7 @@ watch(
 
 const primoNome = computed(() => authStore.user?.nome?.split(' ')[0] || 'Utente');
 
+
 const isActive = (path) => route.path === path || route.path.startsWith(path + '/');
 
 const functionalityContext = computed(() => ({

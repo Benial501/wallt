@@ -26,7 +26,7 @@ const steps = computed(() => [
     id: 'conto',
     stato: props.contiState,
     titolo: 'Aggiungi il tuo primo conto',
-    testo: 'Un conto è il posto dove registri i soldi: banca, carta, contanti. WALLT non si collega alla tua banca.',
+    testo: 'Un conto è il posto dove registri i soldi: banca, carta, contanti. Puoi aggiungerlo a mano oppure, con Premium, collegare la tua banca.',
     azioni: [{ label: 'Vai a I miei conti', onClick: () => router.push('/conti') }],
   },
   {

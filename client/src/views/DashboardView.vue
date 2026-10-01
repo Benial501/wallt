@@ -35,6 +35,10 @@ const helpStore = useHelpStore();
 const fondoStore = useFondoEmergenzaStore();
 const router = useRouter();
 const { canAccessScommesseFeature, canAccessInvestimentiFeature } = storeToRefs(authStore);
+
+/** L'ultima scheda del carosello. Comodità, non sicurezza: il server
+ * risponde 404 all'area amministrativa a chi non ha il ruolo. */
+const isAdmin = computed(() => authStore.user?.ruolo === 'admin');
 const { recentiHome, ricorrenti } = storeToRefs(movimentiStore);
 const { gettingStartedVisible } = storeToRefs(helpStore);
 
@@ -348,6 +352,7 @@ onMounted(async () => {
       :has-budget="budgetStore.hasBudget"
       :budget-stato="budgetStore.statoBudget"
       :budget-totale="budgetTotale"
+      :mostra-admin="isAdmin"
       :mostra-scommesse="canAccessScommesseFeature"
       :scommesse-attivo="scommesseAttivo"
       :scommesse-analisi="scommesseStore.analisi"

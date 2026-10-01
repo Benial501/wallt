@@ -4,6 +4,8 @@ const { LIQUIDABILITA } = require('../services/investimentiLiquidabilita.service
 const { STATI_RICORRENZA } = require('../services/ricorrenti.service');
 const { MESI_TARGET_AMMESSI } = require('../services/fondoEmergenza.service');
 const { SOURCE_TYPES, STATI_PIANO, CHIAVI_CONTESTO_MANUALE } = require('../constants/pianoSmart');
+const { FEATURE_KEYS, FEATURE_RICHIEDIBILI, RICHIESTA_STATI } = require('../constants/entitlements');
+const { CHIAVI: CHIAVI_CONFIG } = require('../constants/appConfig');
 const { isImportoValido, toCents } = require('../services/pianoSmart/money');
 const { oggiLocale, FUSO_DEFAULT } = require('../utils/dateRome');
 const {
@@ -1579,6 +1581,165 @@ const validateCreateScheduledPaymentContribution = [
   validate,
 ];
 
+// --- WALLT Premium e Bank Sync ---
+
+/**
+ * `POST /bank-sync/claim-beta` non ha corpo, ed è deliberato: la feature
+ * (`bank_sync`) e l'origine (`beta_25`) sono cablate nel servizio. Se il
+ * client potesse dichiararle, potrebbe chiedere un posto per una feature
+ * diversa o un'origine che non gli spetta. Il client non scrive mai
+ * `user_id`, `feature_key`, `source`, `plan` né `status`.
+ */
+
+const validateBankConnect = [
+  body('institution_id')
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 120 })
+    .withMessage('Banca non valida')
+    .bail()
+    // L'identificatore arriva dall'elenco del provider: solo caratteri da
+    // identificatore. Non viene mai interpolato in una query, ma finisce in
+    // un URL verso il provider, e una stringa libera lì è una superficie
+    // inutile da difendere.
+    .matches(/^[A-Za-z0-9_.-]+$/)
+    .withMessage('Banca non valida'),
+  body('sostituisci')
+    .optional({ values: 'null' })
+    .isBoolean()
+    .withMessage('Valore non valido')
+    .toBoolean(),
+  validate,
+];
+
+const validateBankCallback = [
+  // Lo `state` è un valore casuale di 32 byte in base64url generato dal
+  // server. Non viene mai usato come identificatore: viene reso hash e
+  // confrontato, e deve appartenere all'utente autenticato.
+  body('state')
+    .isString()
+    .trim()
+    .isLength({ min: 20, max: 200 })
+    .withMessage('Autorizzazione non valida o scaduta')
+    .bail()
+    .matches(/^[A-Za-z0-9_-]+$/)
+    .withMessage('Autorizzazione non valida o scaduta'),
+  validate,
+];
+
+const validateIstitutiQuery = [
+  query('paese')
+    .optional({ values: 'null' })
+    .isString()
+    .trim()
+    .isLength({ min: 2, max: 2 })
+    .withMessage('Paese non valido')
+    .bail()
+    .matches(/^[A-Za-z]{2}$/)
+    .withMessage('Paese non valido'),
+  validate,
+];
+
+const validateAdminEntitlement = [
+  body('user_id')
+    .isInt({ min: 1 })
+    .withMessage('Utente non valido')
+    .toInt(),
+  body('feature_key')
+    .isIn(FEATURE_KEYS)
+    .withMessage('Feature non valida'),
+  body('nota')
+    .optional({ values: 'null' })
+    .isString()
+    .trim()
+    .isLength({ max: 300 })
+    .withMessage('Nota troppo lunga'),
+  body('expires_at')
+    .optional({ values: 'null' })
+    .isISO8601({ strict: false })
+    .withMessage('Data di scadenza non valida'),
+  validate,
+];
+
+const validateAdminConfig = [
+  body('chiave')
+    .isIn(CHIAVI_CONFIG)
+    .withMessage('Chiave di configurazione non valida'),
+  // Il valore non si valida qui: il tipo e l'intervallo sono dichiarati in
+  // `constants/appConfig.js` e applicati da `appConfig.service.setConfig`,
+  // che è l'unico punto autorizzato a scrivere. Duplicare qui le regole le
+  // farebbe divergere.
+  body('valore')
+    .exists()
+    .withMessage('Valore obbligatorio'),
+  validate,
+];
+
+const validateAdminUtentiQuery = [
+  query('q')
+    .optional({ values: 'null' })
+    .isString()
+    .trim()
+    .isLength({ max: 120 })
+    .withMessage('Ricerca non valida'),
+  query('limite')
+    .optional({ values: 'null' })
+    .isInt({ min: 1, max: 200 })
+    .withMessage('Limite non valido')
+    .toInt(),
+  query('solo_bank_sync')
+    .optional({ values: 'null' })
+    .isBoolean()
+    .withMessage('Valore non valido')
+    .toBoolean(),
+  validate,
+];
+
+/**
+ * `POST /api/premium/request`
+ *
+ * L'unico campo accettato è la feature, e deve essere una di quelle
+ * richiedibili. Tutto il resto — `user_id`, `status`, `requested_at`,
+ * `reviewed_by` — non compare qui e non viene letto dal controller: il
+ * server lo determina da sé. Un corpo che li contenesse passerebbe la
+ * validazione e verrebbe semplicemente ignorato, che è il comportamento
+ * giusto (rifiutare la richiesta insegnerebbe a un attaccante quali campi
+ * esistono).
+ */
+const validatePremiumRequest = [
+  body('requested_feature')
+    .optional({ values: 'null' })
+    .isIn(FEATURE_RICHIEDIBILI)
+    .withMessage('Feature non valida'),
+  validate,
+];
+
+/** `POST /api/admin/richieste-premium/:id/(approva|rifiuta)` */
+const validateAdminRichiestaDecisione = [
+  idParam,
+  body('motivo')
+    .optional({ values: 'null' })
+    .isString()
+    .trim()
+    .isLength({ max: 300 })
+    .withMessage('Motivo troppo lungo'),
+  validate,
+];
+
+/** `GET /api/admin/richieste-premium` */
+const validateAdminRichiesteQuery = [
+  query('stato')
+    .optional({ values: 'null' })
+    .isIn(RICHIESTA_STATI)
+    .withMessage('Stato non valido'),
+  query('limite')
+    .optional({ values: 'null' })
+    .isInt({ min: 1, max: 500 })
+    .withMessage('Limite non valido')
+    .toInt(),
+  validate,
+];
+
 module.exports = {
   validate,
   handleValidation: validate,
@@ -1643,4 +1804,13 @@ module.exports = {
   validateCreateInstallmentPlan,
   validateScheduledPaymentId,
   validateCreateScheduledPaymentContribution,
+  validateBankConnect,
+  validateBankCallback,
+  validateIstitutiQuery,
+  validateAdminEntitlement,
+  validateAdminConfig,
+  validateAdminUtentiQuery,
+  validatePremiumRequest,
+  validateAdminRichiestaDecisione,
+  validateAdminRichiesteQuery,
 };

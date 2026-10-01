@@ -35,6 +35,12 @@ const PianoSmartAzione = require('./PianoSmartAzione');
 const PaymentPlan = require('./PaymentPlan');
 const ScheduledPayment = require('./ScheduledPayment');
 const ScheduledPaymentContribution = require('./ScheduledPaymentContribution');
+const UserEntitlement = require('./UserEntitlement');
+const Subscription = require('./Subscription');
+const BankConnection = require('./BankConnection');
+const AuditLog = require('./AuditLog');
+const AppConfig = require('./AppConfig');
+const PremiumAccessRequest = require('./PremiumAccessRequest');
 
 // User associations
 User.hasOne(ProfiloUtente, { foreignKey: 'user_id', as: 'profilo' });
@@ -132,6 +138,38 @@ User.hasMany(ScheduledPaymentContribution, {
 });
 ScheduledPaymentContribution.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
+// --- WALLT Premium ---------------------------------------------------------
+// I permessi muoiono con l'utente (CASCADE lato DB e lato associazione):
+// un entitlement orfano sarebbe un diritto senza titolare.
+User.hasMany(UserEntitlement, { foreignKey: 'user_id', as: 'entitlements', onDelete: 'CASCADE' });
+UserEntitlement.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+UserEntitlement.belongsTo(User, { foreignKey: 'actor_user_id', as: 'actor' });
+
+User.hasMany(Subscription, { foreignKey: 'user_id', as: 'subscriptions', onDelete: 'CASCADE' });
+Subscription.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+User.hasMany(AuditLog, { foreignKey: 'user_id', as: 'auditLogs', onDelete: 'CASCADE' });
+AuditLog.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+AuditLog.belongsTo(User, { foreignKey: 'actor_user_id', as: 'actor' });
+
+// --- Bank Sync -------------------------------------------------------------
+// `Movimento.bank_connection_id` è SET NULL e non CASCADE: scollegare o
+// sostituire una banca NON deve cancellare i movimenti già importati. È la
+// regola centrale di Bank Sync — i dati finanziari sopravvivono alla
+// connessione che li ha portati — e qui è il database a garantirla.
+// Una richiesta di accesso a Premium. `revisore` è l'amministratore che ha
+// deciso: distinto dall'utente soggetto della richiesta, come in audit_logs.
+User.hasMany(PremiumAccessRequest, { foreignKey: 'user_id', as: 'richiestePremium', onDelete: 'CASCADE' });
+PremiumAccessRequest.belongsTo(User, { foreignKey: 'user_id', as: 'utente' });
+PremiumAccessRequest.belongsTo(User, { foreignKey: 'reviewed_by', as: 'revisore' });
+
+User.hasMany(BankConnection, { foreignKey: 'user_id', as: 'bankConnections', onDelete: 'CASCADE' });
+BankConnection.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+BankConnection.belongsTo(Conto, { foreignKey: 'conto_id', as: 'conto' });
+Conto.hasOne(BankConnection, { foreignKey: 'conto_id', as: 'bankConnection' });
+BankConnection.hasMany(Movimento, { foreignKey: 'bank_connection_id', as: 'movimenti' });
+Movimento.belongsTo(BankConnection, { foreignKey: 'bank_connection_id', as: 'bankConnection' });
+
 module.exports = {
   CategoriaPersonale,
   CategoriaDefaultNascosta,
@@ -163,4 +201,10 @@ module.exports = {
   PaymentPlan,
   ScheduledPayment,
   ScheduledPaymentContribution,
+  UserEntitlement,
+  Subscription,
+  BankConnection,
+  AuditLog,
+  AppConfig,
+  PremiumAccessRequest,
 };

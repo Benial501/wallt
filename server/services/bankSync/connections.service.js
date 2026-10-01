@@ -1,0 +1,612 @@
+const crypto = require('crypto');
+const { Op } = require('sequelize');
+const {
+  sequelize, BankConnection, Conto, Movimento,
+} = require('../../models');
+const logger = require('../../utils/logger');
+const {
+  STATO_IN_ATTESA, STATO_ATTIVA, STATO_CONSENSO_SCADUTO, STATO_ERRORE,
+  STATO_SOSPESA_ENTITLEMENT, STATO_REVOCATA, STATI_VIVI, STATI_SINCRONIZZABILI,
+  STATE_TTL_MINUTI, ERRORI_RICHIEDONO_RICONNESSIONE, ORIGINE_OPEN_BANKING,
+  ERR_CONFIG,
+} = require('../../constants/bankSync');
+const { getBankProvider } = require('./providers');
+const { BankProviderError } = require('./providers/BankProvider');
+const { aggiornaSaldoConto } = require('../scommesseContoSync.service');
+const { registraAudit, EVENTI, ESITI } = require('../auditLog.service');
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  Ciclo di vita di una connessione bancaria
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Quattro garanzie, tutte applicate dal server e nessuna lasciata alla UI:
+ *
+ *  1. UN SOLO conto sincronizzato per utente. L'indice parziale
+ *     `bank_connections_una_viva_per_utente` lo impone nel database: due
+ *     richieste simultanee passerebbero entrambe un controllo applicativo, e
+ *     solo l'indice le ferma. Qui il controllo esiste per dare un messaggio
+ *     sensato prima di sbatterci contro, non come barriera.
+ *
+ *  2. IL CALLBACK È PROTETTO. Lo `state` è casuale (32 byte), conservato solo
+ *     come SHA-256, a scadenza e monouso, e deve appartenere all'utente
+ *     autenticato che lo presenta. L'identità non viene MAI dedotta da un
+ *     parametro della richiesta: `user_id` arriva dal JWT verificato, e lo
+ *     `state` serve a collegare quella sessione a quel tentativo. Chi
+ *     intercettasse o indovinasse uno `state` non potrebbe usarlo, perché
+ *     verrebbe confrontato con il proprietario della sessione.
+ *
+ *  3. LO STORICO NON SI PERDE. Scollegare, sostituire o far scadere una
+ *     connessione non cancella un solo movimento: la riga della connessione
+ *     resta (stato `revocata`) e i movimenti continuano a referenziarla
+ *     (`ON DELETE SET NULL`, non CASCADE). Cancellare i dati importati è una
+ *     seconda azione, esplicita, separata e dietro riverifica d'identità.
+ *
+ *  4. NESSUNA CREDENZIALE BANCARIA. L'utente autentica sul dominio della sua
+ *     banca; WALLT riceve identificatori opachi e un IBAN già mascherato.
+ */
+
+/** Finestra di validità dello `state`. */
+const scadenzaState = () => new Date(Date.now() + STATE_TTL_MINUTI * 60 * 1000);
+
+const hashState = (state) => crypto.createHash('sha256').update(String(state)).digest('hex');
+
+/** L'URL a cui la banca rimanda l'utente. Lo `state` viaggia nella query
+ * perché la SPA lo rilegga e lo rimandi al server con il proprio JWT: in
+ * questo modo il completamento richiede la sessione, e un link costruito da
+ * un sito terzo non può portare a termine un collegamento. */
+const redirectCallback = (state) => {
+  const base = (process.env.APP_URL || 'http://localhost:5173').replace(/\/+$/, '');
+  return `${base}/banca/callback?state=${encodeURIComponent(state)}`;
+};
+
+/** La connessione viva dell'utente, se esiste. Al massimo una: l'indice
+ * parziale lo garantisce. */
+const trovaConnessioneViva = (userId, { transaction, lock = false } = {}) => BankConnection.findOne({
+  where: { user_id: userId, status: { [Op.in]: STATI_VIVI } },
+  transaction,
+  ...(lock && transaction ? { lock: transaction.LOCK.UPDATE } : {}),
+});
+
+/**
+ * Chiude i tentativi abbandonati: una connessione `in_attesa` il cui `state`
+ * è scaduto viene marcata `revocata`, liberando il posto.
+ *
+ * Senza questo, chi chiude la pagina della banca a metà resterebbe bloccato
+ * per sempre dal limite di una connessione, senza avere nulla da scollegare.
+ */
+async function liberaTentativiScaduti(userId, { transaction } = {}) {
+  const [quante] = await BankConnection.update(
+    { status: STATO_REVOCATA, state_hash: null },
+    {
+      where: {
+        user_id: userId,
+        status: STATO_IN_ATTESA,
+        state_expires_at: { [Op.lt]: new Date() },
+      },
+      transaction,
+    },
+  );
+  return quante;
+}
+
+/** Una connessione nella forma esposta dall'API. Mai identificatori del
+ * provider, mai IBAN completo, mai hash: al client serve riconoscere il
+ * proprio conto e sapere cosa può fare. */
+const serializza = (c, { conto = null } = {}) => (c ? {
+  id: c.id,
+  stato: c.status,
+  provider: c.provider,
+  istituto: { id: c.institution_id, nome: c.institution_name },
+  conto_id: c.conto_id,
+  conto_nome: conto?.nome ?? null,
+  saldo: conto ? Number(conto.saldo) : (c.saldo_provider === null ? null : Number(c.saldo_provider)),
+  iban_mascherato: c.iban_mascherato,
+  valuta: c.valuta,
+  consenso_scade_il: c.consent_expires_at,
+  ultima_sincronizzazione: c.last_successful_sync_at,
+  ultimo_tentativo: c.last_sync_at,
+  ultimo_errore_il: c.last_error_at,
+  codice_errore: c.error_code,
+  richiede_riconnessione: ERRORI_RICHIEDONO_RICONNESSIONE.includes(c.error_code)
+    || c.status === STATO_CONSENSO_SCADUTO,
+  sincronizzabile: STATI_SINCRONIZZABILI.includes(c.status),
+  sincronizzazione_in_corso: !!c.sync_started_at,
+  metriche: {
+    sync_riuscite: c.sync_ok_totali,
+    sync_fallite: c.sync_errori_totali,
+    movimenti_importati: c.movimenti_importati_totali,
+    duplicati_evitati: c.duplicati_evitati_totali,
+  },
+} : null);
+
+/** Lo stato per `GET /bank-sync/status`. */
+async function statoConnessione(userId) {
+  await liberaTentativiScaduti(userId);
+  const connessione = await trovaConnessioneViva(userId);
+  if (!connessione) return { connessione: null };
+
+  const conto = connessione.conto_id
+    ? await Conto.findOne({ where: { id: connessione.conto_id, user_id: userId } })
+    : null;
+
+  return { connessione: serializza(connessione, { conto }) };
+}
+
+/** Le banche disponibili, dal provider configurato. */
+async function istitutiDisponibili({ paese = 'IT', provider = null } = {}) {
+  const adapter = provider ?? await getBankProvider();
+  if (!await adapter.isConfigurato()) {
+    throw new BankProviderError(
+      ERR_CONFIG,
+      'Provider Open Banking non configurato',
+      { statusCode: 503 },
+    );
+  }
+  return adapter.listIstituti(paese);
+}
+
+/**
+ * Avvia un'autorizzazione bancaria.
+ *
+ * @param {Object} dati
+ * @param {number} dati.userId
+ * @param {string} dati.institutionId
+ * @param {boolean} [dati.sostituisci] se true revoca la connessione viva
+ *   prima di crearne una nuova (azione "Sostituisci conto"). Senza questo
+ *   flag una connessione già presente fa fallire la richiesta: sostituire
+ *   una banca non deve poter succedere per sbaglio.
+ * @param {import('./providers/BankProvider').BankProvider} [dati.provider]
+ */
+async function avviaConnessione({
+  userId, institutionId, sostituisci = false, provider = null,
+}) {
+  const adapter = provider ?? await getBankProvider();
+  if (!await adapter.isConfigurato()) {
+    throw new BankProviderError(
+      ERR_CONFIG, 'Provider Open Banking non configurato', { statusCode: 503 },
+    );
+  }
+
+  // Lo `state` esiste solo in questa variabile e nell'URL che l'utente
+  // segue: nel database va soltanto il suo hash.
+  const state = crypto.randomBytes(32).toString('base64url');
+  const redirectUrl = redirectCallback(state);
+
+  let connessionePrecedente = null;
+
+  /**
+   * Il limite è nel database (indice parziale), e il database è l'ultima
+   * parola: due richieste simultanee passano ENTRAMBE il controllo
+   * applicativo qui sotto, perché un `SELECT ... FOR UPDATE` che non trova
+   * righe non blocca niente. La seconda si schianta sull'indice, e deve
+   * ricevere lo stesso 409 della prima invece di un 500: per chi chiama è
+   * la stessa situazione, "hai già un conto collegato".
+   */
+  const erroreLimite = () => Object.assign(
+    new Error('Hai già un conto bancario collegato. Puoi sostituirlo o scollegarlo.'),
+    { statusCode: 409, codice: 'limite_connessioni_raggiunto' },
+  );
+
+  const connessione = await sequelize.transaction(async (transaction) => {
+    await liberaTentativiScaduti(userId, { transaction });
+
+    const viva = await trovaConnessioneViva(userId, { transaction, lock: true });
+    if (viva && !sostituisci) throw erroreLimite();
+
+    if (viva) {
+      // Sostituzione: la vecchia connessione diventa terminale e libera il
+      // posto. I suoi movimenti restano, e continuano a puntare a lei.
+      connessionePrecedente = viva;
+      await viva.update({
+        status: STATO_REVOCATA,
+        state_hash: null,
+        sync_started_at: null,
+      }, { transaction });
+    }
+
+    try {
+      return await BankConnection.create({
+        user_id: userId,
+        provider: adapter.nome,
+        institution_id: String(institutionId).slice(0, 120),
+        status: STATO_IN_ATTESA,
+        state_hash: hashState(state),
+        state_expires_at: scadenzaState(),
+      }, { transaction });
+    } catch (error) {
+      if (error?.name === 'SequelizeUniqueConstraintError') throw erroreLimite();
+      throw error;
+    }
+  });
+
+  // La chiamata al provider sta FUORI dalla transazione: una richiesta HTTP
+  // lenta non deve tenere aperta una transazione sul database, e il posto è
+  // già stato riservato dalla riga `in_attesa`.
+  let autorizzazione;
+  try {
+    autorizzazione = await adapter.createAuthorization({
+      institutionId,
+      redirectUrl,
+      // Identificatore opaco: NON contiene l'id utente. Ciò che transita nel
+      // browser e nei sistemi del provider non deve permettere di dedurre o
+      // manipolare a quale utente verrà collegato il conto.
+      reference: state,
+    });
+  } catch (error) {
+    // Il tentativo non è andato a buon fine: libera subito il posto, invece
+    // di lasciare l'utente bloccato per i 30 minuti di validità dello state.
+    await connessione.update({ status: STATO_REVOCATA, state_hash: null }).catch(() => {});
+    throw error;
+  }
+
+  await connessione.update({
+    provider_connection_id: autorizzazione.providerConnectionId,
+    consent_created_at: autorizzazione.consentCreatedAt ?? new Date(),
+    consent_expires_at: autorizzazione.consentExpiresAt ?? null,
+  });
+
+  if (connessionePrecedente) {
+    await registraAudit({
+      userId,
+      evento: EVENTI.CONNESSIONE_SOSTITUITA,
+      entita: 'bank_connection',
+      entitaId: connessionePrecedente.id,
+      metadata: { istituto_precedente: connessionePrecedente.institution_id, nuova_connessione: connessione.id },
+    });
+    // La revoca presso il provider è "best effort": se fallisce, lo stato
+    // locale è già terminale e l'utente non resta bloccato.
+    adapter.revokeConnection({
+      providerConnectionId: connessionePrecedente.provider_connection_id,
+    }).catch(() => {});
+  }
+
+  await registraAudit({
+    userId,
+    evento: EVENTI.CONNESSIONE_AVVIATA,
+    entita: 'bank_connection',
+    entitaId: connessione.id,
+    metadata: { provider: adapter.nome, institution_id: institutionId, sostituzione: !!connessionePrecedente },
+  });
+
+  return {
+    connection_id: connessione.id,
+    url_autorizzazione: autorizzazione.urlAutorizzazione,
+    scade_il: connessione.state_expires_at,
+  };
+}
+
+/**
+ * Completa l'autorizzazione dopo il ritorno dell'utente dalla banca.
+ *
+ * ── Le cinque verifiche sullo `state`, tutte necessarie ──────────────────
+ *  1. esiste una connessione con quell'hash;
+ *  2. appartiene all'utente autenticato (mai dedotto dalla richiesta);
+ *  3. non è scaduto;
+ *  4. non è già stato usato;
+ *  5. la connessione è ancora nello stato `in_attesa`.
+ *
+ * Il punto 4 dà anche l'idempotenza richiesta: un callback consegnato due
+ * volte (doppio click, refresh della pagina) trova lo stato già consumato e
+ * restituisce la connessione esistente invece di crearne una seconda.
+ *
+ * Il consumo dello stato è un UPDATE CONDIZIONALE, non una lettura seguita da
+ * una scrittura: due richieste simultanee non possono entrambe trovarlo
+ * libero, perché solo una vede `rowCount = 1`.
+ */
+async function completaConnessione({ userId, state, provider = null }) {
+  if (typeof state !== 'string' || state.length < 20) {
+    throw Object.assign(new Error('Autorizzazione non valida o scaduta'), { statusCode: 400 });
+  }
+
+  const hash = hashState(state);
+  const connessione = await BankConnection.findOne({ where: { state_hash: hash } });
+
+  // Messaggio identico in tutti i casi di rifiuto: non diciamo a chi presenta
+  // uno state se quello state esista, a chi appartenga o sia soltanto
+  // scaduto.
+  const rifiuta = async (motivo) => {
+    await registraAudit({
+      userId,
+      evento: EVENTI.CALLBACK_RIFIUTATO,
+      entita: 'bank_connection',
+      entitaId: connessione?.id ?? null,
+      esito: ESITI.RIFIUTATO,
+      metadata: { motivo },
+    });
+    throw Object.assign(new Error('Autorizzazione non valida o scaduta'), { statusCode: 400 });
+  };
+
+  if (!connessione) return rifiuta('state_inesistente');
+  if (connessione.user_id !== userId) return rifiuta('state_di_altro_utente');
+  if (connessione.state_used_at) {
+    // Già completato: se la connessione è viva, è un doppio invio e va
+    // trattato come successo (idempotenza). Altrimenti è un riuso.
+    if (connessione.status === STATO_ATTIVA) {
+      const conto = connessione.conto_id
+        ? await Conto.findOne({ where: { id: connessione.conto_id, user_id: userId } })
+        : null;
+      return { connessione: serializza(connessione, { conto }), ripetuto: true };
+    }
+    return rifiuta('state_gia_usato');
+  }
+  if (!connessione.state_expires_at || connessione.state_expires_at < new Date()) {
+    return rifiuta('state_scaduto');
+  }
+  if (connessione.status !== STATO_IN_ATTESA) return rifiuta('stato_non_in_attesa');
+
+  // Consumo atomico: solo una richiesta può portare a 1 questo UPDATE.
+  const [consumate] = await BankConnection.update(
+    { state_used_at: new Date() },
+    {
+      where: {
+        id: connessione.id,
+        user_id: userId,
+        state_used_at: null,
+        status: STATO_IN_ATTESA,
+      },
+    },
+  );
+  if (consumate !== 1) return rifiuta('state_consumato_in_concorrenza');
+
+  const adapter = provider ?? await getBankProvider({ nome: connessione.provider });
+
+  let esito;
+  try {
+    esito = await adapter.handleCallback({
+      providerConnectionId: connessione.provider_connection_id,
+    });
+  } catch (error) {
+    await connessione.update({
+      status: STATO_ERRORE,
+      error_code: error.codice ?? null,
+      last_error_at: new Date(),
+      state_hash: null,
+    });
+    await registraAudit({
+      userId,
+      evento: EVENTI.CALLBACK_RIFIUTATO,
+      entita: 'bank_connection',
+      entitaId: connessione.id,
+      esito: ESITI.ERRORE,
+      metadata: { motivo: 'provider_ha_rifiutato', codice: error.codice ?? null },
+    });
+    throw error;
+  }
+
+  const contoProvider = esito.conti?.[0];
+  if (!contoProvider) {
+    await connessione.update({ status: STATO_ERRORE, state_hash: null, last_error_at: new Date() });
+    throw Object.assign(new Error('La banca non ha restituito nessun conto'), { statusCode: 409 });
+  }
+
+  const attivata = await sequelize.transaction(async (transaction) => {
+    const maxOrdine = await Conto.max('ordine', { where: { user_id: userId }, transaction });
+
+    // Il conto viene creato QUI e non con `createConto`: quella funzione
+    // genera un movimento "Saldo iniziale" quando il saldo è positivo, e per
+    // un conto bancario sarebbe un'entrata inventata — falserebbe le medie
+    // di reddito, i budget e Piano Smart. Per un conto sincronizzato la
+    // verità sul saldo la dice la banca, non un movimento.
+    const conto = await Conto.create({
+      user_id: userId,
+      nome: contoProvider.nome || connessione.institution_name || 'Conto bancario',
+      tipo: 'banca',
+      saldo: contoProvider.saldo ?? 0,
+      icona: 'banca',
+      colore: '#74B9FF',
+      ordine: (maxOrdine || 0) + 1,
+      attivo: true,
+      nascosto: false,
+    }, { transaction });
+
+    await connessione.update({
+      conto_id: conto.id,
+      provider_account_id: contoProvider.providerAccountId,
+      institution_name: contoProvider.istituto?.nome ?? connessione.institution_name,
+      iban_mascherato: contoProvider.ibanMascherato,
+      valuta: contoProvider.valuta,
+      saldo_provider: contoProvider.saldo ?? null,
+      status: STATO_ATTIVA,
+      error_code: null,
+      last_error_at: null,
+      // `state_hash` viene CONSERVATO, e non azzerato, perché è ciò che rende
+      // idempotente un callback consegnato due volte: l'utente che ricarica la
+      // pagina di ritorno dalla banca ripresenta lo stesso `state`, e deve
+      // trovare la propria connessione invece di un errore. Non è un segreto
+      // ancora utilizzabile: è un hash a senso unico di un valore già
+      // consumato (`state_used_at`), e il ramo di idempotenza non compie
+      // nessuna azione — restituisce solo lo stato esistente. Viene azzerato
+      // quando la connessione diventa terminale (scollegamento, sostituzione,
+      // tentativo scaduto), dove non ha più nessuna funzione.
+    }, { transaction });
+
+    return { connessione, conto };
+  });
+
+  await registraAudit({
+    userId,
+    evento: EVENTI.CONNESSIONE_CREATA,
+    entita: 'bank_connection',
+    entitaId: connessione.id,
+    metadata: {
+      provider: adapter.nome,
+      institution_id: connessione.institution_id,
+      conto_id: attivata.conto.id,
+    },
+  });
+
+  return {
+    connessione: serializza(attivata.connessione, { conto: attivata.conto }),
+    ripetuto: false,
+  };
+}
+
+/**
+ * Scollega la banca.
+ *
+ * NON cancella movimenti. La connessione diventa `revocata`, il consenso
+ * viene revocato presso il provider, e il conto WALLT resta con il suo saldo
+ * e la sua storia: diventa un normale conto manuale. Cancellare i dati
+ * importati è una seconda azione, separata e dietro riverifica d'identità.
+ */
+async function scollega({ userId, provider = null }) {
+  const connessione = await trovaConnessioneViva(userId);
+  if (!connessione) {
+    throw Object.assign(new Error('Nessun conto bancario collegato'), { statusCode: 404 });
+  }
+
+  const adapter = provider ?? await getBankProvider({ nome: connessione.provider });
+  const esitoRevoca = await adapter.revokeConnection({
+    providerConnectionId: connessione.provider_connection_id,
+  });
+
+  await connessione.update({
+    status: STATO_REVOCATA,
+    state_hash: null,
+    sync_started_at: null,
+  });
+
+  await registraAudit({
+    userId,
+    evento: EVENTI.CONNESSIONE_REVOCATA,
+    entita: 'bank_connection',
+    entitaId: connessione.id,
+    metadata: {
+      institution_id: connessione.institution_id,
+      revoca_provider_confermata: !!esitoRevoca?.revocata,
+    },
+  });
+
+  return {
+    scollegata: true,
+    revoca_provider_confermata: !!esitoRevoca?.revocata,
+    // Dichiarato per contratto: chi legge la risposta deve poter dire
+    // all'utente che i suoi dati sono ancora lì.
+    movimenti_conservati: true,
+  };
+}
+
+/**
+ * Cancella i movimenti importati dalla banca. Azione distruttiva, separata
+ * dallo scollegamento e dietro riverifica d'identità (`requireStepUp`).
+ *
+ * Riguarda solo le righe con `origine = 'open_banking'`: un movimento che
+ * l'utente ha inserito a mano sul conto bancario non è un dato importato e
+ * non viene toccato.
+ *
+ * Il saldo del conto viene ricalcolato dai movimenti rimasti. Per un conto
+ * sincronizzato il saldo arriva normalmente dalla banca, non dalla somma dei
+ * movimenti: dopo questa cancellazione quella fonte non c'è più, e la somma
+ * delle righe restanti è l'unico valore che il database può ancora
+ * giustificare.
+ */
+async function eliminaDatiImportati({ userId }) {
+  return sequelize.transaction(async (transaction) => {
+    const connessioni = await BankConnection.findAll({
+      where: { user_id: userId },
+      transaction,
+    });
+    const contiCoinvolti = [...new Set(connessioni.map((c) => c.conto_id).filter(Boolean))];
+
+    const eliminati = await Movimento.destroy({
+      where: {
+        user_id: userId,
+        origine: ORIGINE_OPEN_BANKING,
+      },
+      transaction,
+    });
+
+    for (const contoId of contiCoinvolti) {
+      const conto = await Conto.findOne({
+        where: { id: contoId, user_id: userId },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (!conto) continue;
+
+      const rimasti = await Movimento.findAll({
+        where: { user_id: userId, conto_id: contoId, tipo: { [Op.in]: ['entrata', 'uscita'] } },
+        attributes: ['tipo', 'importo'],
+        transaction,
+      });
+      const saldo = rimasti.reduce((somma, m) => {
+        const importo = Number(m.importo) || 0;
+        return somma + (m.tipo === 'entrata' ? importo : -importo);
+      }, 0);
+
+      await aggiornaSaldoConto(conto, Math.round(saldo * 100) / 100, transaction);
+    }
+
+    await BankConnection.update(
+      { movimenti_importati_totali: 0, duplicati_evitati_totali: 0 },
+      { where: { user_id: userId }, transaction },
+    );
+
+    logger.info('Dati importati da Open Banking eliminati su richiesta', {
+      user_id: userId, conti_ricalcolati: contiCoinvolti.length,
+    });
+
+    return { movimenti_eliminati: eliminati, conti_ricalcolati: contiCoinvolti.length };
+  });
+}
+
+/**
+ * Sospende le connessioni di un utente perché il suo entitlement è stato
+ * revocato.
+ *
+ * Nessuna nuova sincronizzazione, nessun dato perso: lo stato
+ * `sospesa_entitlement` occupa ancora il posto (non gli si offre di
+ * collegarne un'altra) ma non è sincronizzabile. È la seconda barriera
+ * rispetto a `requireFeature`, che già blocca ogni rotta: due controlli
+ * indipendenti sulla stessa regola.
+ */
+async function sospendiPerEntitlement({ userId, actorUserId = null }) {
+  const [quante] = await BankConnection.update(
+    { status: STATO_SOSPESA_ENTITLEMENT, sync_started_at: null },
+    {
+      where: {
+        user_id: userId,
+        status: { [Op.in]: [STATO_ATTIVA, STATO_ERRORE, STATO_CONSENSO_SCADUTO] },
+      },
+    },
+  );
+
+  if (quante > 0) {
+    await registraAudit({
+      userId,
+      actorUserId,
+      evento: EVENTI.CONNESSIONE_SOSPESA,
+      entita: 'bank_connection',
+      metadata: { connessioni_sospese: quante, motivo: 'entitlement_revocato' },
+    });
+  }
+  return { sospese: quante };
+}
+
+/** Riattiva una connessione sospesa quando l'entitlement torna. Lo stato
+ * torna `attiva`: il consenso presso la banca non è stato toccato, e la
+ * prima sincronizzazione dirà se è ancora valido. */
+async function riattivaDopoEntitlement({ userId }) {
+  const [quante] = await BankConnection.update(
+    { status: STATO_ATTIVA },
+    { where: { user_id: userId, status: STATO_SOSPESA_ENTITLEMENT } },
+  );
+  return { riattivate: quante };
+}
+
+module.exports = {
+  hashState,
+  redirectCallback,
+  serializza,
+  trovaConnessioneViva,
+  liberaTentativiScaduti,
+  statoConnessione,
+  istitutiDisponibili,
+  avviaConnessione,
+  completaConnessione,
+  scollega,
+  eliminaDatiImportati,
+  sospendiPerEntitlement,
+  riattivaDopoEntitlement,
+};

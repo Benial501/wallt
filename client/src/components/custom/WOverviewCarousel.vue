@@ -17,7 +17,7 @@ import { useValuta } from '@/composables/useValuta';
 import { useChartTheme } from '@/composables/useChartTheme';
 import { formatData } from '@/utils/formatters';
 import { getCategoriaUscita } from '@/utils/categorie';
-import { PieChart, Dices, LineChart, ArrowDown, ArrowUp, Trophy, TrendingDown, Target, Calendar } from '@/utils/appIcons';
+import { PieChart, Dices, LineChart, ArrowDown, ArrowUp, Trophy, TrendingDown, Target, Calendar, Shield } from '@/utils/appIcons';
 
 ChartJS.register(ArcElement, Tooltip, CategoryScale, LinearScale, PointElement, LineElement, Filler);
 
@@ -39,6 +39,15 @@ const props = defineProps({
   mostraScommesse: { type: Boolean, default: false },
   scommesseAttivo: { type: Boolean, default: false },
   scommesseAnalisi: { type: Object, default: () => ({}) },
+  /**
+   * L'ultima scheda del carosello, visibile solo a chi amministra.
+   *
+   * È una COMODITÀ, non una protezione: l'autorizzazione vive nel server,
+   * che risponde 404 a `/api/admin/*` a chiunque non abbia `ruolo: 'admin'`
+   * nel database. Nascondere la scheda evita soltanto che quasi tutti
+   * abbiano in home una tessera che porta a una pagina vuota.
+   */
+  mostraAdmin: { type: Boolean, default: false },
   mostraInvestimenti: { type: Boolean, default: false },
   investimentiAttivo: { type: Boolean, default: false },
   investimentiAnalisi: { type: Object, default: () => ({}) },
@@ -91,6 +100,9 @@ const slides = computed(() => {
   list.push('prossime-spese', 'budget', 'uscite-oggi', 'entrate-oggi', 'obiettivi');
   if (props.mostraScommesse && props.scommesseAttivo) list.push('scommesse');
   if (props.mostraInvestimenti && props.investimentiAttivo) list.push('investimenti');
+  // Sempre per ultima: è una scorciatoia operativa, non un dato finanziario,
+  // e non deve mettersi fra due schede che l'utente consulta ogni giorno.
+  if (props.mostraAdmin) list.push('admin');
   return list;
 });
 
@@ -105,6 +117,7 @@ const etichetteSlide = {
   obiettivi: 'Obiettivi',
   scommesse: 'Scommesse',
   investimenti: 'Investimenti',
+  admin: 'Amministrazione',
 };
 
 const etichettaSlide = (slide) => etichetteSlide[slide] || 'Sezione dashboard';
@@ -659,6 +672,24 @@ defineExpose({
               Vedi portafoglio →
             </button>
           </DataState>
+        </div>
+
+        <!-- Amministrazione: ultima scheda, solo per chi amministra.
+             Nessun DataState perché non legge niente — è una scorciatoia, e
+             una chiamata in più in home per mostrare un numero che si vede
+             comunque aprendo la pagina non vale il suo costo. -->
+        <div v-if="slides.includes('admin')" class="w-overview__slide w-full shrink-0 snap-center">
+          <p class="w-overview__eyebrow">
+            <Shield :size="14" :stroke-width="1.75" class="w-overview__eyebrow-icon" />
+            Amministrazione
+          </p>
+          <p class="w-overview__hint-block">
+            Beta e permessi, richieste Premium, connessioni bancarie e registro
+            eventi. Le azioni amministrative sono tutte registrate.
+          </p>
+          <button type="button" class="w-overview__link-btn" @click="router.push('/admin')">
+            Apri la dashboard admin →
+          </button>
         </div>
       </div>
     </div>

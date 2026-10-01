@@ -3,6 +3,7 @@ import { ref, computed, nextTick, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import WCard from '@/components/common/WCard.vue';
+import PianoAbbonamento from '@/components/impostazioni/PianoAbbonamento.vue';
 import WButton from '@/components/common/WButton.vue';
 import WModal from '@/components/common/WModal.vue';
 import { useAuthStore } from '@/stores/auth.store';
@@ -548,6 +549,9 @@ const eliminaAccountOAuth = async () => {
         <WButton variant="secondary" size="md" @click="router.push('/onboarding?edit=true')">Modifica profilo finanziario</WButton>
       </div>
     </WCard>
+
+    <h2 class="gruppo">Piano</h2>
+    <PianoAbbonamento />
 
     <h2 class="gruppo">Preferenze</h2>
     <WCard class="section-card">

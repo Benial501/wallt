@@ -16,7 +16,7 @@ const TOPICS = [
     title: 'Da dove si comincia',
     summary: 'Aggiungi un conto, poi registra una spesa oppure importa un estratto.',
     paragraphs: [
-      'WALLT non si collega alla tua banca: i dati li inserisci tu, a mano oppure importando un estratto conto.',
+      'I movimenti li inserisci tu, a mano oppure importando un estratto conto. Con WALLT Premium puoi anche collegare un conto bancario e lasciare che arrivino da soli.',
       'Il percorso più breve è: crea un conto, poi registra un movimento o importa un file della banca. Budget, obiettivi e analisi sono passaggi facoltativi che diventano utili quando ci sono già dei movimenti.',
     ],
     bullets: [

@@ -80,6 +80,16 @@ const User = sequelize.define('User', {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  // Ruolo applicativo. Nessuna rotta lo scrive: si concede con
+  // `server/scripts/concedi-ruolo-admin.js`, che richiede l'accesso al
+  // database. Determinare l'amministratore da un confronto di email nel
+  // codice (peggio: nel bundle del client) significherebbe che chiunque
+  // possa cambiare quella email diventa amministratore.
+  ruolo: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'utente',
+  },
 }, {
   tableName: 'users',
 });

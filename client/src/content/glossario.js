@@ -105,6 +105,20 @@ const CONCETTI = [
     origine: 'POST /piano-smart/preview → allocations[category=future]',
   },
   {
+    id: 'saldo_sincronizzato',
+    etichetta: 'Saldo sincronizzato',
+    descrizione:
+      'Il saldo che la tua banca dichiara per il conto collegato. Per un conto sincronizzato è questo il dato autorevole, non la somma dei movimenti: WALLT importa gli ultimi 90 giorni, quindi la somma delle righe non coprirebbe tutta la storia del conto.',
+    origine: 'GET /bank-sync/status → connessione.saldo',
+  },
+  {
+    id: 'ultima_sincronizzazione',
+    etichetta: 'Ultimo aggiornamento',
+    descrizione:
+      "L'ultima volta in cui WALLT ha letto con successo i dati dalla tua banca. Un tentativo fallito non cambia questa data: serve a sapere a quale momento si riferisce il saldo che stai guardando.",
+    origine: 'GET /bank-sync/status → connessione.ultima_sincronizzazione',
+  },
+  {
     id: 'piano_smart_freedom',
     etichetta: 'Libertà',
     descrizione:

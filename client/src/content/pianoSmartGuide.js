@@ -91,7 +91,7 @@ export const GUIDA_PIANO_SMART = Object.freeze([
     sottotitolo: 'Osservazioni, risposte manuali e stime sono cose diverse.',
     paragraphs: [
       'I dati osservati arrivano dai movimenti e dai conti registrati, dalle ricorrenze, dagli obiettivi e dai debiti inseriti. Le risposte manuali servono al piano per cui sono state fornite. Le previsioni, i limiti giornalieri e i tempi degli obiettivi sono stime.',
-      'Categorie mancanti, mesi incompleti o uno storico breve possono ridurre ciò che si riesce a mostrare. Le registrazioni manuali potrebbero essere incomplete; WALLT non si collega alla banca per verificarle.',
+      'Categorie mancanti, mesi incompleti o uno storico breve possono ridurre ciò che si riesce a mostrare. Le registrazioni inserite a mano potrebbero essere incomplete, e WALLT non ha modo di verificarle: solo i conti che hai collegato alla banca arrivano completi.',
       'Le azioni V2 sono promemoria preparatori. Segnarle completate o ignorate aggiorna solo il loro stato nel piano. Non sposta denaro, non versa contributi e non garantisce risultati.',
     ],
     limits: ['Le entrate, le uscite e le rate future non registrate come ricorrenze potrebbero non essere considerate.', 'Gli importi non disponibili non vengono sostituiti con zero.', 'Una previsione non garantisce il saldo futuro.'],

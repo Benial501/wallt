@@ -104,6 +104,37 @@ const Movimento = sequelize.define('Movimento', {
     allowNull: false,
     defaultValue: false,
   },
+  // --- Provenienza del movimento (Bank Sync) ------------------------------
+  // `origine` distingue una riga scritta a mano da una importata da file e da
+  // una arrivata dalla banca. Serve a sapere quali movimenti ha prodotto una
+  // connessione — senza di esso non si potrebbe offrire in modo onesto
+  // "elimina anche i dati importati" — e a non trattare una riga della banca
+  // come una correzione dell'utente.
+  origine: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'manuale',
+  },
+  bank_connection_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  // L'identificatore della transazione presso il provider. Con
+  // `bank_connection_id` forma l'indice UNIQUE parziale che rende la
+  // sincronizzazione idempotente a livello di database: il provider può
+  // restituire la stessa transazione a ogni chiamata e non può essere
+  // inserita due volte, nemmeno da due esecuzioni concorrenti.
+  external_transaction_id: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  // Lo stato dichiarato dalla banca ('booked' / 'pending'). Nei movimenti
+  // entrano solo le 'booked' (constants/bankSync.js, STATI_IMPORTABILI):
+  // qui il valore viene registrato, non inferito.
+  stato_banca: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+  },
 }, {
   tableName: 'movimenti',
 });

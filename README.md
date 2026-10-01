@@ -23,7 +23,7 @@ contanti, investimenti, wallet digitali
 e molto altro.
 
 A differenza delle app simili, WALLT:
-- Non richiede collegamento bancario automatico
+- Non richiede collegamento bancario: i movimenti si inseriscono a mano o si importano. Con WALLT Premium è possibile collegare un conto bancario e sincronizzarlo
 - Genera un budget personalizzato basato
   sul profilo reale dell'utente
 - Include sezione dedicata al controllo

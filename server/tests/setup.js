@@ -49,6 +49,12 @@ if (configuredDatabase !== TEST_DATABASE) {
 }
 
 const TABLES = [
+  'audit_logs',
+  'premium_access_requests',
+  'user_entitlements',
+  'subscriptions',
+  'app_config',
+  'bank_connections',
   'piani_smart_azioni',
   'piani_smart_allocazioni',
   'piani_smart',

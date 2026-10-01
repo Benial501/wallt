@@ -19,6 +19,10 @@ const debitiRoutes = require('./routes/debiti.routes');
 const pianoSmartRoutes = require('./routes/pianoSmart.routes');
 const pianoSmartV2Routes = require('./routes/pianoSmartV2.routes');
 const fondoEmergenzaRoutes = require('./routes/fondoEmergenza.routes');
+const pianoRoutes = require('./routes/piano.routes');
+const bankSyncRoutes = require('./routes/bankSync.routes');
+const adminRoutes = require('./routes/admin.routes');
+const premiumRoutes = require('./routes/premium.routes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler.middleware');
 const { inizializzaMonitoraggio } = require('./services/monitoraggio.service');
 const {
@@ -122,6 +126,19 @@ const createApp = (options = {}) => {
   app.use('/api/investimenti', investimentiRoutes);
   app.use('/api/debiti', debitiRoutes);
   app.use('/api/fondo-emergenza', fondoEmergenzaRoutes);
+  // WALLT Premium: il piano commerciale e i permessi dell'utente (sola
+  // lettura: nessuna rotta permette a un utente di cambiarsi il piano).
+  app.use('/api/piano', pianoRoutes);
+  // Bank Sync. Le rotte applicano `requireFeature('bank_sync')` al proprio
+  // interno: il montaggio qui non concede nulla.
+  app.use('/api/bank-sync', bankSyncRoutes);
+  // Le richieste di accesso a Premium dell'utente. Approvarle e rifiutarle
+  // sta sotto /api/admin, dietro requireAdmin: qui sarebbe raggiungibile da
+  // chiunque abbia un account.
+  app.use('/api/premium', premiumRoutes);
+  // Area di amministrazione: `requireAdmin` e' applicato su tutto il router,
+  // non rotta per rotta (vedi routes/admin.routes.js).
+  app.use('/api/admin', adminRoutes);
   app.use('/api/piano-smart/v2', pianoSmartV2Routes);
   app.use('/api/piano-smart', pianoSmartRoutes);
   app.use('/api/importazioni', importazioniRoutes);

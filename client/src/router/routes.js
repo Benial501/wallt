@@ -151,6 +151,29 @@ export const routes = [
         name: 'piano-smart',
         component: () => import('@/views/PianoSmartView.vue'),
       },
+      {
+        // Il ritorno dalla banca dopo l'autorizzazione Open Banking.
+        // Autenticata di proposito: il completamento è una POST che porta il
+        // JWT, e il server verifica che lo `state` appartenga a QUESTO
+        // utente. Un link costruito da un sito terzo non porta la sessione e
+        // quindi non può collegare un conto a qualcun altro.
+        path: 'banca/callback',
+        name: 'banca-callback',
+        component: () => import('@/views/BancaCallbackView.vue'),
+      },
+      {
+        path: 'admin',
+        name: 'admin',
+        component: () => import('@/views/AdminView.vue'),
+        // Comodità, non sicurezza: l'autorizzazione vive nel server, che
+        // risponde 404 a chi non è amministratore. Nascondere la pagina
+        // evita soltanto che un utente ci finisca per sbaglio.
+        beforeEnter: () => {
+          const authStore = useAuthStore();
+          if (authStore.user?.ruolo !== 'admin') return { name: 'dashboard' };
+          return true;
+        },
+      },
     ],
   },
   {

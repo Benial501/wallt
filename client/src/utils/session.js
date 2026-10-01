@@ -15,6 +15,9 @@ import { useNotificheStore } from '@/stores/notifiche.store';
 import { usePianoSmartStore } from '@/stores/pianoSmart.store';
 import { useFondoEmergenzaStore } from '@/stores/fondoEmergenza.store';
 import { useScheduledPaymentsStore } from '@/stores/scheduledPayments.store';
+import { usePianoStore } from '@/stores/piano.store';
+import { useBankSyncStore } from '@/stores/bankSync.store';
+import { useAdminStore } from '@/stores/admin.store';
 
 /**
  * Pulisce tutti gli store Pinia e i dati temporanei di sessione.
@@ -57,6 +60,14 @@ export function resetPiniaStores() {
     // resta in memoria dopo il logout se nessuno lo azzera.
     useFondoEmergenzaStore,
     useScheduledPaymentsStore,
+    // Il piano e lo stato della banca sono dati dell'utente come gli altri:
+    // senza reset, il login successivo sulla stessa scheda mostrerebbe a una
+    // persona il piano, l'istituto e il saldo di quella precedente (lo
+    // stesso difetto del numero 9, su dati sensibili).
+    usePianoStore,
+    useBankSyncStore,
+    // L'area di amministrazione tiene in memoria email di altri utenti.
+    useAdminStore,
   ].forEach((useStore) => {
     try { useStore().reset(); } catch { /* ignore */ }
   });

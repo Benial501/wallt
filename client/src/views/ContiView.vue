@@ -15,6 +15,7 @@ import ImportEstrattoHint from '@/components/common/ImportEstrattoHint.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import HelpNote from '@/components/help/HelpNote.vue';
 import DataState from '@/components/common/DataState.vue';
+import BankSyncSection from '@/components/conti/BankSyncSection.vue';
 import { etichetta } from '@/content/glossario';
 
 const contiStore = useContiStore();
@@ -200,7 +201,7 @@ const confermaElimina = async () => {
           <p>Aggiungi il tuo primo conto</p>
           <p class="empty-state__hint">
             Un conto è dove registri i tuoi soldi: banca, carta, contanti.
-            WALLT non si collega automaticamente alla tua banca.
+            Puoi aggiungerlo a mano oppure, con Premium, collegare la tua banca.
           </p>
           <WButton variant="primary" size="md" @click="showNuovoConto = true">+ Nuovo conto</WButton>
         </WCard>
@@ -245,6 +246,11 @@ const confermaElimina = async () => {
         Serve almeno un secondo conto: un trasferimento sposta soldi fra due tuoi conti.
       </p>
     </div>
+
+    <!-- Bank Sync: Premium si presenta dove l'utente incontra la funzione,
+         cioè dove gestisce i propri conti, e non come banner su ogni pagina.
+         Non è una seconda gestione account: è una sezione di questa. -->
+    <BankSyncSection />
 
     <!-- Modal Nuovo Conto -->
     <AppDialog :open="showNuovoConto" title="Nuovo conto" @close="showNuovoConto = false">
