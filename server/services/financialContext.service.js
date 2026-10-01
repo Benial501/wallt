@@ -67,6 +67,7 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date()) {
   // — l'indice unico lo limita a un addebito — ma qui produrrebbe una lista
   // di duplicati al posto del calendario.
   const emesse = new Set();
+  const cashFlowEmesse = new Set();
   const items = [];
   const cashFlowItems = [];
   ricorrenti.forEach((r) => {
@@ -77,7 +78,8 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date()) {
         const giorno = getRomeDateParts(new Date(`${date}T12:00:00Z`));
         const { dovuto, periodo } = valutaOccorrenza(r, giorno);
         const occurrenceKey = `${r.id}:${periodo}`;
-        if (!dovuto || eseguiti.has(occurrenceKey)) continue;
+        if (!dovuto || eseguiti.has(occurrenceKey) || cashFlowEmesse.has(occurrenceKey)) continue;
+        cashFlowEmesse.add(occurrenceKey);
         cashFlowItems.push({
           id: r.id,
           occurrenceKey,

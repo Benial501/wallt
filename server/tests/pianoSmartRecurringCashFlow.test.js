@@ -2,6 +2,27 @@ const { Movimento, ScheduledPayment } = require('../models');
 const { riepilogoRicorrenti } = require('../services/financialContext.service');
 
 describe('flussi ricorrenti previsti', () => {
+  test('conteggia una sola volta la ricorrenza mensile dopo la scadenza', async () => {
+    const originalMovimenti = Movimento.findAll;
+    const originalProgrammate = ScheduledPayment.findAll;
+    Movimento.findAll = jest.fn()
+      .mockResolvedValueOnce([{
+        id: 27, descrizione: 'Affitto', data: '2026-09-01', stato_ricorrenza: 'attiva',
+        ricorrente_frequenza: 'mensile', ricorrente_giorno: 27, tipo: 'uscita', importo: 800,
+      }])
+      .mockResolvedValueOnce([]);
+    ScheduledPayment.findAll = jest.fn().mockResolvedValue([]);
+    try {
+      const result = await riepilogoRicorrenti(42, new Date('2026-10-27T12:00:00Z'));
+      expect(result.cashFlowItems.map(({ id, dueDate, occurrenceKey }) => [id, dueDate, occurrenceKey])).toEqual([
+        [27, '2026-10-27', '27:2026-10'],
+      ]);
+    } finally {
+      Movimento.findAll = originalMovimenti;
+      ScheduledPayment.findAll = originalProgrammate;
+    }
+  });
+
   test('include eventi attivi futuri fino a 30 giorni e conserva gli impegni mensili', async () => {
     const original = Movimento.findAll;
     const originalProgrammate = ScheduledPayment.findAll;
