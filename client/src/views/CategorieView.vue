@@ -158,7 +158,6 @@ async function ripristina(c) {
             <option v-for="(label, val) in ESSENZIALITA_LABELS" :key="val" :value="val">{{ label }}</option>
           </select>
           <button
-            v-if="cat.isDefault"
             type="button"
             class="essenzialita__reset"
             :class="{ 'essenzialita__reset--hidden': !cat.essenzialitaPersonalizzata }"
@@ -298,19 +297,41 @@ h2 {
 strong, small { display: block; }
 strong { font-size: 0.9375rem; font-weight: 600; letter-spacing: var(--tracking-tight); }
 small { font-size: var(--text-xs); margin-top: 0.125rem; color: var(--text-muted); }
-.essenzialita { display: flex; align-items: center; gap: 0.5rem; justify-self: end; }
+/* Il controllo dell'essenzialità sta a destra del nome, su una colonna di
+   larghezza fissa: passando da "Essenziale" a "Semi-essenziale" il campo non
+   si allarga e la scritta della categoria non viene mai compressa. Lo spazio
+   del tasto "torna al predefinito" resta riservato anche quando il tasto è
+   invisibile, così tutte le select della lista restano incolonnate. */
+.essenzialita {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  justify-self: end;
+  width: 11.25rem;
+}
 .essenzialita__select {
-  min-height: 34px;
-  padding: 0.3rem 0.6rem;
+  flex: 1;
+  min-width: 0;
+  min-height: 32px;
+  /* Il chevron di .form-select è uno sfondo ancorato a destra e lo spazio
+     glielo riserva il padding-right: con un padding simmetrico finiva sopra
+     "Semi-essenziale". Qui il campo è più compatto del normale, quindi
+     riserva e freccia si riavvicinano insieme al bordo. */
+  padding: 0.3rem 1.75rem 0.3rem 0.65rem;
+  background-position:
+    right 1.02rem center,
+    right 0.6rem center;
   font-size: var(--text-xs);
-  max-width: 9.5rem;
+  text-overflow: ellipsis;
 }
 .essenzialita__reset {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.375rem;
+  height: 1.375rem;
+  border-radius: var(--radius-sm);
   display: grid;
   place-items: center;
   font-size: var(--text-xs);
+  line-height: 1;
   color: var(--text-muted);
   flex-shrink: 0;
 }
