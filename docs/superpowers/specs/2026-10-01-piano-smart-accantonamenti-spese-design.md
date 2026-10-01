@@ -51,6 +51,13 @@ Le spese oltre l'orizzonte dei prossimi 30 giorni devono comunque comparire
 nella nuova sezione dedicata agli accantonamenti, anche se non sono ancora
 incluse nella timeline corrente dei flussi a 30 giorni.
 
+Una spesa programmata non è una spesa sostenuta: non entra nelle analisi
+storiche, nei totali per categoria o nelle medie delle uscite finché l'utente
+non ne conferma il pagamento. Dopo la conferma, il movimento effettivo usa la
+categoria già assegnata alla spesa e viene contato una sola volta dalle analisi
+esistenti. Il nuovo componente e i suoi scenari non modificano i dati o i
+risultati della sezione Analisi.
+
 ## Esperienza in Piano Smart
 
 Aggiungere una sezione “Spese da preparare” con una scheda per ciascuna spesa
@@ -62,8 +69,8 @@ ammessa. La scheda mostra:
 - stato leggibile: “In linea”, “Da recuperare”, “A rischio”, “Dati
   insufficienti”, “Scaduta da confermare” o “Completata”;
 - suggerimenti collegati alle spese per categoria, con spesa media osservata,
-  riduzione ipotizzata in euro e percentuale, e quanto quella scelta
-  contribuirebbe alla quota della spesa futura;
+  riduzione ipotizzata in euro e quanto quella scelta contribuirebbe alla quota
+  della spesa futura; non mostrare percentuali di riduzione;
 - azione “Registra accantonamento”, con importo e data, e cronologia delle
   registrazioni;
 - alla scadenza, richiesta esplicita “Hai pagato questa spesa?” con le scelte
@@ -75,11 +82,13 @@ automaticamente e non serve confermare la quota per continuare a usare
 l'applicazione. Un eventuale promemoria deve essere informativo, senza
 registrare dati finanziari.
 
-I suggerimenti di risparmio sono mostrati sotto la quota da accantonare, come
-scenari modificabili (“Se riduci questa categoria del X%, potresti liberare
-Y € al mese da destinare alla spesa”). L'utente decide se applicarli e registra
-un accantonamento solo quando mette davvero quella somma da parte. Non si
-deduce automaticamente dai movimenti che una riduzione di spesa sia avvenuta.
+I suggerimenti di risparmio sono mostrati sotto la quota da accantonare, con
+importi concreti (“In questa categoria spendi in media 150 € al mese; in un
+mese osservato ne hai spesi 120 €. Se riesci a ripetere quel livello, potresti
+destinare 30 € al mese alla spesa programmata”). La proposta è una possibilità,
+non un taglio imposto. L'utente decide se seguirla e registra un accantonamento
+solo quando mette davvero quella somma da parte. Non si deduce automaticamente
+dai movimenti che una riduzione sia avvenuta.
 
 ## Regole di calcolo
 
@@ -125,39 +134,40 @@ Le opportunità di risparmio usano le uscite effettivamente registrate, le
 medie per categoria dei mesi civili completi e la classificazione di
 essenzialità già gestita da WALLT. Le categorie vengono proposte in quest'ordine:
 
-1. **Discrezionali**: prime candidate a scenari di riduzione.
-2. **Semi-essenziali**: scenari più prudenti, dopo aver mostrato le opzioni
-   discrezionali.
-3. **Essenziali**: niente tagli percentuali suggeriti per impostazione
-   predefinita. Si può mostrare la spesa osservata e invitare a verificare
-   eventuali costi fissi o alternative, senza presumere che siano comprimibili.
+1. **Discrezionali**: prime candidate per obiettivi di riduzione in euro.
+2. **Semi-essenziali**: proposte in euro dopo quelle discrezionali, con
+   attenzione al fatto che possono includere spese importanti per la persona.
+3. **Essenziali**: nessun taglio generico o automatico. Se i dati mostrano che
+   in uno o più mesi completi la categoria è costata meno, si può indicare la
+   differenza concreta come possibilità da valutare (“in quel mese hai speso
+   30 € in meno”), senza presentarla come risparmio sicuramente ripetibile.
 4. **Non classificate**: nessuna proposta di riduzione finché la categoria non
    ha un livello di essenzialità affidabile; la UI invita a classificarla.
 
-Per ogni categoria candidata la UI presenta scenari di confronto con riduzioni
-indicative (per esempio 5%, 10% e 15%) applicate alla media mensile osservata.
-Per ogni scenario espone importo teoricamente liberabile al mese e alla
-settimana (media mensile divisa per 4,33) e quanta parte della quota settimanale
-dell'obiettivo coprirebbe. Le
-percentuali sono ipotesi modificabili, non regole professionali né promesse.
-Le categorie semi-essenziali vengono presentate dopo le discrezionali e con
-linguaggio prudente. Gli scenari non dichiarano che il risparmio sia avvenuto.
+Per ogni categoria, usare almeno tre mesi civili completi osservati. Mostrare
+la media mensile osservata e, se esiste, una spesa mensile inferiore realmente
+registrata; la differenza in euro è il massimo riferimento concreto per una
+proposta basata su quel periodo. Per esempio, media 150 € e mese più leggero
+120 € consentono di formulare “potresti provare a liberare 30 € al mese”,
+spiegando che l'importo deriva dalla differenza osservata e potrebbe non essere
+ripetibile. Gli importi suggeriti non superano il divario documentato né il
+fabbisogno mensile del salvadanaio. L'interfaccia non mostra percentuali.
 
-Per evitare consigli arbitrari, le proposte numeriche richiedono almeno tre
-mesi civili completi osservati per la categoria, importi validi e classificazione
-disponibile. La base è la media dei mesi completi effettivamente osservati,
-secondo `finestraMesi.service.js`; i mesi non osservati non vengono riempiti con
-zeri e il mese corrente parziale non determina la media. Con storico limitato,
+Le medie usano i mesi completi classificati da `finestraMesi.service.js`; i mesi
+non osservati non vengono riempiti con zeri e il mese corrente parziale non
+determina la media. La categoria prevista per la spesa futura non è conteggiata
+come uscita: serve a indicare il contesto dell'obiettivo, mentre le opportunità
+di riduzione si basano sulle uscite storiche effettive. Con storico limitato,
 categoria non classificata o importo non stimabile, la UI spiega il motivo e
-non produce una percentuale di riduzione presentata come raccomandazione.
+non inventa un importo di risparmio.
 
-Gli scenari di più categorie possono essere combinati per mostrare una
-possibile strada fino alla quota settimanale, ordinando prima le spese
-discrezionali e poi quelle semi-essenziali. La somma è uno scenario ipotetico:
-la UI non seleziona tagli per conto dell'utente, non li imposta come budget e
-non sposta denaro. Non si propone di ridurre le categorie essenziali per
-colmare un divario. Se le alternative non coprono la quota, il sistema dichiara
-il residuo non coperto invece di inventare altri tagli.
+Gli importi candidati di più categorie possono essere combinati per mostrare
+quanta parte della quota settimanale o mensile coprirebbero. Le categorie
+discrezionali vengono considerate prima delle semi-essenziali; per le
+essenziali si mostrano solo differenze già osservate e con formulazione
+condizionale. La combinazione resta uno scenario: la UI non applica tagli,
+non modifica budget o analisi e non sposta denaro. Se le differenze osservate
+non coprono il fabbisogno, mostra il residuo senza inventare altri risparmi.
 
 ## Dati e API
 
@@ -214,6 +224,11 @@ Per spese oltre i 30 giorni, il contributo già registrato resta protetto anche
 se l'impegno residuo non entra ancora nell'orizzonte della liquidità corrente.
 Le query aggregano sempre per utente e non includono dati di altri account.
 
+La spesa programmata non viene aggiunta a `Movimento`, ai totali storici o
+alle analisi per categoria durante la pianificazione. Solo la conferma di
+pagamento crea il movimento categorizzato previsto e da quel momento la spesa
+partecipa alle analisi con le regole già esistenti.
+
 La conferma “Sì, ho pagato” riusa `confirmScheduledPayment`, che crea il
 movimento effettivo e aggiorna il saldo nella transazione esistente. Il
 contributo manuale non crea un movimento aggiuntivo e non viene nuovamente
@@ -248,7 +263,8 @@ pagamenti, conti o movimenti e mantiene visibile la spesa scaduta.
   diminuisce, il saldo del conto e il patrimonio restano invariati.
 - Test strategia categorie: ordine discrezionale/semi-essenziale/essenziale,
   uso di tre mesi completi, esclusione degli zeri inventati e delle categorie
-  non classificate, importi percentuali e settimanali coerenti.
+  non classificate, importi assoluti in euro e quote settimanali coerenti;
+  nessuna percentuale o spesa futura nei risultati di Analisi.
 - Test di conferma: nessun movimento prima del “Sì”; un solo movimento dopo la
   conferma; “Non ancora” lascia la scadenza in attesa.
 - Test/build frontend per importi, stati, accessibilità e layout mobile della
