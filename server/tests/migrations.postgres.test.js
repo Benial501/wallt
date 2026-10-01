@@ -133,6 +133,58 @@ describe('migrazioni compatibili con PostgreSQL e Supabase', () => {
     );
   });
 
+  it('crea e rimuove la tabella dei contributi ai pagamenti programmati', async () => {
+    const migrationPath = path.join(
+      migrationsDir,
+      '20261001000043-create-contributi-pagamenti-programmati.js',
+    );
+    const migrationEsiste = fs.existsSync(migrationPath);
+    expect(migrationEsiste).toBe(true);
+    if (!migrationEsiste) return;
+
+    const migration = require(migrationPath);
+    const transaction = { id: 'transaction-test' };
+    const queryInterface = {
+      createTable: jest.fn().mockResolvedValue(undefined),
+      addIndex: jest.fn().mockResolvedValue(undefined),
+      dropTable: jest.fn().mockResolvedValue(undefined),
+      sequelize: {
+        transaction: jest.fn(async (callback) => callback(transaction)),
+        query: jest.fn().mockResolvedValue([]),
+      },
+    };
+
+    await migration.up(queryInterface, Sequelize);
+
+    const [, columns, createOptions] = queryInterface.createTable.mock.calls[0];
+    expect(queryInterface.createTable).toHaveBeenCalledWith(
+      'contributi_pagamenti_programmati',
+      expect.objectContaining({
+        id: expect.objectContaining({ primaryKey: true }),
+        user_id: expect.objectContaining({ allowNull: false }),
+        pagamento_programmato_id: expect.objectContaining({ allowNull: false }),
+        importo: expect.objectContaining({ allowNull: false }),
+        data_contributo: expect.objectContaining({ allowNull: false }),
+      }),
+      { transaction },
+    );
+    expect(columns.pagamento_programmato_id.references).toEqual({
+      model: 'pagamenti_programmati', key: 'id',
+    });
+    expect(createOptions.transaction).toBe(transaction);
+    expect(queryInterface.addIndex).toHaveBeenCalledWith(
+      'contributi_pagamenti_programmati',
+      ['user_id', 'pagamento_programmato_id'],
+      expect.objectContaining({ transaction }),
+    );
+
+    await migration.down(queryInterface);
+    expect(queryInterface.dropTable).toHaveBeenCalledWith(
+      'contributi_pagamenti_programmati',
+      { transaction },
+    );
+  });
+
   const integrationTest = process.env.TEST_DATABASE_URL ? it : it.skip;
   integrationTest('crea lo schema completo su PostgreSQL', async () => {
     const { sequelize } = require('../models');
@@ -151,6 +203,7 @@ describe('migrazioni compatibili con PostgreSQL e Supabase', () => {
       'profili_utente',
       'conti',
       'movimenti',
+      'contributi_pagamenti_programmati',
       'password_reset_tokens',
     ]));
     expect(userColumns.password.allowNull).toBe(true);
