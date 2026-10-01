@@ -65,10 +65,25 @@ export const usePianoStore = defineStore('piano', () => {
    */
   const puoAttivareBeta = computed(() => beta.value?.rivendicabile === true);
 
-  /** Posti esauriti ma feature ancora da ottenere: è lo stato in cui si
-   * mostra la schermata Premium futura invece dell'invito gratuito. */
+  /** Posti esauriti ma feature ancora da ottenere. */
   const betaEsaurita = computed(() => (
     !!beta.value && !bankSyncAttiva.value && beta.value.disponibili === 0
+  ));
+
+  /**
+   * La beta non è un'opzione per questo utente, qualunque sia la ragione.
+   *
+   * Non basta guardare `disponibili === 0`: le attivazioni gratuite possono
+   * essere chiuse dall'amministratore con `bank_sync_beta_enabled` mentre i
+   * posti risultano ancora liberi — ed è lo stato in cui ci si trova finché
+   * il provider bancario non è configurato. Guardando solo i posti, l'utente
+   * vedeva «Scopri Premium» senza nessun modo di farsi avanti: è lo stesso
+   * vicolo cieco che la richiesta di accesso esiste per eliminare.
+   *
+   * La decisione resta del server (`beta.rivendicabile`), qui si riflette.
+   */
+  const betaNonAttivabile = computed(() => (
+    !!beta.value && !bankSyncAttiva.value && !puoAttivareBeta.value
   ));
 
   const haFeature = (featureKey) => {
@@ -155,6 +170,7 @@ export const usePianoStore = defineStore('piano', () => {
     beta,
     puoAttivareBeta,
     betaEsaurita,
+    betaNonAttivabile,
     haFeature,
     fetchPiano,
     risorsaRichiesta,

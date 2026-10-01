@@ -185,10 +185,13 @@ const confermaConPassword = async () => {
              raccoglie l'interesse. Richiedere non concede niente — lo stato
              della richiesta è separato dallo stato del permesso, che resta
              poco sopra. -->
-        <template v-if="pianoStore.betaEsaurita">
+        <template v-if="pianoStore.betaNonAttivabile">
           <p class="hint hint--inline">
-            I posti della beta gratuita sono esauriti. Puoi chiedere di
-            accedere a WALLT Premium: ti avviseremo appena sarà possibile.
+            {{ pianoStore.betaEsaurita
+              ? 'I posti della beta gratuita sono esauriti.'
+              : 'Le attivazioni gratuite sono momentaneamente chiuse.' }}
+            Puoi chiedere di accedere a WALLT Premium: ti avviseremo appena
+            sarà possibile.
           </p>
           <RichiestaPremium />
         </template>
