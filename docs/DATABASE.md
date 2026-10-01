@@ -139,6 +139,18 @@ Migrazioni: `npm run migrate` o auto-run all'avvio (`server.js`, disabilitato in
 
 Indice lista: `(user_id, stato, data_scadenza)`. L'indice univoco parziale `(user_id, ricorrenza_origine_id, ricorrenza_periodo)` impedisce di creare due scadenze per la stessa entrata periodica. Le programmazioni in attesa o in ritardo non sono movimenti e non aggiornano i saldi. Confermare un pagamento o un'entrata crea il movimento e aggiorna il conto nella stessa transazione; il vincolo univoco impedisce di collegare due pagamenti allo stesso movimento. Entrambe le tabelle hanno RLS attiva e revoca dei privilegi ai ruoli `anon` e `authenticated`.
 
+### `contributi_pagamenti_programmati`
+| Campo | Tipo | Note |
+|---|---|---|
+| `id` | INTEGER PK AI | |
+| `user_id` | INTEGER FK → users | Eliminazione utente a cascata |
+| `pagamento_programmato_id` | INTEGER FK → pagamenti_programmati | Eliminazione del pagamento a cascata |
+| `importo` | DECIMAL(12,2) | Contributo positivo, limite cumulativo pari al residuo del pagamento |
+| `data_contributo` | DATEONLY | Giorno dichiarato dall'utente |
+| `created_at`, `updated_at` | TIMESTAMP | Tracciamento Sequelize |
+
+Indici `(user_id, pagamento_programmato_id)` e `(pagamento_programmato_id, data_contributo)`. È un registro virtuale: non crea movimenti, non aggiorna saldi e non riduce il patrimonio. Riduce lo spendibile come destinazione protetta; il pagamento resta escluso dai movimenti e dalle analisi fino alla conferma esplicita.
+
 ### `budget_mensili`
 | Campo | Tipo | Note |
 |---|---|---|

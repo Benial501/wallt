@@ -8,6 +8,17 @@ Le rotte V2 sono locali al namespace `/api/piano-smart/v2`, richiedono JWT e non
 
 `current.dailyMargin` è il limite giornaliero indicativo meno il ritmo giornaliero osservato; è `null` quando uno dei due valori non è stimabile.
 
+La risposta contiene anche `upcomingExpensePlans`, con le spese singole (`piano_id: null`) ancora in attesa, incluse le scadenze oltre 30 giorni. Ogni elemento riporta importo, scadenza, categoria, conto, totale accantonato, residuo, quota settimanale aggiornata, settimane utili, fabbisogno mensile indicativo, importo totale delle possibilità osservate, copertura dello storico, sostenibilità indicativa e cronologia dei contributi. `suggestions` riporta importi mensili assoluti, mai percentuali: usa i mesi completi classificati e limita ogni riduzione alla differenza più bassa già osservata e al fabbisogno. Se mancano almeno tre mesi completi non propone importi; le proposte sulle categorie essenziali sono condizionali e dipendono da una riduzione già avvenuta.
+
+Le scadenze non entrano nei movimenti, nelle medie o nelle analisi finché l'utente non conferma il pagamento tramite la rotta esistente. I contributi manuali sono virtuali e non scrivono saldi o movimenti. Lo spendibile protegge l'importo integrale quando la scadenza è entro 30 giorni; più lontano protegge solo quanto già accantonato, senza sommare una seconda volta contributo e impegno.
+
+## Accantonamenti manuali
+
+- `GET /api/movimenti/programmate/:id/accantonamenti` elenca i contributi e restituisce totale accantonato e residuo.
+- `POST /api/movimenti/programmate/:id/accantonamenti` accetta `{ "amount": "30.00", "date": "2026-10-01" }` per una spesa singola in attesa dell'utente autenticato. Un blocco transazionale sul pagamento serializza richieste concorrenti e impedisce di superare il residuo.
+- Entrambe le risposte dichiarano `writesAccountBalance: false` e `writesMovement: false`. Pagamenti altrui, rate, entrate, pagamenti chiusi e importi eccedenti vengono rifiutati.
+- Soltanto `POST /api/movimenti/programmate/:id/conferma`, chiamata dopo il sì esplicito dell'utente, crea il movimento e aggiorna il conto.
+
 ## Simulazione di una spesa
 
 `POST /api/piano-smart/v2/simulate-purchase` accetta `{ "amount": "125.50" }` e restituisce importo, valori iniziali e valori dopo l'acquisto per spendibile, limite giornaliero indicativo e previsione. Il calcolo avviene nel backend in centesimi interi. La risposta include `writesFinancialData: false`; l'endpoint non crea movimenti e non aggiorna saldi o obiettivi. Importi non positivi, malformati o con più di due decimali sono rifiutati. Un campo non stimabile resta `null`.

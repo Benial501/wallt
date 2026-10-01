@@ -359,6 +359,8 @@ Tutte le rotte richiedono autenticazione e limitano letture e scritture all'uten
 |---|---|---|
 | `GET /api/movimenti/programmate` | — | `{ payments[] }`, in ordine di scadenza; include quelle in attesa e le entrate segnate in ritardo |
 | `POST /api/movimenti/programmate` | `{ type, amount, category, account_id, description?, due_date }` | `201 { payment }` |
+| `GET /api/movimenti/programmate/:id/accantonamenti` | — | Totale accantonato, residuo e contributi dell'utente autenticato |
+| `POST /api/movimenti/programmate/:id/accantonamenti` | `{ amount, date }` | `201 { paymentId, contributed, remaining, writesAccountBalance: false, writesMovement: false, contribution }`; solo spese singole in attesa, importo positivo entro il residuo |
 | `POST /api/movimenti/installment-plans` | `{ purchase_amount, initial_payment, payment_count, annual_rate, first_due_date, category, account_id, description? }` | `201 { plan, payments[], account }` |
 | `POST /api/movimenti/programmate/:id/conferma` | — | `{ payment, movement, account }`; il movimento usa la data effettiva di conferma |
 | `PATCH /api/movimenti/programmate/:id/ritardo` | — | `{ payment }`; disponibile solo per entrate in attesa, non crea movimenti né avvisi successivi |
@@ -366,6 +368,8 @@ Tutte le rotte richiedono autenticazione e limitano letture e scritture all'uten
 | `PATCH /api/movimenti/installment-plans/:id/annulla` | — | `{ plan }`; annulla tutte le rate ancora in attesa |
 
 Il numero dei pagamenti include l'anticipo quando è maggiore di zero. Il tasso annuo viene diviso per 12 per calcolare rate mensili costanti; l'ultima rata assorbe gli arrotondamenti ai centesimi. Con tasso zero il capitale residuo viene diviso in quote uguali. L'anticipo crea subito un movimento e aggiorna il conto; ogni rata successiva richiede «Segna come pagata».
+
+Un accantonamento è una destinazione virtuale manuale associata a una spesa singola: non sposta denaro tra conti e non crea un movimento. Viene sottratto dallo spendibile come somma non più libera; patrimonio e saldo registrato restano invariati. Il Piano Smart mostra subito le spese future singole, ricalcola la quota settimanale sul residuo e propone importi in euro basati su differenze osservate in almeno tre mesi completi. Le categorie discrezionali vengono considerate prima delle semi-essenziali; per le essenziali si mostra solo una possibilità condizionale già osservata. Una spesa futura non entra in Analisi finché l'utente non usa la conferma: solo allora il flusso esistente registra il movimento nella categoria assegnata.
 
 Saldo insufficiente alla conferma: `400`. Risorsa non trovata: `404`. Pagamento già elaborato o piano non più attivo: `409`.
 
