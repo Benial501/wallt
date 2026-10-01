@@ -236,12 +236,24 @@ consenso, errori e revoca.
    (o al workflow GitHub Actions) quando si accende
    `bank_sync_cron_enabled`.
 5. **Registrazione dell'URL di ritorno** presso il provider, se richiesto.
-6. **Deploy del codice Premium**: lo schema di produzione è già avanti
-   rispetto al codice pubblicato (migrazioni 41, 42 e 44 applicate il
-   1 ottobre 2026). È innocuo — le tabelle restano inutilizzate finché il
-   codice non arriva — ma significa che `/admin` e `/api/premium` **non
-   rispondono ancora in produzione**: esistono solo in locale finché il ramo
-   non viene pubblicato.
+6. ~~**Deploy del codice Premium**~~ — **fatto** il 1 ottobre 2026
+   (commit `3d9c18b`): schema, API e interfaccia sono in produzione.
+
+### Perché le attivazioni beta sono spente
+
+Subito dopo il deploy `bank_sync_beta_enabled` è stato portato a **false**
+dall'area amministrativa, e va lasciato così finché i punti 1–3 non sono
+chiusi. La ragione è concreta, non prudenziale: senza le credenziali
+GoCardless `GET /bank-sync/istituti` risponde `PROVIDER_NON_CONFIGURATO`
+(503), quindi un utente che attivasse la beta **brucerebbe uno dei 25 posti**
+per poi trovare un vicolo cieco al passo successivo. Con l'interruttore
+spento nessun posto si consuma, `bank_sync_enabled` resta acceso — i due
+interruttori sono distinti apposta — e chi apre la schermata Premium vede
+«Richiedi accesso a WALLT Premium», che registra l'interesse senza promettere
+niente.
+
+Per riaprirle: Amministrazione → Configurazione → `bank_sync_beta_enabled`.
+Un click, nessun deploy.
 
 ## 10. Cosa resta da fare per WALLT Premium pagante
 
