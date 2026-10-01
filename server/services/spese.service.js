@@ -161,6 +161,9 @@ async function aggregaSpeseMesi(userId, numMesi, riferimento = new Date(), opzio
     );
     return {
       periodo: p.chiave, da: p.da, a: p.a, totale, parziale: p.chiave === meseCorrente,
+      categorie: Object.entries(totaliPerPeriodo.get(p.chiave)).map(([categoria, importo]) => ({
+        categoria, importo: round2(importo),
+      })),
     };
   });
 

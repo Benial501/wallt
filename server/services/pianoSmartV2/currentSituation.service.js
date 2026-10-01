@@ -1,5 +1,6 @@
 const { fromCents, toCents } = require('../pianoSmart/money');
 const { oggiLocale, fineMese, inizioMese } = require('../../utils/dateRome');
+const { buildExpenseFundingInsights } = require('./expenseFundingInsights.service');
 
 const cents = (value) => {
   if (value === null || value === undefined || value === '') return null;
@@ -287,6 +288,16 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
     visibleSuggestions[visibleSuggestions.length - 1] = emergencyFundSuggestion;
     visibleSuggestions.sort((a, b) => a.priority - b.priority);
   }
+  const upcomingExpensePlans = buildExpenseFundingInsights({
+    payments: context.upcomingExpenses || [],
+    contributionsByPayment: Object.fromEntries((context.upcomingExpenses || []).map((payment) => [
+      payment.id,
+      (payment.contributions || []).reduce((sum, contribution) => sum + (cents(contribution.importo) || 0), 0),
+    ])),
+    monthlyCategoryHistory: context.expenses?.monthlyCategoryHistory || [],
+    referenceDate,
+    weeklyMarginCents: dailyLimit === null ? null : dailyLimit * 7,
+  });
   return {
     current: {
       liquidity: signedMoney(liquidity),
@@ -337,6 +348,7 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
       items: recurringItems.map((item) => ({ ...item, amount: money(cents(item.amount)) })),
       total: money(upcomingTotal), afterTotal: signedMoney(netAvailable), through: monthEnd,
     },
+    upcomingExpensePlans,
     cashFlowTimeline,
     changes,
     monthProgress: {

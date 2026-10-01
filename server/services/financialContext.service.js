@@ -13,7 +13,10 @@
  * non ricalcola.
  */
 const { Op } = require('sequelize');
-const { Obiettivo, Investimento, Movimento, ProfiloUtente, ScheduledPayment } = require('../models');
+const {
+  Obiettivo, Investimento, Movimento, ProfiloUtente, ScheduledPayment,
+  ScheduledPaymentContribution, Conto,
+} = require('../models');
 const { FUSO_DEFAULT, oggiLocale, fineMese, sommaGiorni } = require('../utils/dateRome');
 const { elencoMesi, classificaFinestra } = require('./finestraMesi.service');
 const { calcolaPatrimonioNetto } = require('./financialSummary.service');
@@ -24,6 +27,7 @@ const { descriviFondo } = require('./fondoEmergenza.service');
 const { riepilogo: riepilogoDebiti, calcolaPressioneDebitoria } = require('./debiti.service');
 const { calcolaProgressoObiettivo } = require('./obiettiviStato.service');
 const { descriviLiquidabilita } = require('./investimentiLiquidabilita.service');
+const { list: listCategories } = require('./categorie.service');
 const { STATI_RICORRENZA, normalizzaStatoRicorrenza, getRomeDateParts, valutaOccorrenza, periodoPerFrequenza } = require('./ricorrenti.service');
 
 const round2 = (v) => Math.round(v * 100) / 100;
@@ -311,6 +315,8 @@ async function getFinancialContext(userId, options = {}) {
     ricorrenti,
     fondoSicurezza,
     profilo,
+    pagamentiSmart,
+    categorieUscita,
   ] = await Promise.all([
     calcolaPatrimonioNetto(userId),
     calcolaLiquidita(userId, { data: oggi }),
@@ -325,6 +331,16 @@ async function getFinancialContext(userId, options = {}) {
     riepilogoRicorrenti(userId, referenceDate),
     riepilogoFondoSicurezza(userId, referenceDate),
     ProfiloUtente.findOne({ where: { user_id: userId }, attributes: ['mesi_riserva_piano_smart'] }),
+    ScheduledPayment.findAll({
+      where: { user_id: userId, tipo: 'uscita', stato: 'in_attesa', piano_id: null },
+      attributes: ['id', 'conto_id', 'importo', 'categoria', 'descrizione', 'data_scadenza', 'stato', 'tipo', 'piano_id'],
+      include: [
+        { model: ScheduledPaymentContribution, as: 'contributi', attributes: ['id', 'importo', 'data_contributo'] },
+        { model: Conto, as: 'conto', attributes: ['id', 'nome'] },
+      ],
+      order: [['data_scadenza', 'ASC'], ['id', 'ASC']],
+    }),
+    listCategories(userId, { includeArchived: true }),
   ]);
 
   // Un solo insieme di mesi per TUTTE le medie confrontabili: quello che
@@ -457,7 +473,28 @@ async function getFinancialContext(userId, options = {}) {
       },
       frequentAverages: medieSpeseFrequenti,
       history: spese.storico,
+      monthlyCategoryHistory: spese.storico
+        .filter((month) => mesiMedie.includes(month.periodo))
+        .map((month) => ({
+          month: month.periodo,
+          complete: true,
+          categories: month.categorie.map((entry) => {
+            const category = categorieUscita.find((item) => item.id === entry.categoria);
+            return {
+              category: entry.categoria,
+              name: category?.nome || entry.categoria,
+              essentiality: category?.essenzialita || 'non_classificata',
+              amount: entry.importo,
+            };
+          }),
+        })),
     },
+
+    upcomingExpenses: pagamentiSmart.map((payment) => ({
+      ...payment.toJSON(),
+      contributions: payment.contributi || [],
+      conto: payment.conto ? { id: payment.conto.id, nome: payment.conto.nome } : null,
+    })),
 
     cashFlow: {
       monthlyAverageIncome,
