@@ -105,23 +105,52 @@ const STATO_SESSIONE = {
  */
 const PRIORITA_SALDO = ['ITAV', 'CLAV', 'CLBD', 'ITBD', 'OPAV', 'OPBD', 'XPCD'];
 
-/** `nome|PAESE` ⇄ { name, country }. */
-const codificaIstituto = (name, country) => `${name}|${String(country || '').toUpperCase()}`;
+/**
+ * `{ name, country }` ⇄ identificativo opaco.
+ *
+ * Enable Banking identifica una banca con nome e paese, non con un id. Il
+ * nome però contiene spazi, apostrofi, accenti e `&` («Banca d'Alba»,
+ * «Crédit Agricole Cariparma», «Banca Patrimoni Sella & C.»), mentre
+ * `validateBankConnect` ammette solo caratteri da identificatore — e ha
+ * ragione: quella stringa torna dal client e finisce in un URL verso il
+ * provider, quindi tenerla ristretta è una difesa vera, non una formalità.
+ *
+ * La soluzione non è allargare il validator fino ad accogliere mezzo
+ * alfabeto, ma rendere l'identificativo ciò che dichiara di essere: opaco.
+ * base64url produce esattamente `[A-Za-z0-9_-]`, il nome resta leggibile
+ * solo dall'adapter, e il resto di WALLT continua a trattarlo come una
+ * stringa di cui non sa nulla.
+ */
+const codificaIstituto = (name, country) => Buffer
+  .from(`${name}|${String(country || '').toUpperCase()}`, 'utf8')
+  .toString('base64url');
 
 const decodificaIstituto = (institutionId) => {
+  const nonValido = () => new BankProviderError(
+    ERR_PROVIDER,
+    'Identificativo banca non valido per Enable Banking',
+    { statusCode: 400 },
+  );
+
   const grezzo = String(institutionId || '');
-  const taglio = grezzo.lastIndexOf('|');
-  if (taglio <= 0) {
-    throw new BankProviderError(
-      ERR_PROVIDER,
-      'Identificativo banca non valido per Enable Banking',
-      { statusCode: 400 },
-    );
+  if (!grezzo || !/^[A-Za-z0-9_-]+$/.test(grezzo)) throw nonValido();
+
+  let decodificato;
+  try {
+    decodificato = Buffer.from(grezzo, 'base64url').toString('utf8');
+  } catch {
+    throw nonValido();
   }
-  return {
-    name: grezzo.slice(0, taglio),
-    country: grezzo.slice(taglio + 1).toUpperCase().slice(0, 2),
-  };
+
+  const taglio = decodificato.lastIndexOf('|');
+  if (taglio <= 0) throw nonValido();
+
+  const country = decodificato.slice(taglio + 1).toUpperCase();
+  // Due lettere esatte: un paese più lungo significa che la stringa non è
+  // quella che abbiamo prodotto noi.
+  if (!/^[A-Z]{2}$/.test(country)) throw nonValido();
+
+  return { name: decodificato.slice(0, taglio), country };
 };
 
 class EnableBankingProvider extends BankProvider {

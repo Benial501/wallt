@@ -15,6 +15,8 @@
  */
 
 const crypto = require('crypto');
+const { readFileSync } = require('fs');
+const { join } = require('path');
 const EnableBankingProvider = require('../services/bankSync/providers/EnableBankingProvider');
 const { BankProviderError } = require('../services/bankSync/providers/BankProvider');
 const {
@@ -59,6 +61,9 @@ const creaProvider = (risposte = []) => {
   });
   return { provider, fetchImpl };
 };
+
+/** L'identificativo opaco di una banca, come lo produce l'adapter. */
+const idBanca = (nome, paese = 'IT') => Buffer.from(`${nome}|${paese}`, 'utf8').toString('base64url');
 
 const decodificaJwt = (header) => {
   const [h, p, firma] = header.replace('Bearer ', '').split('.');
@@ -165,9 +170,15 @@ describe('istituti e autorizzazione', () => {
     const istituti = await provider.listIstituti('IT');
     expect(istituti).toHaveLength(2);
     expect(istituti[0]).toMatchObject({
-      id: 'Intesa Sanpaolo|IT', nome: 'Intesa Sanpaolo', paesi: ['IT'],
+      id: idBanca('Intesa Sanpaolo'), nome: 'Intesa Sanpaolo', paesi: ['IT'],
     });
-    expect(istituti[1].id).toBe('UniCredit|IT');
+    expect(istituti[1].id).toBe(idBanca('UniCredit'));
+    // L'identificativo deve restare dentro i caratteri che
+    // `validateBankConnect` ammette: è la ragione per cui è codificato.
+    istituti.forEach((i) => {
+      expect(i.id).toMatch(/^[A-Za-z0-9_-]+$/);
+      expect(i.id.length).toBeLessThanOrEqual(120);
+    });
   });
 
   it('scarta le voci senza nome invece di produrre identificativi rotti', async () => {
@@ -186,7 +197,7 @@ describe('istituti e autorizzazione', () => {
     }]);
 
     const esito = await provider.createAuthorization({
-      institutionId: 'Intesa Sanpaolo|IT',
+      institutionId: idBanca('Intesa Sanpaolo'),
       redirectUrl: 'https://www.wallt.it/banca/callback?state=STATO_SEGRETO',
       reference: 'STATO_SEGRETO',
     });
@@ -205,19 +216,59 @@ describe('istituti e autorizzazione', () => {
     expect(esito.consentExpiresAt.getTime()).toBeGreaterThan(Date.now());
   });
 
-  it('un identificativo banca senza paese viene rifiutato', async () => {
+  it.each([
+    ['con caratteri non ammessi', 'Intesa Sanpaolo|IT'],
+    ['senza il paese', Buffer.from('SoloNome', 'utf8').toString('base64url')],
+    ['con un paese implausibile', Buffer.from('Banca|ITALIA', 'utf8').toString('base64url')],
+    ['vuoto', ''],
+  ])('un identificativo banca %s viene rifiutato', async (_caso, institutionId) => {
+    // Il primo caso è quello che rompeva davvero: l'identificativo in chiaro
+    // contiene spazi e `|`, che `validateBankConnect` rifiuta prima ancora di
+    // arrivare qui. Per questo l'adapter lo codifica.
     const { provider } = creaProvider([]);
     await expect(provider.createAuthorization({
-      institutionId: 'SoloNome',
+      institutionId,
       redirectUrl: 'https://www.wallt.it/banca/callback?state=x',
       reference: 'x',
     })).rejects.toBeInstanceOf(BankProviderError);
   });
 
+  it('ogni identificativo prodotto passa la validazione della rotta di collegamento', () => {
+    // Il difetto trovato in produzione: l'adapter produceva `Nome|IT`, e
+    // `validateBankConnect` ammette solo caratteri da identificatore.
+    // Nessun collegamento sarebbe mai partito, per nessuna banca.
+    //
+    // La regola si legge dal sorgente del validator invece di essere
+    // ricopiata qui: se qualcuno la restringe ancora, questo test se ne
+    // accorge; se la allarga, resta comunque vero che gli id la rispettano.
+    const sorgente = readFileSync(
+      join(__dirname, '..', 'middleware', 'validation.middleware.js'),
+      'utf8',
+    );
+    const blocco = sorgente.slice(sorgente.indexOf('const validateBankConnect'));
+    const regola = blocco.match(/\.matches\(\/\^\[([^\]]+)\]\+\$\/\)/);
+    expect(regola).not.toBeNull();
+
+    const ammessi = new RegExp(`^[${regola[1]}]+$`);
+    [
+      'N26',
+      "Banca d'Alba",
+      'Crédit Agricole Cariparma',
+      'Banca Patrimoni Sella & C.',
+      "Cassa Rurale ed Artigiana di Cortina d'Ampezzo e delle Dolomiti",
+    ].forEach((nome) => {
+      const id = idBanca(nome);
+      expect(id).toMatch(ammessi);
+      // Il limite di lunghezza della rotta: un nome lungo non deve produrre
+      // un identificativo che la validazione taglia fuori.
+      expect(id.length).toBeLessThanOrEqual(120);
+    });
+  });
+
   it('una risposta di autorizzazione incompleta non diventa una connessione', async () => {
     const { provider } = creaProvider([{ body: { url: 'https://banca.invalid/auth' } }]);
     await expect(provider.createAuthorization({
-      institutionId: 'UniCredit|IT',
+      institutionId: idBanca('UniCredit'),
       redirectUrl: 'https://www.wallt.it/banca/callback?state=x',
       reference: 'x',
     })).rejects.toMatchObject({ codice: ERR_PROVIDER });
