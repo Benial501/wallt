@@ -191,6 +191,7 @@ const callback = async (req, res) => {
     const esito = await connessioni.completaConnessione({
       userId: req.userId,
       state: req.body.state,
+      code: req.body.code ?? null,
     });
     res.status(esito.ripetuto ? 200 : 201).json({
       ...esito,

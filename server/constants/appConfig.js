@@ -54,8 +54,8 @@ const SCHEMA = Object.freeze({
   },
   [BANK_SYNC_PROVIDER]: {
     tipo: 'testo',
-    default: 'gocardless',
-    descrizione: 'Adapter Open Banking in uso. Il valore "sandbox" è rifiutato in produzione.',
+    default: 'enablebanking',
+    descrizione: 'Adapter Open Banking in uso: "enablebanking" (registrazione self-service) oppure "gocardless" (nuovi account chiusi dal provider). Il valore "sandbox" è rifiutato in produzione.',
   },
   [BANK_SYNC_COOLDOWN_SECONDI]: {
     tipo: 'intero',

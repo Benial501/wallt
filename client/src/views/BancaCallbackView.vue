@@ -44,7 +44,14 @@ const stato = ref('in_corso');
 const messaggio = ref('');
 
 onMounted(async () => {
-  const { state } = route.query;
+  // Un provider può ripetere un parametro nel redirect, e Vue Router in quel
+  // caso consegna un array: prendere il primo valore evita che la pagina
+  // fallisca per una forma della query invece che per un problema vero.
+  const primo = (v) => (Array.isArray(v) ? v[0] : v);
+  const state = primo(route.query.state);
+  // Alcuni provider (Enable Banking) aggiungono un codice da scambiare con
+  // una sessione. Con GoCardless è assente, e il server se ne accorge da sé.
+  const code = primo(route.query.code) ?? null;
 
   if (typeof state !== 'string' || state.length < 20) {
     stato.value = 'errore';
@@ -53,7 +60,7 @@ onMounted(async () => {
   }
 
   try {
-    await bankSyncStore.completaCollegamento(state);
+    await bankSyncStore.completaCollegamento(state, code);
     stato.value = 'ok';
     toastStore.success('Conto bancario collegato');
     // Un attimo per far leggere l'esito, poi la pagina dove il conto vive.

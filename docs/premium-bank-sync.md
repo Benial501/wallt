@@ -157,16 +157,49 @@ scaduto.
 
 ## 5. Variabili d'ambiente
 
+### Enable Banking (provider predefinito)
+
 | Variabile | Dove | Obbligatoria | Note |
 |---|---|---|---|
-| `GOCARDLESS_SECRET_ID` | server | per Bank Sync in produzione | **mai** prefisso `VITE_` |
-| `GOCARDLESS_SECRET_KEY` | server | per Bank Sync in produzione | idem |
-| `GOCARDLESS_BASE_URL` | server | no | default `https://bankaccountdata.gocardless.com/api/v2`; serve per puntare al sandbox |
+| `ENABLE_BANKING_APPLICATION_ID` | server | per Bank Sync in produzione | l'UUID dell'applicazione registrata nel Control Panel; finisce nel `kid` del JWT. **Mai** prefisso `VITE_` |
+| `ENABLE_BANKING_PRIVATE_KEY` | server | per Bank Sync in produzione | il contenuto del file `.pem` scaricato alla registrazione dell'applicazione. Vercel lo accetta multi-riga; l'adapter converte anche i `\n` letterali |
+| `ENABLE_BANKING_BASE_URL` | server | no | default `https://api.enablebanking.com` |
 | `APP_URL` | server | sì (già presente) | base dell'URL di ritorno dalla banca |
 
-Senza le due credenziali Bank Sync risponde `PROVIDER_NON_CONFIGURATO` e il
-resto di WALLT è identico. **Nessuna nuova dipendenza npm**: l'adapter usa il
-`fetch` globale di Node 22.
+### GoCardless (solo per chi ha già un account)
+
+| Variabile | Dove | Obbligatoria | Note |
+|---|---|---|---|
+| `GOCARDLESS_SECRET_ID` | server | solo con `bank_sync_provider = gocardless` | **mai** prefisso `VITE_` |
+| `GOCARDLESS_SECRET_KEY` | server | idem | idem |
+| `GOCARDLESS_BASE_URL` | server | no | default `https://bankaccountdata.gocardless.com/api/v2` |
+
+Senza le credenziali del provider attivo, Bank Sync risponde
+`PROVIDER_NON_CONFIGURATO` e il resto di WALLT è identico. **Nessuna nuova
+dipendenza npm**: gli adapter usano `fetch` e `crypto` di Node 22.
+
+### Perché il provider predefinito è cambiato
+
+Dal **luglio 2025 GoCardless ha disabilitato i nuovi account** Bank Account
+Data (`bankaccountdata.gocardless.com/new-signups-disabled`): chi ne ha già
+uno continua a usarlo, ma non è più ottenibile da zero. L'adapter resta
+registrato — non costa nulla e torna utile se riaprono — ma il default di
+`bank_sync_provider` è ora `enablebanking`.
+
+Enable Banking ha registrazione self-service, è gratuito per uso personale,
+sandbox e valutazione, e si appoggia alla **propria licenza AISP**: WALLT non
+deve diventare un TPP autorizzato. Il limite da conoscere è che la
+*Restricted Production* copre solo i **Linked Accounts**, cioè i conti che si
+collegano in prima persona: basta per provare la funzione sul proprio conto,
+non per aprirla ai 25 utenti beta, che richiede un accordo commerciale.
+
+Tre differenze che l'adapter assorbe, e che il resto di WALLT non vede:
+autenticazione a **JWT RS256 firmato con chiave privata** (non una coppia
+id/segreto, e nessuna credenziale viaggia mai in rete), banca identificata da
+**nome + paese** invece che da un id opaco, e un **`code`** consegnato al
+ritorno da scambiare con una sessione — per questo
+`POST /api/bank-sync/callback` accetta un `code` facoltativo e
+`handleCallback` può restituire un `providerConnectionId` nuovo.
 
 ## 6. Configurazione a runtime (`app_config`)
 
@@ -222,11 +255,14 @@ consenso, errori e revoca.
 
 ## 9. Cosa resta da fare prima della produzione
 
-1. **Credenziali GoCardless** (sandbox prima, produzione poi) nelle variabili
-   d'ambiente di Vercel. Finché mancano, la funzione è inerte.
-2. **Contratto con il provider**: GoCardless Bank Account Data richiede la
-   registrazione dell'applicazione e l'accettazione dei termini; il piano
-   gratuito ha un limite di connessioni che va verificato contro i 25 posti.
+1. **Credenziali Enable Banking** nelle variabili d'ambiente di Vercel
+   (`ENABLE_BANKING_APPLICATION_ID`, `ENABLE_BANKING_PRIVATE_KEY`). Finché
+   mancano, la funzione è inerte. Registrazione self-service sul Control
+   Panel: si registra un'applicazione e il browser scarica la chiave `.pem`.
+2. **Da uso personale a servizio**: la *Restricted Production* gratuita copre
+   solo i conti collegati in prima persona. Aprirla ai 25 posti beta richiede
+   un accordo commerciale con Enable Banking, sempre appoggiandosi alla loro
+   licenza AISP.
 3. **Informativa privacy e termini**: l'introduzione del collegamento bancario
    cambia la base giuridica del trattamento (dati di pagamento di terzi: la
    controparte di ogni transazione). `PrivacyPolicy.vue` e `TermsView.vue`

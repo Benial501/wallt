@@ -1624,6 +1624,18 @@ const validateBankCallback = [
     .bail()
     .matches(/^[A-Za-z0-9_-]+$/)
     .withMessage('Autorizzazione non valida o scaduta'),
+  // Alcuni provider (Enable Banking) consegnano al ritorno un codice da
+  // scambiare con una sessione; GoCardless no, e per lui resta assente. È
+  // opzionale per questo, non per tolleranza: un adapter che ne ha bisogno
+  // e non lo riceve fallisce con un errore esplicito, non in silenzio.
+  // Non identifica l'utente e non sostituisce lo `state`: l'autorizzazione
+  // resta decisa dalle cinque verifiche su quest'ultimo.
+  body('code')
+    .optional({ values: 'null' })
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 2048 })
+    .withMessage('Autorizzazione non valida o scaduta'),
   validate,
 ];
 

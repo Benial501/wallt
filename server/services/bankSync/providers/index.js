@@ -1,8 +1,11 @@
-const { PROVIDER_GOCARDLESS, PROVIDER_SANDBOX, ERR_CONFIG } = require('../../../constants/bankSync');
+const {
+  PROVIDER_GOCARDLESS, PROVIDER_ENABLE_BANKING, PROVIDER_SANDBOX, ERR_CONFIG,
+} = require('../../../constants/bankSync');
 const { BANK_SYNC_PROVIDER } = require('../../../constants/appConfig');
 const { getConfig } = require('../../appConfig.service');
 const { BankProviderError } = require('./BankProvider');
 const GoCardlessBankProvider = require('./GoCardlessBankProvider');
+const EnableBankingProvider = require('./EnableBankingProvider');
 const SandboxBankProvider = require('./SandboxBankProvider');
 
 /**
@@ -22,7 +25,11 @@ const SandboxBankProvider = require('./SandboxBankProvider');
  */
 
 const costruttori = {
+  // Resta registrato anche se dal luglio 2025 GoCardless non apre più nuovi
+  // account Bank Account Data: chi ne ha già uno continua a usarlo, e se
+  // riaprissero le registrazioni l'adapter è pronto. Non costa nulla tenerlo.
   [PROVIDER_GOCARDLESS]: () => new GoCardlessBankProvider(),
+  [PROVIDER_ENABLE_BANKING]: () => new EnableBankingProvider(),
   [PROVIDER_SANDBOX]: () => new SandboxBankProvider(),
 };
 
@@ -61,5 +68,6 @@ const getBankProvider = async ({ nome = null } = {}) => {
 module.exports = {
   getBankProvider,
   GoCardlessBankProvider,
+  EnableBankingProvider,
   SandboxBankProvider,
 };

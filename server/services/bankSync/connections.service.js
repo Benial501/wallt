@@ -294,7 +294,9 @@ async function avviaConnessione({
  * una scrittura: due richieste simultanee non possono entrambe trovarlo
  * libero, perché solo una vede `rowCount = 1`.
  */
-async function completaConnessione({ userId, state, provider = null }) {
+async function completaConnessione({
+  userId, state, code = null, provider = null,
+}) {
   if (typeof state !== 'string' || state.length < 20) {
     throw Object.assign(new Error('Autorizzazione non valida o scaduta'), { statusCode: 400 });
   }
@@ -355,6 +357,11 @@ async function completaConnessione({ userId, state, provider = null }) {
   try {
     esito = await adapter.handleCallback({
       providerConnectionId: connessione.provider_connection_id,
+      // Serve ai provider che al ritorno consegnano un codice da scambiare
+      // con una sessione (Enable Banking). GoCardless lo ignora: la
+      // requisition è già identificata. Non autorizza niente di per sé —
+      // l'utente è già stato riconosciuto dalle verifiche sullo `state`.
+      code,
     });
   } catch (error) {
     await connessione.update({
@@ -402,6 +409,15 @@ async function completaConnessione({ userId, state, provider = null }) {
 
     await connessione.update({
       conto_id: conto.id,
+      // Alcuni provider cambiano identificatore quando l'autorizzazione
+      // diventa una connessione viva: Enable Banking consegna un
+      // `session_id` che sostituisce l'`authorization_id` salvato al
+      // collegamento, ed è quello che poi si interroga e si revoca.
+      // Chi non lo fa (GoCardless) non restituisce il campo e la riga resta
+      // com'era.
+      ...(esito.providerConnectionId
+        ? { provider_connection_id: esito.providerConnectionId }
+        : {}),
       provider_account_id: contoProvider.providerAccountId,
       institution_name: contoProvider.istituto?.nome ?? connessione.institution_name,
       iban_mascherato: contoProvider.ibanMascherato,

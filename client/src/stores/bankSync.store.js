@@ -120,8 +120,14 @@ export const useBankSyncStore = defineStore('bankSync', () => {
   };
 
   /** Completa il collegamento al ritorno dalla banca. */
-  const completaCollegamento = async (state) => {
-    const { data } = await api.post('/bank-sync/callback', { state });
+  const completaCollegamento = async (state, code = null) => {
+    const { data } = await api.post('/bank-sync/callback', {
+      state,
+      // Inviato solo se il provider lo ha consegnato: il server lo tratta
+      // come facoltativo, e l'adapter che ne ha bisogno fallisce in modo
+      // esplicito se manca.
+      ...(code ? { code } : {}),
+    });
     const { usePianoStore } = await import('./piano.store');
     const { useContiStore } = await import('./conti.store');
     await refreshAfterWrite(

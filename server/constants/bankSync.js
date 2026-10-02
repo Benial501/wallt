@@ -15,7 +15,25 @@ const PROVIDER_GOCARDLESS = 'gocardless';
  * ambiente di sviluppo che la produzione si rifiuta di usare. */
 const PROVIDER_SANDBOX = 'sandbox';
 
-const PROVIDERS = [PROVIDER_GOCARDLESS, PROVIDER_SANDBOX];
+/**
+ * Enable Banking.
+ *
+ * Sostituisce GoCardless come provider praticabile: da luglio 2025
+ * GoCardless ha disabilitato i nuovi account Bank Account Data, quindi
+ * quell'adapter resta nel codice ma non è più ottenibile da zero. Enable
+ * Banking ha registrazione self-service, è gratuito per uso personale e
+ * valutazione, e in "Restricted Production" permette di collegare i propri
+ * conti senza che WALLT debba essere un TPP autorizzato: si appoggia alla
+ * licenza AISP del fornitore.
+ *
+ * Due differenze che l'adapter deve assorbire, e che il resto di WALLT non
+ * deve vedere: l'autenticazione è un JWT firmato con chiave privata RSA
+ * (non una coppia id/segreto), e una banca si identifica con nome + paese
+ * invece che con un id opaco.
+ */
+const PROVIDER_ENABLE_BANKING = 'enablebanking';
+
+const PROVIDERS = [PROVIDER_GOCARDLESS, PROVIDER_ENABLE_BANKING, PROVIDER_SANDBOX];
 
 // ── Stato di una connessione ───────────────────────────────────────────────
 //
@@ -161,6 +179,7 @@ const GIORNI_STORICO_INCREMENTALE = 14;
 
 module.exports = {
   PROVIDER_GOCARDLESS,
+  PROVIDER_ENABLE_BANKING,
   PROVIDER_SANDBOX,
   PROVIDERS,
   STATO_IN_ATTESA,
