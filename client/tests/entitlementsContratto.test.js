@@ -63,6 +63,28 @@ test('ogni piano ha un\'etichetta: nessun piano resta senza nome a schermo', () 
   });
 });
 
+test('il piano dello staff esiste su entrambi i lati e non include feature', () => {
+  // `staff` è un piano DERIVATO dal ruolo: dice chi sei, non cosa puoi fare.
+  // Se un giorno includesse una feature, tornerebbe la confusione fra piano
+  // e permesso che la Regola 23 esiste per impedire — e un amministratore
+  // senza concessione leggerebbe "inclusa" una funzione che non ha.
+  assert.equal(client.PIANO_STAFF, serverEntitlements.PIANO_STAFF);
+  assert.deepEqual(serverEntitlements.FEATURE_PER_PIANO[serverEntitlements.PIANO_STAFF], []);
+});
+
+test('il piano dello staff non è scrivibile in un abbonamento', () => {
+  // La CHECK di `subscriptions.plan` ammette solo free/premium_beta/premium.
+  // Se qualcuno aggiungesse `staff` a quella colonna, il piano smetterebbe
+  // di essere derivato dal ruolo e diventerebbe un dato da mantenere.
+  const migrazione = readFileSync(
+    new URL('../../server/migrations/20261001000041-create-premium-entitlements.js', import.meta.url),
+    'utf8',
+  );
+  const vincolo = migrazione.match(/subscriptions_plan[\s\S]*?\)/);
+  assert.ok(vincolo, 'vincolo subscriptions_plan non trovato');
+  assert.doesNotMatch(vincolo[0], /'staff'/);
+});
+
 // ── Origini del permesso ───────────────────────────────────────────────────
 
 test('le origini di un entitlement coincidono', () => {

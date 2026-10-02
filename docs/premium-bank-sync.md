@@ -214,6 +214,19 @@ ritorno da scambiare con una sessione — per questo
 | `bank_sync_cron_ore_minime` | `12` | ore dall'ultima sync riuscita |
 | `bank_sync_cron_max_per_esecuzione` | `20` | dimensione del lotto |
 
+## 6-bis. Il piano dello staff
+
+Un amministratore legge il piano `staff` — «WALLT Premium — staff» — invece
+di `free`. È **derivato da `users.ruolo`**: non viene mai scritto in
+`subscriptions`, e `FEATURE_PER_PIANO['staff']` è vuoto, perché anche per lo
+staff le feature arrivano da una concessione e non dal piano.
+
+Esiste per non dover scegliere fra due alternative che sporcano i dati:
+assegnare al proprietario un posto `beta_25` (e falsare il conteggio dei 25
+posti promessi agli utenti) o scrivergli un abbonamento `premium` inesistente
+(e falsare ogni futuro conteggio di fatturazione). Un abbonamento reale vince
+comunque sul ruolo: un amministratore che paga è un cliente pagante.
+
 ## 7. Primo amministratore
 
 ```bash

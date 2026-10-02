@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { UserEntitlement, Subscription } = require('../models');
+const { UserEntitlement, Subscription, User } = require('../models');
 const logger = require('../utils/logger');
 const {
   FEATURE_BANK_SYNC,
@@ -13,7 +13,9 @@ const {
   ENTITLEMENT_SOURCES,
   PIANO_FREE,
   PIANO_PREMIUM_BETA,
+  PIANO_STAFF,
   PIANO_ETICHETTE,
+  RUOLO_ADMIN,
   SUBSCRIPTION_STATUS_CON_DIRITTI,
   FEATURE_PER_PIANO,
 } = require('../constants/entitlements');
@@ -305,21 +307,30 @@ const subscriptionConDiritti = (userId, { transaction } = {}) => Subscription.fi
  * esattamente l'errore che questa architettura esiste per evitare: renderebbe
  * impossibile sapere quanti posti beta sono davvero occupati.
  */
-function derivaPiano(subscription, entitlements) {
+function derivaPiano(subscription, entitlements, { ruolo = null } = {}) {
   const betaAttiva = entitlements.some(
     (e) => e.source === SOURCE_BETA_25 && e.status === ENTITLEMENT_ATTIVO,
   );
+  // Un abbonamento vero vince su tutto: se un amministratore paga davvero, è
+  // un cliente pagante, e il suo piano è quello che ha comprato.
   if (subscription) return subscription.plan;
+  // Lo staff prima della beta: chi amministra WALLT non occupa un posto dei
+  // 25 e non deve comparire come se lo occupasse. `staff` non concede
+  // niente — la feature resta decisa da `canUseFeature`.
+  if (ruolo === RUOLO_ADMIN) return PIANO_STAFF;
   return betaAttiva ? PIANO_PREMIUM_BETA : PIANO_FREE;
 }
 
 async function descriviPiano(userId) {
-  const [subscription, entitlements] = await Promise.all([
+  const [subscription, entitlements, utente] = await Promise.all([
     subscriptionConDiritti(userId),
     listEntitlements(userId),
+    // Il ruolo si legge dal database, come ovunque: non arriva dal token né
+    // dal chiamante (Regola 25).
+    User.findByPk(userId, { attributes: ['ruolo'] }),
   ]);
 
-  const piano = derivaPiano(subscription, entitlements);
+  const piano = derivaPiano(subscription, entitlements, { ruolo: utente?.ruolo ?? null });
 
   return {
     piano,
@@ -352,7 +363,7 @@ async function descriviPiano(userId) {
 async function descriviPianiBatch(userIds) {
   if (!Array.isArray(userIds) || userIds.length === 0) return new Map();
 
-  const [subscriptions, entitlements] = await Promise.all([
+  const [subscriptions, entitlements, utenti] = await Promise.all([
     Subscription.findAll({
       where: {
         user_id: { [Op.in]: userIds },
@@ -361,7 +372,10 @@ async function descriviPianiBatch(userIds) {
       order: [['id', 'ASC']],
     }),
     UserEntitlement.findAll({ where: { user_id: { [Op.in]: userIds } } }),
+    User.findAll({ where: { id: { [Op.in]: userIds } }, attributes: ['id', 'ruolo'] }),
   ]);
+
+  const ruoloPerUtente = new Map(utenti.map((u) => [u.id, u.ruolo]));
 
   // L'ultima vince, come in `subscriptionConDiritti` (ordinata per id).
   const perUtenteSub = new Map(subscriptions.map((s) => [s.user_id, s]));
@@ -379,7 +393,11 @@ async function descriviPianiBatch(userIds) {
       status: scaduto(e, adesso) && e.status === ENTITLEMENT_ATTIVO
         ? ENTITLEMENT_SCADUTO : e.status,
     }));
-    const piano = derivaPiano(perUtenteSub.get(userId) ?? null, righe);
+    const piano = derivaPiano(
+      perUtenteSub.get(userId) ?? null,
+      righe,
+      { ruolo: ruoloPerUtente.get(userId) ?? null },
+    );
     return [userId, {
       piano,
       piano_etichetta: PIANO_ETICHETTE[piano] ?? PIANO_ETICHETTE[PIANO_FREE],

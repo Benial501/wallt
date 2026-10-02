@@ -380,3 +380,68 @@ describe('GET /api/piano', () => {
     expect(riga.ruolo).toBe('utente');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Il piano dello staff
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('piano staff', () => {
+  const { PIANO_STAFF, PIANO_FREE, PIANO_PREMIUM_BETA, RUOLO_ADMIN } = require('../constants/entitlements');
+  const { descriviPiano, descriviPianiBatch, derivaPiano } = require('../services/entitlements.service');
+  const { contaOccupati } = require('../services/betaSlots.service');
+
+  it('un amministratore legge "staff", un utente normale "free"', async () => {
+    const admin = await creaUtente(app);
+    const normale = await creaUtente(app);
+    await User.update({ ruolo: RUOLO_ADMIN }, { where: { id: admin.userId } });
+
+    expect((await descriviPiano(admin.userId)).piano).toBe(PIANO_STAFF);
+    expect((await descriviPiano(normale.userId)).piano).toBe(PIANO_FREE);
+  });
+
+  it('il piano staff NON include nessuna feature: il permesso resta una concessione', async () => {
+    // È il punto: un amministratore senza concessione non deve leggere
+    // "inclusa" una funzione che non ha.
+    const admin = await creaUtente(app);
+    await User.update({ ruolo: RUOLO_ADMIN }, { where: { id: admin.userId } });
+
+    const piano = await descriviPiano(admin.userId);
+    expect(piano.piano).toBe(PIANO_STAFF);
+    expect(piano.feature_incluse_nel_piano).toEqual([]);
+    expect((await canUseFeature(admin.userId, FEATURE_BANK_SYNC)).consentito).toBe(false);
+  });
+
+  it('lo staff non occupa un posto beta', async () => {
+    // La ragione per cui questo piano esiste invece di assegnare `beta_25`
+    // all'amministratore.
+    const admin = await creaUtente(app);
+    await User.update({ ruolo: RUOLO_ADMIN }, { where: { id: admin.userId } });
+    await concediEntitlement(admin.userId, { source: SOURCE_ADMIN });
+
+    expect((await descriviPiano(admin.userId)).piano).toBe(PIANO_STAFF);
+    expect(await contaOccupati(FEATURE_BANK_SYNC)).toBe(0);
+  });
+
+  it('un abbonamento reale vince sul ruolo', async () => {
+    // Un amministratore che paga davvero è un cliente pagante.
+    expect(derivaPiano({ plan: 'premium' }, [], { ruolo: RUOLO_ADMIN })).toBe('premium');
+  });
+
+  it('un posto beta resta premium_beta per chi non è staff', async () => {
+    expect(derivaPiano(null, [{ source: SOURCE_BETA_25, status: ENTITLEMENT_ATTIVO }], { ruolo: 'utente' }))
+      .toBe(PIANO_PREMIUM_BETA);
+  });
+
+  it('la lista amministrativa deriva lo stesso piano della scheda singola', async () => {
+    // Una lista che mostrasse un piano diverso da quello della pagina del
+    // singolo utente sarebbe peggio di una lista lenta.
+    const admin = await creaUtente(app);
+    const normale = await creaUtente(app);
+    await User.update({ ruolo: RUOLO_ADMIN }, { where: { id: admin.userId } });
+
+    const batch = await descriviPianiBatch([admin.userId, normale.userId]);
+    expect(batch.get(admin.userId).piano).toBe((await descriviPiano(admin.userId)).piano);
+    expect(batch.get(normale.userId).piano).toBe((await descriviPiano(normale.userId)).piano);
+    expect(batch.get(admin.userId).piano).toBe(PIANO_STAFF);
+  });
+});

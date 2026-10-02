@@ -26,7 +26,11 @@ export const FEATURE_KEYS = Object.freeze([FEATURE_BANK_SYNC]);
 export const PIANO_FREE = 'free';
 export const PIANO_PREMIUM_BETA = 'premium_beta';
 export const PIANO_PREMIUM = 'premium';
-export const PIANI = Object.freeze([PIANO_FREE, PIANO_PREMIUM_BETA, PIANO_PREMIUM]);
+/** Chi lavora a WALLT. Piano derivato dal ruolo, mai scritto negli
+ * abbonamenti, e come ogni piano non autorizza niente: le feature restano
+ * una concessione esplicita. */
+export const PIANO_STAFF = 'staff';
+export const PIANI = Object.freeze([PIANO_FREE, PIANO_PREMIUM_BETA, PIANO_PREMIUM, PIANO_STAFF]);
 
 /** Le etichette mostrate all'utente. Stesse stringhe del server, così la
  * pagina del piano non cambia nome al piano fra due schermate. */
@@ -34,6 +38,7 @@ export const PIANO_ETICHETTE = Object.freeze({
   [PIANO_FREE]: 'WALLT Free',
   [PIANO_PREMIUM_BETA]: 'WALLT Premium Beta',
   [PIANO_PREMIUM]: 'WALLT Premium',
+  [PIANO_STAFF]: 'WALLT Premium — staff',
 });
 
 // ── Origine del permesso ───────────────────────────────────────────────────

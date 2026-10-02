@@ -85,13 +85,38 @@ const PIANO_FREE = 'free';
 const PIANO_PREMIUM_BETA = 'premium_beta';
 const PIANO_PREMIUM = 'premium';
 
-const PIANI = [PIANO_FREE, PIANO_PREMIUM_BETA, PIANO_PREMIUM];
+/**
+ * Lo staff: chi lavora a WALLT, non chi lo compra.
+ *
+ * Esiste perché l'alternativa era peggiore. Un amministratore a cui lo staff
+ * ha concesso una feature restava `free`, il che è letteralmente vero — non
+ * paga nulla — ma suona falso a chi l'applicazione la fa. Le due scorciatoie
+ * disponibili erano entrambe bugie registrate nei dati: assegnargli un posto
+ * `beta_25` (e falsare il conteggio dei 25 posti promessi agli utenti), o
+ * scrivergli un abbonamento `premium` inesistente (e falsare ogni futuro
+ * conteggio di fatturazione).
+ *
+ * `staff` è un piano DERIVATO: non viene mai scritto in `subscriptions`, la
+ * cui CHECK continua ad ammettere solo free/premium_beta/premium. Si legge
+ * dal ruolo, che vive in `users.ruolo`.
+ *
+ * **Non autorizza niente.** Come ogni altro piano, serve a *dire* all'utente
+ * cosa è, non a decidere cosa può fare: la domanda resta `canUseFeature`.
+ * Per questo `FEATURE_PER_PIANO[staff]` è VUOTO — lo staff non riceve le
+ * feature dal piano, le riceve da una concessione esplicita, esattamente
+ * come chiunque altro. Riempirlo rimetterebbe in circolo la confusione fra
+ * piano e permesso che la Regola 23 esiste per impedire.
+ */
+const PIANO_STAFF = 'staff';
+
+const PIANI = [PIANO_FREE, PIANO_PREMIUM_BETA, PIANO_PREMIUM, PIANO_STAFF];
 
 /** Etichette mostrate all'utente. Italiano, come ogni testo di interfaccia. */
 const PIANO_ETICHETTE = {
   [PIANO_FREE]: 'WALLT Free',
   [PIANO_PREMIUM_BETA]: 'WALLT Premium Beta',
   [PIANO_PREMIUM]: 'WALLT Premium',
+  [PIANO_STAFF]: 'WALLT Premium — staff',
 };
 
 // ── Stato di un abbonamento ────────────────────────────────────────────────
@@ -116,6 +141,9 @@ const FEATURE_PER_PIANO = {
   [PIANO_FREE]: [],
   [PIANO_PREMIUM_BETA]: [FEATURE_BANK_SYNC],
   [PIANO_PREMIUM]: [FEATURE_BANK_SYNC],
+  // Vuoto di proposito: vedi la nota su PIANO_STAFF. Lo staff ottiene le
+  // feature da una concessione, non dal piano.
+  [PIANO_STAFF]: [],
 };
 
 // ── Richieste di accesso a Premium ─────────────────────────────────────────
@@ -188,6 +216,7 @@ module.exports = {
   PIANO_FREE,
   PIANO_PREMIUM_BETA,
   PIANO_PREMIUM,
+  PIANO_STAFF,
   PIANI,
   PIANO_ETICHETTE,
   SUB_ATTIVA,
