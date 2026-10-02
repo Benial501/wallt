@@ -308,7 +308,10 @@ class EnableBankingProvider extends BankProvider {
         state: stato,
         redirect_url: urlPulito,
         psu_type: 'personal',
-        language: 'IT',
+        // Minuscolo: l'API valida con `^[a-z]{2}$` e rifiuta `IT` con un
+        // 422. Verificato contro l'API reale — la documentazione dice solo
+        // "language: string".
+        language: 'it',
       },
       contesto: 'auth',
     });

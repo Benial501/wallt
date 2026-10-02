@@ -11,7 +11,7 @@ const companyAddress = import.meta.env.VITE_COMPANY_ADDRESS || '[Indirizzo da co
 const companyEmail = import.meta.env.VITE_COMPANY_EMAIL || 'support@pec.wallt.it';
 const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL || 'support@pec.wallt.it';
 
-const lastUpdated = '14 luglio 2026';
+const lastUpdated = '2 ottobre 2026';
 
 const dataCollected = [
   { category: 'Identità', items: 'Nome, indirizzo email, avatar (opzionale)' },
@@ -19,12 +19,20 @@ const dataCollected = [
   { category: 'Profilo finanziario', items: 'Reddito, spese fisse, situazione abitativa e lavorativa (onboarding)' },
   { category: 'Dati finanziari', items: 'Conti, saldi, movimenti, categorie, budget, obiettivi' },
   { category: 'Moduli opzionali', items: 'Investimenti, scommesse (se abilitati dall\'utente)' },
+  { category: 'Collegamento bancario', items: 'Solo se attivi la sincronizzazione: nome della banca, IBAN mascherato (ultime 4 cifre), valuta e saldo del conto, identificativi tecnici del collegamento. Mai le credenziali della banca' },
+  { category: 'Movimenti dalla banca', items: 'Data, importo, valuta, descrizione e nome della controparte di ogni operazione contabilizzata, per una finestra di 90 giorni' },
   { category: 'Preferenze', items: 'Valuta, tema, reminder, visibilità sezioni, consenso categorizzazione AI' },
   { category: 'Consensi legali', items: 'Data accettazione Privacy Policy e Termini d\'uso' },
   { category: 'Dati tecnici', items: 'Token di sessione (JWT nel browser), log di sistema anonimizzati' },
 ];
 
 const thirdPartyServices = [
+  {
+    name: 'Enable Banking Oy (Finlandia)',
+    purpose: 'Collegamento del conto bancario e lettura di saldo e movimenti (Open Banking, PSD2)',
+    data: 'Identificativi del conto collegato, saldo e operazioni contabilizzate. Nessuna credenziale bancaria transita da WALLT',
+    legal: 'Consenso esplicito (opt-in), revocabile in ogni momento',
+  },
   {
     name: 'Google OAuth',
     purpose: 'Autenticazione con account Google',
@@ -175,6 +183,7 @@ const backLabel = computed(() => (
             <li><strong>Gestione account:</strong> registrazione, autenticazione, profilo utente.</li>
             <li><strong>Gestione finanziaria:</strong> conti, movimenti, budget, obiettivi e analisi.</li>
             <li><strong>Import estratti:</strong> elaborazione file caricati dall'utente (CSV, Excel).</li>
+            <li><strong>Sincronizzazione bancaria:</strong> lettura di saldo e movimenti del conto che l'utente ha scelto di collegare, per evitargli di inserirli a mano.</li>
             <li><strong>Categorizzazione:</strong> assegnazione automatica categorie e regole merchant personali.</li>
             <li><strong>Notifiche e reminder:</strong> promemoria configurabili dall'utente.</li>
             <li><strong>Sicurezza:</strong> prevenzione abusi, rate limiting, audit operativi.</li>
@@ -194,6 +203,12 @@ const backLabel = computed(() => (
             <li>
               <strong>Esecuzione del contratto (art. 6.1.b GDPR):</strong>
               erogazione del servizio WALLT richiesto dall'utente.
+            </li>
+            <li>
+              <strong>Consenso al collegamento bancario (art. 6.1.a GDPR):</strong>
+              la sincronizzazione del conto è facoltativa, si attiva solo con un'azione
+              esplicita dell'utente e si revoca in ogni momento dall'applicazione o
+              direttamente presso la banca.
             </li>
             <li>
               <strong>Obblighi legali (art. 6.1.c GDPR):</strong>
@@ -220,6 +235,12 @@ const backLabel = computed(() => (
               Per adempimenti fiscali e contabili, alcune informazioni aggregate o documentali
               possono essere conservate fino a <strong>12 mesi</strong> dalla cancellazione,
               o per il periodo previsto dalla normativa applicabile.
+            </p>
+            <p>
+              I movimenti arrivati dal conto collegato sono conservati come gli altri
+              movimenti dell'utente: scollegare la banca <strong>non li cancella</strong>,
+              perché restano la registrazione delle proprie operazioni. Eliminarli è
+              un'azione separata e dichiarata, disponibile nelle impostazioni.
             </p>
             <p class="text-sm text-[var(--text-muted)]">
               I token di reset password scadono automaticamente e vengono invalidati dopo l'uso.
@@ -271,9 +292,106 @@ const backLabel = computed(() => (
           </p>
         </section>
 
-        <!-- 7. Diritti GDPR -->
+        <!-- 7. Collegamento bancario (Open Banking) -->
         <section class="privacy-section">
-          <h2>7. Diritti dell'interessato</h2>
+          <h2>7. Collegamento bancario (Open Banking)</h2>
+          <p class="section-lead">
+            Questa sezione riguarda solo chi sceglie di collegare un conto bancario.
+            Se non lo fai, nulla di quanto segue ti riguarda: WALLT continua a
+            funzionare con i movimenti che inserisci tu o che importi da un file.
+          </p>
+
+          <div class="privacy-card space-y-3">
+            <h3 class="text-base font-semibold text-[var(--text-primary)]">
+              WALLT non vede mai le credenziali della tua banca
+            </h3>
+            <p class="text-[var(--text-secondary)]">
+              L'autorizzazione avviene sul dominio della banca o del fornitore
+              autorizzato: username, PIN, OTP e codici dispositivi non passano da
+              WALLT e non vengono mai chiesti dall'applicazione. Chiunque te li
+              chieda dentro WALLT non è WALLT.
+            </p>
+            <p class="text-[var(--text-secondary)]">
+              Il collegamento è di <strong class="text-[var(--text-primary)]">sola lettura</strong>:
+              WALLT non può disporre bonifici, pagamenti o trasferimenti sul tuo conto,
+              e non richiede le autorizzazioni necessarie per farlo.
+            </p>
+          </div>
+
+          <div class="privacy-card space-y-3">
+            <h3 class="text-base font-semibold text-[var(--text-primary)]">
+              Chi è l'intermediario
+            </h3>
+            <p class="text-[var(--text-secondary)]">
+              Il collegamento passa da <strong class="text-[var(--text-primary)]">Enable Banking Oy</strong>
+              (Otakaari 5, 02150 Espoo, Finlandia), prestatore di servizi di
+              informazione sui conti registrato e vigilato dall'autorità finanziaria
+              finlandese (FIN-FSA). È l'intermediario tecnico e regolamentare fra
+              WALLT e la tua banca, e tratta i dati come sub-responsabile.
+            </p>
+          </div>
+
+          <div class="privacy-card space-y-3">
+            <h3 class="text-base font-semibold text-[var(--text-primary)]">
+              Quali dati arrivano, e quali no
+            </h3>
+            <ul class="privacy-list">
+              <li><strong>Arrivano:</strong> nome della banca, saldo e valuta del conto, e le operazioni già contabilizzate degli ultimi 90 giorni, con data, importo, descrizione e nome della controparte.</li>
+              <li><strong>Non arrivano:</strong> credenziali, numeri di carta, codici dispositivi.</li>
+              <li><strong>Non vengono conservati:</strong> l'IBAN completo (di cui restano solo le ultime quattro cifre) e le operazioni ancora in sospeso, che non vengono importate affatto.</li>
+            </ul>
+          </div>
+
+          <div class="privacy-card space-y-3">
+            <h3 class="text-base font-semibold text-[var(--text-primary)]">
+              I dati di altre persone
+            </h3>
+            <p class="text-[var(--text-secondary)]">
+              Ogni operazione bancaria ha due parti. Importando i tuoi movimenti,
+              WALLT riceve anche il <strong class="text-[var(--text-primary)]">nome della
+              controparte</strong> — chi ti ha pagato o chi hai pagato — che può essere
+              una persona fisica che non usa WALLT e non ha accettato nulla.
+            </p>
+            <p class="text-[var(--text-secondary)]">
+              Quei dati vengono trattati solo per mostrarti e categorizzare le tue
+              operazioni, nella forma in cui la banca li trasmette: non vengono
+              arricchiti con altre fonti, non vengono usati per profilare terzi, non
+              vengono comunicati ad altri utenti né venduti. La base giuridica è
+              l'interesse legittimo (art. 6.1.f GDPR) a permetterti di tenere una
+              registrazione fedele delle tue operazioni, che non è ottenibile senza
+              l'altra parte dell'operazione.
+            </p>
+          </div>
+
+          <div class="privacy-card space-y-3">
+            <h3 class="text-base font-semibold text-[var(--text-primary)]">
+              Durata e revoca
+            </h3>
+            <p class="text-[var(--text-secondary)]">
+              Il consenso al collegamento dura al massimo <strong class="text-[var(--text-primary)]">90 giorni</strong>,
+              come previsto dalla normativa sui servizi di pagamento: alla scadenza la
+              sincronizzazione si ferma finché non la riautorizzi.
+            </p>
+            <p class="text-[var(--text-secondary)]">
+              Puoi revocare il collegamento quando vuoi, dall'applicazione o presso la
+              tua banca. Scollegare interrompe immediatamente ogni lettura, ma
+              <strong class="text-[var(--text-primary)]">non cancella i movimenti già
+              importati</strong>: restano la registrazione delle tue operazioni, come
+              quelli inseriti a mano. Eliminarli è un'azione separata, che WALLT ti
+              chiede di confermare riverificando la tua identità.
+            </p>
+          </div>
+
+          <p class="mt-4 text-sm text-[var(--text-muted)]">
+            Le operazioni sul collegamento (creazione, errori, revoca) sono registrate
+            per finalità di sicurezza e diagnosi, senza importi né descrizioni delle
+            transazioni.
+          </p>
+        </section>
+
+        <!-- 8. Diritti GDPR -->
+        <section class="privacy-section">
+          <h2>8. Diritti dell'interessato</h2>
           <p class="section-lead">
             In qualità di interessato, puoi esercitare in qualsiasi momento i seguenti diritti
             previsti dagli artt. 15–22 del GDPR:
@@ -310,7 +428,7 @@ const backLabel = computed(() => (
 
         <!-- 8. Cancellazione account -->
         <section class="privacy-section">
-          <h2>8. Cancellazione dell'account</h2>
+          <h2>9. Cancellazione dell'account</h2>
           <div class="privacy-card space-y-3">
             <p>Puoi eliminare definitivamente il tuo account da:</p>
             <p class="font-medium text-[var(--accent-green)]">
@@ -332,9 +450,9 @@ const backLabel = computed(() => (
           </div>
         </section>
 
-        <!-- 9. Contatti -->
+        <!-- 10. Contatti -->
         <section class="privacy-section">
-          <h2>9. Contatti</h2>
+          <h2>10. Contatti</h2>
           <div class="privacy-card">
             <p class="text-[var(--text-secondary)]">
               Per domande su questa informativa, sul trattamento dei dati o per assistenza:

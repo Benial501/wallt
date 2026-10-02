@@ -11,7 +11,7 @@ const companyAddress = import.meta.env.VITE_COMPANY_ADDRESS || '[Indirizzo da co
 const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL || 'support@pec.wallt.it';
 const legalEmail = import.meta.env.VITE_LEGAL_EMAIL || 'support@pec.wallt.it';
 
-const lastUpdated = '14 luglio 2026';
+const lastUpdated = '2 ottobre 2026';
 
 const definitions = [
   {
@@ -21,6 +21,10 @@ const definitions = [
   {
     term: 'Utente',
     description: 'Qualsiasi persona fisica che accede al Servizio, si registra o utilizza le funzionalità di WALLT.',
+  },
+  {
+    term: 'Collegamento bancario',
+    description: 'La funzione facoltativa che, con l\'autorizzazione dell\'Utente e tramite un prestatore di servizi di informazione sui conti autorizzato, consente a WALLT di leggere saldo e movimenti di un conto di pagamento. È di sola lettura e non consente di disporre pagamenti.',
   },
   {
     term: 'Account',
@@ -123,6 +127,11 @@ const backLabel = computed(() => (
               che consente di registrare movimenti, monitorare budget, visualizzare analisi e organizzare
               le proprie finanze in modo autonomo.
             </p>
+            <p class="text-[var(--text-secondary)]">
+              I movimenti possono essere inseriti manualmente, importati da un estratto
+              conto oppure, con una funzione facoltativa descritta all'articolo 3,
+              letti da un conto bancario che l'Utente sceglie di collegare.
+            </p>
             <div class="notice-box">
               <p>
                 WALLT <strong>non costituisce consulenza finanziaria, fiscale o legale</strong>.
@@ -138,9 +147,75 @@ const backLabel = computed(() => (
           </div>
         </section>
 
-        <!-- 3. Requisiti utente -->
+        <!-- 3. Collegamento bancario -->
         <section class="legal-section">
-          <h2>3. Requisiti dell'Utente</h2>
+          <h2>3. Collegamento bancario (funzione facoltativa)</h2>
+          <div class="legal-card space-y-3">
+            <p class="text-[var(--text-secondary)]">
+              WALLT consente, <strong class="text-[var(--text-primary)]">su richiesta esplicita
+              dell'Utente</strong>, di collegare un conto di pagamento per leggerne saldo e
+              movimenti. La funzione è facoltativa: senza di essa il Servizio resta
+              pienamente utilizzabile inserendo i movimenti manualmente o importando un
+              estratto conto.
+            </p>
+
+            <div class="notice-box">
+              <p>
+                {{ companyName }} <strong>non è una banca, non è un istituto di pagamento
+                e non dispone operazioni</strong> sul conto collegato. Il collegamento è
+                di sola lettura: WALLT non può effettuare bonifici, pagamenti, prelievi
+                o trasferimenti, e non richiede le autorizzazioni necessarie per farlo.
+              </p>
+            </div>
+
+            <p class="text-[var(--text-secondary)]">
+              Il collegamento è reso possibile da un
+              <strong class="text-[var(--text-primary)]">prestatore di servizi di informazione
+              sui conti autorizzato</strong> e vigilato, indicato nell'Informativa sulla
+              Privacy. L'autenticazione avviene presso la banca o il prestatore:
+              {{ companyName }} <strong class="text-[var(--text-primary)]">non chiede e non
+              riceve mai le credenziali bancarie</strong> dell'Utente.
+            </p>
+
+            <p class="text-[var(--text-secondary)]">
+              L'autorizzazione ha una durata massima stabilita dalla normativa sui servizi
+              di pagamento, oltre la quale va rinnovata. L'Utente può revocarla in
+              qualsiasi momento, dall'applicazione o presso la propria banca. La revoca
+              interrompe ogni ulteriore lettura ma non cancella i movimenti già importati,
+              che restano disponibili nel suo Account; la loro eliminazione è un'operazione
+              distinta, disponibile nelle impostazioni.
+            </p>
+
+            <p class="text-[var(--text-secondary)]">
+              I dati trasmessi dalla banca sono riportati come ricevuti.
+              {{ companyName }} <strong class="text-[var(--text-primary)]">non garantisce
+              completezza, tempestività o accuratezza</strong> delle informazioni fornite
+              dall'istituto, né la continuità del servizio di collegamento, che dipende
+              dalla disponibilità dei sistemi della banca e del prestatore. In caso di
+              discordanza, fa fede quanto riportato dalla banca.
+            </p>
+
+            <p class="text-[var(--text-secondary)]">
+              L'Utente può collegare il conto di cui è titolare o cointestatario e di cui
+              ha diritto di consultare i movimenti. Collegando il conto, l'Utente prende
+              atto che i movimenti contengono anche i dati identificativi delle controparti
+              delle operazioni, trattati come descritto nell'Informativa sulla Privacy.
+            </p>
+
+            <p class="text-[var(--text-secondary)]">
+              La funzione è offerta nell'ambito di
+              <strong class="text-[var(--text-primary)]">WALLT Premium</strong>, attualmente
+              in fase di prova e messa a disposizione a titolo gratuito.
+              {{ companyName }} può modificarne o sospenderne la disponibilità, anche
+              temporaneamente e senza preavviso, senza che ciò comporti alcun obbligo di
+              rimborso, non essendo previsto alcun corrispettivo.
+            </p>
+          </div>
+        </section>
+
+        <!-- 4. Requisiti utente -->
+        <section class="legal-section">
+          <h2>4. Requisiti dell'Utente</h2>
           <ul class="legal-list">
             <li>
               L'Utente deve avere almeno <strong>7 anni</strong> per registrarsi e utilizzare WALLT.
@@ -161,9 +236,9 @@ const backLabel = computed(() => (
           </ul>
         </section>
 
-        <!-- 4. Registrazione e sicurezza -->
+        <!-- 5. Registrazione e sicurezza -->
         <section class="legal-section">
-          <h2>4. Registrazione e sicurezza</h2>
+          <h2>5. Registrazione e sicurezza</h2>
           <div class="legal-card space-y-3">
             <p class="text-[var(--text-secondary)]">
               Per accedere al Servizio è necessario creare un Account mediante registrazione email/password
@@ -182,9 +257,9 @@ const backLabel = computed(() => (
           </div>
         </section>
 
-        <!-- 5. Utilizzo corretto -->
+        <!-- 6. Utilizzo corretto -->
         <section class="legal-section">
-          <h2>5. Utilizzo corretto del Servizio</h2>
+          <h2>6. Utilizzo corretto del Servizio</h2>
           <p class="section-lead">
             L'Utente si impegna a utilizzare WALLT in conformità alla legge e ai presenti Termini.
             È vietato, a titolo esemplificativo:
@@ -203,9 +278,9 @@ const backLabel = computed(() => (
           </p>
         </section>
 
-        <!-- 6. Proprietà intellettuale -->
+        <!-- 7. Proprietà intellettuale -->
         <section class="legal-section">
-          <h2>6. Proprietà intellettuale</h2>
+          <h2>7. Proprietà intellettuale</h2>
           <div class="legal-card space-y-3">
             <p class="text-[var(--text-secondary)]">
               Il Servizio, inclusi marchio WALLT, interfaccia grafica, codice software, testi, loghi,
@@ -231,9 +306,9 @@ const backLabel = computed(() => (
           </div>
         </section>
 
-        <!-- 7. Limitazione responsabilità -->
+        <!-- 8. Limitazione responsabilità -->
         <section class="legal-section">
-          <h2>7. Limitazione di responsabilità</h2>
+          <h2>8. Limitazione di responsabilità</h2>
           <div class="legal-card space-y-3">
             <div class="notice-box">
               <p>
@@ -258,9 +333,9 @@ const backLabel = computed(() => (
           </div>
         </section>
 
-        <!-- 8. Modifiche termini -->
+        <!-- 9. Modifiche termini -->
         <section class="legal-section">
-          <h2>8. Modifiche ai Termini</h2>
+          <h2>9. Modifiche ai Termini</h2>
           <div class="legal-card space-y-3">
             <p class="text-[var(--text-secondary)]">
               {{ companyName }} può aggiornare i presenti Termini per adeguamenti normativi,
@@ -279,9 +354,9 @@ const backLabel = computed(() => (
           </div>
         </section>
 
-        <!-- 9. Legge applicabile -->
+        <!-- 10. Legge applicabile -->
         <section class="legal-section">
-          <h2>9. Legge applicabile e foro competente</h2>
+          <h2>10. Legge applicabile e foro competente</h2>
           <div class="legal-card space-y-3">
             <p class="text-[var(--text-secondary)]">
               I presenti Termini sono regolati dalla <strong class="text-[var(--text-primary)]">legge italiana</strong>.
@@ -305,9 +380,9 @@ const backLabel = computed(() => (
           </div>
         </section>
 
-        <!-- 10. Contatti -->
+        <!-- 11. Contatti -->
         <section class="legal-section">
-          <h2>10. Contatti</h2>
+          <h2>11. Contatti</h2>
           <div class="legal-card">
             <p class="text-[var(--text-secondary)]">
               Per domande sui presenti Termini o segnalazioni relative al Servizio:
