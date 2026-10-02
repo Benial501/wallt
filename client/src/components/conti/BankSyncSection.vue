@@ -9,13 +9,13 @@ import DataState from '@/components/common/DataState.vue';
 import PremiumBadge from '@/components/premium/PremiumBadge.vue';
 import PremiumModal from '@/components/premium/PremiumModal.vue';
 import {
-  Landmark, RefreshCw, AlertTriangle, CheckCircle2, ChevronRight,
+  Landmark, RefreshCw, AlertTriangle, CheckCircle2, ChevronRight, Search,
 } from '@/utils/appIcons';
 import { usePianoStore } from '@/stores/piano.store';
 import { useBankSyncStore } from '@/stores/bankSync.store';
 import { useToastStore } from '@/stores/toast.store';
 import { useValuta } from '@/composables/useValuta';
-import { STATO_SOSPESA_ENTITLEMENT } from '@/utils/entitlements';
+import { STATO_SOSPESA_ENTITLEMENT, messaggioErrore } from '@/utils/entitlements';
 
 dayjs.locale('it');
 
@@ -48,11 +48,32 @@ const showPremium = ref(false);
 const showGestisci = ref(false);
 const showScollega = ref(false);
 const showSostituisci = ref(false);
+const showScegliBanca = ref(false);
+const ricercaBanca = ref('');
+const sostituendo = ref(false);
 const scollegando = ref(false);
 
 onMounted(() => {
   bankSyncStore.fetchStato();
   if (!pianoStore.risorsa.lastUpdated) pianoStore.fetchPiano();
+});
+
+/**
+ * Le banche che corrispondono alla ricerca.
+ *
+ * Il taglio a 40 non è pigrizia: l'elenco italiano supera i trecento
+ * istituti, e disegnarli tutti rende la lista inutilizzabile sul telefono.
+ * Chi non trova la propria banca scrive due lettere in più.
+ */
+const MAX_BANCHE_MOSTRATE = 40;
+
+const bancheFiltrate = computed(() => {
+  const q = ricercaBanca.value.trim().toLowerCase();
+  const tutte = bankSyncStore.istituti;
+  const trovate = q
+    ? tutte.filter((i) => i.nome.toLowerCase().includes(q))
+    : tutte;
+  return { elenco: trovate.slice(0, MAX_BANCHE_MOSTRATE), totale: trovate.length };
 });
 
 const connessione = computed(() => bankSyncStore.connessione);
@@ -101,20 +122,50 @@ const sincronizza = async () => {
   }
 };
 
-const avviaCollegamento = async ({ sostituisci = false } = {}) => {
+/**
+ * Apre la scelta della banca.
+ *
+ * Prima questa funzione prendeva `istituti[0]` — la prima dell'elenco — e ci
+ * mandava l'utente dritto. Con un provider che restituisce centinaia di
+ * istituti italiani significa spedire chiunque sulla prima banca in ordine
+ * alfabetico invece che sulla sua. La banca la sceglie l'utente.
+ *
+ * `fetchIstituti` passa da `creaRisorsa`, che per contratto NON lancia:
+ * l'errore diventa uno stato. Per questo il `catch` qui sotto non lo
+ * vedrebbe mai, e l'elenco vuoto va interpretato leggendo `error` — da cui
+ * si ricava il codice e, con esso, la frase giusta. Dire «Nessuna banca
+ * disponibile, riprova più tardi» quando il provider non è configurato è
+ * falso due volte: le banche ci sono, e riprovare non serve a niente.
+ */
+const apriSceltaBanca = async ({ sostituisci = false } = {}) => {
+  sostituendo.value = sostituisci;
+  await bankSyncStore.fetchIstituti();
+
+  const errore = bankSyncStore.risorsaIstituti.error;
+  if (errore) {
+    const codice = errore?.response?.data?.codice ?? errore?.response?.data?.motivo ?? null;
+    const { titolo, testo } = messaggioErrore(codice);
+    toastStore.error(codice ? `${titolo}. ${testo}` : titolo);
+    return;
+  }
+
+  if (bankSyncStore.istituti.length === 0) {
+    toastStore.error('La banca che cerchi non è ancora collegabile da WALLT.');
+    return;
+  }
+
+  ricercaBanca.value = '';
+  showScegliBanca.value = true;
+};
+
+/** Il collegamento vero, dopo che l'utente ha scelto la banca. */
+const avviaCollegamento = async (istituto) => {
   try {
-    // Un solo istituto non è una scelta che il client possa fare per
-    // l'utente: in questa prima versione si parte dall'elenco del provider.
-    await bankSyncStore.fetchIstituti();
-    const istituti = bankSyncStore.istituti;
-    if (istituti.length === 0) {
-      toastStore.error('Nessuna banca disponibile al momento. Riprova più tardi.');
-      return;
-    }
     const esito = await bankSyncStore.avviaCollegamento({
-      institutionId: istituti[0].id,
-      sostituisci,
+      institutionId: istituto.id,
+      sostituisci: sostituendo.value,
     });
+    showScegliBanca.value = false;
     // La navigazione verso la banca è un effetto sul browser e sta qui, non
     // nello store.
     window.location.assign(esito.url_autorizzazione);
@@ -154,7 +205,7 @@ const scollega = async () => {
 const confermaSostituzione = async () => {
   showSostituisci.value = false;
   showGestisci.value = false;
-  await avviaCollegamento({ sostituisci: true });
+  await apriSceltaBanca({ sostituisci: true });
 };
 </script>
 
@@ -192,7 +243,7 @@ const confermaSostituzione = async () => {
           variant="primary"
           size="md"
           :loading="bankSyncStore.collegando"
-          @click="avviaCollegamento()"
+          @click="apriSceltaBanca()"
         >
           Collega conto bancario
         </WButton>
@@ -328,6 +379,56 @@ const confermaSostituzione = async () => {
     />
 
     <!-- ── Gestisci conto ──────────────────────────────────────────────── -->
+    <!-- La banca la sceglie l'utente: l'elenco italiano supera i trecento
+         istituti, e partire dal primo significherebbe mandare chiunque su
+         una banca che non è la sua. -->
+    <AppDialog
+      :open="showScegliBanca"
+      title="Scegli la tua banca"
+      @close="showScegliBanca = false"
+    >
+      <div class="bank-sync__scelta">
+        <label class="bank-sync__ricerca">
+          <Search :size="16" :stroke-width="1.75" aria-hidden="true" />
+          <input
+            v-model="ricercaBanca"
+            class="form-input"
+            type="search"
+            placeholder="Cerca la tua banca"
+            autocomplete="off"
+          />
+        </label>
+
+        <p v-if="bancheFiltrate.totale === 0" class="bank-sync__nessuna">
+          Nessuna banca corrisponde a «{{ ricercaBanca }}».
+        </p>
+
+        <ul v-else class="bank-sync__banche">
+          <li v-for="istituto in bancheFiltrate.elenco" :key="istituto.id">
+            <button
+              type="button"
+              class="bank-sync__banca"
+              :disabled="bankSyncStore.collegando"
+              @click="avviaCollegamento(istituto)"
+            >
+              <span class="bank-sync__banca-nome">{{ istituto.nome }}</span>
+              <ChevronRight :size="16" :stroke-width="1.75" aria-hidden="true" />
+            </button>
+          </li>
+        </ul>
+
+        <p v-if="bancheFiltrate.totale > bancheFiltrate.elenco.length" class="bank-sync__altre">
+          Altre {{ bancheFiltrate.totale - bancheFiltrate.elenco.length }} banche
+          corrispondono: scrivi qualche lettera in più per restringere.
+        </p>
+
+        <p class="bank-sync__privacy-nota">
+          Verrai portato sul sito della tua banca per autorizzare l'accesso.
+          WALLT non vede mai le tue credenziali bancarie.
+        </p>
+      </div>
+    </AppDialog>
+
     <AppDialog :open="showGestisci" title="Gestisci conto bancario" @close="showGestisci = false">
       <div class="bank-sync__gestisci">
         <button
@@ -413,6 +514,68 @@ const confermaSostituzione = async () => {
 </template>
 
 <style scoped>
+.bank-sync__scelta { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.bank-sync__ricerca {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+}
+
+.bank-sync__ricerca .form-input { flex: 1; }
+
+.bank-sync__banche {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 22rem;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.bank-sync__banca {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.625rem 0.75rem;
+  font-family: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  color: var(--text-primary);
+  background: var(--glass-secondary-bg);
+  border: 1px solid var(--glass-secondary-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.bank-sync__banca:hover:not(:disabled) { background: var(--glass-interactive-bg-hover); }
+.bank-sync__banca:disabled { opacity: 0.6; cursor: default; }
+
+.bank-sync__banca:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.bank-sync__banca-nome { flex: 1; min-width: 0; }
+.bank-sync__banca svg { flex-shrink: 0; color: var(--text-muted); }
+
+.bank-sync__nessuna,
+.bank-sync__altre,
+.bank-sync__privacy-nota {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  color: var(--text-muted);
+}
+
+
 .bank-sync { margin-top: 1.5rem; }
 
 .bank-sync__divisore {
