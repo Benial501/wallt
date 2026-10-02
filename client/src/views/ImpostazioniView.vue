@@ -42,9 +42,13 @@ const toastStore = useToastStore();
 const { formatValuta } = useValuta();
 const { toggle, isDark } = useTheme();
 
+// Chiuse di default quelle che sono lunghe e si consultano di rado (profilo,
+// funzionalità): aperte, spingevano fuori schermo tutto il resto e la pagina
+// si apriva già da scorrere. "Piano e abbonamento" è invece aperta di
+// default, nel componente che la contiene.
 const openSections = ref({
-  account: true, profilo: true, conti: false, finanziario: false, importa: false, aspetto: true, valuta: false,
-  notifiche: false, funzionalita: true, sicurezza: false, export: false, reset: false, delete: false,
+  account: true, profilo: false, conti: false, finanziario: false, importa: false, aspetto: true, valuta: false,
+  notifiche: false, funzionalita: false, sicurezza: false, export: false, reset: false, delete: false,
 });
 const loading = ref(false);
 

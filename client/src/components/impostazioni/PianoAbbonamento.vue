@@ -41,7 +41,15 @@ dayjs.locale('it');
  * irreversibile, e richiede la riverifica d'identità come il reset e
  * l'eliminazione dell'account.
  */
-const aperto = ref(false);
+/**
+ * Aperta di default.
+ *
+ * È la sezione che risponde a «cosa ho?» e «come ottengo la
+ * sincronizzazione bancaria?»: tenerla chiusa costringe a un click per
+ * leggere l'unica informazione che la pagina dà sul piano, e nasconde
+ * l'unico punto da cui si può chiedere l'accesso a Premium.
+ */
+const aperto = ref(true);
 
 const pianoStore = usePianoStore();
 const bankSyncStore = useBankSyncStore();
@@ -276,17 +284,90 @@ const confermaConPassword = async () => {
 </template>
 
 <style scoped>
+/**
+ * ── Perché queste regole sono ripetute qui ───────────────────────────────
+ * `.section-toggle`, `.section-body` e `.hint` sono definite in
+ * `ImpostazioniView.vue` dentro un blocco `<style scoped>`: Vue le compila
+ * con l'attributo di scope di QUELLA vista, che arriva soltanto sul nodo
+ * radice di questo componente (per questo `.section-card` funziona) e non
+ * sui suoi discendenti. Il risultato era una sezione senza padding,
+ * appiccicata al bordo della scheda, con l'intestazione fuori scala e il
+ * testo di nota grande come il corpo: visibilmente diversa da tutte le
+ * altre voci della pagina.
+ *
+ * Non è una duplicazione da ripulire: ogni componente che usa `.hint` in
+ * questo progetto se la definisce (NotificheSettings, CategorieView,
+ * InvestimentiView, PianoSmartView, ScommesseView). Chi spostasse queste
+ * regole in un foglio globale deve anche verificare `.section-card`, che in
+ * `ImportaView.vue` vale `padding: 1.25rem` e qui `padding: 0`.
+ *
+ * I valori devono restare allineati a `ImpostazioniView.vue`.
+ */
+.section-toggle {
+  width: 100%;
+  padding: 1rem 1.25rem;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.section-toggle svg { flex-shrink: 0; stroke: currentColor; }
+.section-toggle span { flex: 1; }
+
+.section-body {
+  padding: 0 1.25rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.hint {
+  margin-left: 1.75rem;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.hint--inline {
+  margin-left: 0;
+  margin-bottom: 0.25rem;
+}
+
+/**
+ * Una riga per voce, etichetta a sinistra e valore a destra.
+ *
+ * Prima era una fila orizzontale di coppie: con due voci corte accanto
+ * ("Piano attuale  Prezzo" sopra, "WALLT Free  Gratis" sotto) si leggeva
+ * come l'intestazione e la riga di una tabella, e capire quale valore
+ * appartenesse a quale etichetta richiedeva un secondo sguardo. In colonna
+ * l'abbinamento è immediato, e la forma è la stessa delle altre righe
+ * della pagina impostazioni (etichetta a sinistra, stato a destra).
+ */
 .piano__dati {
   display: flex;
-  flex-wrap: wrap;
-  gap: 1.25rem;
+  flex-direction: column;
+  gap: 0.5rem;
   margin: 0;
 }
 
+.piano__dati > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .piano__dati dt {
-  margin: 0 0 0.125rem;
-  font-size: var(--text-xs);
-  color: var(--text-muted);
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
 }
 
 .piano__dati dd {
@@ -294,6 +375,7 @@ const confermaConPassword = async () => {
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-primary);
+  text-align: right;
 }
 
 .piano__feature {
