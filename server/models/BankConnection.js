@@ -34,6 +34,7 @@ const BankConnection = sequelize.define('BankConnection', {
   iban_mascherato: { type: DataTypes.STRING(30), allowNull: true },
   valuta: { type: DataTypes.STRING(3), allowNull: true },
   saldo_provider: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+  import_da: { type: DataTypes.DATEONLY, allowNull: true },
   sync_ok_totali: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   sync_errori_totali: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   movimenti_importati_totali: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },

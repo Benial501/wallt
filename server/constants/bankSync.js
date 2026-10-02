@@ -46,6 +46,11 @@ const PROVIDERS = [PROVIDER_GOCARDLESS, PROVIDER_ENABLE_BANKING, PROVIDER_SANDBO
  * posto, ma scade: una connessione abbandonata non blocca l'utente per
  * sempre (vedi `STATE_TTL_MINUTI`). */
 const STATO_IN_ATTESA = 'in_attesa';
+/** Consenso concesso, ma l'utente non ha ancora detto a quale conto WALLT
+ * appartengono questi movimenti. Occupa il posto (l'autorizzazione presso la
+ * banca esiste) e NON è sincronizzabile: finché la destinazione è ignota,
+ * importare significherebbe duplicare lo storico inserito a mano. */
+const STATO_DA_RICONCILIARE = 'da_riconciliare';
 /** Consenso concesso, conto collegato, sincronizzabile. */
 const STATO_ATTIVA = 'attiva';
 /** Il consenso bancario è scaduto: serve ricollegare. Lo storico resta. */
@@ -60,6 +65,7 @@ const STATO_REVOCATA = 'revocata';
 
 const CONNECTION_STATUS = [
   STATO_IN_ATTESA,
+  STATO_DA_RICONCILIARE,
   STATO_ATTIVA,
   STATO_CONSENSO_SCADUTO,
   STATO_ERRORE,
@@ -93,6 +99,10 @@ const ERR_NO_TRANSACTIONS = 'NO_TRANSACTIONS';
 const ERR_SYNC_IN_CORSO = 'SYNC_IN_CORSO';
 const ERR_COOLDOWN = 'COOLDOWN';
 const ERR_CONFIG = 'PROVIDER_NON_CONFIGURATO';
+/** Il primo Sincronizza di un utente che ha già movimenti propri: serve che
+ * scelga da quando importare, altrimenti i 90 giorni si sommerebbero a
+ * quanto ha inserito a mano. Non è un guasto, è una domanda. */
+const ERR_SOGLIA_RICHIESTA = 'SOGLIA_RICHIESTA';
 
 const SYNC_ERROR_CODES = [
   ERR_NETWORK,
@@ -183,6 +193,7 @@ module.exports = {
   PROVIDER_SANDBOX,
   PROVIDERS,
   STATO_IN_ATTESA,
+  STATO_DA_RICONCILIARE,
   STATO_ATTIVA,
   STATO_CONSENSO_SCADUTO,
   STATO_ERRORE,
@@ -202,6 +213,7 @@ module.exports = {
   ERR_SYNC_IN_CORSO,
   ERR_COOLDOWN,
   ERR_CONFIG,
+  ERR_SOGLIA_RICHIESTA,
   SYNC_ERROR_CODES,
   ERRORI_RICHIEDONO_RICONNESSIONE,
   TX_BOOKED,
