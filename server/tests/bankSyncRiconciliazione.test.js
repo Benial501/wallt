@@ -4,6 +4,14 @@
  * bankSyncApi) ma "il collegamento non duplica lo storico inserito a mano".
  */
 
+const request = require('supertest');
+const { createApp } = require('../app');
+const { Conto, BankConnection } = require('../models');
+const {
+  azzeraConfigurazione, abilitaSandbox, creaUtente, concediEntitlement,
+  collegaBanca,
+} = require('./helpers/premium');
+
 const {
   STATO_DA_RICONCILIARE, STATO_ATTIVA, STATI_VIVI, STATI_SINCRONIZZABILI,
   CONNECTION_STATUS,
@@ -18,5 +26,52 @@ describe('il vocabolario del nuovo stato', () => {
     // scritta a mano, che protegge lo storico manuale.
     expect(STATI_SINCRONIZZABILI).not.toContain(STATO_DA_RICONCILIARE);
     expect(STATI_SINCRONIZZABILI).toContain(STATO_ATTIVA);
+  });
+});
+
+const app = createApp({ enableRateLimit: false });
+
+describe('il callback non decide da solo dove vanno i movimenti', () => {
+  let utente;
+
+  beforeEach(async () => {
+    azzeraConfigurazione();
+    await abilitaSandbox();
+    utente = await creaUtente(app);
+    await concediEntitlement(utente.userId);
+  });
+
+  it('lascia la connessione da riconciliare, senza creare nessun conto', async () => {
+    const contiPrima = await Conto.count({ where: { user_id: utente.userId } });
+
+    const { callback } = await collegaBanca(app, utente.headers, { riconcilia: false });
+
+    expect(callback.status).toBe(201);
+    const connessione = await BankConnection.findOne({ where: { user_id: utente.userId } });
+    expect(connessione.status).toBe(STATO_DA_RICONCILIARE);
+    expect(connessione.conto_id).toBeNull();
+    // Il conto NON esiste ancora: è la differenza con il comportamento
+    // precedente, dove il collegamento ne creava uno a prescindere.
+    expect(await Conto.count({ where: { user_id: utente.userId } })).toBe(contiPrima);
+  });
+
+  it('nessuna sincronizzazione parte da da_riconciliare', async () => {
+    await collegaBanca(app, utente.headers, { riconcilia: false });
+
+    const sync = await request(app)
+      .post('/api/bank-sync/sync')
+      .set(utente.headers)
+      .send({});
+
+    // 404 e non 409: `sincronizza()` (syncEngine.service.js, fuori dal
+    // perimetro di questo task) filtra già `STATI_SINCRONIZZABILI` nella
+    // query quando non le viene passato un `connectionId` esplicito — come
+    // già faceva per `in_attesa`, `consenso_scaduto` e
+    // `sospesa_entitlement`. Nessuna riga `da_riconciliare` la soddisfa,
+    // quindi la connessione risulta "non trovata", non "in conflitto". Il
+    // punto del test — che la sincronizzazione non parte — resta verificato.
+    expect(sync.status).toBe(404);
+    const connessione = await BankConnection.findOne({ where: { user_id: utente.userId } });
+    expect(connessione.last_sync_at).toBeNull();
   });
 });

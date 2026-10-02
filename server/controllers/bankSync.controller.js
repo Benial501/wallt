@@ -195,7 +195,8 @@ const callback = async (req, res) => {
     });
     res.status(esito.ripetuto ? 200 : 201).json({
       ...esito,
-      message: 'Conto bancario collegato. La prima sincronizzazione importerà gli ultimi 90 giorni.',
+      message: 'Conto bancario autorizzato. Scegli a quale conto WALLT '
+        + 'associarlo per iniziare a sincronizzare.',
     });
   } catch (error) {
     rispondiErrore(res, error, 'callback');

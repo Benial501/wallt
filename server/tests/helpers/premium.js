@@ -87,10 +87,17 @@ const concediEntitlement = (userId, {
 const estraiState = (urlAutorizzazione) => new URL(urlAutorizzazione).searchParams.get('state');
 
 /**
- * Il giro completo di collegamento: connect → callback.
- * Restituisce la risposta del callback e lo `state` usato.
+ * Collega una banca fino in fondo: connect → callback → riconciliazione.
+ *
+ * `riconcilia: true` è il default perché la maggior parte dei test vuole una
+ * connessione utilizzabile, com'era prima che la riconciliazione esistesse.
+ * I test che devono osservare lo stato intermedio passano `false`.
  */
-const collegaBanca = async (app, headers, { institutionId = 'SANDBOX_BANCA_IT' } = {}) => {
+const collegaBanca = async (app, headers, {
+  institutionId = 'SANDBOX_BANCA_IT',
+  riconcilia = true,
+  destinazione = 'nuovo',
+} = {}) => {
   const connect = await request(app)
     .post('/api/bank-sync/connect')
     .set(headers)
@@ -106,7 +113,27 @@ const collegaBanca = async (app, headers, { institutionId = 'SANDBOX_BANCA_IT' }
     .set(headers)
     .send({ state });
 
-  return { connect, callback, state };
+  if (!riconcilia) return { connect, callback, state, riconciliazione: null };
+
+  const elenco = await request(app).get('/api/bank-sync/riconciliazione').set(headers);
+  if (elenco.status !== 200) {
+    throw new Error(`riconciliazione (GET) fallita: ${elenco.status}`);
+  }
+
+  const riconciliazione = await request(app)
+    .post('/api/bank-sync/riconciliazione')
+    .set(headers)
+    .send({
+      provider_account_id: elenco.body.conti_banca[0].provider_account_id,
+      destinazione,
+    });
+
+  if (riconciliazione.status !== 200 && riconciliazione.status !== 201) {
+    throw new Error(`riconciliazione (POST) fallita: ${riconciliazione.status} `
+      + JSON.stringify(riconciliazione.body));
+  }
+
+  return { connect, callback, state, riconciliazione };
 };
 
 module.exports = {

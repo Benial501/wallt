@@ -5,10 +5,10 @@ const {
 } = require('../../models');
 const logger = require('../../utils/logger');
 const {
-  STATO_IN_ATTESA, STATO_ATTIVA, STATO_CONSENSO_SCADUTO, STATO_ERRORE,
-  STATO_SOSPESA_ENTITLEMENT, STATO_REVOCATA, STATI_VIVI, STATI_SINCRONIZZABILI,
-  STATE_TTL_MINUTI, ERRORI_RICHIEDONO_RICONNESSIONE, ORIGINE_OPEN_BANKING,
-  ERR_CONFIG,
+  STATO_IN_ATTESA, STATO_DA_RICONCILIARE, STATO_ATTIVA, STATO_CONSENSO_SCADUTO,
+  STATO_ERRORE, STATO_SOSPESA_ENTITLEMENT, STATO_REVOCATA, STATI_VIVI,
+  STATI_SINCRONIZZABILI, STATE_TTL_MINUTI, ERRORI_RICHIEDONO_RICONNESSIONE,
+  ORIGINE_OPEN_BANKING, ERR_CONFIG,
 } = require('../../constants/bankSync');
 const { getBankProvider } = require('./providers');
 const { BankProviderError } = require('./providers/BankProvider');
@@ -324,7 +324,11 @@ async function completaConnessione({
   if (connessione.state_used_at) {
     // Già completato: se la connessione è viva, è un doppio invio e va
     // trattato come successo (idempotenza). Altrimenti è un riuso.
-    if (connessione.status === STATO_ATTIVA) {
+    // `da_riconciliare` conta come "viva" qui esattamente come `attiva`: un
+    // utente che ricarica la pagina di ritorno dalla banca prima ancora di
+    // aver scelto il conto deve ritrovare la propria connessione, non un
+    // errore di state riusato.
+    if ([STATO_DA_RICONCILIARE, STATO_ATTIVA].includes(connessione.status)) {
       const conto = connessione.conto_id
         ? await Conto.findOne({ where: { id: connessione.conto_id, user_id: userId } })
         : null;
@@ -381,81 +385,37 @@ async function completaConnessione({
     throw error;
   }
 
-  const contoProvider = esito.conti?.[0];
-  if (!contoProvider) {
-    await connessione.update({ status: STATO_ERRORE, state_hash: null, last_error_at: new Date() });
+  if (!esito.conti?.length) {
+    await connessione.update({
+      status: STATO_ERRORE, state_hash: null, last_error_at: new Date(),
+    });
     throw Object.assign(new Error('La banca non ha restituito nessun conto'), { statusCode: 409 });
   }
 
-  const attivata = await sequelize.transaction(async (transaction) => {
-    const maxOrdine = await Conto.max('ordine', { where: { user_id: userId }, transaction });
+  // La scadenza del consenso non arriva con `handleCallback` (nessun
+  // provider la restituisce qui: GoCardless e Sandbox la stimano già in
+  // `avviaConnessione`, Enable Banking non la ridichiara alla sessione), ma
+  // se un giorno arrivasse va preferita a quella stimata. Senza, si
+  // preserva semplicemente il valore già scritto.
+  const scadenzaConsenso = esito.consentExpiresAt ?? connessione.consent_expires_at;
 
-    // Il conto viene creato QUI e non con `createConto`: quella funzione
-    // genera un movimento "Saldo iniziale" quando il saldo è positivo, e per
-    // un conto bancario sarebbe un'entrata inventata — falserebbe le medie
-    // di reddito, i budget e Piano Smart. Per un conto sincronizzato la
-    // verità sul saldo la dice la banca, non un movimento.
-    const conto = await Conto.create({
-      user_id: userId,
-      nome: contoProvider.nome || connessione.institution_name || 'Conto bancario',
-      tipo: 'banca',
-      saldo: contoProvider.saldo ?? 0,
-      icona: 'banca',
-      colore: '#74B9FF',
-      ordine: (maxOrdine || 0) + 1,
-      attivo: true,
-      nascosto: false,
-    }, { transaction });
-
-    await connessione.update({
-      conto_id: conto.id,
-      // Alcuni provider cambiano identificatore quando l'autorizzazione
-      // diventa una connessione viva: Enable Banking consegna un
-      // `session_id` che sostituisce l'`authorization_id` salvato al
-      // collegamento, ed è quello che poi si interroga e si revoca.
-      // Chi non lo fa (GoCardless) non restituisce il campo e la riga resta
-      // com'era.
-      ...(esito.providerConnectionId
-        ? { provider_connection_id: esito.providerConnectionId }
-        : {}),
-      provider_account_id: contoProvider.providerAccountId,
-      institution_name: contoProvider.istituto?.nome ?? connessione.institution_name,
-      iban_mascherato: contoProvider.ibanMascherato,
-      valuta: contoProvider.valuta,
-      saldo_provider: contoProvider.saldo ?? null,
-      status: STATO_ATTIVA,
-      error_code: null,
-      last_error_at: null,
-      // `state_hash` viene CONSERVATO, e non azzerato, perché è ciò che rende
-      // idempotente un callback consegnato due volte: l'utente che ricarica la
-      // pagina di ritorno dalla banca ripresenta lo stesso `state`, e deve
-      // trovare la propria connessione invece di un errore. Non è un segreto
-      // ancora utilizzabile: è un hash a senso unico di un valore già
-      // consumato (`state_used_at`), e il ramo di idempotenza non compie
-      // nessuna azione — restituisce solo lo stato esistente. Viene azzerato
-      // quando la connessione diventa terminale (scollegamento, sostituzione,
-      // tentativo scaduto), dove non ha più nessuna funzione.
-    }, { transaction });
-
-    return { connessione, conto };
+  // Il conto NON viene scelto qui. Al callback sappiamo che l'autorizzazione
+  // esiste, non a quale conto WALLT appartengono questi movimenti: l'utente
+  // può già tracciare quella banca a mano, e creargliene un altro accanto
+  // significa contare due volte lo stesso denaro. La scelta avviene in
+  // `completaRiconciliazione`, quando i conti veri della banca sono noti.
+  //
+  // Per lo stesso motivo non si scrivono `provider_account_id`,
+  // `iban_mascherato`, `valuta` e `saldo_provider`: descrivono un conto
+  // ancora da scegliere, e riempirli col primo della lista era il difetto.
+  const attivata = await connessione.update({
+    status: STATO_DA_RICONCILIARE,
+    consent_created_at: new Date(),
+    consent_expires_at: scadenzaConsenso,
+    state_used_at: new Date(),
   });
 
-  await registraAudit({
-    userId,
-    evento: EVENTI.CONNESSIONE_CREATA,
-    entita: 'bank_connection',
-    entitaId: connessione.id,
-    metadata: {
-      provider: adapter.nome,
-      institution_id: connessione.institution_id,
-      conto_id: attivata.conto.id,
-    },
-  });
-
-  return {
-    connessione: serializza(attivata.connessione, { conto: attivata.conto }),
-    ripetuto: false,
-  };
+  return { connessione: serializza(attivata), ripetuto: false };
 }
 
 /**
