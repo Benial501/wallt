@@ -188,6 +188,10 @@ test('lo stato attivo e quello sospeso hanno lo stesso nome nei due lati', () =>
   assert.equal(client.STATO_SOSPESA_ENTITLEMENT, serverBankSync.STATO_SOSPESA_ENTITLEMENT);
 });
 
+test('il codice della soglia di importazione coincide', () => {
+  assert.equal(client.ERR_SOGLIA_RICHIESTA, serverBankSync.ERR_SOGLIA_RICHIESTA);
+});
+
 // ── Codici d'errore ────────────────────────────────────────────────────────
 
 test('i codici d\'errore della sincronizzazione coincidono', () => {

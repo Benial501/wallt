@@ -137,13 +137,14 @@ export const puoRichiedere = (richiesta) => (
 // ── Stato di una connessione bancaria ──────────────────────────────────────
 
 export const STATO_IN_ATTESA = 'in_attesa';
+export const STATO_DA_RICONCILIARE = 'da_riconciliare';
 export const STATO_ATTIVA = 'attiva';
 export const STATO_CONSENSO_SCADUTO = 'consenso_scaduto';
 export const STATO_ERRORE = 'errore';
 export const STATO_SOSPESA_ENTITLEMENT = 'sospesa_entitlement';
 export const STATO_REVOCATA = 'revocata';
 export const CONNECTION_STATUS = Object.freeze([
-  STATO_IN_ATTESA, STATO_ATTIVA, STATO_CONSENSO_SCADUTO,
+  STATO_IN_ATTESA, STATO_DA_RICONCILIARE, STATO_ATTIVA, STATO_CONSENSO_SCADUTO,
   STATO_ERRORE, STATO_SOSPESA_ENTITLEMENT, STATO_REVOCATA,
 ]);
 
@@ -172,6 +173,7 @@ export const ERR_NO_TRANSACTIONS = 'NO_TRANSACTIONS';
 export const ERR_SYNC_IN_CORSO = 'SYNC_IN_CORSO';
 export const ERR_COOLDOWN = 'COOLDOWN';
 export const ERR_CONFIG = 'PROVIDER_NON_CONFIGURATO';
+export const ERR_SOGLIA_RICHIESTA = 'SOGLIA_RICHIESTA';
 
 export const SYNC_ERROR_CODES = Object.freeze([
   ERR_NETWORK, ERR_PROVIDER, ERR_RATE_LIMIT, ERR_CONSENT_EXPIRED,
