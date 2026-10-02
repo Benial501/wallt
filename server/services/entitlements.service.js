@@ -13,6 +13,7 @@ const {
   ENTITLEMENT_SOURCES,
   PIANO_FREE,
   PIANO_PREMIUM_BETA,
+  PIANO_PREMIUM,
   PIANO_STAFF,
   PIANO_ETICHETTE,
   RUOLO_ADMIN,
@@ -308,17 +309,38 @@ const subscriptionConDiritti = (userId, { transaction } = {}) => Subscription.fi
  * impossibile sapere quanti posti beta sono davvero occupati.
  */
 function derivaPiano(subscription, entitlements, { ruolo = null } = {}) {
-  const betaAttiva = entitlements.some(
-    (e) => e.source === SOURCE_BETA_25 && e.status === ENTITLEMENT_ATTIVO,
-  );
-  // Un abbonamento vero vince su tutto: se un amministratore paga davvero, è
-  // un cliente pagante, e il suo piano è quello che ha comprato.
+  // L'ordine è la regola, e ogni gradino esiste per una ragione precisa.
+
+  // 1. Un abbonamento vero vince su tutto: chi paga è un cliente pagante,
+  //    anche se è un amministratore.
   if (subscription) return subscription.plan;
-  // Lo staff prima della beta: chi amministra WALLT non occupa un posto dei
-  // 25 e non deve comparire come se lo occupasse. `staff` non concede
-  // niente — la feature resta decisa da `canUseFeature`.
+
+  // 2. Lo staff prima della beta: chi amministra WALLT non occupa un posto
+  //    dei 25 e non deve comparire come se lo occupasse.
   if (ruolo === RUOLO_ADMIN) return PIANO_STAFF;
-  return betaAttiva ? PIANO_PREMIUM_BETA : PIANO_FREE;
+
+  const attivi = entitlements.filter((e) => e.status === ENTITLEMENT_ATTIVO);
+
+  // 3. Un posto beta resta riconoscibile come tale. Non è pignoleria: è ciò
+  //    che tiene leggibile il conteggio dei 25 — chi è entrato gratis fra i
+  //    primi e chi ha ricevuto l'accesso dopo sono due situazioni diverse.
+  if (attivi.some((e) => e.source === SOURCE_BETA_25)) return PIANO_PREMIUM_BETA;
+
+  // 4. Chi ha un diritto attivo ottenuto in altro modo — approvazione dello
+  //    staff, promozione, migrazione — legge `premium`, perché è ciò che ha.
+  //    Prima leggeva `free`, che era letteralmente vero (non paga) ma
+  //    incomprensibile: una persona che chiede Premium, lo ottiene e continua
+  //    a leggere "WALLT Free" non ha modo di sapere di essere dentro.
+  //
+  //    Questo NON rimette il piano al posto del permesso: la direzione è
+  //    l'opposta di quella che la Regola 23 vieta. Qui il piano *racconta*
+  //    un permesso già deciso da `canUseFeature`; non lo concede, e nessuno
+  //    lo legge per autorizzare. E non falsa la fatturazione, perché chi
+  //    paga si conta dalle `subscriptions`, mai da questa etichetta:
+  //    `gratuito` resta true e `abbonamento` resta null.
+  if (attivi.length > 0) return PIANO_PREMIUM;
+
+  return PIANO_FREE;
 }
 
 async function descriviPiano(userId) {

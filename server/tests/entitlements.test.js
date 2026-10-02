@@ -26,6 +26,7 @@ const {
 const {
   azzeraConfigurazione, impostaBankSyncAttivo, creaUtente, concediEntitlement,
 } = require('./helpers/premium');
+const { contaOccupati: contaOccupatiBeta } = require('../services/betaSlots.service');
 
 const app = createApp({ enableRateLimit: false });
 
@@ -227,16 +228,34 @@ describe('descriviPiano — il piano commerciale non è il permesso', () => {
     expect(piano.gratuito).toBe(true);
   });
 
-  it('una concessione dello staff dà il PERMESSO ma lascia il piano a Free', async () => {
-    // È la distinzione che tiene in piedi il conteggio dei posti beta: se
-    // una concessione admin mostrasse "Premium Beta", non si saprebbe più
-    // quanti dei 25 sono davvero stati distribuiti.
+  it('una concessione dello staff dà Premium, ma NON un posto beta', async () => {
+    // Fino a ottobre 2026 questo caso restava a `free`: letteralmente vero
+    // (non paga) ma incomprensibile per chi aveva appena ottenuto l'accesso
+    // e continuava a leggere "WALLT Free". Ciò che va protetto non è
+    // l'etichetta `free`, è che la concessione NON si confonda con un posto
+    // dei 25: quel conteggio deve restare leggibile.
     const utente = await creaUtente(app);
     await concediEntitlement(utente.userId, { source: SOURCE_ADMIN });
 
     const piano = await descriviPiano(utente.userId);
-    expect(piano.piano).toBe(PIANO_FREE);
+    expect(piano.piano).toBe(PIANO_PREMIUM);
+    expect(piano.piano).not.toBe(PIANO_PREMIUM_BETA);
+    // Resta gratuito: "premium" dice cosa ha, non che paghi.
+    expect(piano.gratuito).toBe(true);
+    expect(piano.abbonamento).toBeNull();
+    expect(await contaOccupatiBeta(FEATURE_BANK_SYNC)).toBe(0);
     expect((await canUseFeature(utente.userId, FEATURE_BANK_SYNC)).consentito).toBe(true);
+  });
+
+  it('senza nessun diritto attivo il piano resta Free', async () => {
+    const utente = await creaUtente(app);
+    expect((await descriviPiano(utente.userId)).piano).toBe(PIANO_FREE);
+  });
+
+  it('un diritto revocato non tiene in piedi il piano', async () => {
+    const utente = await creaUtente(app);
+    await concediEntitlement(utente.userId, { source: SOURCE_ADMIN, status: ENTITLEMENT_REVOCATO });
+    expect((await descriviPiano(utente.userId)).piano).toBe(PIANO_FREE);
   });
 
   it('un abbonamento attivo vince sul posto beta e non espone gli id del fornitore', async () => {

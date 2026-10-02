@@ -704,3 +704,85 @@ describe('tracciabilità', () => {
     await request(app).get('/api/admin/audit').set(utente.headers).expect(404);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Cosa legge l'utente dopo l'approvazione
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('il piano dopo l\'approvazione', () => {
+  beforeEach(() => azzeraConfigurazione());
+
+  it('chi ottiene l\'accesso smette di leggere "Free"', async () => {
+    // Una persona che chiede Premium, lo ottiene, e continua a leggere
+    // "WALLT Free" nelle impostazioni non ha modo di sapere che è dentro.
+    const { descriviPiano } = require('../services/entitlements.service');
+    const admin = await creaAdmin();
+    const utente = await creaUtente(app);
+
+    const prima = await descriviPiano(utente.userId);
+    expect(prima.piano).toBe('free');
+
+    const creata = await request(app).post('/api/premium/request')
+      .set(utente.headers).expect(201);
+    await request(app).post(`/api/admin/richieste-premium/${creata.body.richiesta.id}/approva`)
+      .set(admin.headers).expect(200);
+
+    const dopo = await descriviPiano(utente.userId);
+    expect(dopo.piano).toBe('premium');
+    expect(dopo.piano_etichetta).toBe('WALLT Premium');
+    expect(dopo.feature_incluse_nel_piano).toContain(FEATURE_BANK_SYNC);
+    expect((await canUseFeature(utente.userId, FEATURE_BANK_SYNC)).consentito).toBe(true);
+  });
+
+  it('ma resta gratuito: nessun abbonamento, nessun addebito', async () => {
+    // "premium" descrive cosa ha, non che paghi. Chi paga davvero ha una
+    // riga in `subscriptions`, e quella resta l'unica fonte sulla
+    // fatturazione.
+    const { descriviPiano } = require('../services/entitlements.service');
+    const { Subscription } = require('../models');
+    const admin = await creaAdmin();
+    const utente = await creaUtente(app);
+
+    const creata = await request(app).post('/api/premium/request')
+      .set(utente.headers).expect(201);
+    await request(app).post(`/api/admin/richieste-premium/${creata.body.richiesta.id}/approva`)
+      .set(admin.headers).expect(200);
+
+    const dopo = await descriviPiano(utente.userId);
+    expect(dopo.gratuito).toBe(true);
+    expect(dopo.abbonamento).toBeNull();
+    expect(await Subscription.count()).toBe(0);
+  });
+
+  it('revocare l\'accesso riporta il piano a Free', async () => {
+    const { descriviPiano } = require('../services/entitlements.service');
+    const admin = await creaAdmin();
+    const utente = await creaUtente(app);
+
+    const creata = await request(app).post('/api/premium/request')
+      .set(utente.headers).expect(201);
+    await request(app).post(`/api/admin/richieste-premium/${creata.body.richiesta.id}/approva`)
+      .set(admin.headers).expect(200);
+    expect((await descriviPiano(utente.userId)).piano).toBe('premium');
+
+    await request(app).post('/api/admin/entitlements/revoke')
+      .set(admin.headers)
+      .send({ user_id: utente.userId, feature_key: FEATURE_BANK_SYNC })
+      .expect(200);
+
+    expect((await descriviPiano(utente.userId)).piano).toBe('free');
+  });
+
+  it('chi entra dalla beta resta "Premium Beta", non diventa "Premium"', async () => {
+    // Le due strade restano distinguibili: è ciò che rende leggibile il
+    // conteggio dei 25 posti.
+    const { descriviPiano } = require('../services/entitlements.service');
+    await impostaLimiteBeta(3);
+    const utente = await creaUtente(app);
+    await request(app).post('/api/bank-sync/claim-beta').set(utente.headers).expect(201);
+
+    const piano = await descriviPiano(utente.userId);
+    expect(piano.piano).toBe('premium_beta');
+    expect(await contaOccupati(FEATURE_BANK_SYNC)).toBe(1);
+  });
+});
