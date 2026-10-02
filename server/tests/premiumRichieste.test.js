@@ -786,3 +786,113 @@ describe('il piano dopo l\'approvazione', () => {
     expect(await contaOccupati(FEATURE_BANK_SYNC)).toBe(1);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Concedere dalla lista utenti chiude la richiesta aperta
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('coerenza fra concessione e richiesta', () => {
+  beforeEach(() => azzeraConfigurazione());
+
+  it('concedere il diritto chiude la richiesta pendente di quella persona', async () => {
+    // Senza, la coda segnalava per sempre un lavoro già fatto.
+    const admin = await creaAdmin();
+    const utente = await creaUtente(app);
+    await request(app).post('/api/premium/request').set(utente.headers).expect(201);
+    expect((await richiestaDi(utente.userId)).status).toBe(RICHIESTA_PENDING);
+
+    const res = await request(app).post('/api/admin/entitlements/grant')
+      .set(admin.headers)
+      .send({ user_id: utente.userId, feature_key: FEATURE_BANK_SYNC })
+      .expect(200);
+
+    expect(res.body.richiesta_chiusa.status).toBe(RICHIESTA_APPROVED);
+    const riga = await richiestaDi(utente.userId);
+    expect(riga.status).toBe(RICHIESTA_APPROVED);
+    expect(riga.reviewed_by).toBe(admin.userId);
+    expect(riga.reviewed_at).not.toBeNull();
+  });
+
+  it('la coda non mostra più quella richiesta fra quelle in attesa', async () => {
+    const admin = await creaAdmin();
+    const utente = await creaUtente(app);
+    await request(app).post('/api/premium/request').set(utente.headers).expect(201);
+    await request(app).post('/api/admin/entitlements/grant')
+      .set(admin.headers)
+      .send({ user_id: utente.userId, feature_key: FEATURE_BANK_SYNC })
+      .expect(200);
+
+    const coda = await request(app).get('/api/admin/richieste-premium?stato=pending')
+      .set(admin.headers).expect(200);
+    expect(coda.body.richieste).toHaveLength(0);
+    expect(coda.body.contatori[RICHIESTA_PENDING]).toBe(0);
+    expect(coda.body.contatori[RICHIESTA_APPROVED]).toBe(1);
+  });
+
+  it('concedere dopo un rifiuto supera la decisione, e l\'audit conserva entrambe', async () => {
+    // Lo staff può cambiare idea. Quello che non si perde è la storia: i due
+    // eventi restano distinti in audit_logs.
+    const admin = await creaAdmin();
+    const utente = await creaUtente(app);
+    const creata = await request(app).post('/api/premium/request')
+      .set(utente.headers).expect(201);
+    await request(app).post(`/api/admin/richieste-premium/${creata.body.richiesta.id}/rifiuta`)
+      .set(admin.headers).expect(200);
+    expect((await richiestaDi(utente.userId)).status).toBe(RICHIESTA_REJECTED);
+
+    await request(app).post('/api/admin/entitlements/grant')
+      .set(admin.headers)
+      .send({ user_id: utente.userId, feature_key: FEATURE_BANK_SYNC })
+      .expect(200);
+
+    expect((await richiestaDi(utente.userId)).status).toBe(RICHIESTA_APPROVED);
+    expect(await eventiDi(EVENTI.RICHIESTA_RIFIUTATA)).toHaveLength(1);
+    expect(await eventiDi(EVENTI.RICHIESTA_APPROVATA)).toHaveLength(1);
+  });
+
+  it('non tocca chi è entrato dalla beta: resta auto_approved_beta', async () => {
+    await impostaLimiteBeta(3);
+    const admin = await creaAdmin();
+    const utente = await creaUtente(app);
+    await request(app).post('/api/bank-sync/claim-beta').set(utente.headers).expect(201);
+    expect((await richiestaDi(utente.userId)).status).toBe(RICHIESTA_AUTO_APPROVED_BETA);
+
+    await request(app).post('/api/admin/entitlements/grant')
+      .set(admin.headers)
+      .send({ user_id: utente.userId, feature_key: FEATURE_BANK_SYNC })
+      .expect(200);
+
+    // Il posto beta resta tale: riscriverlo come approvazione manuale
+    // renderebbe illeggibile il conteggio dei 25.
+    expect((await richiestaDi(utente.userId)).status).toBe(RICHIESTA_AUTO_APPROVED_BETA);
+  });
+
+  it('concedere a chi non ha mai chiesto niente non crea una richiesta', async () => {
+    const admin = await creaAdmin();
+    const utente = await creaUtente(app);
+
+    const res = await request(app).post('/api/admin/entitlements/grant')
+      .set(admin.headers)
+      .send({ user_id: utente.userId, feature_key: FEATURE_BANK_SYNC })
+      .expect(200);
+
+    expect(res.body.richiesta_chiusa).toBeNull();
+    expect(await PremiumAccessRequest.count()).toBe(0);
+  });
+
+  it('revocare NON riapre la richiesta: revoca e rifiuto restano distinti', async () => {
+    const admin = await creaAdmin();
+    const utente = await creaUtente(app);
+    await request(app).post('/api/premium/request').set(utente.headers).expect(201);
+    await request(app).post('/api/admin/entitlements/grant')
+      .set(admin.headers).send({ user_id: utente.userId, feature_key: FEATURE_BANK_SYNC })
+      .expect(200);
+    await request(app).post('/api/admin/entitlements/revoke')
+      .set(admin.headers).send({ user_id: utente.userId, feature_key: FEATURE_BANK_SYNC })
+      .expect(200);
+
+    // La richiesta resta approvata: è la storia di cosa fu deciso allora.
+    expect((await richiestaDi(utente.userId)).status).toBe(RICHIESTA_APPROVED);
+    expect((await canUseFeature(utente.userId, FEATURE_BANK_SYNC)).consentito).toBe(false);
+  });
+});

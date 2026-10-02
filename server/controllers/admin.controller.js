@@ -229,6 +229,13 @@ const grant = async (req, res) => {
       await connessioni.riattivaDopoEntitlement({ userId });
     }
 
+    // Se quella persona aveva una richiesta aperta, concedere il diritto la
+    // chiude: lasciarla `pending` segnalerebbe per sempre un lavoro già
+    // fatto. Non può far fallire la concessione, che è già avvenuta.
+    const richiestaChiusa = await richiestePremium.chiudiPerConcessione({
+      userId, feature: featureKey, actorUserId: req.userId, motivo: nota,
+    });
+
     await registraAudit({
       userId,
       actorUserId: req.userId,
@@ -246,6 +253,7 @@ const grant = async (req, res) => {
     return res.json({
       concesso: !esito.giaAttivo,
       gia_attivo: esito.giaAttivo,
+      richiesta_chiusa: richiestaChiusa,
       entitlement: {
         feature_key: esito.entitlement.feature_key,
         status: esito.entitlement.status,

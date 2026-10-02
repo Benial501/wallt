@@ -251,6 +251,68 @@ async function registraAutoApprovata({ userId, feature = FEATURE_BANK_SYNC }) {
   }
 }
 
+/**
+ * Chiude la richiesta di un utente a cui il diritto è appena stato concesso
+ * per un'altra strada (la tabella utenti dell'area amministrativa).
+ *
+ * Senza, restava un'incoerenza visibile: l'amministratore concedeva Bank
+ * Sync dalla lista utenti e la richiesta di quella stessa persona restava
+ * `pending` per sempre, con la coda che continuava a segnalare un lavoro
+ * già fatto. L'invariante che si vuole è semplice — **se il diritto è stato
+ * concesso dallo staff, la sua richiesta risulta approvata**.
+ *
+ * Chiude anche una `rejected` o una `cancelled`: concedere il diritto dopo
+ * averlo negato è una decisione nuova che supera la precedente, e quella
+ * precedente non va perduta — resta in `audit_logs`, dove i due eventi
+ * (`premium_request_rejected`, poi `premium_request_approved`) raccontano la
+ * storia per intero. Gli stati già concessi non vengono toccati.
+ *
+ * **Non lancia mai.** Viene chiamata dopo una concessione già riuscita: far
+ * fallire la risposta perché non si è riusciti ad aggiornare una riga di
+ * coda trasformerebbe un'operazione corretta in un errore.
+ *
+ * @returns {Promise<object|null>} la richiesta chiusa, o null se non c'era
+ *   niente da chiudere.
+ */
+async function chiudiPerConcessione({ userId, feature = FEATURE_BANK_SYNC, actorUserId = null, motivo = null }) {
+  try {
+    const riga = await PremiumAccessRequest.findOne({
+      where: { user_id: userId, requested_feature: feature },
+    });
+    if (!riga) return null;
+    if (RICHIESTA_STATI_CONCESSI.includes(riga.status)) return null;
+
+    const precedente = riga.status;
+    await riga.update({
+      status: RICHIESTA_APPROVED,
+      reviewed_at: new Date(),
+      reviewed_by: actorUserId,
+      decision_reason: motivo,
+    });
+
+    await registraAudit({
+      userId,
+      actorUserId,
+      evento: EVENTI.RICHIESTA_APPROVATA,
+      entita: 'premium_request',
+      entitaId: riga.id,
+      metadata: {
+        requested_feature: feature,
+        source: SOURCE_ADMIN,
+        // Dice che l'approvazione è arrivata da una concessione diretta e
+        // non dal pulsante "Approva": sono due gesti diversi dello staff.
+        da_concessione_diretta: true,
+        stato_precedente: precedente,
+      },
+    });
+
+    return serializza(riga);
+  } catch (error) {
+    logger.warn('Chiusura automatica della richiesta Premium fallita', { err: error });
+    return null;
+  }
+}
+
 /** La richiesta vista dallo staff: include il soggetto. */
 const caricaPerAdmin = (id) => PremiumAccessRequest.findByPk(id, {
   include: [{ model: User, as: 'utente', attributes: ['id', 'nome', 'email'] }],
@@ -432,6 +494,7 @@ module.exports = {
   richiesteUtente,
   annullaRichiesta,
   registraAutoApprovata,
+  chiudiPerConcessione,
   approva,
   rifiuta,
   elenco,
