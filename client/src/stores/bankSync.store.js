@@ -24,7 +24,10 @@ import { messaggioErrore, STATO_ATTIVA } from '@/utils/entitlements';
 export const useBankSyncStore = defineStore('bankSync', () => {
   const risorsaStato = creaRisorsa(
     async () => {
-      const { data } = await api.get('/bank-sync/status');
+      // È una lettura iniziale necessaria per mostrare la banca collegata.
+      // Usa lo stesso margine di /conti: il limite Axios generale di 12s
+      // trasformava risposte lente ma valide in un falso errore di connessione.
+      const { data } = await api.get('/bank-sync/status', { timeout: 30000 });
       return data;
     },
     { iniziale: null },
