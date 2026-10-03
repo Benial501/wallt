@@ -13,8 +13,8 @@ const request = require('supertest');
 const { createApp } = require('../app');
 const { Conto, Movimento, BankConnection } = require('../models');
 const {
-  STATO_ATTIVA, STATO_REVOCATA, STATO_IN_ATTESA, ORIGINE_OPEN_BANKING,
-  ORIGINE_MANUALE, TX_BOOKED,
+  STATO_ATTIVA, STATO_REVOCATA, STATO_IN_ATTESA, STATO_DA_RICONCILIARE,
+  ORIGINE_OPEN_BANKING, ORIGINE_MANUALE, TX_BOOKED,
 } = require('../constants/bankSync');
 const { SOURCE_BETA_25 } = require('../constants/entitlements');
 const {
@@ -122,10 +122,15 @@ describe('collegamento del conto', () => {
     expect(await Conto.count({ where: { user_id: utente.userId } })).toBe(0);
   });
 
-  it('il callback crea il conto, attiva la connessione e non lascia segreti', async () => {
+  it('il collegamento completo crea il conto, attiva la connessione e non lascia segreti', async () => {
     const { callback } = await collegaBanca(app, utente.headers);
     expect(callback.status).toBe(201);
-    expect(callback.body.connessione.stato).toBe(STATO_ATTIVA);
+    // Il CALLBACK si ferma a `da_riconciliare`: non decide da solo dove
+    // vanno i movimenti, perché l'utente può già tracciare quella banca a
+    // mano. È la riconciliazione (chiamata da `collegaBanca`) a portare la
+    // connessione ad `attiva`, e tutto ciò che segue verifica lo stato
+    // FINALE del flusso completo.
+    expect(callback.body.connessione.stato).toBe(STATO_DA_RICONCILIARE);
 
     const connessione = await BankConnection.findOne({ where: { user_id: utente.userId } });
     expect(connessione.status).toBe(STATO_ATTIVA);

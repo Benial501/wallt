@@ -25,7 +25,7 @@ const {
 const {
   FEATURE_BANK_SYNC, SOURCE_BETA_25, SOURCE_ADMIN, ENTITLEMENT_ATTIVO,
 } = require('../constants/entitlements');
-const { STATO_ATTIVA, STATO_IN_ATTESA } = require('../constants/bankSync');
+const { STATO_ATTIVA, STATO_IN_ATTESA, STATO_DA_RICONCILIARE } = require('../constants/bankSync');
 const { canUseFeature } = require('../services/entitlements.service');
 const { contaOccupati } = require('../services/betaSlots.service');
 const {
@@ -346,10 +346,20 @@ describe('manipolare il callback', () => {
       request(app).post('/api/bank-sync/callback').set(utente.headers).send({ state }),
     ]);
 
-    expect(await Conto.count({ where: { user_id: utente.userId } })).toBe(1);
+    // L'invariante che questo test protegge è «tre callback concorrenti
+    // producono UNA sola connessione», e resta intero. Cambia solo come si
+    // conta: dopo il callback lo stato non è più `attiva` ma
+    // `da_riconciliare` (il conto si scegliere nella riconciliazione), quindi
+    // il conteggio va fatto per `user_id`. È una verifica più forte di
+    // quella precedente, non più debole: non ammette nemmeno righe in
+    // ALTRI stati, che un `status: attiva` lasciava passare.
+    expect(await BankConnection.count({ where: { user_id: utente.userId } })).toBe(1);
     expect(await BankConnection.count({
-      where: { user_id: utente.userId, status: STATO_ATTIVA },
+      where: { user_id: utente.userId, status: STATO_DA_RICONCILIARE },
     })).toBe(1);
+    // E nessun conto è stato creato tre volte — né una: il callback non
+    // decide più dove vanno i movimenti.
+    expect(await Conto.count({ where: { user_id: utente.userId } })).toBe(0);
   });
 
   it('uno state scaduto viene rifiutato', async () => {

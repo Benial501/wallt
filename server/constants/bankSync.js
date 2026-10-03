@@ -148,6 +148,18 @@ const TRANSACTION_STATUS = [TX_BOOKED, TX_PENDING];
  */
 const STATI_IMPORTABILI = [TX_BOOKED];
 
+// ── Riconciliazione con i conti esistenti ──────────────────────────────────
+
+/**
+ * Il valore che, nel campo `destinazione` di `POST /bank-sync/riconciliazione`,
+ * chiede di creare un conto nuovo invece di agganciarne uno esistente.
+ *
+ * Sta qui e non come stringa scritta a mano nei tre punti che la confrontano
+ * (validazione, controller, servizio): è un valore di protocollo, e tre copie
+ * di una stringa di protocollo divergono alla prima modifica.
+ */
+const DESTINAZIONE_NUOVO = 'nuovo';
+
 // ── Origine di un movimento ────────────────────────────────────────────────
 //
 // Il campo `movimenti.origine` dice da dove viene una riga. Esisteva già
@@ -224,6 +236,7 @@ module.exports = {
   ORIGINE_IMPORT,
   ORIGINE_OPEN_BANKING,
   ORIGINI_MOVIMENTO,
+  DESTINAZIONE_NUOVO,
   MAX_CONNESSIONI_PER_UTENTE,
   STATE_TTL_MINUTI,
   SYNC_LOCK_SCADENZA_MINUTI,

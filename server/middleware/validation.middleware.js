@@ -6,6 +6,7 @@ const { MESI_TARGET_AMMESSI } = require('../services/fondoEmergenza.service');
 const { SOURCE_TYPES, STATI_PIANO, CHIAVI_CONTESTO_MANUALE } = require('../constants/pianoSmart');
 const { FEATURE_KEYS, FEATURE_RICHIEDIBILI, RICHIESTA_STATI } = require('../constants/entitlements');
 const { CHIAVI: CHIAVI_CONFIG } = require('../constants/appConfig');
+const { DESTINAZIONE_NUOVO } = require('../constants/bankSync');
 const { isImportoValido, toCents } = require('../services/pianoSmart/money');
 const { oggiLocale, FUSO_DEFAULT } = require('../utils/dateRome');
 const {
@@ -1639,6 +1640,30 @@ const validateBankCallback = [
   validate,
 ];
 
+/**
+ * Il corpo della riconciliazione. `destinazione` è `'nuovo'` oppure l'id di
+ * un conto: due forme, un campo, perché per chi chiama è una sola scelta.
+ *
+ * Non c'è `user_id` e non c'è `status`: la connessione si trova dall'utente
+ * autenticato e lo stato lo decide il server. Il `provider_account_id` arriva
+ * dal client ma non è creduto: il servizio lo confronta con i conti che
+ * questa autorizzazione espone davvero.
+ */
+const validateRiconciliazione = [
+  body('provider_account_id')
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 255 })
+    .withMessage('Conto bancario non indicato'),
+  // Solo `'nuovo'` o un id positivo. Un `Number.isInteger(Number(v))` da solo
+  // accetterebbe `0`, `-5`, `''`, `null` e `[]`, che non sono id e che
+  // arriverebbero al servizio solo per diventare un 404 più tardi.
+  body('destinazione')
+    .custom((v) => v === DESTINAZIONE_NUOVO || /^[1-9][0-9]{0,9}$/.test(String(v).trim()))
+    .withMessage('Destinazione non valida'),
+  validate,
+];
+
 const validateIstitutiQuery = [
   query('paese')
     .optional({ values: 'null' })
@@ -1818,6 +1843,7 @@ module.exports = {
   validateCreateScheduledPaymentContribution,
   validateBankConnect,
   validateBankCallback,
+  validateRiconciliazione,
   validateIstitutiQuery,
   validateAdminEntitlement,
   validateAdminConfig,

@@ -7,12 +7,14 @@ const { FEATURE_BANK_SYNC } = require('../constants/entitlements');
 const {
   validateBankConnect,
   validateBankCallback,
+  validateRiconciliazione,
   validateIstitutiQuery,
 } = require('../middleware/validation.middleware');
 const {
   bankClaimLimiter,
   bankConnectLimiter,
   bankCallbackLimiter,
+  bankRiconciliazioneLimiter,
   bankSyncLimiter,
   bankDangerLimiter,
 } = require('../middleware/rateLimit.middleware');
@@ -54,6 +56,13 @@ router.post('/claim-beta', authMiddleware, bankClaimLimiter, bankSync.claimBeta)
 // --- Usare la banca (richiede il permesso) --------------------------------
 router.get('/istituti', authMiddleware, feature, validateIstitutiQuery, bankSync.getIstituti);
 router.get('/riconciliazione', authMiddleware, feature, bankSync.getRiconciliazione);
+// Associa il collegamento a un conto: nuovo, oppure uno che l'utente già
+// usa. Agganciarne uno esistente non elimina e non archivia nulla.
+router.post(
+  '/riconciliazione',
+  authMiddleware, bankRiconciliazioneLimiter, feature, validateRiconciliazione,
+  bankSync.postRiconciliazione,
+);
 router.post('/connect', authMiddleware, bankConnectLimiter, feature, validateBankConnect, bankSync.connect);
 router.post('/reconnect', authMiddleware, bankConnectLimiter, feature, bankSync.reconnect);
 router.post('/callback', authMiddleware, bankCallbackLimiter, feature, validateBankCallback, bankSync.callback);

@@ -8,7 +8,7 @@ const {
   STATO_IN_ATTESA, STATO_DA_RICONCILIARE, STATO_ATTIVA, STATO_CONSENSO_SCADUTO,
   STATO_ERRORE, STATO_SOSPESA_ENTITLEMENT, STATO_REVOCATA, STATI_VIVI,
   STATI_SINCRONIZZABILI, STATE_TTL_MINUTI, ERRORI_RICHIEDONO_RICONNESSIONE,
-  ORIGINE_OPEN_BANKING, ERR_CONFIG,
+  ORIGINE_OPEN_BANKING, ERR_CONFIG, DESTINAZIONE_NUOVO,
 } = require('../../constants/bankSync');
 const { getBankProvider } = require('./providers');
 const { BankProviderError } = require('./providers/BankProvider');
@@ -139,18 +139,35 @@ async function statoConnessione(userId) {
 }
 
 /**
- * Quanto serve all'utente per decidere a quale conto appartengono i movimenti
- * della banca appena autorizzata.
- *
- * I conti della banca vengono RILETTI dal provider a ogni chiamata invece di
- * essere persistiti al callback: sono dati provvisori, e una colonna che li
- * conserva invecchia. Se il provider non risponde, l'utente vede un errore e
- * ritenta; la connessione resta `da_riconciliare` e non si perde nulla (la
- * guardia iniziale non la tocca).
+ * I conti che la banca espone per questa autorizzazione.
  *
  * Due chiamate al provider, non una: `getAccounts` vuole gli id dei conti,
  * non l'id della connessione, e quegli id si ottengono solo da
- * `getConnectionStatus`.
+ * `getConnectionStatus`. La sequenza vive QUI e non in due punti: sia
+ * l'elenco da mostrare (`datiRiconciliazione`) sia la verifica del conto
+ * scelto (`completaRiconciliazione`) devono guardare esattamente la stessa
+ * lista, altrimenti un conto potrebbe comparire nell'una e non nell'altra.
+ *
+ * I conti vengono RILETTI dal provider a ogni chiamata invece di essere
+ * persistiti al callback: sono dati provvisori, e una colonna che li conserva
+ * invecchia.
+ */
+async function contiDellaBanca(connessione, provider = null) {
+  const adapter = provider ?? await getBankProvider({ nome: connessione.provider });
+  const stato = await adapter.getConnectionStatus({
+    providerConnectionId: connessione.provider_connection_id,
+  });
+  return adapter.getAccounts({ accountIds: stato.accountIds });
+}
+
+/**
+ * Quanto serve all'utente per decidere a quale conto appartengono i movimenti
+ * della banca appena autorizzata.
+ *
+ * I conti della banca li legge `contiDellaBanca`, dal provider e non dal
+ * database. Se il provider non risponde, l'utente vede un errore e ritenta;
+ * la connessione resta `da_riconciliare` e non si perde nulla (la guardia
+ * iniziale non la tocca).
  *
  * Questa rotta NON dice se esistono movimenti preesistenti, benché sarebbe
  * comodo al client: quel predicato decide se fermare un'importazione e vive
@@ -165,11 +182,7 @@ async function datiRiconciliazione(userId, { provider = null } = {}) {
     );
   }
 
-  const adapter = provider ?? await getBankProvider({ nome: connessione.provider });
-  const stato = await adapter.getConnectionStatus({
-    providerConnectionId: connessione.provider_connection_id,
-  });
-  const contiBanca = await adapter.getAccounts({ accountIds: stato.accountIds });
+  const contiBanca = await contiDellaBanca(connessione, provider);
 
   const contiWallt = await Conto.findAll({
     where: {
@@ -192,6 +205,152 @@ async function datiRiconciliazione(userId, { provider = null } = {}) {
       id: c.id, nome: c.nome, tipo: c.tipo, saldo: c.saldo,
     })),
   };
+}
+
+/**
+ * Associa la connessione autorizzata a un conto WALLT.
+ *
+ * Agganciare un conto esistente NON elimina e NON archivia nulla: quel conto
+ * diventa lui il conto collegato. Stesso id, stesso nome, stessi movimenti;
+ * cambia soltanto da dove arrivano quelli nuovi. La banca restituisce 90
+ * giorni e lo storico manuale può coprirne nove mesi: sostituire il conto
+ * distruggerebbe dati che nessuna fonte è in grado di restituire.
+ *
+ * Il saldo di un conto esistente non viene toccato qui: lo allinea la prima
+ * sincronizzazione (`allineaSaldo`), che è già l'unico punto che fa quel
+ * lavoro. Un solo proprietario di quella scrittura invece di due.
+ *
+ * @param {Object} dati
+ * @param {number} dati.userId
+ * @param {string} dati.providerAccountId  il conto della banca, verificato
+ *   contro quelli che questa autorizzazione espone davvero
+ * @param {'nuovo'|number} dati.destinazione
+ * @param {import('./providers/BankProvider').BankProvider} [dati.provider]
+ */
+async function completaRiconciliazione({
+  userId, providerAccountId, destinazione, provider = null,
+}) {
+  // La connessione si trova dall'utente autenticato, mai da un id nel corpo
+  // della richiesta: è lo stesso principio che protegge il callback.
+  const connessione = await trovaConnessioneViva(userId);
+  if (!connessione) {
+    throw Object.assign(new Error('Nessun collegamento bancario da associare.'), {
+      statusCode: 409, codice: 'nessuna_riconciliazione_pendente',
+    });
+  }
+
+  /** Il lavoro era già fatto: si restituisce lo stato corrente, non un 409.
+   * Un doppio click o un refresh non sono un errore dell'utente. */
+  const giaFatto = async (c, transaction = undefined) => {
+    const conto = await Conto.findOne({
+      where: { id: c.conto_id, user_id: userId },
+      ...(transaction ? { transaction } : {}),
+    });
+    return { connessione: serializza(c, { conto }), conto, creato: false };
+  };
+
+  const nonPendente = () => Object.assign(
+    new Error('Questo collegamento non è in attesa di associazione.'),
+    { statusCode: 409, codice: 'nessuna_riconciliazione_pendente' },
+  );
+
+  // Verifica a buon mercato, prima di chiamare il provider: una ripetizione
+  // non deve costargli quota. Non è la barriera — quella è il lock qui sotto.
+  if (connessione.status === STATO_ATTIVA && connessione.conto_id) {
+    return giaFatto(connessione);
+  }
+  if (connessione.status !== STATO_DA_RICONCILIARE) throw nonPendente();
+
+  // Il conto bancario si prende dalla sessione, mai dal corpo della
+  // richiesta: un id arrivato dal client non è una prova che quel conto
+  // appartenga a questa autorizzazione.
+  const contiBanca = await contiDellaBanca(connessione, provider);
+  const scelto = contiBanca.find((c) => c.providerAccountId === providerAccountId);
+  if (!scelto) {
+    throw Object.assign(new Error('Il conto indicato non appartiene a questo collegamento.'), {
+      statusCode: 422, codice: 'conto_banca_non_valido',
+    });
+  }
+
+  return sequelize.transaction(async (transaction) => {
+    // La connessione viene RILETTA dentro la transazione e BLOCCATA. Fra la
+    // verifica qui sopra e questa scrittura può infilarsi un'altra richiesta
+    // (doppio click, due schede aperte): senza il lock due richieste
+    // simultanee creerebbero due conti, la connessione ne terrebbe uno solo
+    // e l'altro resterebbe orfano nel patrimonio dell'utente — cioè
+    // esattamente il doppio conteggio che questa rotta esiste per evitare.
+    // "Controlla e poi inserisci" non è atomico (Coding Rule 22).
+    const viva = await trovaConnessioneViva(userId, { transaction, lock: true });
+    if (!viva) throw nonPendente();
+    if (viva.status === STATO_ATTIVA && viva.conto_id) return giaFatto(viva, transaction);
+    if (viva.status !== STATO_DA_RICONCILIARE) throw nonPendente();
+
+    let conto;
+    let creato = false;
+
+    if (destinazione === DESTINAZIONE_NUOVO) {
+      const maxOrdine = await Conto.max('ordine', { where: { user_id: userId }, transaction });
+      // `Conto.create` e NON `createConto` (conti.controller.js): quel
+      // percorso genera un movimento «Saldo iniziale» quando il saldo è
+      // positivo, e per un conto bancario sarebbe un'ENTRATA INVENTATA —
+      // falserebbe le medie di reddito, i budget e Piano Smart. Per un conto
+      // sincronizzato la verità sul saldo la dice la banca, non un movimento.
+      // Chi "semplifica" questo punto passando da `createConto` rimette in
+      // circolo quel difetto.
+      conto = await Conto.create({
+        user_id: userId,
+        // La banca prima dell'intestatario: Enable Banking mette in `name`
+        // il nome del titolare, e «Christian Maiolo» non è il nome di un
+        // conto. Rinominarlo resta possibile da `PUT /conti/:id`.
+        nome: viva.institution_name || scelto.nome || 'Conto bancario',
+        tipo: 'banca',
+        // Su un conto nuovo il saldo iniziale lo mette la creazione: non c'è
+        // nessuno storico da preservare e la banca è l'unica fonte.
+        saldo: scelto.saldo ?? 0,
+        // Identificatore d'icona, non un'emoji: il client traduce gli id
+        // (`client/src/utils/contoIcons.js`) e tratta le emoji come valori
+        // storici da normalizzare.
+        icona: 'banca',
+        colore: '#74B9FF',
+        ordine: (maxOrdine || 0) + 1,
+        attivo: true,
+        nascosto: false,
+      }, { transaction });
+      creato = true;
+    } else {
+      conto = await Conto.findOne({
+        where: { id: destinazione, user_id: userId, attivo: true },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      // Il conto di un altro utente è indistinguibile da un conto che non
+      // esiste: il filtro per `user_id` è nella query, non in un controllo
+      // successivo.
+      if (!conto) {
+        throw Object.assign(new Error('Conto non trovato'), { statusCode: 404 });
+      }
+      if (TIPI_NON_AGGANCIABILI.includes(conto.tipo)) {
+        throw Object.assign(
+          new Error('Questo conto non può essere collegato a una banca.'),
+          { statusCode: 422, codice: 'conto_non_agganciabile' },
+        );
+      }
+    }
+
+    const aggiornata = await viva.update({
+      conto_id: conto.id,
+      provider_account_id: providerAccountId,
+      iban_mascherato: scelto.ibanMascherato ?? null,
+      valuta: scelto.valuta ?? null,
+      // Il saldo dichiarato dalla banca si registra sulla CONNESSIONE, dove
+      // descrive la fonte. Sul conto esistente non si scrive: lì la prima
+      // sincronizzazione è l'unica a decidere.
+      saldo_provider: scelto.saldo ?? null,
+      status: STATO_ATTIVA,
+    }, { transaction });
+
+    return { connessione: serializza(aggiornata, { conto }), conto, creato };
+  });
 }
 
 /** Le banche disponibili, dal provider configurato. */
@@ -662,6 +821,7 @@ module.exports = {
   liberaTentativiScaduti,
   statoConnessione,
   datiRiconciliazione,
+  completaRiconciliazione,
   istitutiDisponibili,
   avviaConnessione,
   completaConnessione,

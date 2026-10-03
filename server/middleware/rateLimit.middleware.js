@@ -197,6 +197,15 @@ const bankCallbackLimiter = createLimiter({
   bypassabileNeiTest: true,
 });
 
+/** 20 associazioni / 15 min — la riconciliazione interroga il provider a ogni
+ * chiamata: il limite protegge la sua quota, non il nostro database. */
+const bankRiconciliazioneLimiter = createLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Troppi tentativi di associazione. Riprova tra qualche minuto.' },
+  bypassabileNeiTest: true,
+});
+
 /** 20 sincronizzazioni manuali / ora per utente. */
 const bankSyncLimiter = createLimiter({
   windowMs: 60 * 60 * 1000,
@@ -258,6 +267,7 @@ module.exports = {
   bankClaimLimiter,
   bankConnectLimiter,
   bankCallbackLimiter,
+  bankRiconciliazioneLimiter,
   bankSyncLimiter,
   bankDangerLimiter,
   adminLimiter,

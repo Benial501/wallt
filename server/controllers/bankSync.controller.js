@@ -1,6 +1,6 @@
 const logger = require('../utils/logger');
 const { FEATURE_BANK_SYNC } = require('../constants/entitlements');
-const { ERR_PROVIDER, ERR_CONFIG } = require('../constants/bankSync');
+const { ERR_PROVIDER, ERR_CONFIG, DESTINAZIONE_NUOVO } = require('../constants/bankSync');
 const { BankProviderError } = require('../services/bankSync/providers/BankProvider');
 const { SyncError, sincronizza } = require('../services/bankSync/syncEngine.service');
 const connessioni = require('../services/bankSync/connections.service');
@@ -95,6 +95,34 @@ const getStato = async (req, res) => {
 const getRiconciliazione = async (req, res) => {
   try {
     res.json(await connessioni.datiRiconciliazione(req.userId));
+  } catch (error) {
+    rispondiErrore(res, error, 'riconciliazione');
+  }
+};
+
+/**
+ * `POST /api/bank-sync/riconciliazione` — associa il collegamento a un conto.
+ *
+ * 201 se il conto è stato creato, 200 se è stato agganciato uno esistente (o
+ * se il lavoro era già fatto): la differenza dice al client se mostrare «conto
+ * creato» o «i tuoi movimenti restano dove sono».
+ */
+const postRiconciliazione = async (req, res) => {
+  try {
+    const { destinazione } = req.body;
+    const esito = await connessioni.completaRiconciliazione({
+      userId: req.userId,
+      providerAccountId: req.body.provider_account_id,
+      destinazione: destinazione === DESTINAZIONE_NUOVO
+        ? DESTINAZIONE_NUOVO
+        : Number(destinazione),
+    });
+    res.status(esito.creato ? 201 : 200).json({
+      ...esito,
+      message: esito.creato
+        ? 'Conto creato e collegato alla banca.'
+        : 'Collegamento associato al conto. I movimenti già presenti restano.',
+    });
   } catch (error) {
     rispondiErrore(res, error, 'riconciliazione');
   }
@@ -270,6 +298,7 @@ const getBeta = async (req, res) => {
 module.exports = {
   getStato,
   getRiconciliazione,
+  postRiconciliazione,
   getIstituti,
   getBeta,
   claimBeta,
