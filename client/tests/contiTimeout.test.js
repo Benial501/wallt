@@ -21,3 +21,15 @@ test('la lettura dello stato bancario attende le risposte lente dell’API', asy
     'la richiesta dello stato bancario deve avere lo stesso timeout dedicato di 30 secondi',
   );
 });
+
+test('le letture iniziali dei conti riprovano una volta gli errori transitori', async () => {
+  const store = await readFile(new URL('../src/stores/conti.store.js', import.meta.url), 'utf8');
+
+  assert.match(store, /getWithOneRetry\(\s*\(\)\s*=>\s*api\.get\(['"]\/conti['"]/);
+});
+
+test('la lettura iniziale dello stato bancario riprova una volta gli errori transitori', async () => {
+  const store = await readFile(new URL('../src/stores/bankSync.store.js', import.meta.url), 'utf8');
+
+  assert.match(store, /getWithOneRetry\(\s*\(\)\s*=>\s*api\.get\(['"]\/bank-sync\/status['"]/);
+});

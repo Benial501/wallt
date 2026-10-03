@@ -4,6 +4,7 @@ import api from '@/utils/axios';
 import { creaRisorsa } from '@/utils/risorsa';
 import { refreshAfterWrite } from '@/utils/afterWrite';
 import { messaggioErrore, STATO_ATTIVA } from '@/utils/entitlements';
+import { getWithOneRetry } from '@/utils/getWithOneRetry';
 
 /**
  * La connessione bancaria dell'utente.
@@ -27,7 +28,9 @@ export const useBankSyncStore = defineStore('bankSync', () => {
       // È una lettura iniziale necessaria per mostrare la banca collegata.
       // Usa lo stesso margine di /conti: il limite Axios generale di 12s
       // trasformava risposte lente ma valide in un falso errore di connessione.
-      const { data } = await api.get('/bank-sync/status', { timeout: 30000 });
+      const { data } = await getWithOneRetry(
+        () => api.get('/bank-sync/status', { timeout: 30000 }),
+      );
       return data;
     },
     { iniziale: null },

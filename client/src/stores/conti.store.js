@@ -5,6 +5,7 @@ import api from '@/utils/axios';
 import { refreshAfterWrite } from '@/utils/afterWrite';
 import { creaRisorsa } from '@/utils/risorsa';
 import { formatValuta } from '@/utils/formatters';
+import { getWithOneRetry } from '@/utils/getWithOneRetry';
 
 export const useContiStore = defineStore('conti', () => {
   const authStore = useAuthStore();
@@ -14,7 +15,9 @@ export const useContiStore = defineStore('conti', () => {
       // La funzione Vercel può completare questo recupero entro 60 secondi;
       // il timeout generale di Axios (12s) chiudeva il client prima della
       // risposta, mostrando un errore anche quando il server restituiva 200.
-      const { data } = await api.get('/conti', { timeout: 30000 });
+      const { data } = await getWithOneRetry(
+        () => api.get('/conti', { timeout: 30000 }),
+      );
       return data;
     },
     { iniziale: null, vuotoSe: (d) => !d || (d.conti || []).length === 0 },
