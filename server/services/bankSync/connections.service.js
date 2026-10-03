@@ -151,13 +151,49 @@ async function statoConnessione(userId) {
  * I conti vengono RILETTI dal provider a ogni chiamata invece di essere
  * persistiti al callback: sono dati provvisori, e una colonna che li conserva
  * invecchia.
+ *
+ * ── Perché restano due chiamate, non una ─────────────────────────────────
+ * `getConnectionStatus` porta i conti già scaricati con la sessione
+ * (`stato.conti`): su Enable Banking hanno nome, IBAN mascherato e valuta,
+ * ma SEMPRE saldo `null` — il saldo si legge con una chiamata per conto, non
+ * arriva con la sessione. `getAccounts` è quella chiamata: restituisce il
+ * saldo e, sul provider vero, nient'altro di utile (nome/IBAN/valuta sono
+ * `null`). Nessuna delle due fonti è sufficiente da sola: la sessione dà i
+ * campi descrittivi, `getAccounts` dà il saldo. Chi eliminasse una delle due
+ * chiamate pensando che sia ridondante toglierebbe o i nomi o i saldi dalla
+ * schermata di riconciliazione — è esattamente il difetto che questa
+ * funzione esiste per evitare (Task 4-bis).
+ *
+ * Il merge è per campo, non "vince una fonte": un campo descrittivo nullo
+ * nella sessione (capita su GoCardless, che non ha dati ricchi senza una
+ * chiamata HTTP in più) ripiega su `getAccounts`, che per quell'adapter li
+ * scarica comunque — altrimenti l'unico provider già ricco su `getAccounts`
+ * perderebbe nome e IBAN dopo questo cambiamento.
  */
 async function contiDellaBanca(connessione, provider = null) {
   const adapter = provider ?? await getBankProvider({ nome: connessione.provider });
   const stato = await adapter.getConnectionStatus({
     providerConnectionId: connessione.provider_connection_id,
   });
-  return adapter.getAccounts({ accountIds: stato.accountIds });
+  const contiConSaldo = await adapter.getAccounts({ accountIds: stato.accountIds });
+  const perId = new Map(contiConSaldo.map((c) => [c.providerAccountId, c]));
+
+  return (stato.conti ?? []).map((c) => {
+    const daAccounts = perId.get(c.providerAccountId);
+    return {
+      providerAccountId: c.providerAccountId,
+      nome: c.nome ?? daAccounts?.nome ?? null,
+      ibanMascherato: c.ibanMascherato ?? daAccounts?.ibanMascherato ?? null,
+      valuta: c.valuta ?? daAccounts?.valuta ?? null,
+      // Il saldo viene SEMPRE da `getAccounts`: è l'unica delle due fonti
+      // che lo contiene (la sessione lo dichiara sempre `null`).
+      saldo: daAccounts?.saldo ?? c.saldo ?? null,
+      istituto: {
+        id: c.istituto?.id ?? daAccounts?.istituto?.id ?? null,
+        nome: c.istituto?.nome ?? daAccounts?.istituto?.nome ?? null,
+      },
+    };
+  });
 }
 
 /**

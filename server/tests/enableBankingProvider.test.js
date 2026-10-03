@@ -560,4 +560,45 @@ describe('errori', () => {
     await expect(provider.getConnectionStatus({ providerConnectionId: 's' }))
       .resolves.toMatchObject({ stato: 'sconosciuto' });
   });
+
+  it('lo stato della sessione porta con sé i conti già ricchi, non solo gli id (Task 4-bis)', async () => {
+    // Prima del Task 4-bis, getConnectionStatus restituiva solo accountIds:
+    // la schermata di riconciliazione su Enable Banking (il provider vero,
+    // non la sandbox) mostrava conti senza nome e senza IBAN, perché
+    // `_contiDaSessione` veniva applicata solo al callback e i dati della
+    // sessione venivano buttati via a ogni richiesta successiva.
+    const { provider, fetchImpl } = creaProvider([
+      {
+        body: {
+          status: 'AUTHORIZED',
+          aspsp: { name: 'Intesa Sanpaolo' },
+          accounts: [{
+            uid: 'acc-uid-9',
+            account_id: { iban: 'IT60X0542811101000000123456' },
+            name: 'Conto Corrente',
+            currency: 'EUR',
+          }],
+          access: { valid_until: '2026-12-31T00:00:00Z' },
+        },
+      },
+    ]);
+
+    const esito = await provider.getConnectionStatus({ providerConnectionId: 's' });
+
+    expect(esito.conti).toHaveLength(1);
+    expect(esito.conti[0]).toMatchObject({
+      providerAccountId: 'acc-uid-9',
+      nome: 'Conto Corrente',
+      valuta: 'EUR',
+      istituto: { nome: 'Intesa Sanpaolo' },
+    });
+    expect(esito.conti[0].ibanMascherato).toBe('IT•••3456');
+    expect(JSON.stringify(esito)).not.toContain('IT60X0542811101000000123456');
+    // Il saldo non arriva con la sessione: si legge con una chiamata per
+    // conto che `getConnectionStatus` non fa.
+    expect(esito.conti[0].saldo).toBeNull();
+    // Una sola richiesta HTTP: il vincolo del brief è che leggere i conti
+    // ricchi qui non ne aggiunga una seconda.
+    expect(fetchImpl.chiamate).toHaveLength(1);
+  });
 });

@@ -212,11 +212,26 @@ class GoCardlessBankProvider extends BankProvider {
     const dati = await this._richiesta(`/requisitions/${encodeURIComponent(providerConnectionId)}/`, {
       contesto: 'requisition-status',
     });
+    const accountIds = Array.isArray(dati?.accounts) ? dati.accounts : [];
     return {
       stato: STATO_REQUISITION[dati?.status] ?? 'sconosciuto',
       statoProvider: dati?.status ?? null,
-      accountIds: Array.isArray(dati?.accounts) ? dati.accounts : [],
+      accountIds,
       consentExpiresAt: null,
+      // A differenza di Enable Banking, la requisition non porta con sé nome,
+      // IBAN o valuta: quei dati li ha solo `getAccounts`, e leggerli qui
+      // costerebbe le due chiamate per conto che `getAccounts` fa già (quindi
+      // una chiamata HTTP in più, che il contratto vieta). `conti` resta
+      // comunque presente, con i soli id: `contiDellaBanca` colma il resto
+      // dalla chiamata a `getAccounts` che fa già.
+      conti: accountIds.map((providerAccountId) => ({
+        providerAccountId,
+        nome: null,
+        ibanMascherato: null,
+        valuta: null,
+        saldo: null,
+        istituto: { id: null, nome: null },
+      })),
     };
   }
 

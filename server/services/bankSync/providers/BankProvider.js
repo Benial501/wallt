@@ -40,7 +40,17 @@
  *
  * Stato connessione:
  *   { stato: 'attiva'|'consenso_scaduto'|'revocata'|'sconosciuto',
- *     consentExpiresAt }
+ *     consentExpiresAt, accountIds,
+ *     conti: Conto[] }
+ *
+ *   `conti` è un'aggiunta al contratto, non una modifica: chi legge solo
+ *   `accountIds` continua a funzionare. Esiste perché la risposta che
+ *   `getConnectionStatus` scarica per leggere lo stato contiene spesso già i
+ *   dati descrittivi del conto (nome, IBAN, valuta) — leggerli qui invece di
+ *   un'altra chiamata a `getAccounts` evita di buttarli via. Quando il
+ *   provider non ha questi dati senza una chiamata HTTP in più, `conti`
+ *   contiene comunque una riga per ogni id con i campi descrittivi a `null`
+ *   (stessa forma di un `Conto`, mai omessa).
  *
  * ── Minimizzazione ───────────────────────────────────────────────────────
  * Le implementazioni restituiscono SOLO questi campi. Il payload completo

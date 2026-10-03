@@ -7,6 +7,7 @@
 const request = require('supertest');
 const { createApp } = require('../app');
 const { Conto, BankConnection, Movimento, AuditLog } = require('../models');
+const { datiRiconciliazione } = require('../services/bankSync/connections.service');
 const {
   azzeraConfigurazione, abilitaSandbox, creaUtente, concediEntitlement,
   collegaBanca,
@@ -125,6 +126,87 @@ describe('GET /bank-sync/riconciliazione', () => {
     expect(r.body.conti_banca.length).toBeGreaterThan(0);
     expect(r.body.conti_banca[0]).toHaveProperty('provider_account_id');
     expect(r.body.conti_wallt.map((c) => c.id)).toContain(mio.id);
+  });
+
+  it('il conto della banca ha un nome e un IBAN, non solo un id (Task 4-bis)', async () => {
+    // Sulla sandbox `getAccounts` ha sempre fabbricato dati ricchi: questa
+    // asserzione da sola non avrebbe colto il difetto del provider vero
+    // (Enable Banking), dove `getAccounts({accountIds})` restituisce nome e
+    // IBAN a `null`. È `getConnectionStatus` + l'unione in `contiDellaBanca`
+    // a doverli portare, e il test diretto su quella forma sta in
+    // `enableBankingProvider.test.js`, che gira senza passare dalla sandbox.
+    await collegaBanca(app, utente.headers, { riconcilia: false });
+
+    const r = await request(app).get('/api/bank-sync/riconciliazione').set(utente.headers);
+
+    expect(r.status).toBe(200);
+    const [conto] = r.body.conti_banca;
+    expect(conto.nome).not.toBeNull();
+    expect(conto.iban_mascherato).not.toBeNull();
+    // Il saldo deve restare valorizzato: l'unione non deve aver sostituito
+    // la fonte del saldo con quella (sulla sessione) che lo dichiara sempre
+    // `null`.
+    expect(conto.saldo).not.toBeNull();
+  });
+
+  it('unisce le due fonti per campo: nome/IBAN dalla sessione, saldo da getAccounts, senza che una vinca sull\'altra', async () => {
+    // Un provider finto con le due fonti deliberatamente divergenti, come lo
+    // è Enable Banking sul vero: la sessione ha i campi descrittivi e saldo
+    // `null`, `getAccounts` ha solo il saldo. Sulla sandbox le due fonti
+    // sarebbero sempre identiche fra loro (`getConnectionStatus` sandbox
+    // costruisce `conti` chiamando `getAccounts`) e non distinguerebbero
+    // "l'unione funziona" da "una fonte ha vinto per caso perché erano
+    // uguali": qui invece se il merge sostituisse la sessione con
+    // `getAccounts` (o viceversa) l'assenza di nome/IBAN o di saldo lo
+    // renderebbe visibile.
+    await BankConnection.create({
+      // Il valore deve rispettare il CHECK della colonna; non importa quale
+      // dei tre sia, perché il provider FINTO qui sotto viene passato
+      // esplicitamente a `datiRiconciliazione` e la fabbrica non lo cerca mai.
+      user_id: utente.userId,
+      provider: 'sandbox',
+      institution_id: 'FINTA_BANCA',
+      institution_name: 'Finta Banca',
+      provider_connection_id: 'sess-finta-1',
+      status: STATO_DA_RICONCILIARE,
+    });
+
+    const providerFinto = {
+      async getConnectionStatus() {
+        return {
+          stato: 'attiva',
+          accountIds: ['acc-finto-1'],
+          conti: [{
+            providerAccountId: 'acc-finto-1',
+            nome: 'Conto Sessione',
+            ibanMascherato: 'IT•••0000',
+            valuta: 'EUR',
+            saldo: null,
+            istituto: { id: null, nome: 'Finta Banca' },
+          }],
+        };
+      },
+      async getAccounts() {
+        return [{
+          providerAccountId: 'acc-finto-1',
+          nome: null,
+          ibanMascherato: null,
+          valuta: null,
+          saldo: 999.5,
+          istituto: { id: null, nome: null },
+        }];
+      },
+    };
+
+    const esito = await datiRiconciliazione(utente.userId, { provider: providerFinto });
+
+    expect(esito.conti_banca).toHaveLength(1);
+    expect(esito.conti_banca[0]).toMatchObject({
+      provider_account_id: 'acc-finto-1',
+      nome: 'Conto Sessione',
+      iban_mascherato: 'IT•••0000',
+      saldo: 999.5,
+    });
   });
 
   it('esclude il fondo di emergenza e i conti scommesse', async () => {

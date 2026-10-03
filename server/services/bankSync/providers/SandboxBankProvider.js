@@ -138,11 +138,16 @@ class SandboxBankProvider extends BankProvider {
   }
 
   async getConnectionStatus({ providerConnectionId }) {
+    const accountIds = [`sbx-acc-${String(providerConnectionId).slice(-6)}`];
     return {
       stato: this.stato,
       statoProvider: this.stato === 'attiva' ? 'LN' : 'EX',
-      accountIds: [`sbx-acc-${String(providerConnectionId).slice(-6)}`],
+      accountIds,
       consentExpiresAt: null,
+      // Riusa `getAccounts`, non la riscrive: è lo stesso principio di
+      // Enable Banking (dati già disponibili, nessuna chiamata in più), e fa
+      // sì che i test esercitino lo stesso percorso della produzione.
+      conti: await this.getAccounts({ accountIds }),
     };
   }
 

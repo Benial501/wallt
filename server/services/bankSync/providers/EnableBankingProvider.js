@@ -486,6 +486,11 @@ class EnableBankingProvider extends BankProvider {
         ? dati.accounts.map((a) => (typeof a === 'string' ? a : a?.uid)).filter(Boolean)
         : [],
       consentExpiresAt: dati?.access?.valid_until ? new Date(dati.access.valid_until) : null,
+      // `/sessions/{id}` è la stessa risposta che `handleCallback` mappa con
+      // `_contiDaSessione`: contiene già nome, IBAN e valuta del conto.
+      // Restituirli qui evita una seconda chiamata al provider solo per
+      // riottenere dati che questa richiesta ha già scaricato.
+      conti: this._contiDaSessione(dati),
     };
   }
 
