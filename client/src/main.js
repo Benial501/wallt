@@ -9,6 +9,14 @@ import { useAuthStore } from './stores/auth.store'
 import { installAppGestures } from './utils/appGestures'
 import { inizializzaSentry, inizializzaAnalytics } from './utils/monitoraggio'
 
+// Dopo un deploy, una scheda già aperta può chiedere un chunk con hash ormai
+// rimosso. Ricarica l'HTML corrente così Vite richiede i bundle del deployment
+// attivo invece di lasciare la navigazione in errore.
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault()
+  window.location.reload()
+})
+
 // Completa il blocco dello zoom dove il meta viewport non basta (Safari iOS).
 installAppGestures()
 
