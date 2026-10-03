@@ -1,5 +1,5 @@
 const logger = require('../utils/logger');
-const { ProfiloUtente } = require('../models');
+const { ProfiloUtente, OnboardingSession } = require('../models');
 const { skipOnboarding, repairUserProfilo } = require('../services/onboarding.service');
 const { isOnboardingComplete } = require('../utils/onboarding');
 const {
@@ -169,6 +169,10 @@ const updateProfilo = async (req, res) => {
       updateData.onboarding_completato = !!req.body.onboarding_completato;
     }
 
+    if (updateData.onboarding_completato && await OnboardingSession.count({ where: { user_id: req.userId, status: 'draft' } })) {
+      return res.status(409).json({ message: 'Completa la configurazione guidata prima di entrare nell’app' });
+    }
+
     if (updateData.fascia_eta && !VALID_FASCE_ETA.includes(updateData.fascia_eta)) {
       return res.status(400).json({ message: 'Fascia d\'età non valida' });
     }
@@ -220,6 +224,9 @@ const updateProfilo = async (req, res) => {
 
 const skipOnboardingHandler = async (req, res) => {
   try {
+    if (await OnboardingSession.count({ where: { user_id: req.userId, status: 'draft' } })) {
+      return res.status(409).json({ message: 'Puoi saltare le sezioni facoltative nella configurazione guidata' });
+    }
     const existingProfilo = await ProfiloUtente.findOne({ where: { user_id: req.userId } });
     if (!existingProfilo?.fascia_eta) {
       return res.status(400).json({ message: 'La fascia d\'età è obbligatoria per continuare' });

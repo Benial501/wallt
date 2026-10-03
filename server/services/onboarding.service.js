@@ -1,4 +1,4 @@
-const { User, ProfiloUtente } = require('../models');
+const { User, ProfiloUtente, OnboardingSession } = require('../models');
 const { isOnboardingComplete } = require('../utils/onboarding');
 const { isMinorProfilo } = require('../utils/ageRestriction');
 
@@ -17,14 +17,19 @@ const isFreshRegistration = (user) => {
  * - account esistente → onboarding considerato completato
  */
 const ensureProfiloOnAuth = async (userId, { isNewRegistration = false } = {}) => {
+  if (isNewRegistration) {
+    await OnboardingSession.findOrCreate({ where: { user_id: userId }, defaults: { user_id: userId } });
+  }
+  const session = await OnboardingSession.findOne({ where: { user_id: userId } });
+  const pendingNewOnboarding = session && session.status !== 'completed';
   const [profilo] = await ProfiloUtente.findOrCreate({
     where: { user_id: userId },
     defaults: {
-      onboarding_completato: isNewRegistration ? false : true,
+      onboarding_completato: pendingNewOnboarding ? false : true,
     },
   });
 
-  if (!isNewRegistration && !isOnboardingComplete(profilo)) {
+  if (!pendingNewOnboarding && !isOnboardingComplete(profilo)) {
     await profilo.update({ onboarding_completato: true });
     await profilo.reload();
   }
@@ -36,12 +41,11 @@ const ensureProfiloOnAuth = async (userId, { isNewRegistration = false } = {}) =
  * Ripara profilo mancante o incoerente (es. account Google senza riga profilo).
  * Chiamato su /auth/me e login OAuth.
  */
-const repairUserProfilo = async (userId) => {
+const repairUserProfilo = async (userId, { isNewAccount = false } = {}) => {
   const user = await User.findByPk(userId);
   if (!user) return null;
 
-  const isNewRegistration = isFreshRegistration(user);
-  return ensureProfiloOnAuth(userId, { isNewRegistration });
+  return ensureProfiloOnAuth(userId, { isNewRegistration: isNewAccount });
 };
 
 const skipOnboarding = async (userId) => {

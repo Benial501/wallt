@@ -26,6 +26,23 @@ Migrazioni: `npm run migrate` o auto-run all'avvio (`server.js`, disabilitato in
 
 ## Tabelle e modelli
 
+### `onboarding_sessions` e `onboarding_imports`
+
+Le nuove registrazioni locali e Google ricevono una riga `onboarding_sessions`
+univoca per `user_id`. Contiene `schema_version`, `current_step`, `status`,
+`answers` JSONB, `revision`, `last_saved_at`, `completed_at` e il riepilogo
+`result` della finalizzazione. `onboarding_imports` contiene le anteprime
+normalizzate e le righe approvate, riferite alla sessione e alla chiave del
+conto ancora in bozza. Il file originale non viene conservato. Le FK
+cancellano queste righe insieme all’utente. Entrambe le tabelle hanno RLS
+attiva e nessun privilegio diretto per `anon` e `authenticated`; le API
+usano la connessione server e verificano l’utente dal JWT.
+
+La finalizzazione crea categorie, conti, ricorrenze, eventuali debiti,
+movimenti storici, obiettivi e preferenze nella stessa transazione prima di
+segnare `profili_utente.onboarding_completato`. Il saldo dichiarato del conto
+è una fotografia corrente: l’importazione storica non lo ricalcola.
+
 ### `users`
 | Campo | Tipo | Note |
 |---|---|---|

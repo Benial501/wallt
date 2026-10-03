@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const onboarding = readFileSync(
-  join(dirname(fileURLToPath(import.meta.url)), '../src/views/OnboardingView.vue'),
+  join(dirname(fileURLToPath(import.meta.url)), '../src/views/LegacyOnboardingView.vue'),
   'utf8',
 );
 

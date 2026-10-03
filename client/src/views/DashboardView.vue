@@ -41,6 +41,27 @@ const { canAccessScommesseFeature, canAccessInvestimentiFeature } = storeToRefs(
 const isAdmin = computed(() => authStore.user?.ruolo === 'admin');
 const { recentiHome, ricorrenti } = storeToRefs(movimentiStore);
 const { gettingStartedVisible } = storeToRefs(helpStore);
+const guidedComplete = ref(null);
+const guidedPurposes = ref([]);
+const purposeDestinations = {
+  controllare_spese: { label: 'Esplora le tue spese', route: 'analisi' },
+  budget: { label: 'Crea un budget', route: 'budget' },
+  risparmiare: { label: 'Segui i tuoi obiettivi', route: 'obiettivi' },
+  patrimonio: { label: 'Vedi i tuoi conti', route: 'conti' },
+  abbonamenti: { label: 'Controlla le spese programmate', route: 'ricorrenti' },
+  debiti: { label: 'Rivedi gli impegni', route: 'piano-smart' },
+};
+const purposeLinks = computed(() => guidedPurposes.value.map(id => purposeDestinations[id]).filter(Boolean));
+
+async function loadGuidedPreferences() {
+  try {
+    const { data } = await api.get('/onboarding');
+    guidedComplete.value = data.session.status === 'completed';
+    guidedPurposes.value = data.session.answers?.utilizzi || [];
+  } catch {
+    guidedComplete.value = false;
+  }
+}
 
 const fondoEmergenzaNascosto = ref(false);
 const chiaveFondoEmergenzaNascosto = computed(() => (
@@ -287,6 +308,7 @@ const onSelectMovimento = (mov) => {
 
 const onSaved = async () => {
   await Promise.all([
+    loadGuidedPreferences(),
     loadConti(),
     contiStore.fetchPatrimonio(),
     checkHaMovimenti(),
@@ -325,8 +347,16 @@ onMounted(async () => {
   <div class="dashboard-view animate-fade-in">
     <DashboardHeader />
 
+    <section v-if="guidedComplete && purposeLinks.length" class="wallt-card p-5 mb-5" aria-label="Scelte per iniziare">
+      <h2 class="text-lg font-semibold text-[var(--text-primary)]">Da qui puoi iniziare</h2>
+      <p class="text-sm text-[var(--text-secondary)] mt-1 mb-3">Le sezioni legate a ciò che hai scelto durante la configurazione.</p>
+      <div class="flex flex-wrap gap-2">
+        <RouterLink v-for="link in purposeLinks" :key="link.route" :to="{ name: link.route }" class="rounded-full border border-[var(--border-strong)] px-3 py-2 text-sm text-[var(--accent-text)]">{{ link.label }} →</RouterLink>
+      </div>
+    </section>
+
     <GettingStartedCard
-      v-if="gettingStartedVisible"
+      v-if="gettingStartedVisible && guidedComplete === false"
       :conti-state="contiState"
       :movimenti-state="movimentiState"
       :budget-state="budgetState"

@@ -4,6 +4,14 @@ const {
   registerUser,
   authHeader,
 } = require('./setup');
+const { OnboardingSession } = require('../models');
+
+async function registerLegacyUser(app) {
+  const result = await registerUser(app);
+  // Questi casi verificano il questionario già in uso dagli account precedenti.
+  await OnboardingSession.destroy({ where: { user_id: result.res.body.user.id } });
+  return result;
+}
 
 describe('Profilo API', () => {
   let app;
@@ -13,7 +21,7 @@ describe('Profilo API', () => {
   });
 
   it('abilita scommesse e investimenti al completamento onboarding', async () => {
-    const { res: regRes } = await registerUser(app);
+    const { res: regRes } = await registerLegacyUser(app);
     const token = regRes.body.token;
 
     expect(regRes.body.user.mostra_scommesse).toBe(false);
@@ -48,7 +56,7 @@ describe('Profilo API', () => {
   });
 
   it('non abilita scommesse e investimenti se l\'utente risponde no', async () => {
-    const { res: regRes } = await registerUser(app);
+    const { res: regRes } = await registerLegacyUser(app);
     const token = regRes.body.token;
 
     const updateRes = await request(app)
@@ -70,7 +78,7 @@ describe('Profilo API', () => {
   });
 
   it('non abilita scommesse e investimenti per utenti under 18', async () => {
-    const { res: regRes } = await registerUser(app);
+    const { res: regRes } = await registerLegacyUser(app);
     const token = regRes.body.token;
 
     const updateRes = await request(app)

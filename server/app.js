@@ -23,6 +23,7 @@ const pianoRoutes = require('./routes/piano.routes');
 const bankSyncRoutes = require('./routes/bankSync.routes');
 const adminRoutes = require('./routes/admin.routes');
 const premiumRoutes = require('./routes/premium.routes');
+const onboardingRoutes = require('./routes/onboarding.routes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler.middleware');
 const { inizializzaMonitoraggio } = require('./services/monitoraggio.service');
 const {
@@ -115,6 +116,7 @@ const createApp = (options = {}) => {
 
   app.use('/api/auth', authRoutes);
   app.use('/api/profilo', profiloRoutes);
+  app.use('/api/onboarding', onboardingRoutes);
   app.use('/api/conti', contiRoutes);
   app.use('/api/movimenti', movimentiRoutes);
   app.use('/api/budget', budgetRoutes);

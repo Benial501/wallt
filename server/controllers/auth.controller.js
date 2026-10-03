@@ -87,7 +87,7 @@ const register = async (req, res) => {
       use_ai_categorization: toBool(use_ai_categorization, false),
     });
 
-    await repairUserProfilo(user.id);
+    await repairUserProfilo(user.id, { isNewAccount: true });
 
     const userCompleto = await User.findByPk(user.id, {
       attributes: { exclude: ['password'] },

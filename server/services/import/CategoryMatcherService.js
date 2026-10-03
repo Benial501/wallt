@@ -309,14 +309,14 @@ class CategoryMatcherService {
     return this._finalize(result, transaction.tipo, availableCategories);
   }
 
-  async matchBatch({ userId, transactions }) {
+  async matchBatch({ userId, transactions, availableCategories: categoryOverride }) {
     this.historyMatcher._cache?.delete(userId);
     if (!Array.isArray(transactions) || transactions.length === 0) return [];
 
     const [rulesPayload, personalMerchantRules, availableCategories, useAiCategorization] = await Promise.all([
       this._loadRules(userId),
       this.personalMerchantRulesService.loadRules(userId),
-      list(userId),
+      categoryOverride ?? list(userId),
       getUserAiCategorizationEnabled(userId),
     ]);
     const results = [];

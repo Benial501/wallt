@@ -49,6 +49,8 @@ if (configuredDatabase !== TEST_DATABASE) {
 }
 
 const TABLES = [
+  'onboarding_imports',
+  'onboarding_sessions',
   'audit_logs',
   'premium_access_requests',
   'user_entitlements',

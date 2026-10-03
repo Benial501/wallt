@@ -1,937 +1,267 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { Check, ChevronLeft, ChevronRight, Plus, X } from 'lucide-vue-next';
 import { useRouter, useRoute } from 'vue-router';
-import { useProfiloStore } from '@/stores/profilo.store';
+import { useOnboardingStore } from '@/stores/onboarding.store';
 import { useAuthStore } from '@/stores/auth.store';
-import { useToastStore } from '@/stores/toast.store';
-import { useValuta } from '@/composables/useValuta';
-import { isOnboardingComplete } from '@/utils/onboarding';
-import { isMinor } from '@/utils/ageRestriction';
+import LegacyOnboardingView from './LegacyOnboardingView.vue';
+import RecurringEditor from '@/components/onboarding/RecurringEditor.vue';
+import ImportReview from '@/components/onboarding/ImportReview.vue';
+import CategoryIcon from '@/components/common/CategoryIcon.vue';
+import defaults from '@/data/categorie.generated.json';
 import { tracciaEvento } from '@/utils/monitoraggio';
-import {
-  Sparkles, Briefcase, House, Car, Coins, CheckCircle2, User, Banknote,
-  GraduationCap, Building2, Search, Package, Key, Users, Bike, Bus, Footprints, Smartphone,
-  BarChart3, AlertTriangle, XCircle, TrendingUp, Sprout, Dices,
-} from '@/utils/appIcons';
 
 const router = useRouter();
 const route = useRoute();
-const profiloStore = useProfiloStore();
-const authStore = useAuthStore();
-const toastStore = useToastStore();
-const { formatValuta } = useValuta();
-
-/**
- * Tre schermate, non cinque piu' un riepilogo.
- *
- * I campi raccolti sono gli stessi di prima (il profilo finanziario alimenta
- * Piano Smart e non si tocca): cambia solo come sono raggruppati, per tema
- * anziche' uno per pagina. Il riepilogo non e' piu' una schermata a se': e'
- * la conferma in fondo all'ultimo passo, dove serve davvero.
- */
-const TOTALE_STEP = 3;
-
-const currentStep = ref(1);
-const slideDirection = ref('forward');
-const saving = ref(false);
-
-const form = ref({
-  fascia_eta: null,
-  situazione_lavorativa: null,
-  entrata_fissa: false,
-  entrata_mensile: null,
-  situazione_abitativa: null,
-  costo_abitazione: null,
-  paga_bollette: 'no',
-  stima_bollette: null,
-  ha_auto: false,
-  ha_moto: false,
-  usa_mezzi_pubblici: false,
-  a_piedi: false,
-  car_sharing: false,
-  spesa_benzina: null,
-  spesa_mezzi: null,
-  ha_spese_extra: false,
-  spese_fisse_extra: null,
-  risparmia: null,
-  ha_investimenti: null,
-  fa_scommesse: null,
-});
-
-const FASCE_ETA = [
-  { id: 'under_18', label: 'Under 18' },
-  { id: '18_24', label: '18-24' },
-  { id: '25_34', label: '25-34' },
-  { id: '35_44', label: '35-44' },
-  { id: '45_54', label: '45-54' },
-  { id: '55_plus', label: '55+' },
+const store = useOnboardingStore();
+const auth = useAuthStore();
+const legacy = ref(route.query.edit === 'true');
+const ready = ref(false);
+const step = ref(0);
+const busy = ref(false);
+const error = ref('');
+const completed = ref(null);
+const customName = ref('');
+const customType = ref('uscita');
+const steps = [
+  { id: 'utilizzi', title: 'Configuriamo WALLT per te', subtitle: 'Come vuoi usare WALLT? Scegli ciò che ti interessa: potrai cambiare idea in seguito.' },
+  { id: 'categorie', title: 'Dove spendi normalmente?', subtitle: 'Le categorie che scegli rendono utili analisi e importazione fin dal primo giorno.' },
+  { id: 'entrate', title: 'Le tue entrate regolari', subtitle: 'Ci aiutano a mostrarti quanto denaro entra di solito. Puoi aggiungerle anche più tardi.' },
+  { id: 'spese', title: 'Le spese fisse', subtitle: 'Affitto, bollette e altre uscite ricorrenti rendono più utile il tuo piano.' },
+  { id: 'abbonamenti', title: 'I tuoi abbonamenti', subtitle: 'Tieni a vista i pagamenti che si ripetono. Puoi saltare questa fase.' },
+  { id: 'impegni', title: 'Rate e impegni', subtitle: 'Registra le rate e, se lo conosci, il debito residuo. I due importi restano separati.' },
+  { id: 'conti', title: 'I conti che utilizzi', subtitle: 'Il saldo che indichi è quello attuale. I movimenti passati importati non lo cambieranno.' },
+  { id: 'import', title: 'Parti dai tuoi movimenti', subtitle: 'Un estratto conto ti permette di vedere subito le tue spese nelle categorie scelte.' },
+  { id: 'obiettivi', title: 'Per cosa vuoi risparmiare?', subtitle: 'Dai un nome a un traguardo. WALLT terrà il progresso a vista.' },
+  { id: 'preferenze', title: 'Scegli i promemoria', subtitle: 'Puoi cambiarli in Impostazioni quando vuoi. Le notifiche del browser richiedono un consenso separato.' },
+  { id: 'riepilogo', title: 'Il tuo WALLT è pronto', subtitle: 'Controlla le scelte prima di creare i dati definitivi.' },
 ];
-
-const SITUAZIONI_LAVORO = [
-  { id: 'studente', label: 'Studente', icon: GraduationCap },
-  { id: 'studente_lavoratore', label: 'Studente lavoratore', icon: Briefcase },
-  { id: 'lavoratore_dipendente', label: 'Lavoratore dipendente', icon: Briefcase },
-  { id: 'autonomo', label: 'Autonomo / Partita IVA', icon: Building2 },
-  { id: 'in_cerca', label: 'In cerca di lavoro', icon: Search },
-  { id: 'altro', label: 'Altro', icon: Package },
-];
-
-const SITUAZIONI_ABITATIVE = [
-  { id: 'proprieta_mutuo', label: 'Casa di proprietà con mutuo', icon: House },
-  { id: 'proprieta_senza_mutuo', label: 'Casa di proprietà senza mutuo', icon: House },
-  { id: 'affitto', label: 'In affitto', icon: Key },
-  { id: 'vivo_con_genitori', label: 'Vivo con i genitori', icon: Users },
-  { id: 'coinquilini', label: 'Con coinquilini', icon: Users },
-  { id: 'altro', label: 'Altro', icon: Package },
-];
-
-const TRASPORTI = [
-  { id: 'ha_auto', label: 'Ho un\'auto', icon: Car },
-  { id: 'ha_moto', label: 'Ho una moto', icon: Bike },
-  { id: 'usa_mezzi_pubblici', label: 'Mezzi pubblici', icon: Bus },
-  { id: 'a_piedi', label: 'A piedi', icon: Footprints },
-  { id: 'car_sharing', label: 'Car sharing', icon: Smartphone },
-];
-
-const OPZIONI_RISPARMIO = [
-  { id: 'si_regolarmente', label: 'Sì regolarmente', icon: CheckCircle2 },
-  { id: 'a_volte', label: 'A volte', icon: BarChart3 },
-  { id: 'no_fine_mese', label: 'No, arrivo a fine mese', icon: AlertTriangle },
-  { id: 'spendo_troppo', label: 'Spendo troppo', icon: XCircle },
-];
-
-const OPZIONI_INVESTIMENTI = [
-  { id: 'si_regolarmente', label: 'Sì regolarmente', icon: TrendingUp },
-  { id: 'qualcosa', label: 'Qualcosa', icon: BarChart3 },
-  { id: 'vorrei_iniziare', label: 'Vorrei iniziare', icon: Sprout },
-  { id: 'no', label: 'No', icon: XCircle },
-];
-
-const OPZIONI_SCOMMESSE = [
-  { id: 'si_regolarmente', label: 'Sì regolarmente', icon: Dices },
-  { id: 'ogni_tanto', label: 'Ogni tanto', icon: Dices },
-  { id: 'no', label: 'No', icon: XCircle },
-];
-
-const BOLLETTE = [
-  { id: 'tutte', label: 'Tutte io' },
-  { id: 'divise', label: 'Divise' },
-  { id: 'no', label: 'Non le pago' },
-];
-
-const richiedeCostoAbitazione = computed(() =>
-  ['affitto', 'proprieta_mutuo'].includes(form.value.situazione_abitativa)
-);
-
-const richiedeStimaBollette = computed(() =>
-  ['tutte', 'divise'].includes(form.value.paga_bollette)
-);
-
-const richiedeBenzina = computed(() => form.value.ha_auto || form.value.ha_moto);
-const richiedeMezzi = computed(() => form.value.usa_mezzi_pubblici);
-const isMinorUser = computed(() => isMinor(form.value.fascia_eta));
-
-const canProceed = computed(() => {
-  switch (currentStep.value) {
-    // 1 - Chi sei: eta' (obbligatoria, e' anche il gate per i minori),
-    // lavoro, entrata.
-    case 1:
-      if (!form.value.fascia_eta) return false;
-      if (!form.value.situazione_lavorativa) return false;
-      if (form.value.entrata_fissa && !form.value.entrata_mensile) return false;
-      return true;
-    // 2 - Dove vivi: abitazione, con gli importi solo quando li chiede.
-    case 2:
-      if (!form.value.situazione_abitativa) return false;
-      if (richiedeCostoAbitazione.value && !form.value.costo_abitazione) return false;
-      if (richiedeStimaBollette.value && !form.value.stima_bollette) return false;
-      return true;
-    // 3 - Come gestisci: trasporti, spese extra e abitudini. Per un minore
-    // investimenti e scommesse non vengono chiesti (sono forzati a 'no'
-    // dal watch sulla fascia d'eta'), quindi non possono essere richiesti.
-    case 3:
-      if (richiedeBenzina.value && !form.value.spesa_benzina) return false;
-      if (richiedeMezzi.value && !form.value.spesa_mezzi) return false;
-      if (form.value.ha_spese_extra && !form.value.spese_fisse_extra) return false;
-      if (!form.value.risparmia) return false;
-      if (isMinorUser.value) return true;
-      return !!(form.value.ha_investimenti && form.value.fa_scommesse);
-    default:
-      return true;
-  }
-});
-
-const isUltimoStep = computed(() => currentStep.value === TOTALE_STEP);
-
-const getLabel = (list, id) => list.find((i) => i.id === id)?.label || id;
-const getIcon = (list, id) => list.find((i) => i.id === id)?.icon || Package;
-
-const riepilogoItems = computed(() => [
-  { icon: User, text: getLabel(FASCE_ETA, form.value.fascia_eta) },
-  { icon: getIcon(SITUAZIONI_LAVORO, form.value.situazione_lavorativa), text: getLabel(SITUAZIONI_LAVORO, form.value.situazione_lavorativa) },
-  { icon: getIcon(SITUAZIONI_ABITATIVE, form.value.situazione_abitativa), text: getLabel(SITUAZIONI_ABITATIVE, form.value.situazione_abitativa) },
-  ...(form.value.entrata_mensile ? [{ icon: Banknote, text: `${formatValuta(form.value.entrata_mensile)}/mese` }] : []),
+const form = computed(() => store.answers);
+const current = computed(() => steps[step.value]);
+const percentage = computed(() => Math.round((new Set(form.value.sezioni_completate || []).size / steps.length) * 100));
+const selected = computed(() => form.value.categorie?.selected || []);
+const custom = computed(() => form.value.categorie?.custom || []);
+const categoryCatalog = computed(() => [
+  ...defaults.filter(c => c.sistema || c.tipo === 'entrata' || selected.value.some(s => s.id === c.id && s.tipo === c.tipo)),
+  ...custom.value,
 ]);
+const groups = computed(() => [...new Set(defaults.filter(c => c.tipo === 'uscita' && !c.sistema).map(c => c.gruppo))]);
+const income = computed(() => categoryCatalog.value.filter(c => c.tipo === 'entrata'));
+const allRules = computed(() => [...form.value.entrate, ...form.value.spese, ...form.value.abbonamenti, ...form.value.impegni.filter(item => Number(item.rata) > 0)]);
+const pendingImports = computed(() => store.imports.filter(batch => batch.status !== 'confirmed').length);
+const purposes = [
+  ['controllare_spese', 'Capire dove spendo'], ['budget', 'Gestire un budget'],
+  ['risparmiare', 'Risparmiare per un obiettivo'], ['patrimonio', 'Vedere tutti i miei conti'],
+  ['abbonamenti', 'Tenere d’occhio gli abbonamenti'], ['debiti', 'Seguire rate e debiti'],
+];
+const ages = [['under_18', 'Meno di 18 anni'], ['18_24', '18–24'], ['25_34', '25–34'], ['35_44', '35–44'], ['45_54', '45–54'], ['55_plus', '55+']];
+const preferenceOptions = [
+  ['alert_budget_attivi', 'Avvisi sui budget'], ['alert_ricorrenti_attivi', 'Promemoria spese programmate'],
+  ['alert_obiettivi_attivi', 'Aggiornamenti sugli obiettivi'], ['riepilogo_settimanale_attivo', 'Riepilogo settimanale'],
+  ['promemoria_giornaliero_attivo', 'Promemoria giornaliero'],
+];
+const fields = ['entrate', 'spese', 'abbonamenti', 'impegni'];
+let timer;
+let saveChain = Promise.resolve();
 
-const toggleTrasporto = (id) => {
-  if (id === 'a_piedi' || id === 'car_sharing') {
-    form.value[id] = !form.value[id];
-  } else {
-    form.value[id] = !form.value[id];
+function ensureCategories() {
+  if (!form.value.categorie) {
+    const recommended = new Set(['cibo_spesa', 'affitto', 'bollette', 'trasporti', 'ristoranti', 'salute', 'shopping', 'intrattenimento']);
+    form.value.categorie = { selected: defaults.filter(c => c.tipo === 'uscita' && recommended.has(c.id)).map(({ id, tipo }) => ({ id, tipo })), custom: [] };
   }
-};
-
-const buildPayload = (onboardingCompletato = true) => ({
-  fascia_eta: form.value.fascia_eta,
-  situazione_lavorativa: form.value.situazione_lavorativa,
-  entrata_fissa: form.value.entrata_fissa,
-  entrata_mensile: form.value.entrata_mensile || 0,
-  situazione_abitativa: form.value.situazione_abitativa,
-  costo_abitazione: form.value.costo_abitazione || 0,
-  paga_bollette: form.value.paga_bollette,
-  stima_bollette: form.value.stima_bollette || 0,
-  ha_auto: form.value.ha_auto,
-  ha_moto: form.value.ha_moto,
-  usa_mezzi_pubblici: form.value.usa_mezzi_pubblici,
-  spesa_benzina: form.value.spesa_benzina || 0,
-  spesa_mezzi: form.value.spesa_mezzi || 0,
-  spese_fisse_extra: form.value.ha_spese_extra ? (form.value.spese_fisse_extra || 0) : 0,
-  risparmia: form.value.risparmia,
-  ha_investimenti: isMinorUser.value ? 'no' : form.value.ha_investimenti,
-  fa_scommesse: isMinorUser.value ? 'no' : form.value.fa_scommesse,
-  onboarding_completato: onboardingCompletato,
-});
-
-const nextStep = async () => {
-  if (!canProceed.value) return;
-  if (isUltimoStep.value) {
-    await completaOnboarding();
-    return;
-  }
-  slideDirection.value = 'forward';
-  currentStep.value++;
-};
-
-const completaOnboarding = async () => {
-  saving.value = true;
-  try {
-    const result = await profiloStore.updateProfilo(buildPayload(true));
-    const profilo = result?.profilo ?? authStore.user?.profilo;
-
-    if (!isOnboardingComplete(profilo)) {
-      throw new Error('Onboarding non salvato correttamente');
+}
+function togglePurpose(id) {
+  const list = form.value.utilizzi || [];
+  form.value.utilizzi = list.includes(id) ? list.filter(item => item !== id) : [...list, id];
+}
+function toggleCategory(category) {
+  ensureCategories();
+  const list = form.value.categorie.selected;
+  const has = list.some(item => item.id === category.id && item.tipo === category.tipo);
+  form.value.categorie.selected = has ? list.filter(item => !(item.id === category.id && item.tipo === category.tipo)) : [...list, { id: category.id, tipo: category.tipo }];
+}
+function addCustom() {
+  ensureCategories();
+  const nome = customName.value.trim();
+  if (!nome || nome.length > 80) { error.value = 'Scrivi un nome per la categoria (massimo 80 caratteri).'; return; }
+  if ([...defaults, ...custom.value].some(c => c.tipo === customType.value && c.nome.toLocaleLowerCase('it') === nome.toLocaleLowerCase('it'))) { error.value = 'Questa categoria esiste già.'; return; }
+  form.value.categorie.custom.push({ id: `custom_${crypto.randomUUID()}`, nome, tipo: customType.value, icona: 'Tag', colore: '#3498DB' });
+  customName.value = ''; error.value = '';
+}
+function removeCustom(id) {
+  form.value.categorie.custom = custom.value.filter(c => c.id !== id);
+  for (const kind of fields) form.value[kind] = form.value[kind].map(item => item.categoria === id ? { ...item, categoria: '' } : item);
+}
+function addAccount() {
+  const key = crypto.randomUUID();
+  form.value.conti.push({ key, nome: '', tipo: 'banca', saldo: 0 });
+}
+function removeAccount(key) {
+  form.value.conti = form.value.conti.filter(account => account.key !== key);
+  for (const kind of fields) form.value[kind] = form.value[kind].map(item => item.conto_key === key ? { ...item, conto_key: '' } : item);
+}
+function addGoal() { form.value.obiettivi.push({ nome: '', importo_target: '', importo_attuale: 0, deadline: '' }); }
+function mark() {
+  if (!form.value.sezioni_completate.includes(current.value.id)) form.value.sezioni_completate.push(current.value.id);
+}
+function validateStep() {
+  if (current.value.id === 'utilizzi' && !form.value.fascia_eta) return 'Seleziona la fascia d’età per continuare.';
+  if (fields.includes(current.value.id)) {
+    for (const item of form.value[current.value.id]) {
+      if (current.value.id === 'impegni') {
+        const hasRate = Number(item.rata) > 0;
+        const hasResidual = item.saldo_residuo !== undefined && item.saldo_residuo !== '' && Number(item.saldo_residuo) >= 0;
+        if (!item.nome?.trim() || (!hasRate && !hasResidual)) return 'Per ogni impegno inserisci il nome e almeno la rata o il debito residuo, oppure rimuovilo.';
+        if (hasRate && (!item.categoria || !item.giorno)) return 'Completa giorno e categoria della rata, oppure rimuovi la voce.';
+      } else if (!item.nome?.trim() || !Number(item.importo) || !item.categoria || !item.giorno) {
+        return 'Completa nome, importo, giorno e categoria di ogni voce, oppure rimuovila.';
+      }
     }
-
-    // Quanti arrivano in fondo ai tre passi: e' la meta' mancante del dato,
-    // perche' le visite alla pagina si contano gia' da sole.
-    tracciaEvento('onboarding_completato');
-
-    await router.replace('/dashboard');
-  } catch (err) {
-    toastStore.error(err.response?.data?.message || err.message || profiloStore.error || 'Errore nel salvataggio del profilo');
-  } finally {
-    saving.value = false;
   }
-};
-
-const prevStep = () => {
-  if (currentStep.value > 1) {
-    slideDirection.value = 'back';
-    currentStep.value--;
+  if (current.value.id === 'conti') {
+    for (const account of form.value.conti) if (!account.nome?.trim() || account.saldo === '') return 'Completa nome e saldo di ogni conto, oppure rimuovilo.';
+    if (allRules.value.length && !form.value.conti.length) return 'Aggiungi un conto per collegare le entrate e le spese.';
+    if (allRules.value.some(item => !form.value.conti.some(account => account.key === item.conto_key))) return 'Collega ogni entrata, spesa, abbonamento e rata a un conto.';
   }
-};
-
-const handleSkipOnboarding = async () => {
-  if (!form.value.fascia_eta) {
-    toastStore.error('Seleziona la fascia d\'età per continuare');
-    return;
+  if (current.value.id === 'obiettivi' && form.value.obiettivi.some(goal => !goal.nome?.trim() || !Number(goal.importo_target))) return 'Completa nome e importo di ogni obiettivo, oppure rimuovilo.';
+  if (current.value.id === 'import' && pendingImports.value) return 'Conferma o escludi le righe degli estratti prima di proseguire.';
+  return '';
+}
+function queueSave(target = current.value.id) {
+  clearTimeout(timer);
+  store.remember();
+  saveChain = saveChain.catch(() => {}).then(() => store.save(target));
+  return saveChain;
+}
+async function move(delta) {
+  error.value = '';
+  if (delta > 0) {
+    error.value = validateStep();
+    if (error.value) return;
+    mark();
+    tracciaEvento('onboarding_fase_completata', { fase: current.value.id });
   }
-
-  saving.value = true;
+  if (step.value + delta < 0 || step.value + delta >= steps.length) return;
+  busy.value = true;
   try {
-    await profiloStore.updateProfilo({
-      fascia_eta: form.value.fascia_eta,
-      ha_investimenti: isMinorUser.value ? 'no' : undefined,
-      fa_scommesse: isMinorUser.value ? 'no' : undefined,
-    });
-    const { profilo } = await profiloStore.skipOnboarding();
-
-    if (!isOnboardingComplete(profilo)) {
-      throw new Error('Onboarding non salvato correttamente');
+    await queueSave(steps[step.value + delta].id);
+    step.value += delta;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch { error.value = store.error; }
+  finally { busy.value = false; }
+}
+async function finish() {
+  if (pendingImports.value) { error.value = 'Conferma gli estratti ancora in revisione.'; return; }
+  error.value = ''; busy.value = true;
+  mark();
+  try {
+    await queueSave('riepilogo');
+    completed.value = await store.finalize();
+    tracciaEvento('onboarding_guidato_completato');
+  } catch { error.value = store.error; }
+  finally { busy.value = false; }
+}
+async function retrySync() {
+  busy.value = true;
+  error.value = '';
+  try {
+    const session = await store.load();
+    if (session) {
+      const found = steps.findIndex(item => item.id === (store.resumeStep || session.current_step));
+      step.value = found < 0 ? 0 : found;
+      ensureCategories();
+      ready.value = true;
+      if (store.localDraft) await queueSave(store.resumeStep || session.current_step);
+      error.value = '';
     }
+  } catch { error.value = store.error; }
+  finally { busy.value = false; }
+}
+function goHome() { router.replace({ name: 'dashboard' }); }
 
-    await router.replace('/dashboard');
-  } catch (err) {
-    toastStore.error(err.response?.data?.message || err.message || profiloStore.error || 'Errore nel salto onboarding');
-  } finally {
-    saving.value = false;
-  }
-};
-
+watch(() => store.answers, () => {
+  if (!ready.value || legacy.value || completed.value) return;
+  store.remember();
+  clearTimeout(timer);
+  timer = setTimeout(() => { queueSave().catch(() => { error.value = store.error; }); }, 1100);
+}, { deep: true });
 onMounted(async () => {
-  if (isOnboardingComplete(authStore.user?.profilo) && !route.query.edit) {
-    router.replace('/dashboard');
-    return;
-  }
-
+  if (legacy.value) return;
   try {
-    const p = await profiloStore.fetchProfilo();
-    if (p) {
-      Object.keys(form.value).forEach((key) => {
-        if (p[key] !== undefined && p[key] !== null) {
-          form.value[key] = p[key];
-        }
-      });
-      form.value.ha_spese_extra = !!(p.spese_fisse_extra && parseFloat(p.spese_fisse_extra) > 0);
+    const session = await store.load();
+    if (!session) {
+      const localIndex = steps.findIndex(item => item.id === store.resumeStep);
+      step.value = localIndex < 0 ? 0 : localIndex;
+      ready.value = true;
+      error.value = store.error;
+      return;
     }
-  } catch {
-    // profilo vuoto, ok
+    if (session.status === 'completed') { await auth.fetchMe(); goHome(); return; }
+    ensureCategories();
+    const found = steps.findIndex(item => item.id === (store.resumeStep || session.current_step));
+    step.value = found < 0 ? 0 : found;
+    tracciaEvento(session.revision ? 'onboarding_guidato_ripreso' : 'onboarding_guidato_iniziato');
+    ready.value = true;
+    if (store.localDraft) queueSave(store.resumeStep || session.current_step).catch(() => { error.value = store.error; });
+  } catch (cause) {
+    if (cause.response?.status === 404) legacy.value = true;
+    else error.value = store.error;
   }
 });
-
-watch(() => form.value.fascia_eta, (val) => {
-  if (isMinor(val)) {
-    form.value.ha_investimenti = 'no';
-    form.value.fa_scommesse = 'no';
-  }
-});
-
-watch(() => form.value.situazione_abitativa, (val) => {
-  if (!['affitto', 'proprieta_mutuo'].includes(val)) {
-    form.value.costo_abitazione = null;
-  }
-});
-
-watch(() => form.value.paga_bollette, (val) => {
-  if (val === 'no') form.value.stima_bollette = null;
-});
+onBeforeUnmount(() => { clearTimeout(timer); });
 </script>
 
 <template>
-  <div class="onboarding-bg min-h-screen flex items-center justify-center px-4 py-8">
-    <div class="w-full max-w-[520px]">
-      <!-- Card -->
-      <div class="wallt-card relative overflow-hidden" style="border-radius: 24px;">
-        <!-- Header -->
-        <div class="flex items-center justify-between px-6 pt-6 pb-2">
-          <div class="flex items-center gap-2">
-            <img src="/brand/wallt-app-icon-96.png" alt="WALLT" class="w-8 h-8 rounded-lg" width="96" height="96">
-            <span class="text-sm font-bold text-[var(--text-primary)]">
-              WALL<span class="text-[var(--accent-green)]">T</span>
-            </span>
-          </div>
-          <button
-            @click="handleSkipOnboarding"
-            class="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            :disabled="saving || !form.fascia_eta"
-            :title="!form.fascia_eta ? 'Seleziona prima la fascia d\'età' : 'Salta il questionario'"
-          >
-            Salta
-          </button>
-        </div>
-
-        <!-- Progress -->
-        <div class="flex items-center justify-center gap-2 px-6 py-4">
-          <div
-            v-for="step in TOTALE_STEP"
-            :key="step"
-            class="progress-dot"
-            :class="{ active: step <= currentStep, current: step === currentStep }"
-          />
-        </div>
-
-        <!-- Steps container -->
-        <div class="step-container px-6 pb-6">
-          <Transition :name="slideDirection === 'forward' ? 'slide-forward' : 'slide-back'" mode="out-in">
-            <!-- STEP 1 - Chi sei: eta', lavoro, entrata -->
-            <div v-if="currentStep === 1" key="step1" class="step-content">
-              <h2 class="step-title">
-                <Sparkles :size="20" :stroke-width="1.75" />
-                Benvenuto su WALLT!
-              </h2>
-              <p class="text-sm text-[var(--text-secondary)] mb-6">Raccontaci di te</p>
-
-              <p class="text-sm font-medium text-[var(--text-secondary)] mb-3">
-                Fascia d'età <span class="text-red-400">*</span>
-              </p>
-              <div class="grid grid-cols-2 gap-2">
-                <button
-                  v-for="fascia in FASCE_ETA"
-                  :key="fascia.id"
-                  @click="form.fascia_eta = fascia.id"
-                  class="pill-btn"
-                  :class="{ selected: form.fascia_eta === fascia.id }"
-                >
-                  {{ fascia.label }}
-                </button>
-              </div>
-
-              <div class="step-divider" />
-
-              <p class="text-sm font-medium text-[var(--text-secondary)] mb-3">
-                Come lavori? <span class="text-red-400">*</span>
-              </p>
-              <div class="space-y-2 mb-6">
-                <button
-                  v-for="lavoro in SITUAZIONI_LAVORO"
-                  :key="lavoro.id"
-                  @click="form.situazione_lavorativa = lavoro.id"
-                  class="option-btn"
-                  :class="{ selected: form.situazione_lavorativa === lavoro.id }"
-                >
-                  <component :is="lavoro.icon" class="option-icon" :size="18" :stroke-width="1.75" />
-                  <span>{{ lavoro.label }}</span>
-                </button>
-              </div>
-
-              <div class="border-t border-[var(--border)] pt-4">
-                <p class="text-sm font-medium text-[var(--text-secondary)] mb-3">
-                  Hai entrata fissa mensile?
-                </p>
-                <div class="flex gap-2 mb-4">
-                  <button
-                    @click="form.entrata_fissa = true"
-                    class="pill-btn flex-1"
-                    :class="{ selected: form.entrata_fissa }"
-                  >Sì</button>
-                  <button
-                    @click="form.entrata_fissa = false; form.entrata_mensile = null"
-                    class="pill-btn flex-1"
-                    :class="{ selected: !form.entrata_fissa }"
-                  >No</button>
-                </div>
-                <div v-if="form.entrata_fissa">
-                  <label class="text-sm text-[var(--text-secondary)] mb-1.5 block">€ importo mensile</label>
-                  <input
-                    v-model.number="form.entrata_mensile"
-                    type="number"
-                    min="0"
-                    placeholder="1500"
-                    class="wallt-input !pl-4"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <!-- STEP 2 - Dove vivi: abitazione e bollette -->
-            <div v-else-if="currentStep === 2" key="step2" class="step-content">
-              <h2 class="step-title">
-                <House :size="20" :stroke-width="1.75" />
-                Dove vivi?
-              </h2>
-              <p class="text-sm text-[var(--text-secondary)] mb-6">Situazione abitativa e bollette</p>
-
-              <p class="text-sm font-medium text-[var(--text-secondary)] mb-3">
-                Dove abiti <span class="text-red-400">*</span>
-              </p>
-              <div class="space-y-2 mb-6">
-                <button
-                  v-for="abit in SITUAZIONI_ABITATIVE"
-                  :key="abit.id"
-                  @click="form.situazione_abitativa = abit.id"
-                  class="option-btn"
-                  :class="{ selected: form.situazione_abitativa === abit.id }"
-                >
-                  <component :is="abit.icon" class="option-icon" :size="18" :stroke-width="1.75" />
-                  <span>{{ abit.label }}</span>
-                </button>
-              </div>
-
-              <div v-if="richiedeCostoAbitazione" class="mb-4">
-                <label class="text-sm text-[var(--text-secondary)] mb-1.5 block">€ importo mensile</label>
-                <input
-                  v-model.number="form.costo_abitazione"
-                  type="number"
-                  min="0"
-                  placeholder="800"
-                  class="wallt-input !pl-4"
-                />
-              </div>
-
-              <p class="text-sm font-medium text-[var(--text-secondary)] mb-2">Bollette</p>
-              <div class="flex gap-2 mb-4 flex-wrap">
-                <button
-                  v-for="b in BOLLETTE"
-                  :key="b.id"
-                  @click="form.paga_bollette = b.id"
-                  class="pill-btn"
-                  :class="{ selected: form.paga_bollette === b.id }"
-                >
-                  {{ b.label }}
-                </button>
-              </div>
-
-              <div v-if="richiedeStimaBollette">
-                <label class="text-sm text-[var(--text-secondary)] mb-1.5 block">€ stima mensile bollette</label>
-                <input
-                  v-model.number="form.stima_bollette"
-                  type="number"
-                  min="0"
-                  placeholder="150"
-                  class="wallt-input !pl-4"
-                />
-              </div>
-            </div>
-
-            <!-- STEP 3 - Come gestisci: trasporti, spese extra, abitudini.
-                 Il riepilogo chiude questo passo invece di occuparne uno suo. -->
-            <div v-else-if="currentStep === 3" key="step3" class="step-content">
-              <h2 class="step-title">
-                <Coins :size="20" :stroke-width="1.75" />
-                Come gestisci i tuoi soldi
-              </h2>
-              <p class="text-sm text-[var(--text-secondary)] mb-6">
-                Trasporti, spese fisse e abitudini
-              </p>
-
-              <p class="text-sm font-medium text-[var(--text-secondary)] mb-1">Come ti muovi?</p>
-              <p class="text-xs text-[var(--text-muted)] mb-3">Puoi selezionare più opzioni</p>
-              <div class="flex flex-wrap gap-2 mb-6">
-                <button
-                  v-for="t in TRASPORTI"
-                  :key="t.id"
-                  @click="toggleTrasporto(t.id)"
-                  class="pill-btn"
-                  :class="{ selected: form[t.id] }"
-                >
-                  <component :is="t.icon" class="option-icon" :size="16" :stroke-width="1.75" />
-                  <span>{{ t.label }}</span>
-                </button>
-              </div>
-
-              <div v-if="richiedeBenzina" class="mb-4">
-                <label class="text-sm text-[var(--text-secondary)] mb-1.5 block">€ benzina mensile</label>
-                <input
-                  v-model.number="form.spesa_benzina"
-                  type="number"
-                  min="0"
-                  placeholder="200"
-                  class="wallt-input !pl-4"
-                />
-              </div>
-
-              <div v-if="richiedeMezzi" class="mb-4">
-                <label class="text-sm text-[var(--text-secondary)] mb-1.5 block">€ abbonamento mensile</label>
-                <input
-                  v-model.number="form.spesa_mezzi"
-                  type="number"
-                  min="0"
-                  placeholder="50"
-                  class="wallt-input !pl-4"
-                />
-              </div>
-
-              <div class="border-t border-[var(--border)] pt-4">
-                <p class="text-sm font-medium text-[var(--text-secondary)] mb-3">
-                  Altre spese fisse mensili?
-                </p>
-                <div class="flex gap-2 mb-4">
-                  <button
-                    @click="form.ha_spese_extra = true"
-                    class="pill-btn flex-1"
-                    :class="{ selected: form.ha_spese_extra }"
-                  >Sì</button>
-                  <button
-                    @click="form.ha_spese_extra = false; form.spese_fisse_extra = null"
-                    class="pill-btn flex-1"
-                    :class="{ selected: !form.ha_spese_extra }"
-                  >No</button>
-                </div>
-                <div v-if="form.ha_spese_extra">
-                  <label class="text-sm text-[var(--text-secondary)] mb-1.5 block">€ totale spese extra</label>
-                  <input
-                    v-model.number="form.spese_fisse_extra"
-                    type="number"
-                    min="0"
-                    placeholder="100"
-                    class="wallt-input !pl-4"
-                  />
-                </div>
-              </div>
-
-              <div class="step-divider" />
-
-              <p class="text-sm font-medium text-[var(--text-secondary)] mb-3">
-                {{ isMinorUser ? 'Come te la cavi con il risparmio?' : 'Le tue abitudini' }}
-              </p>
-
-              <div class="space-y-5">
-                <div>
-                  <p class="text-sm font-medium text-[var(--text-secondary)] mb-2">Risparmio</p>
-                  <div class="grid grid-cols-2 gap-2">
-                    <button
-                      v-for="opt in OPZIONI_RISPARMIO"
-                      :key="opt.id"
-                      @click="form.risparmia = opt.id"
-                      class="pill-btn text-left !justify-start"
-                      :class="{ selected: form.risparmia === opt.id }"
-                    >
-                      <component :is="opt.icon" class="option-icon" :size="16" :stroke-width="1.75" />
-                      <span>{{ opt.label }}</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div v-if="!isMinorUser">
-                  <p class="text-sm font-medium text-[var(--text-secondary)] mb-2">Investimenti</p>
-                  <div class="grid grid-cols-2 gap-2">
-                    <button
-                      v-for="opt in OPZIONI_INVESTIMENTI"
-                      :key="opt.id"
-                      @click="form.ha_investimenti = opt.id"
-                      class="pill-btn text-left !justify-start"
-                      :class="{ selected: form.ha_investimenti === opt.id }"
-                    >
-                      <component :is="opt.icon" class="option-icon" :size="16" :stroke-width="1.75" />
-                      <span>{{ opt.label }}</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div v-if="!isMinorUser">
-                  <p class="text-sm font-medium text-[var(--text-secondary)] mb-2">Scommesse</p>
-                  <div class="flex flex-wrap gap-2">
-                    <button
-                      v-for="opt in OPZIONI_SCOMMESSE"
-                      :key="opt.id"
-                      @click="form.fa_scommesse = opt.id"
-                      class="pill-btn"
-                      :class="{ selected: form.fa_scommesse === opt.id }"
-                    >
-                      <component :is="opt.icon" class="option-icon" :size="16" :stroke-width="1.75" />
-                      <span>{{ opt.label }}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Conferma: compare quando il profilo e' completo, cosi' l'ultima
-                   cosa che si vede prima di entrare e' cosa WALLT ha capito. -->
-              <Transition name="riepilogo">
-                <div v-if="canProceed" class="riepilogo-box">
-                  <p class="riepilogo-box__titolo">
-                    <CheckCircle2 :size="16" :stroke-width="1.75" />
-                    Ecco il tuo profilo
-                  </p>
-                  <div
-                    v-for="(item, i) in riepilogoItems"
-                    :key="i"
-                    class="riepilogo-box__riga"
-                  >
-                    <component :is="item.icon" class="option-icon" :size="16" :stroke-width="1.75" />
-                    <span>{{ item.text }}</span>
-                  </div>
-                </div>
-              </Transition>
-            </div>
-          </Transition>
-
-          <!-- Navigation (steps 1-5, non riepilogo) -->
-          <div class="flex items-center justify-between mt-6 pt-4 border-t border-[var(--border)]">
-            <button
-              v-if="currentStep > 1"
-              @click="prevStep"
-              class="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors px-2 py-1"
-            >
-              ← Indietro
-            </button>
-            <span v-else class="w-16" />
-
-            <button
-              @click="nextStep"
-              class="nav-btn-next"
-              :disabled="!canProceed || profiloStore.loading || saving"
-            >
-              {{ isUltimoStep ? 'Il tuo WALLT è pronto →' : 'Avanti →' }}
-            </button>
-          </div>
-        </div>
-      </div>
+  <LegacyOnboardingView v-if="legacy" />
+  <main v-else class="onboarding-shell">
+    <div v-if="!ready && !completed" class="panel" role="status">Caricamento della tua configurazione… <button v-if="error" type="button" @click="store.load().then(session => { ready = true; if (session) { const found = steps.findIndex(item => item.id === (store.resumeStep || session.current_step)); step = found < 0 ? 0 : found; ensureCategories(); } }).catch(() => {})">Riprova</button></div>
+    <div v-else-if="completed" class="panel complete">
+      <img src="/brand/wallt-app-icon-96.png" alt="" width="72" height="72">
+      <p class="eyebrow">CONFIGURAZIONE COMPLETATA</p>
+      <h1>Il tuo WALLT è pronto</h1>
+      <p>Abbiamo salvato le tue scelte. Puoi modificarle in qualsiasi momento dalle sezioni dell’app.</p>
+      <div class="summary-grid"><div v-for="(value, label) in completed.riepilogo" :key="label"><strong>{{ value }}</strong><span>{{ label.replaceAll('_', ' ') }}</span></div></div>
+      <button type="button" class="primary" @click="goHome">Vai alla tua Home</button>
     </div>
-  </div>
+    <template v-else>
+      <header class="topbar"><img src="/brand/wallt-app-icon-96.png" alt="WALLT" width="42" height="42"><div><strong>Il tuo spazio finanziario</strong><span>Circa 8–10 minuti · Puoi interrompere quando vuoi</span></div></header>
+      <div class="layout">
+        <nav class="rail" aria-label="Fasi della configurazione"><p class="eyebrow">IL TUO PERCORSO</p><button v-for="(item, index) in steps" :key="item.id" type="button" :class="['rail-item', { active: index === step, done: form.sezioni_completate.includes(item.id) }]" :aria-current="index === step ? 'step' : undefined" @click="index < step && move(index - step)"><Check v-if="form.sezioni_completate.includes(item.id)" :size="15" aria-hidden="true" /><span v-else>{{ String(index + 1).padStart(2, '0') }}</span>{{ item.title }}</button></nav>
+        <div class="main-column">
+          <div class="progress"><div class="progress-label"><span>Fase {{ step + 1 }} di {{ steps.length }}</span><span>{{ percentage }}% configurato</span></div><div class="progress-track"><div :style="{ width: `${percentage}%` }"></div></div></div>
+          <section class="panel" :aria-labelledby="'step-title'">
+            <div v-if="!store.session || store.localDraft || store.status === 'errore'" class="offline-banner" role="status"><span>{{ store.error || 'Ci sono modifiche non ancora sincronizzate.' }}</span><button type="button" :disabled="busy" @click="retrySync">{{ busy ? 'Verifica…' : 'Riprova sincronizzazione' }}</button></div>
+            <p class="eyebrow">{{ current.id === 'riepilogo' ? 'UN ULTIMO SGUARDO' : 'PARTIAMO DA TE' }}</p>
+            <h1 id="step-title">{{ current.title }}</h1><p class="subtitle">{{ current.subtitle }}</p>
+            <template v-if="current.id === 'utilizzi'">
+              <div class="choice-grid"><button v-for="[id, label] in purposes" :key="id" type="button" :class="['choice', { chosen: form.utilizzi.includes(id) }]" :aria-pressed="form.utilizzi.includes(id)" @click="togglePurpose(id)">{{ label }} <span><Check v-if="form.utilizzi.includes(id)" :size="16" aria-hidden="true" /><Plus v-else :size="16" aria-hidden="true" /></span></button></div>
+              <fieldset class="age"><legend>La tua fascia d’età <span>· necessaria per applicare le protezioni previste</span></legend><div class="age-row"><label v-for="[id, label] in ages" :key="id" :class="['age-option', { chosen: form.fascia_eta === id }]"><input v-model="form.fascia_eta" type="radio" name="fascia-eta" :value="id">{{ label }}</label></div></fieldset>
+            </template>
+            <template v-else-if="current.id === 'categorie'">
+              <div v-for="group in groups" :key="group" class="category-group"><h2>{{ group }}</h2><div class="choice-grid"><button v-for="category in defaults.filter(c => c.gruppo === group && c.tipo === 'uscita' && !c.sistema)" :key="category.id" type="button" :class="['choice', { chosen: selected.some(s => s.id === category.id && s.tipo === category.tipo) }]" :aria-pressed="selected.some(s => s.id === category.id && s.tipo === category.tipo)" @click="toggleCategory(category)"><CategoryIcon :categoria="category.id" :tipo="category.tipo" :size="18" class="choice-category-icon" />{{ category.nome }}<span><Check v-if="selected.some(s => s.id === category.id && s.tipo === category.tipo)" :size="16" aria-hidden="true" /><Plus v-else :size="16" aria-hidden="true" /></span></button></div></div>
+              <div class="custom-box"><h2>Una categoria tutta tua</h2><div class="inline-fields"><input v-model="customName" maxlength="80" placeholder="Es. Animali domestici" aria-label="Nome categoria personale"><select v-model="customType" aria-label="Tipo categoria"><option value="uscita">Spesa</option><option value="entrata">Entrata</option></select><button type="button" @click="addCustom"><Plus :size="16" aria-hidden="true" /> Aggiungi</button></div><div class="chips"><span v-for="category in custom" :key="category.id" class="chip">{{ category.nome }} <button type="button" :aria-label="`Rimuovi ${category.nome}`" @click="removeCustom(category.id)"><X :size="14" aria-hidden="true" /></button></span></div></div>
+            </template>
+            <RecurringEditor v-else-if="fields.includes(current.id)" :key="current.id" v-model="form[current.id]" :kind="current.id" :categories="categoryCatalog" :accounts="[]" />
+            <template v-else-if="current.id === 'conti'">
+              <div v-for="(account, index) in form.conti" :key="account.key" class="entry-card"><div class="entry-head"><strong>Conto {{ index + 1 }}</strong><button type="button" class="remove" @click="removeAccount(account.key)">Rimuovi</button></div><div class="fields"><label>Nome del conto<input v-model="account.nome" maxlength="100" placeholder="Es. Conto principale"></label><label>Tipo<select v-model="account.tipo"><option value="banca">Conto bancario</option><option value="app_pagamento">App di pagamento</option><option value="contanti">Contanti</option><option value="carta_credito">Carta di credito</option><option value="risparmio">Risparmio</option><option value="investimento" v-if="form.fascia_eta !== 'under_18'">Investimento</option><option value="wallet">Wallet</option></select></label><label>Saldo attuale (€)<input v-model="account.saldo" type="number" min="0" step="0.01" inputmode="decimal"></label></div></div>
+              <button type="button" class="secondary" @click="addAccount"><Plus :size="16" aria-hidden="true" /> Aggiungi un conto</button>
+              <div v-if="allRules.length" class="link-box"><h2>Collega entrate e spese ai conti</h2><p>Ogni voce programmata ha bisogno di un conto. Scegli dove ricevi o paghi normalmente.</p><div v-for="kind in fields" :key="kind"><label v-for="(item, index) in form[kind].filter(row => kind !== 'impegni' || Number(row.rata) > 0)" :key="index" class="link-row"><span>{{ item.nome }} <small>· {{ kind }}</small></span><select v-model="item.conto_key"><option value="">Scegli un conto</option><option v-for="account in form.conti" :key="account.key" :value="account.key">{{ account.nome || 'Conto senza nome' }}</option></select></label></div></div>
+            </template>
+            <ImportReview v-else-if="current.id === 'import'" :categories="categoryCatalog" :accounts="form.conti" />
+            <template v-else-if="current.id === 'obiettivi'"><div v-for="(goal, index) in form.obiettivi" :key="index" class="entry-card"><div class="entry-head"><strong>Obiettivo {{ index + 1 }}</strong><button type="button" class="remove" @click="form.obiettivi.splice(index, 1)">Rimuovi</button></div><div class="fields"><label>Nome<input v-model="goal.nome" maxlength="100" placeholder="Es. Viaggio"></label><label>Quanto vuoi raggiungere (€)<input v-model="goal.importo_target" type="number" min="0.01" step="0.01"></label><label>Già risparmiato (€)<input v-model="goal.importo_attuale" type="number" min="0" step="0.01"></label><label>Entro quando? (facoltativo)<input v-model="goal.deadline" type="date"></label></div></div><button type="button" class="secondary" @click="addGoal"><Plus :size="16" aria-hidden="true" /> Aggiungi un obiettivo</button></template>
+            <template v-else-if="current.id === 'preferenze'"><label v-for="[key, label] in preferenceOptions" :key="key" class="toggle"><span>{{ label }}</span><input v-model="form.preferenze[key]" type="checkbox"></label></template>
+            <template v-else-if="current.id === 'riepilogo'"><div class="summary-grid"><div><strong>{{ selected.length + custom.length }}</strong><span>categorie scelte</span></div><div><strong>{{ form.conti.length }}</strong><span>conti</span></div><div><strong>{{ form.entrate.length }}</strong><span>entrate regolari</span></div><div><strong>{{ form.spese.length + form.abbonamenti.length + form.impegni.length }}</strong><span>spese programmate</span></div><div><strong>{{ store.imports.reduce((n, batch) => n + (batch.confermati || 0), 0) }}</strong><span>movimenti da importare</span></div><div><strong>{{ form.obiettivi.length }}</strong><span>obiettivi</span></div></div><p class="final-note">I saldi dei conti sono quelli che hai dichiarato oggi. Le entrate e le spese programmate non saranno considerate movimenti già avvenuti.</p></template>
+            <p v-if="error || store.status === 'errore'" role="alert" class="error">{{ error || store.error }}</p>
+            <footer class="actions"><button v-if="step > 0" type="button" class="back" :disabled="busy" @click="move(-1)"><ChevronLeft :size="16" aria-hidden="true" /> Indietro</button><span v-else></span><div><span class="save-state" role="status">{{ store.status === 'salvataggio' ? 'Salvataggio…' : store.status === 'errore' ? 'Da salvare' : 'Salvato' }}</span><button v-if="current.id === 'riepilogo'" type="button" class="primary" :disabled="busy" @click="finish">{{ busy ? 'Configurazione…' : 'Configura il mio WALLT' }}</button><button v-else type="button" class="primary" :disabled="busy" @click="move(1)">{{ busy ? 'Salvataggio…' : 'Continua' }} <ChevronRight :size="16" aria-hidden="true" /></button></div></footer>
+          </section>
+        </div>
+        <aside class="preview"><p class="eyebrow">IL TUO WALLT FINORA</p><div><strong>{{ selected.length + custom.length }}</strong><span>Categorie</span></div><div><strong>{{ form.conti.length }}</strong><span>Conti</span></div><div><strong>{{ allRules.length }}</strong><span>Voci programmate</span></div><div><strong>{{ form.obiettivi.length }}</strong><span>Obiettivi</span></div><p>Ogni scelta può essere modificata più avanti.</p></aside>
+      </div>
+    </template>
+  </main>
 </template>
 
 <style scoped>
-/* Lo sfondo e' quello ambientale di tutta l'app (assets/styles/glass.css):
-   prima qui c'era un gradiente scuro fisso, che ignorava il tema chiaro, e
-   un'animazione infinita di 8 secondi sempre in esecuzione. */
-.onboarding-bg {
-  background: transparent;
-}
-
-/* Separatore fra due gruppi di domande nella stessa schermata: da quando i
-   passi sono tre, ogni schermata contiene piu' di un tema e senza una riga
-   di stacco sembrerebbero un unico elenco. */
-.step-divider {
-  height: 1px;
-  margin: 1.5rem 0;
-  background: var(--border);
-}
-
-/* Riepilogo in fondo all'ultimo passo. */
-.riepilogo-box {
-  margin-top: 1.5rem;
-  padding: 0.875rem 1rem;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.riepilogo-box__titolo {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  margin: 0 0 0.25rem;
-  font-size: var(--text-xs);
-  font-weight: 700;
-  color: var(--text-secondary);
-}
-
-.riepilogo-box__titolo svg { stroke: var(--accent-green); flex-shrink: 0; }
-
-.riepilogo-box__riga {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: var(--text-primary);
-}
-
-.riepilogo-enter-active,
-.riepilogo-leave-active {
-  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
-}
-
-.riepilogo-enter-from,
-.riepilogo-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .riepilogo-enter-active,
-  .riepilogo-leave-active { transition: none; }
-}
-
-.progress-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-pill);
-  background: var(--border-strong);
-  transition:
-    width var(--dur-slow) var(--ease-out),
-    background var(--dur-base) var(--ease-out);
-}
-
-.progress-dot.active {
-  background: var(--accent-green);
-}
-
-.progress-dot.current {
-  width: 24px;
-}
-
-/* Pastiglia di scelta: vetro interattivo, piena quando e' selezionata. */
-.pill-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.375rem;
-  min-height: 40px;
-  padding: 0.625rem 1rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--glass-interactive-border);
-  background: var(--glass-interactive-bg);
-  box-shadow: var(--glass-highlight);
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
-  font-weight: 550;
-  cursor: pointer;
-  transition:
-    background var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out);
-}
-
-@media (hover: hover) {
-  .pill-btn:hover:not(.selected) {
-    background: var(--glass-interactive-bg-hover);
-    border-color: color-mix(in srgb, var(--accent-green) 40%, transparent);
-    color: var(--text-primary);
-  }
-}
-
-.pill-btn:active { transform: scale(0.97); }
-.pill-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-
-.pill-btn.selected {
-  background: var(--accent-green);
-  color: var(--accent-on);
-  border-color: transparent;
-  font-weight: 600;
-  box-shadow: var(--shadow-xs), inset 0 1px 0 rgba(255, 255, 255, 0.22);
-}
-
-.step-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1.375rem;
-  font-weight: 700;
-  letter-spacing: var(--tracking-title);
-  color: var(--text-primary);
-  margin-bottom: 0.375rem;
-}
-
-.step-title svg, .option-icon {
-  stroke: currentColor;
-  flex-shrink: 0;
-  color: var(--accent-text);
-}
-
-.pill-btn.selected .option-icon {
-  color: var(--accent-on);
-}
-
-/* Riga di scelta a tutta larghezza: stessa grammatica della pastiglia, in
-   formato lista. */
-.option-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  width: 100%;
-  min-height: 52px;
-  padding: 0.875rem 1rem;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--glass-interactive-border);
-  background: var(--glass-interactive-bg);
-  box-shadow: var(--glass-highlight);
-  color: var(--text-secondary);
-  font-size: 0.9375rem;
-  cursor: pointer;
-  text-align: left;
-  transition:
-    background var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out);
-}
-
-@media (hover: hover) {
-  .option-btn:hover:not(.selected) {
-    background: var(--glass-interactive-bg-hover);
-    border-color: color-mix(in srgb, var(--accent-green) 35%, transparent);
-    color: var(--text-primary);
-  }
-}
-
-.option-btn:active { transform: scale(0.99); }
-.option-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-
-.option-btn.selected {
-  background: var(--accent-light);
-  border-color: color-mix(in srgb, var(--accent-green) 55%, transparent);
-  color: var(--text-primary);
-  font-weight: 550;
-}
-
-.nav-btn-next {
-  min-height: 44px;
-  padding: 0.625rem 1.5rem;
-  border-radius: var(--radius-md);
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--accent-green) 92%, white),
-    var(--accent-green));
-  color: var(--accent-on);
-  font-size: 0.875rem;
-  font-weight: 600;
-  letter-spacing: var(--tracking-tight);
-  border: none;
-  cursor: pointer;
-  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  transition:
-    box-shadow var(--dur-base) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out),
-    filter var(--dur-fast) var(--ease-out);
-}
-
-@media (hover: hover) {
-  .nav-btn-next:hover:not(:disabled) {
-    box-shadow: var(--shadow-glow), inset 0 1px 0 rgba(255, 255, 255, 0.28);
-    transform: translateY(-1px);
-    filter: brightness(1.04);
-  }
-}
-
-.nav-btn-next:active:not(:disabled) { transform: scale(0.985); }
-.nav-btn-next:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-
-.nav-btn-next:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* .wallt-btn-secondary: aspetto condiviso in assets/styles/documents.css */
-
-.wallt-btn-ghost {
-  min-height: 44px;
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius-md);
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
-}
-
-@media (hover: hover) {
-  .wallt-btn-ghost:hover:not(:disabled) {
-    color: var(--text-primary);
-    background: var(--surface-hover);
-  }
-}
-
-.step-container {
-  min-height: 380px;
-}
-
-.slide-forward-enter-active,
-.slide-forward-leave-active,
-.slide-back-enter-active,
-.slide-back-leave-active {
-  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
-}
-
-.slide-forward-enter-from {
-  opacity: 0;
-  transform: translateX(24px);
-}
-
-.slide-forward-leave-to {
-  opacity: 0;
-  transform: translateX(-24px);
-}
-
-.slide-back-enter-from {
-  opacity: 0;
-  transform: translateX(-24px);
-}
-
-.slide-back-leave-to {
-  opacity: 0;
-  transform: translateX(24px);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .slide-forward-enter-from,
-  .slide-forward-leave-to,
-  .slide-back-enter-from,
-  .slide-back-leave-to { transform: none; }
-}
+.offline-banner{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.8rem 1rem;border:1px solid var(--warning);border-radius:.8rem;color:var(--text-secondary);margin-bottom:1rem;font-size:var(--text-xs)}.offline-banner button{color:var(--accent-text);font-weight:700;white-space:nowrap}
+.choice-category-icon{color:var(--accent-text)}.secondary,.back,.primary,.inline-fields button{display:inline-flex;align-items:center;justify-content:center;gap:.45rem}.rail-item.done{color:var(--accent-text)}
 </style>

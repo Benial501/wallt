@@ -135,8 +135,8 @@ const normalizeContoHint = (value) => normalizeDescription(value).toLowerCase();
  * - risolve conto_id tramite auto-match su `contoHint` contro conti dell'utente
  */
 class TransactionNormalizer {
-  async normalize({ userId, rawTransactions }) {
-    const conti = await Conto.findAll({
+  async normalize({ userId, rawTransactions, accounts }) {
+    const conti = accounts ?? await Conto.findAll({
       where: { user_id: userId, attivo: true },
       attributes: ['id', 'nome'],
       order: [['ordine', 'ASC'], ['id', 'ASC']],
@@ -234,4 +234,3 @@ module.exports = TransactionNormalizer;
 // dell'estratto conto viene importata o scartata.
 module.exports.parseDateFlexible = parseDateFlexible;
 module.exports.parseMoneySigned = parseMoneySigned;
-

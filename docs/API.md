@@ -4,6 +4,27 @@
 > Base URL: `/api` (prefisso comune a tutte le route).
 > Auth: Bearer JWT in header `Authorization` salvo dove indicato.
 
+## Configurazione guidata dei nuovi account
+
+Tutte le rotte `/api/onboarding/*` richiedono il JWT. Sono disponibili solo
+per gli account con una sessione di configurazione versione 2. I profili
+precedenti continuano a usare il questionario storico.
+
+| Rotta | Uso |
+|---|---|
+| `GET /api/onboarding` | Legge fase, risposte, revisione e stato della sessione. |
+| `PUT /api/onboarding` | Salva `{ current_step, revision, answers }`; `409` se la revisione è superata o la sessione è completata. |
+| `GET /api/onboarding/imports` | Elenca le anteprime associate alla sessione. |
+| `POST /api/onboarding/imports` | Riceve `multipart/form-data` con `file` CSV/XLS/XLSX e `account_key`; restituisce righe e suggerimenti. |
+| `PUT /api/onboarding/imports/:id` | Riceve `{ rows: [{ clientTxId, includi, categoria_finale, descrizione? }] }` e prepara le righe approvate. |
+| `POST /api/onboarding/finalize` | Valida la bozza e crea tutti i dati in una transazione; chiamate ripetute restituiscono lo stesso riepilogo. |
+
+L’identità viene sempre dal token. Conti e categorie nelle importazioni sono
+verificati contro la bozza dello stesso utente. I file non sono conservati;
+l’anteprima normalizzata resta fino alla finalizzazione. L’import non modifica
+il saldo attuale indicato per il conto. Il limite è 5 estratti e 500 righe
+per estratto durante la configurazione.
+
 ## Rate Limiting globale
 
 | Limiter | Scope | Limite |

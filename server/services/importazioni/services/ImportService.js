@@ -32,7 +32,7 @@ class ImportService {
     });
   }
 
-  async previewImport({ userId, buffer, fileName }) {
+  async previewImport({ userId, buffer, fileName, options = {} }) {
     const fileFormat = this.fileFormatDetector.detect({ fileName, buffer });
     if (!['csv', 'excel'].includes(fileFormat)) {
       throw Object.assign(
@@ -74,7 +74,7 @@ class ImportService {
       throw Object.assign(new Error('Nessuna transazione trovata nel file'), { statusCode: 400 });
     }
 
-    return this.oldImportService.previewImport(userId, rawTransactions);
+    return this.oldImportService.previewImport(userId, rawTransactions, options);
   }
 
   async confirmImport({ userId, transactionsToImport, aggiornaSaldo = false }) {
@@ -83,4 +83,3 @@ class ImportService {
 }
 
 module.exports = ImportService;
-

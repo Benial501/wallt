@@ -1,5 +1,23 @@
 # WALLT — Security Audit
 
+## Configurazione guidata iniziale (ottobre 2026)
+
+Le nuove API di onboarding richiedono JWT. Ogni lettura e scrittura delle
+bozze e delle anteprime è vincolata al `user_id` del token; un ID di import di
+un altro utente restituisce 404. Il salvataggio usa una revisione per evitare
+che due schede del browser sovrascrivano silenziosamente le risposte. La
+finalizzazione blocca la sessione e scrive tutti i dati in transazione,
+così un errore non lascia conti o movimenti parziali. Le due nuove tabelle
+PostgreSQL hanno RLS attiva e privilegi diretti revocati ai ruoli client.
+
+Gli estratti vengono letti in memoria con i limiti e il controllo del tipo
+già presenti nell’importazione. Non si conserva il file originale; le righe
+normalizzate in staging vengono eliminate alla finalizzazione. Le categorie
+corrette dall’utente possono alimentare le regole personali esistenti. I
+vecchi endpoint di completamento profilo rifiutano una sessione guidata
+ancora aperta. La suite verifica isolamento tra utenti, rollback, revisione
+obsoleta, idempotenza e finalizzazioni concorrenti.
+
 > Audit di sicurezza basato sul codice del repository (agosto 2026).
 > Ultimo aggiornamento: FINAL PRODUCTION HARDENING — verifica dello stato reale del codice (non dei report precedenti, che contenevano descrizioni contraddittorie sullo step-up Google), test automatici cross-user (USER_A/USER_B), test di coerenza finanziaria e race condition, ricostruzione dello step-up Google reale, CSP, validazione config produzione, CI/CD.
 > Nessun penetration test eseguito contro infrastruttura reale. Nessun valore di secret riportato.

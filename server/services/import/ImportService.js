@@ -43,10 +43,11 @@ class ImportService {
     this.excelParser = new ExcelParserService();
   }
 
-  async previewImport(userId, rawTransactions) {
+  async previewImport(userId, rawTransactions, options = {}) {
     const { normalizedTransactions, warnings } = await this.transactionNormalizer.normalize({
       userId,
       rawTransactions,
+      accounts: options.accounts,
     });
 
     const merchantResults = this.merchantAnalyzer
@@ -60,6 +61,7 @@ class ImportService {
     const matchResults = await this.categoryMatcher.matchBatch({
       userId,
       transactions: toClassify,
+      availableCategories: options.availableCategories,
     });
     const matchMap = new Map(matchResults.map((m) => [m.clientTxId, m]));
 
@@ -312,4 +314,3 @@ class ImportService {
 }
 
 module.exports = ImportService;
-

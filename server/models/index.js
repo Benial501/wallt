@@ -41,10 +41,16 @@ const BankConnection = require('./BankConnection');
 const AuditLog = require('./AuditLog');
 const AppConfig = require('./AppConfig');
 const PremiumAccessRequest = require('./PremiumAccessRequest');
+const OnboardingSession = require('./OnboardingSession');
+const OnboardingImport = require('./OnboardingImport');
 
 // User associations
 User.hasOne(ProfiloUtente, { foreignKey: 'user_id', as: 'profilo' });
 ProfiloUtente.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+User.hasOne(OnboardingSession, { foreignKey: 'user_id', as: 'onboardingSession', onDelete: 'CASCADE' });
+OnboardingSession.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+OnboardingSession.hasMany(OnboardingImport, { foreignKey: 'session_id', as: 'imports', onDelete: 'CASCADE' });
+OnboardingImport.belongsTo(OnboardingSession, { foreignKey: 'session_id', as: 'session' });
 
 User.hasMany(Conto, { foreignKey: 'user_id', as: 'conti' });
 Conto.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
@@ -207,4 +213,6 @@ module.exports = {
   AuditLog,
   AppConfig,
   PremiumAccessRequest,
+  OnboardingSession,
+  OnboardingImport,
 };

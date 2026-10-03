@@ -101,7 +101,7 @@ const resolveGoogleUser = async (profile, { useAiCategorization = false } = {}) 
     await user.update(updates);
   }
 
-  await repairUserProfilo(user.id);
+  await repairUserProfilo(user.id, { isNewAccount: created });
 
   const completeUser = await User.findByPk(user.id, {
     include: [{ model: ProfiloUtente, as: 'profilo' }],
