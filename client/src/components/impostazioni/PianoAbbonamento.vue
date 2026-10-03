@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import dayjs from 'dayjs';
 import 'dayjs/locale/it';
 import WCard from '@/components/common/WCard.vue';
@@ -8,15 +8,12 @@ import AppDialog from '@/components/common/AppDialog.vue';
 import DataState from '@/components/common/DataState.vue';
 import PremiumModal from '@/components/premium/PremiumModal.vue';
 import RichiestaPremium from '@/components/premium/RichiestaPremium.vue';
-import api from '@/utils/axios';
 import {
   Sparkles, ChevronDown, ChevronRight, CheckCircle2, AlertTriangle, Trash2,
 } from '@/utils/appIcons';
 import { usePianoStore } from '@/stores/piano.store';
 import { useBankSyncStore } from '@/stores/bankSync.store';
-import { useAuthStore } from '@/stores/auth.store';
 import { useToastStore } from '@/stores/toast.store';
-import { useGoogleStepUp } from '@/composables/useGoogleStepUp';
 
 dayjs.locale('it');
 
@@ -53,18 +50,12 @@ const aperto = ref(true);
 
 const pianoStore = usePianoStore();
 const bankSyncStore = useBankSyncStore();
-const authStore = useAuthStore();
 const toastStore = useToastStore();
-const { renderGoogleStepUpButton, error: googleError } = useGoogleStepUp();
 
 const showPremium = ref(false);
 const showElimina = ref(false);
 const confermaTesto = ref('');
-const stepUpPassword = ref('');
 const eliminando = ref(false);
-const contenitoreGoogle = ref(null);
-
-const isOAuth = computed(() => authStore.user?.auth_provider === 'google' );
 
 onMounted(() => {
   if (!pianoStore.risorsa.lastUpdated) pianoStore.fetchPiano();
@@ -83,20 +74,14 @@ const haDatiImportati = computed(() => {
 
 const apriElimina = () => {
   confermaTesto.value = '';
-  stepUpPassword.value = '';
   showElimina.value = true;
-  if (isOAuth.value) {
-    // Il pulsante Google va reso dopo che il dialog è nel DOM.
-    nextTick(() => {
-      renderGoogleStepUpButton(contenitoreGoogle.value).then(esegui).catch(() => {});
-    });
-  }
 };
 
-const esegui = async (stepUpToken) => {
+const confermaEliminazione = async () => {
+  if (confermaTesto.value !== 'ELIMINA') return;
   eliminando.value = true;
   try {
-    const esito = await bankSyncStore.eliminaDatiImportati(stepUpToken);
+    const esito = await bankSyncStore.eliminaDatiImportati(confermaTesto.value);
     toastStore.success(esito.message || 'Movimenti importati eliminati.');
     showElimina.value = false;
   } catch (err) {
@@ -105,21 +90,6 @@ const esegui = async (stepUpToken) => {
     );
   } finally {
     eliminando.value = false;
-  }
-};
-
-/** Ramo con password locale: la riverifica è una `bcrypt.compare` reale lato
- * server, non la parola digitata. La conferma testuale dichiara
- * l'intenzione, non autorizza. */
-const confermaConPassword = async () => {
-  if (!stepUpPassword.value || confermaTesto.value !== 'ELIMINA') return;
-  try {
-    const { data } = await api.post('/auth/verify-password', { password: stepUpPassword.value });
-    await esegui(data.step_up_token);
-  } catch (err) {
-    toastStore.error(err?.response?.data?.message || 'Password non corretta');
-  } finally {
-    stepUpPassword.value = '';
   }
 };
 </script>
@@ -249,35 +219,15 @@ const confermaConPassword = async () => {
           />
         </div>
 
-        <template v-if="isOAuth">
-          <p class="hint hint--inline">
-            Conferma la tua identità con Google per completare l'operazione.
-          </p>
-          <div ref="contenitoreGoogle" class="piano__google" />
-          <p v-if="googleError" class="piano__errore">{{ googleError }}</p>
-        </template>
-
-        <template v-else>
-          <div class="field">
-            <label for="piano-password">La tua password</label>
-            <input
-              id="piano-password"
-              v-model="stepUpPassword"
-              type="password"
-              class="form-input"
-              autocomplete="current-password"
-            />
-          </div>
-          <WButton
-            variant="danger"
-            size="lg"
-            :loading="eliminando"
-            :disabled="confermaTesto !== 'ELIMINA' || !stepUpPassword"
-            @click="confermaConPassword"
-          >
-            Elimina definitivamente
-          </WButton>
-        </template>
+        <WButton
+          variant="danger"
+          size="lg"
+          :loading="eliminando"
+          :disabled="confermaTesto !== 'ELIMINA'"
+          @click="confermaEliminazione"
+        >
+          Elimina definitivamente
+        </WButton>
       </div>
     </AppDialog>
   </WCard>

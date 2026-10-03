@@ -190,12 +190,11 @@ export const useBankSyncStore = defineStore('bankSync', () => {
   };
 
   /**
-   * Cancella i movimenti importati. Azione separata e distruttiva: richiede
-   * lo step-up token, come reset ed eliminazione account.
+   * Cancella i movimenti importati dopo la conferma esplicita dell'utente.
    */
-  const eliminaDatiImportati = async (stepUpToken) => {
+  const eliminaDatiImportati = async (confirm) => {
     const { data } = await api.delete('/bank-sync/dati-importati', {
-      headers: { 'X-Step-Up-Token': stepUpToken },
+      data: { confirm },
     });
     const { useContiStore } = await import('./conti.store');
     const { useMovimentiStore } = await import('./movimenti.store');

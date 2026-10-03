@@ -453,3 +453,22 @@ Framework HTTP backend.
 
 ### Should it be changed?
 **NO** — Già in uso e funzionante. Downgrade a Express 4 non porterebbe benefici.
+
+---
+
+## Decisione: cancellare i movimenti bancari senza riverifica d'identità
+
+### Contesto
+L'utente ha chiesto di rimuovere la verifica Google/password dalla cancellazione dei movimenti aggiunti tramite sincronizzazione bancaria, perché la verifica Google impediva di completare l'operazione.
+
+### Implementazione attuale
+- `DELETE /api/bank-sync/dati-importati` richiede una sessione JWT valida, il rate limit e `confirm: 'ELIMINA'`.
+- Il servizio elimina solo i movimenti con `origine = 'open_banking'` appartenenti all'utente autenticato; i movimenti manuali restano.
+- La cancellazione ricalcola i saldi dei conti collegati dai movimenti rimasti.
+- Reset, export ed eliminazione dell'account mantengono le rispettive riverifiche.
+
+### Conseguenza
+Una sessione JWT compromessa può cancellare i movimenti bancari importati dell'utente senza una seconda prova d'identità. La conferma testuale riduce gli errori accidentali, ma non è una misura di autenticazione.
+
+### Decisione
+**SÌ** — Scelta limitata alla cancellazione dei movimenti importati, su richiesta esplicita dell'utente. Manteniamo autenticazione della sessione, controllo di proprietà, rate limit e conferma esplicita.

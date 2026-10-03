@@ -486,14 +486,15 @@ describe('cancellazione dei dati importati', () => {
     await request(app).post('/api/bank-sync/sync').set(utente.headers).expect(200);
   });
 
-  it('richiede la riverifica d\'identità, come reset ed eliminazione account', async () => {
+  it('rifiuta la cancellazione senza la conferma esplicita, senza chiedere una riverifica', async () => {
     const res = await request(app).delete('/api/bank-sync/dati-importati')
-      .set(utente.headers);
-    expect(res.status).toBe(403);
+      .set(utente.headers)
+      .send({});
+    expect(res.status).toBe(400);
     expect(await Movimento.count({ where: { user_id: utente.userId } })).toBe(3);
   });
 
-  it('con lo step-up cancella SOLO le righe importate e ricalcola il saldo', async () => {
+  it('con la conferma cancella SOLO le righe importate senza step-up e ricalcola il saldo', async () => {
     const connessione = await BankConnection.findOne({ where: { user_id: utente.userId } });
 
     // Un movimento inserito a mano sullo stesso conto: non è un dato
@@ -510,12 +511,9 @@ describe('cancellazione dei dati importati', () => {
       origine: ORIGINE_MANUALE,
     });
 
-    const { getStepUpToken } = require('./setup');
-    const stepUp = await getStepUpToken(app, utente.token, utente.password);
-
     const res = await request(app).delete('/api/bank-sync/dati-importati')
       .set(utente.headers)
-      .set('X-Step-Up-Token', stepUp)
+      .send({ confirm: 'ELIMINA' })
       .expect(200);
 
     expect(res.body.movimenti_eliminati).toBe(3);

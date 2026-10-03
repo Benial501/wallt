@@ -2,11 +2,11 @@ const express = require('express');
 const bankSync = require('../controllers/bankSync.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 const { requireFeature } = require('../middleware/entitlement.middleware');
-const { requireStepUp } = require('../middleware/stepUp.middleware');
 const { FEATURE_BANK_SYNC } = require('../constants/entitlements');
 const {
   validateBankConnect,
   validateBankCallback,
+  validateDeleteBankImportedData,
   validateRiconciliazione,
   validateIstitutiQuery,
 } = require('../middleware/validation.middleware');
@@ -73,14 +73,14 @@ router.post('/sync', authMiddleware, bankSyncLimiter, feature, bankSync.sync);
 // lo lascerebbe con un consenso attivo che non può revocare.
 router.post('/disconnect', authMiddleware, bankSync.disconnect);
 
-// Distruttiva e irreversibile: riverifica d'identità come reset ed
-// eliminazione account (docs/SECURITY.md). Nemmeno questa richiede
-// l'entitlement, per lo stesso motivo del disconnect.
+// Cancella esclusivamente i movimenti importati dell'utente autenticato.
+// La conferma esplicita sostituisce lo step-up; il limite richieste resta
+// attivo per contenere cancellazioni ripetute.
 router.delete(
   '/dati-importati',
   authMiddleware,
   bankDangerLimiter,
-  requireStepUp,
+  validateDeleteBankImportedData,
   bankSync.eliminaDatiImportati,
 );
 

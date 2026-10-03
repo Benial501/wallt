@@ -269,9 +269,9 @@ const disconnect = async (req, res) => {
 /**
  * `DELETE /api/bank-sync/dati-importati` — cancella i movimenti importati.
  *
- * Azione distruttiva e separata dallo scollegamento, dietro riverifica
- * d'identità (`requireStepUp`, come reset e cancellazione account). Non si
- * attiva per sbaglio e non è un effetto collaterale di nient'altro.
+ * Azione distruttiva e separata dallo scollegamento. L'utente autenticato
+ * conferma esplicitamente con `ELIMINA`; il servizio limita la cancellazione
+ * ai movimenti Open Banking appartenenti al suo user_id.
  */
 const eliminaDatiImportati = async (req, res) => {
   try {

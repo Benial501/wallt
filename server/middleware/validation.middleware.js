@@ -1613,6 +1613,16 @@ const validateBankConnect = [
   validate,
 ];
 
+const validateDeleteBankImportedData = [
+  body('confirm')
+    .isString()
+    .withMessage('Per confermare, digita ELIMINA')
+    .bail()
+    .equals('ELIMINA')
+    .withMessage('Per confermare, digita ELIMINA'),
+  validate,
+];
+
 const validateBankCallback = [
   // Lo `state` è un valore casuale di 32 byte in base64url generato dal
   // server. Non viene mai usato come identificatore: viene reso hash e
@@ -1842,6 +1852,7 @@ module.exports = {
   validateScheduledPaymentId,
   validateCreateScheduledPaymentContribution,
   validateBankConnect,
+  validateDeleteBankImportedData,
   validateBankCallback,
   validateRiconciliazione,
   validateIstitutiQuery,

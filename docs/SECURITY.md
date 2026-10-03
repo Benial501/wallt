@@ -24,7 +24,7 @@ obsoleta, idempotenza e finalizzazioni concorrenti.
 
 ## Riepilogo
 
-WALLT ha una **baseline di sicurezza matura**: JWT con invalidazione su cambio password, bcrypt, express-validator, rate limiting (incluso fix IPv6), Helmet, CSP (meta tag SPA + Helmet API), CORS configurabile, magic-byte validation su upload, **step-up auth reale per tutti gli account** — bcrypt per chi ha una password locale, ID token di Google Identity Services per gli account Google (dal 30 settembre 2026: vedi Step-up authentication e Operazioni sensibili), scoping `user_id` verificato empiricamente con test automatici cross-user su conti, movimenti, trasferimenti, import, budget, obiettivi, investimenti, scommesse, profilo e step-up (nessun IDOR sfruttabile trovato), e coerenza finanziaria (saldo/movimenti/trasferimenti/race condition) verificata con test dedicati.
+WALLT ha una **baseline di sicurezza matura**: JWT con invalidazione su cambio password, bcrypt, express-validator, rate limiting (incluso fix IPv6), Helmet, CSP (meta tag SPA + Helmet API), CORS configurabile, magic-byte validation su upload, step-up auth reale per reset, export ed eliminazione account, scoping `user_id` verificato empiricamente con test automatici cross-user su conti, movimenti, trasferimenti, import, budget, obiettivi, investimenti, scommesse, profilo e step-up (nessun IDOR sfruttabile trovato), e coerenza finanziaria (saldo/movimenti/trasferimenti/race condition) verificata con test dedicati. La cancellazione dei soli movimenti Open Banking usa invece sessione JWT, conferma esplicita e rate limit, per scelta di prodotto.
 
 **Vulnerabilità critiche trovate e corrette in questo audit**:
 1. **Google OAuth account pre-hijacking**: un login Google si collegava automaticamente a un account locale pre-esistente con la stessa email, senza prova di proprietà. Un attaccante poteva pre-registrare l'email di una vittima e ottenere accesso permanente ai suoi dati. **Corretto** — vedi `services/googleAuth.service.js`.
@@ -73,7 +73,9 @@ WALLT ha una **baseline di sicurezza matura**: JWT con invalidazione su cambio p
 >
 > **Prerequisito operativo**: il flusso Google funziona solo con `VITE_GOOGLE_CLIENT_ID` impostata nel progetto Vercel del client e con l'origine JavaScript del dominio registrata nel client OAuth di Google Cloud. È la condizione la cui assenza aveva reso lo step-up Google inutilizzabile fra l'iterazione 4 e oggi. Pubblicare il codice senza quella configurazione non riapre il buco, ma impedisce agli account Google di esportare, resettare ed eliminare.
 
-Protegge le operazioni finanziarie distruttive con una riverifica recente dell'identità prima di agire, distinta dal semplice possesso di un JWT. Lo `step_up_token` (JWT, `type: step_up`, **5 minuti**, verificato via header `X-Step-Up-Token`, legato a `userId`) resta invariato nel formato.
+La cancellazione dei movimenti importati dalla banca (`DELETE /api/bank-sync/dati-importati`) è esclusa dallo step-up su richiesta esplicita dell'utente. Richiede una sessione JWT valida, il testo di conferma `ELIMINA` e il rate limit; il servizio filtra sempre per `user_id` e `origine = 'open_banking'`, conserva i movimenti manuali e ricalcola il saldo dai movimenti rimasti. La conferma dichiara l'intenzione ma non prova l'identità: una sessione JWT compromessa può cancellare i soli movimenti importati di quell'utente. Reset, export ed eliminazione dell'account mantengono le proprie verifiche d'identità.
+
+Per reset, export ed eliminazione dell'account, lo step-up richiede una riverifica recente dell'identità oltre al JWT. Lo `step_up_token` (JWT, `type: step_up`, **5 minuti**, verificato via header `X-Step-Up-Token`, legato a `userId`) resta invariato nel formato.
 
 **Utenti locali** — `POST /api/auth/verify-password`:
 - `bcrypt.compare(password, user.password)` contro l'hash reale in DB.
@@ -340,6 +342,7 @@ Ignora: `.env`, `**/.env`, `.env.local`, `.env.production`, `.env.development`, 
 | Delete account | **Locali**: JWT + step-up bcrypt + rate limit + password. **Google**: JWT + conferma `ELIMINA` + rate limit | ⚠️ Account Google: nessuna riverifica di identità (iterazione 4) |
 | Export dati | **Locali**: JWT + step-up bcrypt + rate limit. **Google**: JWT + rate limit | ⚠️ Account Google: nessuna riverifica di identità, e nessuna conferma testuale |
 | Reset account (unico endpoint, elimina movimenti e azzera saldi) | **Locali**: JWT + step-up bcrypt + password. **Google**: JWT + conferma `RESETTA` | ⚠️ Account Google: nessuna riverifica di identità. Inoltre nessun rate limit dedicato sull'endpoint stesso |
+| Elimina movimenti importati dalla banca | JWT + ownership `user_id` + rate limit + conferma `ELIMINA`; solo `origine = 'open_banking'` | Una sessione valida può cancellare i movimenti importati del titolare senza riverifica |
 | Cambio password | JWT + password attuale | Invalida JWT precedenti |
 | Trasferimento | JWT + validazione + ownership + row-level locking (verificato con test di race condition) | No step-up (per design — non distruttivo, reversibile con un altro trasferimento) |
 | Import | JWT + rate limit + file validation + ownership per-conto | No step-up (per design) |

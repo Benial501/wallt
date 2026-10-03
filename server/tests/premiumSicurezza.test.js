@@ -238,26 +238,20 @@ describe('leggere i dati di un altro utente', () => {
   });
 
   it('l\'attaccante non può cancellare i dati importati della vittima', async () => {
-    const { getStepUpToken } = require('./setup');
-    const stepUp = await getStepUpToken(app, attaccante.token, attaccante.password);
-
     await request(app).delete('/api/bank-sync/dati-importati')
       .set(attaccante.headers)
-      .set('X-Step-Up-Token', stepUp)
+      .send({ confirm: 'ELIMINA' })
       .expect(200);
 
     // L'operazione riesce, ma agisce SOLO sui dati di chi la richiede.
     expect(await Movimento.count({ where: { user_id: vittima.userId } })).toBe(3);
   });
 
-  it('uno step-up token di un altro utente non autorizza l\'operazione', async () => {
-    const { getStepUpToken } = require('./setup');
-    const stepUpVittima = await getStepUpToken(app, vittima.token, vittima.password);
-
+  it('rifiuta una conferma errata senza modificare i movimenti della vittima', async () => {
     await request(app).delete('/api/bank-sync/dati-importati')
       .set(attaccante.headers)
-      .set('X-Step-Up-Token', stepUpVittima)
-      .expect(403);
+      .send({ confirm: 'DELETE' })
+      .expect(400);
 
     expect(await Movimento.count({ where: { user_id: vittima.userId } })).toBe(3);
   });
