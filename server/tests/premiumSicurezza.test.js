@@ -340,25 +340,42 @@ describe('manipolare il callback', () => {
       .set(utente.headers).send({ institution_id: 'SANDBOX_BANCA_IT' }).expect(201);
     const state = estraiState(connect.body.url_autorizzazione);
 
-    await Promise.all([
+    const esiti = await Promise.all([
       request(app).post('/api/bank-sync/callback').set(utente.headers).send({ state }),
       request(app).post('/api/bank-sync/callback').set(utente.headers).send({ state }),
       request(app).post('/api/bank-sync/callback').set(utente.headers).send({ state }),
     ]);
 
-    // L'invariante che questo test protegge è «tre callback concorrenti
-    // producono UNA sola connessione», e resta intero. Cambia solo come si
-    // conta: dopo il callback lo stato non è più `attiva` ma
-    // `da_riconciliare` (il conto si scegliere nella riconciliazione), quindi
-    // il conteggio va fatto per `user_id`. È una verifica più forte di
-    // quella precedente, non più debole: non ammette nemmeno righe in
-    // ALTRI stati, che un `status: attiva` lasciava passare.
+    // L'invariante è l'ATOMICITÀ del consumo dello `state`: dei tre callback
+    // uno solo deve completare l'autorizzazione, gli altri due devono
+    // riconoscersi come ripetuti o rifiutati.
+    //
+    // Contare le righe di `bank_connections` NON lo verifica, e il conteggio
+    // che stava qui prima era vacuo: la riga la crea `/connect`, il callback
+    // la AGGIORNA. Di righe ce n'è una per costruzione, qualunque cosa faccia
+    // il consumo dello stato — e con il conto non più creato dal callback
+    // nemmeno `Conto.count` discrimina più. Serve distinguere il VINCITORE
+    // dai ripetuti, ed è ciò che fanno le due asserzioni qui sotto.
+    //
+    // 201 = ha completato l'autorizzazione (`ripetuto: false`);
+    // 200 = ripetuto idempotente; 400 = state già consumato.
+    expect(esiti.filter((r) => r.status === 201)).toHaveLength(1);
+    expect(esiti.filter((r) => r.status !== 201)).toHaveLength(2);
+
+    // Lo stesso fatto visto dal registro: l'autorizzazione è stata completata
+    // UNA volta sola. Se `completaConnessione` perdesse l'UPDATE condizionale
+    // su `state_used_at`, tutti e tre i passaggi proseguirebbero e qui ci
+    // sarebbero tre eventi.
+    expect(await AuditLog.count({
+      where: { user_id: utente.userId, evento: 'bank_connection_created' },
+    })).toBe(1);
+
+    // E lo stato finale resta coerente: una connessione, da riconciliare,
+    // nessun conto — il callback non decide dove vanno i movimenti.
     expect(await BankConnection.count({ where: { user_id: utente.userId } })).toBe(1);
     expect(await BankConnection.count({
       where: { user_id: utente.userId, status: STATO_DA_RICONCILIARE },
     })).toBe(1);
-    // E nessun conto è stato creato tre volte — né una: il callback non
-    // decide più dove vanno i movimenti.
     expect(await Conto.count({ where: { user_id: utente.userId } })).toBe(0);
   });
 

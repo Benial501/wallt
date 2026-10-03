@@ -6,7 +6,7 @@
 
 const request = require('supertest');
 const { createApp } = require('../app');
-const { Conto, BankConnection, Movimento } = require('../models');
+const { Conto, BankConnection, Movimento, AuditLog } = require('../models');
 const {
   azzeraConfigurazione, abilitaSandbox, creaUtente, concediEntitlement,
   collegaBanca,
@@ -347,6 +347,53 @@ describe('POST /bank-sync/riconciliazione', () => {
     const connessione = await BankConnection.findOne({ where: { user_id: utente.userId } });
     const conto = await Conto.findOne({ where: { user_id: utente.userId } });
     expect(connessione.conto_id).toBe(conto.id);
+  });
+
+  it('registra in audit a quale conto è stata legata la banca', async () => {
+    const mio = await Conto.create({
+      user_id: utente.userId, nome: 'REVOLUT', tipo: 'app_pagamento', saldo: 42, attivo: true,
+    });
+    await collegaBanca(app, utente.headers, { riconcilia: false });
+
+    await riconcilia(utente.headers, {
+      provider_account_id: await primoContoBanca(utente.headers),
+      destinazione: mio.id,
+    });
+
+    // `bank_connection_created` racconta che l'autorizzazione esiste; questo
+    // racconta la decisione che tocca i dati dell'utente. Sono due fatti
+    // distinti e devono restare due righe distinte.
+    const righe = await AuditLog.findAll({
+      where: { user_id: utente.userId, evento: 'bank_connection_linked' },
+    });
+    expect(righe).toHaveLength(1);
+    expect(righe[0].metadata.conto_id).toBe(mio.id);
+    expect(righe[0].metadata.conto_creato).toBe(false);
+    expect(await AuditLog.count({
+      where: { user_id: utente.userId, evento: 'bank_connection_created' },
+    })).toBe(1);
+  });
+
+  it('l\'audit dell\'associazione non contiene saldi né IBAN', async () => {
+    await collegaBanca(app, utente.headers, { riconcilia: false });
+
+    await riconcilia(utente.headers, {
+      provider_account_id: await primoContoBanca(utente.headers),
+      destinazione: 'nuovo',
+    });
+
+    const riga = await AuditLog.findOne({
+      where: { user_id: utente.userId, evento: 'bank_connection_linked' },
+    });
+    expect(riga.metadata.conto_creato).toBe(true);
+    // Regola 17 applicata all'audit: `audit_logs` è leggibile dall'area
+    // amministrativa, quindi vale la stessa riservatezza della push.
+    const testo = JSON.stringify(riga.metadata);
+    expect(testo).not.toContain('2345.67');
+    expect(testo).not.toContain('IT•••3456');
+    expect(testo).not.toContain('IT60X0542811101000000123456');
+    expect(riga.metadata).not.toHaveProperty('saldo');
+    expect(riga.metadata).not.toHaveProperty('iban_mascherato');
   });
 
   it('409 se non c\'è nessun collegamento da associare', async () => {

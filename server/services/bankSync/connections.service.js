@@ -349,6 +349,31 @@ async function completaRiconciliazione({
       status: STATO_ATTIVA,
     }, { transaction });
 
+    // La traccia della transizione `da_riconciliare → attiva`: è il momento in
+    // cui si decide dove finiranno i movimenti di quella banca, e senza
+    // registrarlo non sarebbe ricostruibile né quando una connessione è
+    // diventata operativa né a quale conto è legata.
+    //
+    // Dentro la transazione di proposito: se la scrittura del conto o della
+    // connessione viene annullata, non deve restare un evento che racconta
+    // un'associazione mai avvenuta.
+    //
+    // Nei metadata solo identificatori e un booleano. NESSUN importo, NESSUN
+    // saldo, NESSUN IBAN, nemmeno mascherato: la Regola 17 vale anche per
+    // l'audit, e `audit_logs` è leggibile dall'area amministrativa.
+    await registraAudit({
+      userId,
+      evento: EVENTI.CONNESSIONE_ASSOCIATA,
+      entita: 'bank_connection',
+      entitaId: viva.id,
+      metadata: {
+        institution_id: viva.institution_id,
+        conto_id: conto.id,
+        conto_creato: creato,
+      },
+      transaction,
+    });
+
     return { connessione: serializza(aggiornata, { conto }), conto, creato };
   });
 }

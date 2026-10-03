@@ -55,6 +55,14 @@ const EVENTI = Object.freeze({
   // Connessione bancaria
   CONNESSIONE_AVVIATA: 'bank_connection_started',
   CONNESSIONE_CREATA: 'bank_connection_created',
+  // Distinto da CONNESSIONE_CREATA, e non fondibile con esso: quello registra
+  // che l'autorizzazione presso la banca esiste, su una connessione che non ha
+  // ancora un conto e non è ancora utilizzabile. Questo registra la decisione
+  // che conta per i dati dell'utente — a quale conto WALLT finiscono i
+  // movimenti di quella banca, e se quel conto è stato creato ora o esisteva
+  // già. Senza di esso la transizione `da_riconciliare → attiva` sarebbe
+  // l'unica del ciclo di vita a non lasciare traccia.
+  CONNESSIONE_ASSOCIATA: 'bank_connection_linked',
   CONNESSIONE_SOSTITUITA: 'bank_connection_replaced',
   CONNESSIONE_REVOCATA: 'bank_connection_revoked',
   CONNESSIONE_SOSPESA: 'bank_connection_suspended',
