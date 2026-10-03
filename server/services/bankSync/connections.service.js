@@ -408,11 +408,33 @@ async function completaConnessione({
   // Per lo stesso motivo non si scrivono `provider_account_id`,
   // `iban_mascherato`, `valuta` e `saldo_provider`: descrivono un conto
   // ancora da scegliere, e riempirli col primo della lista era il difetto.
+  //
+  // `provider_connection_id` e `institution_name` invece NON descrivono il
+  // conto: il primo descrive l'autorizzazione, il secondo la banca, ed
+  // entrambi sono già noti a prescindere da quale conto l'utente scelga.
   const attivata = await connessione.update({
     status: STATO_DA_RICONCILIARE,
     consent_created_at: new Date(),
     consent_expires_at: scadenzaConsenso,
     state_used_at: new Date(),
+    // Alcuni provider cambiano identificatore quando l'autorizzazione
+    // diventa una connessione viva: Enable Banking consegna un
+    // `session_id` che sostituisce l'`authorization_id` salvato al
+    // collegamento, ed è quello che poi si interroga e si revoca.
+    // Chi non lo fa (GoCardless) non restituisce il campo e la riga resta
+    // com'era.
+    ...(esito.providerConnectionId
+      ? { provider_connection_id: esito.providerConnectionId }
+      : {}),
+    institution_name: esito.conti[0].istituto?.nome ?? connessione.institution_name,
+  });
+
+  await registraAudit({
+    userId,
+    evento: EVENTI.CONNESSIONE_CREATA,
+    entita: 'bank_connection',
+    entitaId: connessione.id,
+    metadata: { provider: adapter.nome, institution_id: connessione.institution_id },
   });
 
   return { connessione: serializza(attivata), ripetuto: false };

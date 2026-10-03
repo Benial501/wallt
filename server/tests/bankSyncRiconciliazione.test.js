@@ -53,6 +53,16 @@ describe('il callback non decide da solo dove vanno i movimenti', () => {
     // Il conto NON esiste ancora: è la differenza con il comportamento
     // precedente, dove il collegamento ne creava uno a prescindere.
     expect(await Conto.count({ where: { user_id: utente.userId } })).toBe(contiPrima);
+
+    // Il callback scrive ciò che descrive l'AUTORIZZAZIONE e la BANCA (già
+    // note, indipendenti da quale conto l'utente scelga), non ciò che
+    // descrive il CONTO (ancora da scegliere in `completaRiconciliazione`).
+    expect(connessione.provider_connection_id).not.toBeNull();
+    expect(connessione.institution_name).toBe('Banca di Prova');
+    expect(connessione.provider_account_id).toBeNull();
+    expect(connessione.iban_mascherato).toBeNull();
+    expect(connessione.valuta).toBeNull();
+    expect(connessione.saldo_provider).toBeNull();
   });
 
   it('nessuna sincronizzazione parte da da_riconciliare', async () => {
@@ -73,5 +83,22 @@ describe('il callback non decide da solo dove vanno i movimenti', () => {
     expect(sync.status).toBe(404);
     const connessione = await BankConnection.findOne({ where: { user_id: utente.userId } });
     expect(connessione.last_sync_at).toBeNull();
+  });
+
+  it('un secondo callback con lo stesso state, da da_riconciliare, è idempotente', async () => {
+    const { state } = await collegaBanca(app, utente.headers, { riconcilia: false });
+
+    // Stesso state, ricevuto una seconda volta prima ancora che l'utente
+    // abbia scelto il conto (es. refresh della pagina di ritorno dalla
+    // banca): deve tornare la connessione esistente, non un errore di
+    // state riusato.
+    const ripetuto = await request(app)
+      .post('/api/bank-sync/callback')
+      .set(utente.headers)
+      .send({ state });
+
+    expect(ripetuto.status).toBe(200);
+    expect(ripetuto.body.ripetuto).toBe(true);
+    expect(await BankConnection.count({ where: { user_id: utente.userId } })).toBe(1);
   });
 });
