@@ -66,6 +66,18 @@ const createApp = (options = {}) => {
     }),
   }));
 
+  // Le risposte API possono contenere dati finanziari specifici dell'utente.
+  // Non vanno conservate nella cache HTTP; inoltre una risposta condizionale
+  // 304 non contiene il JSON che Axios si aspetta di ricevere.
+  app.use('/api', (req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    if (req.method === 'GET' || req.method === 'HEAD') {
+      delete req.headers['if-none-match'];
+      delete req.headers['if-modified-since'];
+    }
+    next();
+  });
+
   app.use('/api/auth/google', (_req, res, next) => {
     res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none');
     next();
