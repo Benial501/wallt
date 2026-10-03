@@ -102,3 +102,50 @@ describe('il callback non decide da solo dove vanno i movimenti', () => {
     expect(await BankConnection.count({ where: { user_id: utente.userId } })).toBe(1);
   });
 });
+
+describe('GET /bank-sync/riconciliazione', () => {
+  let utente;
+
+  beforeEach(async () => {
+    azzeraConfigurazione();
+    await abilitaSandbox();
+    utente = await creaUtente(app);
+    await concediEntitlement(utente.userId);
+  });
+
+  it('offre i conti della banca e i conti agganciabili', async () => {
+    const mio = await Conto.create({
+      user_id: utente.userId, nome: 'REVOLUT', tipo: 'app_pagamento', saldo: 42, attivo: true,
+    });
+    await collegaBanca(app, utente.headers, { riconcilia: false });
+
+    const r = await request(app).get('/api/bank-sync/riconciliazione').set(utente.headers);
+
+    expect(r.status).toBe(200);
+    expect(r.body.conti_banca.length).toBeGreaterThan(0);
+    expect(r.body.conti_banca[0]).toHaveProperty('provider_account_id');
+    expect(r.body.conti_wallt.map((c) => c.id)).toContain(mio.id);
+  });
+
+  it('esclude il fondo di emergenza e i conti scommesse', async () => {
+    await Conto.create({
+      user_id: utente.userId, nome: 'Fondo', tipo: 'emergenza', saldo: 0,
+      attivo: true, nascosto: true, mesi_sicurezza_target: 3,
+    });
+    await Conto.create({
+      user_id: utente.userId, nome: 'Snai', tipo: 'scommesse', saldo: 0, attivo: true,
+    });
+    await collegaBanca(app, utente.headers, { riconcilia: false });
+
+    const r = await request(app).get('/api/bank-sync/riconciliazione').set(utente.headers);
+
+    const tipi = r.body.conti_wallt.map((c) => c.tipo);
+    expect(tipi).not.toContain('emergenza');
+    expect(tipi).not.toContain('scommesse');
+  });
+
+  it('409 se la connessione non è da riconciliare', async () => {
+    const r = await request(app).get('/api/bank-sync/riconciliazione').set(utente.headers);
+    expect(r.status).toBe(409);
+  });
+});

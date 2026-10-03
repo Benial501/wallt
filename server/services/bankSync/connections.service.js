@@ -46,6 +46,11 @@ const { registraAudit, EVENTI, ESITI } = require('../auditLog.service');
  *     banca; WALLT riceve identificatori opachi e un IBAN già mascherato.
  */
 
+/** I tipi di conto che non possono ricevere un flusso bancario.
+ * `emergenza` non ammette entrate o uscite dirette (Regola 22);
+ * `scommesse` è già sincronizzato con le piattaforme (Regola 5). */
+const TIPI_NON_AGGANCIABILI = ['emergenza', 'scommesse'];
+
 /** Finestra di validità dello `state`. */
 const scadenzaState = () => new Date(Date.now() + STATE_TTL_MINUTI * 60 * 1000);
 
@@ -131,6 +136,62 @@ async function statoConnessione(userId) {
     : null;
 
   return { connessione: serializza(connessione, { conto }) };
+}
+
+/**
+ * Quanto serve all'utente per decidere a quale conto appartengono i movimenti
+ * della banca appena autorizzata.
+ *
+ * I conti della banca vengono RILETTI dal provider a ogni chiamata invece di
+ * essere persistiti al callback: sono dati provvisori, e una colonna che li
+ * conserva invecchia. Se il provider non risponde, l'utente vede un errore e
+ * ritenta; la connessione resta `da_riconciliare` e non si perde nulla (la
+ * guardia iniziale non la tocca).
+ *
+ * Due chiamate al provider, non una: `getAccounts` vuole gli id dei conti,
+ * non l'id della connessione, e quegli id si ottengono solo da
+ * `getConnectionStatus`.
+ *
+ * Questa rotta NON dice se esistono movimenti preesistenti, benché sarebbe
+ * comodo al client: quel predicato decide se fermare un'importazione e vive
+ * in un posto solo, la guardia di `sincronizza`.
+ */
+async function datiRiconciliazione(userId, { provider = null } = {}) {
+  const connessione = await trovaConnessioneViva(userId);
+  if (!connessione || connessione.status !== STATO_DA_RICONCILIARE) {
+    throw Object.assign(
+      new Error('Nessun collegamento in attesa di essere associato a un conto.'),
+      { statusCode: 409, codice: 'nessuna_riconciliazione_pendente' },
+    );
+  }
+
+  const adapter = provider ?? await getBankProvider({ nome: connessione.provider });
+  const stato = await adapter.getConnectionStatus({
+    providerConnectionId: connessione.provider_connection_id,
+  });
+  const contiBanca = await adapter.getAccounts({ accountIds: stato.accountIds });
+
+  const contiWallt = await Conto.findAll({
+    where: {
+      user_id: userId,
+      attivo: true,
+      tipo: { [Op.notIn]: TIPI_NON_AGGANCIABILI },
+    },
+    order: [['ordine', 'ASC']],
+  });
+
+  return {
+    conti_banca: contiBanca.map((c) => ({
+      provider_account_id: c.providerAccountId,
+      nome: c.nome,
+      iban_mascherato: c.ibanMascherato,
+      valuta: c.valuta,
+      saldo: c.saldo,
+    })),
+    conti_wallt: contiWallt.map((c) => ({
+      id: c.id, nome: c.nome, tipo: c.tipo, saldo: c.saldo,
+    })),
+  };
 }
 
 /** Le banche disponibili, dal provider configurato. */
@@ -600,6 +661,7 @@ module.exports = {
   trovaConnessioneViva,
   liberaTentativiScaduti,
   statoConnessione,
+  datiRiconciliazione,
   istitutiDisponibili,
   avviaConnessione,
   completaConnessione,

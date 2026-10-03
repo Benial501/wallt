@@ -53,6 +53,7 @@ router.post('/claim-beta', authMiddleware, bankClaimLimiter, bankSync.claimBeta)
 
 // --- Usare la banca (richiede il permesso) --------------------------------
 router.get('/istituti', authMiddleware, feature, validateIstitutiQuery, bankSync.getIstituti);
+router.get('/riconciliazione', authMiddleware, feature, bankSync.getRiconciliazione);
 router.post('/connect', authMiddleware, bankConnectLimiter, feature, validateBankConnect, bankSync.connect);
 router.post('/reconnect', authMiddleware, bankConnectLimiter, feature, bankSync.reconnect);
 router.post('/callback', authMiddleware, bankCallbackLimiter, feature, validateBankCallback, bankSync.callback);

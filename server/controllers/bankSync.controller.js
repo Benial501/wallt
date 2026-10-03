@@ -89,6 +89,17 @@ const getStato = async (req, res) => {
   }
 };
 
+/** `GET /api/bank-sync/riconciliazione` — i dati per scegliere il conto a cui
+ * associare la banca appena autorizzata: i conti che la banca espone e i
+ * conti WALLT agganciabili dell'utente. */
+const getRiconciliazione = async (req, res) => {
+  try {
+    res.json(await connessioni.datiRiconciliazione(req.userId));
+  } catch (error) {
+    rispondiErrore(res, error, 'riconciliazione');
+  }
+};
+
 /** `GET /api/bank-sync/istituti` — le banche collegabili. */
 const getIstituti = async (req, res) => {
   try {
@@ -258,6 +269,7 @@ const getBeta = async (req, res) => {
 
 module.exports = {
   getStato,
+  getRiconciliazione,
   getIstituti,
   getBeta,
   claimBeta,
