@@ -394,7 +394,7 @@ describe('transazioni', () => {
   const tx = (over = {}) => ({
     entry_reference: 'ref-1',
     status: 'BOOK',
-    credit_debit_indicator: 'DBDT',
+    credit_debit_indicator: 'DBIT',
     transaction_amount: { amount: '42.50', currency: 'EUR' },
     booking_date: '2026-10-01',
     value_date: '2026-10-02',
@@ -419,6 +419,15 @@ describe('transazioni', () => {
     expect(booked[0].providerTransactionId).toBe('ref-1');
   });
 
+  it('riconosce DBIT come indicatore ufficiale di addebito', async () => {
+    const { provider } = creaProvider([{
+      body: { transactions: [tx({ credit_debit_indicator: 'DBIT' })] },
+    }]);
+    const { booked } = await provider.getTransactions({ providerAccountId: 'a' });
+
+    expect(booked[0].importo).toBe(-42.5);
+  });
+
   it('un accredito resta POSITIVO', async () => {
     const { provider } = creaProvider([{
       body: { transactions: [tx({ credit_debit_indicator: 'CRDT', debtor: { name: 'Datore' }, creditor: null })] },
@@ -428,7 +437,7 @@ describe('transazioni', () => {
     expect(booked[0].merchantName).toBe('Datore');
   });
 
-  it('un importo già negativo con DBDT non diventa positivo', async () => {
+  it('un importo già negativo con DBIT non diventa positivo', async () => {
     const { provider } = creaProvider([{
       body: { transactions: [tx({ transaction_amount: { amount: '-42.50', currency: 'EUR' } })] },
     }]);

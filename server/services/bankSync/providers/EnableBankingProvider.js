@@ -556,7 +556,7 @@ class EnableBankingProvider extends BankProvider {
    * ── Il segno ─────────────────────────────────────────────────────────
    * Qui sta la differenza che conta rispetto a GoCardless. Enable Banking
    * dà `transaction_amount` sempre POSITIVO e la direzione in
-   * `credit_debit_indicator` (`CRDT` entrata, `DBDT` uscita). Il contratto
+   * `credit_debit_indicator` (`CRDT` entrata, `DBIT` uscita). Il contratto
    * di `ProviderTransaction` vuole invece l'importo firmato come lo dà la
    * banca, negativo per le uscite: la conversione va fatta qui, perché
    * `normalizer.js` traduce il segno in entrata/uscita e non sa nulla di
@@ -573,8 +573,8 @@ class EnableBankingProvider extends BankProvider {
     const grezzo = toNumber(t?.transaction_amount?.amount);
 
     let importo = null;
-    if (grezzo !== null && (indicatore === 'CRDT' || indicatore === 'DBDT')) {
-      importo = indicatore === 'DBDT' ? -Math.abs(grezzo) : Math.abs(grezzo);
+    if (grezzo !== null && (indicatore === 'CRDT' || indicatore === 'DBIT')) {
+      importo = indicatore === 'DBIT' ? -Math.abs(grezzo) : Math.abs(grezzo);
     }
 
     const controparte = t?.creditor?.name || t?.debtor?.name || null;
