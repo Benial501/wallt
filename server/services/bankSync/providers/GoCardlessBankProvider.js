@@ -289,6 +289,23 @@ class GoCardlessBankProvider extends BankProvider {
     return scelto ? toNumber(scelto.balanceAmount?.amount) : null;
   }
 
+  /** Rilegge il saldo corrente a ogni sincronizzazione. */
+  async getBalance({ providerAccountId }) {
+    try {
+      const saldi = await this._richiesta(
+        `/accounts/${encodeURIComponent(providerAccountId)}/balances/`,
+        { contesto: 'account-balances' },
+      );
+      return this._saldoDaBalances(saldi);
+    } catch (error) {
+      logger.warn('Saldo non disponibile dal provider bancario', {
+        provider: PROVIDER_GOCARDLESS,
+        codice: error.codice ?? null,
+      });
+      return null;
+    }
+  }
+
   async getTransactions({ providerAccountId, dataDa, dataA }) {
     const parametri = new URLSearchParams();
     if (dataDa) parametri.set('date_from', dataDa);

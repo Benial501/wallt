@@ -68,9 +68,9 @@ Non esiste nessuna rotta con cui un utente possa cambiarsi il piano.
 | POST | `/connect` | sì | `{ institution_id, sostituisci? }` → `{ url_autorizzazione, scade_il }` |
 | POST | `/reconnect` | sì | l'istituto viene letto dalla connessione, **non** dal corpo |
 | POST | `/callback` | sì | `{ state }` — autenticata, vedi §4 |
-| POST | `/sync` | sì | sincronizzazione manuale |
+| POST | `/sync` | sì | sync manuale; `{ data_da, data_a }` opzionali per scegliere il periodo (fino a 90 giorni) |
 | POST | `/disconnect` | **no** | chi ha perso il permesso deve poter revocare il consenso alla banca |
-| DELETE | `/dati-importati` | no, ma **step-up** | distruttiva e separata dallo scollegamento |
+| DELETE | `/dati-importati` | no | elimina i movimenti Open Banking dopo la conferma `ELIMINA`; JWT + rate limit, senza step-up |
 
 Ordine dei middleware: `authMiddleware → rate limit → requireFeature →
 validazione → controller`. Il rate limit sta dopo l'autenticazione perché la
@@ -81,6 +81,17 @@ aziendale consumerebbe la quota dei colleghi.
 `client/src/utils/entitlements.js`): ogni codice ha un messaggio e un'azione.
 `CONSENT_EXPIRED` → *Ricollega*; `BANK_UNAVAILABLE` → *Riprova*. Un 500
 generico renderebbe le due situazioni indistinguibili.
+
+Dal pulsante **Sincronizza**, l'utente sceglie le date iniziale e finale; il
+modulo propone gli ultimi 30 giorni e consente intervalli fino a 90 giorni.
+Le date devono essere valide, non future e in ordine. La deduplica tramite
+identificativo bancario rende sicuro ripetere o sovrapporre un periodo. Le
+sincronizzazioni pianificate non ricevono date dall'interfaccia e continuano a
+richiedere la finestra incrementale di 14 giorni.
+
+Ogni sincronizzazione legge anche il saldo corrente dal provider con una
+richiesta dedicata. Se la banca non espone il saldo o la richiesta fallisce,
+WALLT conserva il saldo noto e continua comunque a importare i movimenti.
 
 ### `/api/premium`
 Le richieste di accesso dell'utente autenticato, e nient'altro.

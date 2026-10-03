@@ -134,6 +134,56 @@ describe('normalizzazione: ProviderTransaction → movimento WALLT', () => {
 });
 
 describe('idempotenza della sincronizzazione', () => {
+  it('usa l’intervallo manuale scelto e aggiorna il saldo letto separatamente dalla banca', async () => {
+    const { utente, connessione } = await preparaCollegato();
+    const provider = new SandboxBankProvider();
+    const dataDa = '2026-09-01';
+    const dataA = '2026-10-01';
+    provider.getTransactions = jest.fn().mockResolvedValue({
+      booked: [], pending: [], saldo: null,
+    });
+    provider.getBalance = jest.fn().mockResolvedValue(37.25);
+
+    const esito = await sincronizza({
+      userId: utente.userId,
+      connectionId: connessione.id,
+      provider,
+      dataDa,
+      dataA,
+    });
+
+    expect(provider.getTransactions).toHaveBeenCalledWith({
+      providerAccountId: connessione.provider_account_id,
+      dataDa,
+      dataA,
+    });
+    expect(provider.getBalance).toHaveBeenCalledWith({
+      providerAccountId: connessione.provider_account_id,
+    });
+    expect(esito.saldo).toBe(37.25);
+    expect(Number((await Conto.findByPk(connessione.conto_id)).saldo)).toBe(37.25);
+    await connessione.reload();
+    expect(Number(connessione.saldo_provider)).toBe(37.25);
+  });
+
+  it('importa comunque i movimenti se la banca non rende disponibile il saldo', async () => {
+    const { utente, connessione } = await preparaCollegato();
+    const saldoPrima = Number((await Conto.findByPk(connessione.conto_id)).saldo);
+    const provider = new SandboxBankProvider();
+    provider.getBalance = jest.fn().mockResolvedValue(null);
+    provider.getTransactions = jest.fn().mockResolvedValue({
+      booked: [tx({ providerTransactionId: 'senza-saldo' })], pending: [], saldo: null,
+    });
+
+    const esito = await sincronizza({
+      userId: utente.userId, connectionId: connessione.id, provider,
+    });
+
+    expect(esito.importati).toBe(1);
+    expect(await Movimento.count({ where: { user_id: utente.userId } })).toBe(1);
+    expect(Number((await Conto.findByPk(connessione.conto_id)).saldo)).toBe(saldoPrima);
+  });
+
   it('ripetuta molte volte non duplica nulla', async () => {
     const { utente, connessione } = await preparaCollegato();
     const provider = new SandboxBankProvider();

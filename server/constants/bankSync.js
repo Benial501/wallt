@@ -199,6 +199,10 @@ const GIORNI_STORICO_INIZIALE = 90;
  * gratuita. */
 const GIORNI_STORICO_INCREMENTALE = 14;
 
+/** Limite della finestra selezionabile dall'utente, coerente con lo storico
+ * massimo richiesto al provider al primo collegamento. */
+const GIORNI_STORICO_MANUALE_MASSIMO = 90;
+
 module.exports = {
   PROVIDER_GOCARDLESS,
   PROVIDER_ENABLE_BANKING,
@@ -242,4 +246,5 @@ module.exports = {
   SYNC_LOCK_SCADENZA_MINUTI,
   GIORNI_STORICO_INIZIALE,
   GIORNI_STORICO_INCREMENTALE,
+  GIORNI_STORICO_MANUALE_MASSIMO,
 };

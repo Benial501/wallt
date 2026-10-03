@@ -473,6 +473,12 @@ class EnableBankingProvider extends BankProvider {
     return conti;
   }
 
+  /** Rilegge il saldo corrente durante ogni sincronizzazione, non solo al
+   * completamento iniziale del collegamento. */
+  async getBalance({ providerAccountId }) {
+    return this._saldoDiConto(providerAccountId);
+  }
+
   async getConnectionStatus({ providerConnectionId }) {
     const dati = await this._richiesta(
       `/sessions/${encodeURIComponent(providerConnectionId)}`,

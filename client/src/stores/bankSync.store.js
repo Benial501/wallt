@@ -147,11 +147,13 @@ export const useBankSyncStore = defineStore('bankSync', () => {
    * poter mostrare "la banca non risponde, i tuoi dati precedenti sono
    * ancora disponibili" senza un try/catch in ogni punto.
    */
-  const sincronizza = async () => {
+  const sincronizza = async ({ dataDa = null, dataA = null } = {}) => {
     sincronizzando.value = true;
     ultimoErrore.value = null;
     try {
-      const { data } = await api.post('/bank-sync/sync');
+      const { data } = await api.post('/bank-sync/sync', dataDa && dataA
+        ? { data_da: dataDa, data_a: dataA }
+        : {});
       ultimoEsito.value = data;
       // I movimenti importati cambiano saldi, patrimonio e liste: vanno
       // ricaricati, e un fallimento di queste letture non deve far sembrare

@@ -361,6 +361,50 @@ describe('sincronizzazione attraverso l\'API', () => {
     await collegaBanca(app, utente.headers);
   });
 
+  it('rifiuta un intervallo incompleto, invertito, futuro o oltre 90 giorni', async () => {
+    const richieste = [
+      { data_da: '2026-09-01' },
+      { data_da: '2026-10-01', data_a: '2026-09-01' },
+      { data_da: '2026-06-01', data_a: '2026-10-01' },
+      { data_da: '2026-09-01', data_a: '2026-10-04' },
+      { data_da: '2026-02-30', data_a: '2026-03-01' },
+    ];
+
+    for (const intervallo of richieste) {
+      // eslint-disable-next-line no-await-in-loop
+      const res = await request(app).post('/api/bank-sync/sync')
+        .set(utente.headers).send(intervallo);
+      expect(res.status).toBe(400);
+    }
+    expect(await Movimento.count({ where: { user_id: utente.userId } })).toBe(0);
+  });
+
+  it('inoltra alla banca le date selezionate dall’utente', async () => {
+    const SandboxBankProvider = require('../services/bankSync/providers/SandboxBankProvider');
+    const originale = SandboxBankProvider.prototype.getTransactions;
+    const chiamate = [];
+    const spy = jest.spyOn(SandboxBankProvider.prototype, 'getTransactions')
+      .mockImplementation(function registraIntervallo(parametri) {
+        chiamate.push(parametri);
+        return originale.call(this, parametri);
+      });
+
+    try {
+      const res = await request(app).post('/api/bank-sync/sync')
+        .set(utente.headers)
+        .send({ data_da: '2026-09-01', data_a: '2026-10-01' })
+        .expect(200);
+
+      expect(res.body.esito).toBe('ok');
+      expect(chiamate[0]).toMatchObject({
+        dataDa: '2026-09-01',
+        dataA: '2026-10-01',
+      });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('importa le transazioni come movimenti WALLT normali', async () => {
     const res = await request(app).post('/api/bank-sync/sync')
       .set(utente.headers).expect(200);

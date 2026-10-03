@@ -245,7 +245,12 @@ const callback = async (req, res) => {
 /** `POST /api/bank-sync/sync` — sincronizzazione manuale. */
 const sync = async (req, res) => {
   try {
-    const esito = await sincronizza({ userId: req.userId, origine: 'manuale' });
+    const esito = await sincronizza({
+      userId: req.userId,
+      origine: 'manuale',
+      dataDa: req.body?.data_da ?? null,
+      dataA: req.body?.data_a ?? null,
+    });
     const stato = await connessioni.statoConnessione(req.userId);
     res.json({ ...esito, ...stato });
   } catch (error) {

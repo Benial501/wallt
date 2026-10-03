@@ -108,7 +108,9 @@ class SandboxBankProvider extends BankProvider {
     this.saldo = saldo;
     this.errore = errore;
     this.iban = iban;
-    this.chiamate = { createAuthorization: 0, getTransactions: 0, revokeConnection: 0 };
+    this.chiamate = {
+      createAuthorization: 0, getTransactions: 0, getBalance: 0, revokeConnection: 0,
+    };
   }
 
   get nome() { return PROVIDER_SANDBOX; }
@@ -170,7 +172,7 @@ class SandboxBankProvider extends BankProvider {
     }));
   }
 
-  async getTransactions() {
+  async getTransactions({ dataDa = null, dataA = null } = {}) {
     this.chiamate.getTransactions += 1;
     if (this.errore) {
       throw new BankProviderError(
@@ -178,11 +180,20 @@ class SandboxBankProvider extends BankProvider {
         this.errore.messaggio || `Sandbox: errore simulato ${this.errore.codice}`,
       );
     }
+    const nelPeriodo = (transazione) => {
+      const data = transazione.bookingDate || transazione.valueDate;
+      return (!dataDa || data >= dataDa) && (!dataA || data <= dataA);
+    };
     return {
-      booked: this.transazioni.filter((t) => t.status === TX_BOOKED),
-      pending: this.transazioni.filter((t) => t.status === TX_PENDING),
+      booked: this.transazioni.filter((t) => t.status === TX_BOOKED && nelPeriodo(t)),
+      pending: this.transazioni.filter((t) => t.status === TX_PENDING && nelPeriodo(t)),
       saldo: this.saldo,
     };
+  }
+
+  async getBalance() {
+    this.chiamate.getBalance += 1;
+    return this.saldo;
   }
 
   async refreshConnection(dati) {

@@ -49,9 +49,14 @@ const showGestisci = ref(false);
 const showScollega = ref(false);
 const showSostituisci = ref(false);
 const showScegliBanca = ref(false);
+const showSincronizza = ref(false);
 const ricercaBanca = ref('');
 const sostituendo = ref(false);
 const scollegando = ref(false);
+const dataDaSync = ref('');
+const dataASync = ref('');
+const oggiSync = ref('');
+const GIORNI_SYNC_MASSIMO = 90;
 
 onMounted(() => {
   bankSyncStore.fetchStato();
@@ -93,6 +98,18 @@ const ultimoAggiornamento = computed(() => {
     : `${d.format('D MMMM')} alle ${d.format('HH:mm')}`;
 });
 
+const dataMinimaSync = computed(() => (
+  oggiSync.value ? dayjs(oggiSync.value).subtract(GIORNI_SYNC_MASSIMO - 1, 'day').format('YYYY-MM-DD') : ''
+));
+const intervalloSyncValido = computed(() => {
+  if (!dataDaSync.value || !dataASync.value || !oggiSync.value) return false;
+  const giorni = dayjs(dataASync.value).diff(dayjs(dataDaSync.value), 'day');
+  return dataDaSync.value >= dataMinimaSync.value
+    && dataDaSync.value <= dataASync.value
+    && dataASync.value <= oggiSync.value
+    && giorni < GIORNI_SYNC_MASSIMO;
+});
+
 const consensoInScadenza = computed(() => {
   const scade = connessione.value?.consenso_scade_il;
   if (!scade) return null;
@@ -102,9 +119,21 @@ const consensoInScadenza = computed(() => {
   return giorni >= 0 && giorni <= 14 ? giorni : null;
 });
 
+const apriSincronizzazione = () => {
+  oggiSync.value = dayjs().format('YYYY-MM-DD');
+  dataDaSync.value = dayjs(oggiSync.value).subtract(29, 'day').format('YYYY-MM-DD');
+  dataASync.value = oggiSync.value;
+  showGestisci.value = false;
+  showSincronizza.value = true;
+};
+
 const sincronizza = async () => {
-  const esito = await bankSyncStore.sincronizza();
+  const esito = await bankSyncStore.sincronizza({
+    dataDa: dataDaSync.value,
+    dataA: dataASync.value,
+  });
   if (esito.ok) {
+    showSincronizza.value = false;
     const { importati = 0, duplicati_evitati: duplicati = 0 } = esito.esito;
     if (importati > 0) {
       toastStore.success(
@@ -356,7 +385,7 @@ const confermaSostituzione = async () => {
             variant="primary"
             size="md"
             :loading="bankSyncStore.sincronizzando"
-            @click="sincronizza"
+            @click="apriSincronizzazione"
           >
             <RefreshCw :size="16" :stroke-width="1.75" aria-hidden="true" />
             Sincronizza
@@ -377,6 +406,52 @@ const confermaSostituzione = async () => {
       @close="showPremium = false"
       @attivato="bankSyncStore.fetchStato()"
     />
+
+    <AppDialog
+      :open="showSincronizza"
+      title="Sincronizza movimenti"
+      @close="showSincronizza = false"
+    >
+      <form class="bank-sync__intervallo" @submit.prevent="sincronizza">
+        <p>Scegli il periodo di movimenti da leggere dalla banca. Puoi selezionare fino a 90 giorni.</p>
+        <label>
+          <span>Dal</span>
+          <input
+            v-model="dataDaSync"
+            class="form-input"
+            type="date"
+            :min="dataMinimaSync"
+            :max="oggiSync"
+            required
+          />
+        </label>
+        <label>
+          <span>Al</span>
+          <input
+            v-model="dataASync"
+            class="form-input"
+            type="date"
+            :min="dataDaSync || dataMinimaSync"
+            :max="oggiSync"
+            required
+          />
+        </label>
+        <div class="bank-sync__intervallo-azioni">
+          <WButton variant="secondary" size="md" @click="showSincronizza = false">
+            Annulla
+          </WButton>
+          <WButton
+            type="submit"
+            variant="primary"
+            size="md"
+            :loading="bankSyncStore.sincronizzando"
+            :disabled="!intervalloSyncValido"
+          >
+            Sincronizza periodo
+          </WButton>
+        </div>
+      </form>
+    </AppDialog>
 
     <!-- ── Gestisci conto ──────────────────────────────────────────────── -->
     <!-- La banca la sceglie l'utente: l'elenco italiano supera i trecento
@@ -436,7 +511,7 @@ const confermaSostituzione = async () => {
           type="button"
           class="bank-sync__voce"
           :disabled="bankSyncStore.sincronizzando"
-          @click="sincronizza"
+          @click="apriSincronizzazione"
         >
           <span>Sincronizza ora</span>
           <small>Scarica i movimenti più recenti dalla banca</small>
@@ -721,6 +796,12 @@ const confermaSostituzione = async () => {
 }
 
 /* --- Gestisci ------------------------------------------------------------ */
+.bank-sync__intervallo { display: flex; flex-direction: column; gap: 1rem; }
+.bank-sync__intervallo p { margin: 0; color: var(--text-secondary); line-height: var(--leading-snug); }
+.bank-sync__intervallo label { display: flex; flex-direction: column; gap: 0.375rem; }
+.bank-sync__intervallo label span { font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); }
+.bank-sync__intervallo-azioni { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem; }
+
 .bank-sync__gestisci {
   display: flex;
   flex-direction: column;

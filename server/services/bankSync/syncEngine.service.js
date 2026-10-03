@@ -150,7 +150,13 @@ const statoDopoErrore = (codice) => {
  *   criterio di selezione (ore minime dall'ultima sync riuscita)
  */
 async function sincronizza({
-  userId, connectionId = null, origine = 'manuale', provider = null, ignoraCooldown = false,
+  userId,
+  connectionId = null,
+  origine = 'manuale',
+  provider = null,
+  ignoraCooldown = false,
+  dataDa: dataDaScelta = null,
+  dataA: dataAScelta = null,
 }) {
   const connessione = await BankConnection.findOne({
     where: {
@@ -204,13 +210,22 @@ async function sincronizza({
   const adapter = provider ?? await getBankProvider({ nome: connessione.provider });
   const primaVolta = !connessione.last_successful_sync_at;
   const giorni = primaVolta ? GIORNI_STORICO_INIZIALE : GIORNI_STORICO_INCREMENTALE;
+  const dataDa = dataDaScelta || giorniPrimaISO(giorni);
+  const dataA = dataAScelta || oggiISO();
 
   await registraAudit({
     userId,
     evento: EVENTI.SYNC_AVVIATA,
     entita: 'bank_connection',
     entitaId: connessione.id,
-    metadata: { origine, giorni_richiesti: giorni, prima_sincronizzazione: primaVolta },
+    metadata: {
+      origine,
+      giorni_richiesti: Math.floor((Date.parse(`${dataA}T00:00:00.000Z`)
+        - Date.parse(`${dataDa}T00:00:00.000Z`)) / 86400000) + 1,
+      prima_sincronizzazione: primaVolta,
+      data_da: dataDa,
+      data_a: dataA,
+    },
   });
 
   try {
@@ -221,11 +236,32 @@ async function sincronizza({
     // ritardo — e la deduplica la rende gratuita.
     const risposta = await adapter.getTransactions({
       providerAccountId: connessione.provider_account_id,
-      dataDa: giorniPrimaISO(giorni),
-      dataA: oggiISO(),
+      dataDa,
+      dataA,
     });
 
-    const esito = await importaTransazioni({ userId, connessione, risposta });
+    let saldoBanca = null;
+    if (typeof adapter.getBalance === 'function') {
+      try {
+        // La lettura è separata: Enable Banking non include il saldo nella
+        // risposta dei movimenti. Un problema sul saldo non deve impedire
+        // l'importazione delle transazioni appena ricevute.
+        saldoBanca = await adapter.getBalance({
+          providerAccountId: connessione.provider_account_id,
+        });
+      } catch (error) {
+        logger.warn('Saldo non disponibile dal provider bancario', {
+          provider: connessione.provider,
+          codice: error.codice ?? null,
+        });
+      }
+    }
+
+    const rispostaConSaldo = {
+      ...risposta,
+      saldo: saldoBanca ?? risposta.saldo ?? null,
+    };
+    const esito = await importaTransazioni({ userId, connessione, risposta: rispostaConSaldo });
 
     await connessione.update({
       status: STATO_ATTIVA,
@@ -444,18 +480,11 @@ async function importaTransazioni({ userId, connessione, risposta }) {
 
     // ─── Saldo ──────────────────────────────────────────────────────────
     // Per un conto sincronizzato la verità sul saldo la dice la banca, non
-    // la somma dei movimenti: la finestra importata copre 90 giorni, quindi
-    // una somma sarebbe sbagliata per costruzione. Quando la banca non
-    // dichiara un saldo, il saldo viene mosso del delta delle righe appena
-    // scritte.
+    // la somma dei movimenti: la finestra può essere parziale e sovrapposta.
+    // Se il provider non restituisce il saldo corrente, conserviamo quello
+    // noto invece di stimarlo dal delta incompleto dei movimenti importati.
     if (risposta.saldo !== null && risposta.saldo !== undefined) {
       await aggiornaSaldoConto(conto, Math.round(Number(risposta.saldo) * 100) / 100, transaction);
-    } else {
-      const delta = daImportare.reduce(
-        (somma, m) => somma + (m.tipo === 'entrata' ? m.importo : -m.importo), 0,
-      );
-      const nuovo = Math.round((Number(conto.saldo) + delta) * 100) / 100;
-      await aggiornaSaldoConto(conto, nuovo, transaction);
     }
   });
 

@@ -115,6 +115,12 @@ class BankProvider {
     throw new Error('BankProvider.getTransactions non implementato');
   }
 
+  /** Saldo disponibile/contabile corrente, o `null` se non leggibile. */
+  // eslint-disable-next-line class-methods-use-this, no-unused-vars
+  async getBalance(_dati) {
+    return null;
+  }
+
   /** Avvia il rinnovo di un consenso scaduto. Normalmente equivale a una
    * nuova autorizzazione. */
   // eslint-disable-next-line class-methods-use-this, no-unused-vars

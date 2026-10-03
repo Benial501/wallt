@@ -6,7 +6,9 @@ const { MESI_TARGET_AMMESSI } = require('../services/fondoEmergenza.service');
 const { SOURCE_TYPES, STATI_PIANO, CHIAVI_CONTESTO_MANUALE } = require('../constants/pianoSmart');
 const { FEATURE_KEYS, FEATURE_RICHIEDIBILI, RICHIESTA_STATI } = require('../constants/entitlements');
 const { CHIAVI: CHIAVI_CONFIG } = require('../constants/appConfig');
-const { DESTINAZIONE_NUOVO } = require('../constants/bankSync');
+const {
+  DESTINAZIONE_NUOVO, GIORNI_STORICO_MANUALE_MASSIMO,
+} = require('../constants/bankSync');
 const { isImportoValido, toCents } = require('../services/pianoSmart/money');
 const { oggiLocale, FUSO_DEFAULT } = require('../utils/dateRome');
 const {
@@ -1623,6 +1625,33 @@ const validateDeleteBankImportedData = [
   validate,
 ];
 
+const dataISOValida = (valore) => {
+  if (typeof valore !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valore)) return false;
+  const data = new Date(`${valore}T00:00:00.000Z`);
+  return Number.isFinite(data.getTime()) && data.toISOString().slice(0, 10) === valore;
+};
+
+const validateBankSyncRange = [
+  body('data_da').custom((_valore, { req }) => {
+    const dataDa = req.body?.data_da;
+    const dataA = req.body?.data_a;
+    if (dataDa === undefined && dataA === undefined) return true;
+    if (!dataISOValida(dataDa) || !dataISOValida(dataA)) {
+      throw new Error('Inserisci una data iniziale e una finale valide.');
+    }
+    if (dataDa > dataA) throw new Error('La data iniziale deve precedere quella finale.');
+    if (dataA > oggiLocale()) throw new Error('La data finale non può essere nel futuro.');
+
+    const giorni = (Date.parse(`${dataA}T00:00:00.000Z`)
+      - Date.parse(`${dataDa}T00:00:00.000Z`)) / 86400000;
+    if (giorni >= GIORNI_STORICO_MANUALE_MASSIMO) {
+      throw new Error(`Puoi importare al massimo ${GIORNI_STORICO_MANUALE_MASSIMO} giorni alla volta.`);
+    }
+    return true;
+  }),
+  validate,
+];
+
 const validateBankCallback = [
   // Lo `state` è un valore casuale di 32 byte in base64url generato dal
   // server. Non viene mai usato come identificatore: viene reso hash e
@@ -1853,6 +1882,7 @@ module.exports = {
   validateCreateScheduledPaymentContribution,
   validateBankConnect,
   validateDeleteBankImportedData,
+  validateBankSyncRange,
   validateBankCallback,
   validateRiconciliazione,
   validateIstitutiQuery,

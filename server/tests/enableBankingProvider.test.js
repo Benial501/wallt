@@ -367,6 +367,23 @@ describe('completamento del collegamento', () => {
     // ITAV ha priorità su CLBD: è il saldo che l'utente vede nell'app.
     expect(esito.conti[0].saldo).toBe(80);
   });
+
+  it('rilegge il saldo corrente con una chiamata dedicata durante la sincronizzazione', async () => {
+    const { provider, fetchImpl } = creaProvider([{
+      body: {
+        balances: [
+          { balance_type: 'CLBD', balance_amount: { amount: '42.00', currency: 'EUR' } },
+          { balance_type: 'ITAV', balance_amount: { amount: '37.25', currency: 'EUR' } },
+        ],
+      },
+    }]);
+
+    const saldo = await provider.getBalance({ providerAccountId: 'acc-uid-1' });
+
+    expect(saldo).toBe(37.25);
+    expect(fetchImpl.chiamate).toHaveLength(1);
+    expect(fetchImpl.chiamate[0].url).toContain('/accounts/acc-uid-1/balances');
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

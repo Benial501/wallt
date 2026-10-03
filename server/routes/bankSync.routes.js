@@ -7,6 +7,7 @@ const {
   validateBankConnect,
   validateBankCallback,
   validateDeleteBankImportedData,
+  validateBankSyncRange,
   validateRiconciliazione,
   validateIstitutiQuery,
 } = require('../middleware/validation.middleware');
@@ -66,7 +67,9 @@ router.post(
 router.post('/connect', authMiddleware, bankConnectLimiter, feature, validateBankConnect, bankSync.connect);
 router.post('/reconnect', authMiddleware, bankConnectLimiter, feature, bankSync.reconnect);
 router.post('/callback', authMiddleware, bankCallbackLimiter, feature, validateBankCallback, bankSync.callback);
-router.post('/sync', authMiddleware, bankSyncLimiter, feature, bankSync.sync);
+router.post(
+  '/sync', authMiddleware, bankSyncLimiter, feature, validateBankSyncRange, bankSync.sync,
+);
 
 // Scollegare NON richiede l'entitlement: chi ha perso il permesso deve
 // comunque poter togliere l'autorizzazione alla propria banca. Negarglielo
