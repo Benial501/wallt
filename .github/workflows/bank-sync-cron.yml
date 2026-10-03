@@ -1,0 +1,41 @@
+# La sincronizzazione bancaria automatica usa GitHub Actions perché il piano
+# Hobby di Vercel consente un solo cron giornaliero. GitHub pianifica in UTC:
+# questi quattro passaggi corrispondono alle 08, 12, 16 e 20 in Italia durante
+# l'ora legale, e un'ora prima durante l'ora solare.
+name: Sincronizzazione conti collegati
+
+on:
+  schedule:
+    - cron: '0 6,10,14,18 * * *'
+
+concurrency:
+  group: bank-sync-cron
+  cancel-in-progress: false
+
+jobs:
+  sincronizza:
+    name: Importa i nuovi movimenti bancari
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Chiama l'endpoint di sincronizzazione
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          API_URL: ${{ vars.WALLT_API_URL || 'https://wallt-api.vercel.app' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET non configurato fra i secret del repository."
+            exit 1
+          fi
+
+          risposta=$(curl --silent --show-error --fail-with-body \
+            --max-time 180 \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            "$API_URL/api/cron/bank-sync")
+
+          echo "Riepilogo: $risposta"
+          if ! jq -e 'type == "object" and .saltato != true and (.fallite // 0) == 0' <<< "$risposta" >/dev/null; then
+            echo "::error::La sincronizzazione è stata saltata o almeno un conto non si è sincronizzato."
+            exit 1
+          fi

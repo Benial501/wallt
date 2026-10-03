@@ -35,6 +35,7 @@ module.exports = {
     '<rootDir>/tests/aggregaMedieSpeseFrequenti.test.js',
     '<rootDir>/tests/speseMedie.test.js',
     '<rootDir>/tests/enableBankingProvider.test.js',
+    '<rootDir>/tests/bankSyncConfig.test.js',
   ],
   testTimeout: 20000,
   verbose: true,

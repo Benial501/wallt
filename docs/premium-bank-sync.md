@@ -126,9 +126,11 @@ Una riga `cancelled` può tornare `pending` se l'utente si ripresenta; una
 `rejected` no, perché è una decisione dello staff e il suo storico resta.
 
 ### `GET /api/cron/bank-sync`
-Worker a lotti, spento per default (`bank_sync_cron_enabled`). Seleziona le
+Worker a lotti, attivo per default (`bank_sync_cron_enabled`). Seleziona le
 connessioni arretrate, riverifica l'entitlement per ciascuna, rispetta un
-backoff esponenziale sui fallimenti.
+backoff esponenziale sui fallimenti. GitHub Actions richiama l'endpoint alle
+08:00, 12:00, 16:00 e 20:00 italiane durante l'ora legale (un'ora prima in
+inverno); il minimo di sei ore evita richiami duplicati per connessione.
 
 ## 4. Il callback, in dettaglio
 
@@ -210,8 +212,8 @@ ritorno da scambiare con una sessione — per questo
 | `bank_sync_beta_limit` | `25` | i posti. **Unico posto in cui questo numero esiste** |
 | `bank_sync_provider` | `gocardless` | `sandbox` è rifiutato in produzione |
 | `bank_sync_cooldown_secondi` | `300` | attesa fra due sync manuali della stessa connessione |
-| `bank_sync_cron_enabled` | `false` | sincronizzazione pianificata |
-| `bank_sync_cron_ore_minime` | `12` | ore dall'ultima sync riuscita |
+| `bank_sync_cron_enabled` | `true` | sincronizzazione pianificata; può essere disattivata come interruttore operativo |
+| `bank_sync_cron_ore_minime` | `6` | ore dall'ultima sync riuscita; quattro controlli al giorno |
 | `bank_sync_cron_max_per_esecuzione` | `20` | dimensione del lotto |
 
 ## 6-bis. Il piano dello staff
@@ -281,9 +283,10 @@ consenso, errori e revoca.
    controparte di ogni transazione). `PrivacyPolicy.vue` e `TermsView.vue`
    vanno aggiornati **prima** del primo utente reale. Non è una formalità: è
    la condizione per poter trattare quei dati.
-4. **Cron su Vercel**: aggiungere `GET /api/cron/bank-sync` a `vercel.json`
-   (o al workflow GitHub Actions) quando si accende
-   `bank_sync_cron_enabled`.
+4. **Cron GitHub Actions**: `.github/workflows/bank-sync-cron.yml` richiama
+   `GET /api/cron/bank-sync` quattro volte al giorno. Richiede il secret
+   GitHub `CRON_SECRET` uguale a quello di `wallt-api` su Vercel; il piano
+   Hobby non consente quattro cron giornalieri su Vercel.
 5. **Registrazione dell'URL di ritorno** presso il provider, se richiesto.
 6. ~~**Deploy del codice Premium**~~ — **fatto** il 1 ottobre 2026
    (commit `3d9c18b`): schema, API e interfaccia sono in produzione.

@@ -455,10 +455,19 @@ describe('categorizzazione: la cascata esistente, non una seconda', () => {
 describe('sincronizzazione pianificata (cron)', () => {
   beforeEach(() => azzeraConfigurazione());
 
-  it('è spenta per default e non fa nulla', async () => {
-    const esito = await processaSincronizzazioniPianificate();
-    expect(esito.saltato).toBe(true);
-    expect(esito.motivo).toBe('cron_disattivato');
+  it('sincronizza automaticamente quattro volte al giorno per default', async () => {
+    const { utente, connessione } = await preparaCollegato();
+    expect(await appConfig.getConfig(BANK_SYNC_CRON_ENABLED)).toBe(true);
+    expect(await appConfig.getConfig(BANK_SYNC_CRON_ORE_MINIME)).toBe(6);
+
+    const esito = await processaSincronizzazioniPianificate({ provider: new SandboxBankProvider() });
+    expect(esito.saltato).toBe(false);
+    expect(esito.riuscite).toBe(1);
+    expect(esito.importati).toBe(3);
+
+    await connessione.reload();
+    expect(connessione.last_successful_sync_at).not.toBeNull();
+    expect(await Movimento.count({ where: { user_id: utente.userId } })).toBe(3);
   });
 
   it('accesa, sincronizza le connessioni arretrate', async () => {
@@ -476,10 +485,10 @@ describe('sincronizzazione pianificata (cron)', () => {
     expect(await Movimento.count({ where: { user_id: utente.userId } })).toBe(3);
   });
 
-  it('non riprocessa una connessione appena sincronizzata', async () => {
+  it('non riprocessa una connessione sincronizzata nelle ultime sei ore', async () => {
     const { connessione } = await preparaCollegato();
     await appConfig.setConfig(BANK_SYNC_CRON_ENABLED, true);
-    await appConfig.setConfig(BANK_SYNC_CRON_ORE_MINIME, 12);
+    await appConfig.setConfig(BANK_SYNC_CRON_ORE_MINIME, 6);
     await connessione.update({ last_successful_sync_at: new Date() });
 
     const esito = await processaSincronizzazioniPianificate({ provider: new SandboxBankProvider() });

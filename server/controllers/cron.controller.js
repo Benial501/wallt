@@ -52,8 +52,8 @@ const processaNotificheUtenti = async (req, res, next) => {
  * sincronizzazione riuscita) regola da se' la frequenza effettiva.
  *
  * Due interruttori la governano, entrambi in `app_config`:
- * `bank_sync_enabled` (globale) e `bank_sync_cron_enabled`, spento per
- * default. Si accende quando la beta e' stabile, senza un deploy.
+ * `bank_sync_enabled` (globale) e `bank_sync_cron_enabled` (worker).
+ * Il worker e' attivo per default e si puo' fermare senza un deploy.
  */
 const processaSincronizzazioniBancarie = async (_req, res, next) => {
   try {

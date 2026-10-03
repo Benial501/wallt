@@ -6,6 +6,7 @@ const request = require('supertest');
 // servizio insieme dentro un registry isolato, cosi il mock e' davvero attivo.
 let app;
 let processaRicorrenti;
+let processaSincronizzazioniPianificate;
 
 const loadAppConCronMockato = () => {
   jest.isolateModules(() => {
@@ -13,7 +14,14 @@ const loadAppConCronMockato = () => {
       processaRicorrenti: jest.fn().mockResolvedValue({ processed: 2, skipped: 1, failed: 0 }),
       avviaCronRicorrenti: jest.fn(),
     }));
+    jest.doMock('../services/bankSync/cronSync.service', () => ({
+      processaSincronizzazioniPianificate: jest.fn().mockResolvedValue({
+        saltato: false, candidate: 1, processate: 1, riuscite: 1, fallite: 0,
+        senza_permesso: 0, importati: 2,
+      }),
+    }));
     ({ processaRicorrenti } = require('../services/ricorrenti.service'));
+    ({ processaSincronizzazioniPianificate } = require('../services/bankSync/cronSync.service'));
     const { createApp } = require('../app');
     app = createApp({ enableRateLimit: false });
   });
@@ -54,5 +62,15 @@ describe('endpoint Vercel Cron per le spese ricorrenti', () => {
 
     expect(response.body).toEqual({ processed: 2, skipped: 1, failed: 0 });
     expect(processaRicorrenti).toHaveBeenCalledTimes(1);
+  });
+
+  it('esegue la sincronizzazione bancaria pianificata con lo stesso secret', async () => {
+    const response = await request(app)
+      .get('/api/cron/bank-sync')
+      .set('Authorization', `Bearer ${process.env.CRON_SECRET}`)
+      .expect(200);
+
+    expect(response.body).toMatchObject({ importati: 2, riuscite: 1 });
+    expect(processaSincronizzazioniPianificate).toHaveBeenCalledTimes(1);
   });
 });

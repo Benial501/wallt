@@ -66,15 +66,15 @@ const SCHEMA = Object.freeze({
   },
   [BANK_SYNC_CRON_ENABLED]: {
     tipo: 'boolean',
-    default: false,
-    descrizione: 'Sincronizzazione pianificata. Spenta per default: si accende quando la beta è stabile.',
+    default: true,
+    descrizione: 'Sincronizzazione bancaria automatica. Può essere disattivata per fermare il worker pianificato.',
   },
   [BANK_SYNC_CRON_ORE_MINIME]: {
     tipo: 'intero',
-    default: 12,
+    default: 6,
     min: 1,
     max: 168,
-    descrizione: 'Ore minime dall\'ultima sincronizzazione riuscita perché il cron ne tenti un\'altra.',
+    descrizione: 'Ore minime dall\'ultima sincronizzazione riuscita perché il cron ne tenti un\'altra. Il valore 6 permette quattro controlli al giorno.',
   },
   [BANK_SYNC_CRON_MAX_PER_ESECUZIONE]: {
     tipo: 'intero',
