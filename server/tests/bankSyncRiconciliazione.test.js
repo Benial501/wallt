@@ -8,6 +8,9 @@ const request = require('supertest');
 const { createApp } = require('../app');
 const { Conto, BankConnection, Movimento, AuditLog } = require('../models');
 const { datiRiconciliazione } = require('../services/bankSync/connections.service');
+const { sincronizza } = require('../services/bankSync/syncEngine.service');
+const { processaSincronizzazioniPianificate } = require('../services/bankSync/cronSync.service');
+const SandboxBankProvider = require('../services/bankSync/providers/SandboxBankProvider');
 const {
   azzeraConfigurazione, abilitaSandbox, creaUtente, concediEntitlement,
   collegaBanca,
@@ -15,7 +18,7 @@ const {
 
 const {
   STATO_DA_RICONCILIARE, STATO_ATTIVA, STATI_VIVI, STATI_SINCRONIZZABILI,
-  CONNECTION_STATUS,
+  CONNECTION_STATUS, ERR_SOGLIA_RICHIESTA, ORIGINE_OPEN_BANKING,
 } = require('../constants/bankSync');
 
 describe('il vocabolario del nuovo stato', () => {
@@ -495,5 +498,220 @@ describe('POST /bank-sync/riconciliazione', () => {
     });
 
     expect(r.status).toBe(403);
+  });
+});
+
+/**
+ * La soglia di importazione: da quando sincronizzare.
+ *
+ * I task precedenti hanno fatto in modo che collegare una banca non crei un
+ * conto duplicato. Qui si decide l'altra metà: DA QUANDO importare. Senza
+ * soglia la sincronizzazione porta dentro la sua finestra intera e le spese
+ * che l'utente ha già inserito a mano entrano una seconda volta — ed è
+ * successo in produzione, con il cron, su 30 movimenti.
+ *
+ * La deduplica non può accorgersene: il livello 2 filtra per
+ * `bank_connection_id`, nullo sui movimenti manuali, e il livello 3 si
+ * applica solo alle transazioni senza id stabile.
+ */
+describe('la soglia di importazione (da quando importare)', () => {
+  let utente;
+
+  const giorniDaOggi = (giorni) => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + giorni);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const sync = (corpo = {}) => request(app)
+    .post('/api/bank-sync/sync').set(utente.headers).send(corpo);
+
+  const laConnessione = () => BankConnection.findOne({ where: { user_id: utente.userId } });
+
+  /** Un conto con storico inserito a mano, come chi usa WALLT da mesi. */
+  const contoConStorico = async (date) => {
+    const conto = await Conto.create({
+      user_id: utente.userId, nome: 'REVOLUT', tipo: 'app_pagamento', saldo: 100, attivo: true,
+    });
+    for (const data of date) {
+      // eslint-disable-next-line no-await-in-loop
+      await Movimento.create({
+        user_id: utente.userId, conto_id: conto.id, tipo: 'uscita', importo: 10,
+        categoria: 'spesa_quotidiana', descrizione: 'inserito a mano', data, ricorrente: false,
+      });
+    }
+    return conto;
+  };
+
+  beforeEach(async () => {
+    azzeraConfigurazione();
+    await abilitaSandbox();
+    utente = await creaUtente(app);
+    await concediEntitlement(utente.userId);
+  });
+
+  it('il primo Sincronizza manuale su uno storico esistente chiede da quando, e non importa niente', async () => {
+    const conto = await contoConStorico([giorniDaOggi(-40), giorniDaOggi(-5)]);
+    await collegaBanca(app, utente.headers, { destinazione: conto.id });
+
+    const res = await sync();
+
+    expect(res.status).toBe(409);
+    expect(res.body.codice).toBe(ERR_SOGLIA_RICHIESTA);
+    // I dettagli sono ANNIDATI da `rispondiErrore`: è la forma del corpo,
+    // accertata sul controller e non supposta.
+    expect(res.body.dettagli.data_suggerita).toBe(giorniDaOggi(-4));
+    expect(res.body.dettagli.movimenti_preesistenti).toBe(2);
+    // Il messaggio parla a una persona, non a un programma.
+    expect(res.body.message).toMatch(/da quando importare/i);
+
+    // NIENTE è entrato: è la proprietà che questo task esiste per garantire.
+    expect(await Movimento.count({
+      where: { user_id: utente.userId, origine: ORIGINE_OPEN_BANKING },
+    })).toBe(0);
+    expect(await Movimento.count({ where: { user_id: utente.userId } })).toBe(2);
+
+    // È una domanda, non un guasto: la connessione non va marcata in errore.
+    const connessione = await laConnessione();
+    expect(connessione.status).toBe(STATO_ATTIVA);
+    expect(connessione.error_code).toBeNull();
+    expect(connessione.last_error_at).toBeNull();
+    expect(connessione.import_da).toBeNull();
+  });
+
+  it('la data suggerita non guarda i movimenti futuri', async () => {
+    // Una spesa programmata già registrata in avanti produrrebbe un
+    // suggerimento oltre oggi, cioè «non importare niente».
+    const conto = await contoConStorico([giorniDaOggi(-5), giorniDaOggi(+20)]);
+    await collegaBanca(app, utente.headers, { destinazione: conto.id });
+
+    const res = await sync();
+
+    expect(res.status).toBe(409);
+    expect(res.body.dettagli.data_suggerita).toBe(giorniDaOggi(-4));
+  });
+
+  it('se il conto di destinazione è vuoto la soglia arriva dallo storico degli altri conti', async () => {
+    // Chi crea un conto nuovo per la banca ha comunque storico altrove: il
+    // rischio di doppio conteggio è cross-conto, non per conto.
+    await contoConStorico([giorniDaOggi(-7)]);
+    await collegaBanca(app, utente.headers, { destinazione: 'nuovo' });
+
+    const res = await sync();
+
+    expect(res.status).toBe(409);
+    expect(res.body.dettagli.data_suggerita).toBe(giorniDaOggi(-6));
+  });
+
+  it('il cron salta la prima sincronizzazione senza soglia: niente importato, nessun errore scritto', async () => {
+    // È il test che impedisce il problema trovato in produzione. Per il cron
+    // non c'è nessuno a cui chiedere la data, e marcare errore ogni sei ore
+    // mostrerebbe «da sistemare» su una funzione che aspetta una scelta.
+    const conto = await contoConStorico([giorniDaOggi(-5)]);
+    await collegaBanca(app, utente.headers, { destinazione: conto.id });
+
+    const esito = await processaSincronizzazioniPianificate({
+      provider: new SandboxBankProvider(),
+    });
+
+    // Questa asserzione viene PRIMA di ogni contatore: è la proprietà che
+    // conta davvero, e deve essere la prima a rompersi se la guardia
+    // sparisse. Senza di essa il cron scriverebbe qui i 3 movimenti della
+    // banca sopra lo storico manuale — che è esattamente ciò che è
+    // avvenuto in produzione.
+    expect(await Movimento.count({ where: { user_id: utente.userId } })).toBe(1);
+    expect(await Movimento.count({
+      where: { user_id: utente.userId, origine: ORIGINE_OPEN_BANKING },
+    })).toBe(0);
+
+    expect(esito.saltato).toBe(false);
+    expect(esito.processate).toBe(1);
+    expect(esito.saltate).toBe(1);
+    expect(esito.riuscite).toBe(0);
+    expect(esito.fallite).toBe(0);
+    expect(esito.importati).toBe(0);
+
+    const connessione = await laConnessione();
+    expect(connessione.error_code).toBeNull();
+    expect(connessione.last_error_at).toBeNull();
+    expect(connessione.status).toBe(STATO_ATTIVA);
+    expect(connessione.sync_errori_totali).toBe(0);
+    expect(connessione.last_successful_sync_at).toBeNull();
+  });
+
+  it('il salto del cron ha la forma che il cron già conosce', async () => {
+    const conto = await contoConStorico([giorniDaOggi(-5)]);
+    await collegaBanca(app, utente.headers, { destinazione: conto.id });
+    const connessione = await laConnessione();
+
+    const esito = await sincronizza({
+      userId: utente.userId,
+      connectionId: connessione.id,
+      origine: 'cron',
+      provider: new SandboxBankProvider(),
+      ignoraCooldown: true,
+    });
+
+    expect(esito).toMatchObject({ saltato: true, motivo: 'soglia_non_impostata', importati: 0 });
+  });
+
+  it('senza movimenti preesistenti importa come sempre, e la soglia resta nulla', async () => {
+    // Protegge la Regola 24: `import_da` nullo significa «nessuna soglia,
+    // vale la finestra di sempre». Le connessioni esistenti devono
+    // comportarsi esattamente come prima di questo task.
+    await collegaBanca(app, utente.headers);
+
+    const res = await sync();
+
+    expect(res.status).toBe(200);
+    expect(res.body.importati).toBe(3);
+    const connessione = await laConnessione();
+    expect(connessione.import_da).toBeNull();
+    expect(connessione.last_successful_sync_at).not.toBeNull();
+  });
+
+  it('con la soglia, le transazioni precedenti non entrano e la soglia resta sulla connessione', async () => {
+    const conto = await contoConStorico([giorniDaOggi(-5)]);
+    await collegaBanca(app, utente.headers, { destinazione: conto.id });
+
+    // Le transazioni della sandbox sono a -3, -2 e -1 giorni (più una
+    // `pending` di oggi, che non entra mai). La soglia ne esclude una.
+    const soglia = giorniDaOggi(-2);
+    const res = await sync({ import_da: soglia });
+
+    expect(res.status).toBe(200);
+    expect(res.body.importati).toBe(2);
+
+    const importati = await Movimento.findAll({
+      where: { user_id: utente.userId, origine: ORIGINE_OPEN_BANKING },
+      order: [['data', 'ASC']],
+    });
+    expect(importati.map((m) => m.data)).toEqual([giorniDaOggi(-2), giorniDaOggi(-1)]);
+
+    const connessione = await laConnessione();
+    expect(connessione.import_da).toBe(soglia);
+
+    // La soglia vale anche dopo: la finestra incrementale non può scendere
+    // sotto di essa, quindi la transazione esclusa resta fuori per sempre.
+    const seconda = await sync();
+    expect(seconda.status).toBe(200);
+    expect(seconda.body.importati).toBe(0);
+    expect(await Movimento.count({
+      where: { user_id: utente.userId, origine: ORIGINE_OPEN_BANKING },
+    })).toBe(2);
+  });
+
+  it('una soglia nel futuro è rifiutata dalla validazione', async () => {
+    // Una soglia oltre oggi significa «non importare niente», che si
+    // ottiene semplicemente non sincronizzando.
+    const conto = await contoConStorico([giorniDaOggi(-5)]);
+    await collegaBanca(app, utente.headers, { destinazione: conto.id });
+
+    const res = await sync({ import_da: giorniDaOggi(+1) });
+
+    expect(res.status).toBe(400);
+    const connessione = await laConnessione();
+    expect(connessione.import_da).toBeNull();
+    expect(await Movimento.count({ where: { user_id: utente.userId } })).toBe(1);
   });
 });

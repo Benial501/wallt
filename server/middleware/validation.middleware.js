@@ -1631,6 +1631,29 @@ const dataISOValida = (valore) => {
   return Number.isFinite(data.getTime()) && data.toISOString().slice(0, 10) === valore;
 };
 
+/**
+ * La soglia da cui iniziare a importare (`POST /bank-sync/sync`).
+ *
+ * Facoltativa: assente significa «nessuna soglia, vale la finestra di
+ * sempre». Quando c'è deve essere una data vera e NON futura — una soglia
+ * oltre oggi significherebbe «non importare niente», che si ottiene
+ * semplicemente non sincronizzando.
+ */
+const validateBankSyncSoglia = [
+  body('import_da')
+    .optional({ values: 'null' })
+    .custom((valore) => {
+      if (!dataISOValida(valore)) {
+        throw new Error('Inserisci una data valida da cui iniziare a importare.');
+      }
+      if (valore > oggiLocale()) {
+        throw new Error('La data da cui importare non può essere nel futuro.');
+      }
+      return true;
+    }),
+  validate,
+];
+
 const validateBankSyncRange = [
   body('data_da').custom((_valore, { req }) => {
     const dataDa = req.body?.data_da;
@@ -1883,6 +1906,7 @@ module.exports = {
   validateBankConnect,
   validateDeleteBankImportedData,
   validateBankSyncRange,
+  validateBankSyncSoglia,
   validateBankCallback,
   validateRiconciliazione,
   validateIstitutiQuery,

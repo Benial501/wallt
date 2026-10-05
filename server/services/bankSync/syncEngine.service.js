@@ -7,7 +7,8 @@ const {
   STATO_ATTIVA, STATO_CONSENSO_SCADUTO, STATO_ERRORE, STATI_SINCRONIZZABILI,
   SYNC_LOCK_SCADENZA_MINUTI, GIORNI_STORICO_INIZIALE, GIORNI_STORICO_INCREMENTALE,
   ERR_SYNC_IN_CORSO, ERR_COOLDOWN, ERR_SYNC_FAILED, ERR_NO_TRANSACTIONS,
-  ERR_CONSENT_EXPIRED, ERR_AUTHORIZATION_REVOKED, ORIGINE_OPEN_BANKING, TX_BOOKED,
+  ERR_CONSENT_EXPIRED, ERR_AUTHORIZATION_REVOKED, ERR_SOGLIA_RICHIESTA,
+  ORIGINE_OPEN_BANKING, TX_BOOKED,
 } = require('../../constants/bankSync');
 const { BANK_SYNC_COOLDOWN_SECONDI } = require('../../constants/appConfig');
 const { getConfig } = require('../appConfig.service');
@@ -85,6 +86,90 @@ const giorniPrimaISO = (giorni) => {
   return d.toISOString().slice(0, 10);
 };
 
+const giornoDopoISO = (dataISO) => {
+  const d = new Date(`${dataISO}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+};
+
+/**
+ * La più recente fra due date ISO, ignorando quelle assenti.
+ *
+ * Con `import_da` nullo il risultato è la finestra di sempre: è ciò che fa
+ * comportare le connessioni esistenti esattamente come prima che la soglia
+ * esistesse.
+ */
+const maxDataISO = (a, b) => {
+  if (!a) return b || null;
+  if (!b) return a;
+  return a > b ? a : b;
+};
+
+/**
+ * Da quando conviene iniziare a importare: il giorno successivo all'ultimo
+ * movimento NON futuro dell'utente, come `YYYY-MM-DD`, oppure `null` se non
+ * ha movimenti (nessuna soglia da suggerire, nessun rischio).
+ *
+ * Il vincolo sul futuro non è decorativo: un movimento già registrato in
+ * avanti — una spesa programmata, un promemoria — produrrebbe un
+ * suggerimento oltre oggi, cioè «non importare niente».
+ *
+ * Guarda prima il conto di destinazione; se quel conto è vuoto (il caso di
+ * chi ha creato un conto nuovo pur avendo storico altrove) ripiega su tutti
+ * i conti dell'utente, perché il rischio di doppio conteggio è cross-conto.
+ */
+async function dataSuggeritaImport({ userId, contoId = null }) {
+  const ultimaData = async (filtro) => {
+    const riga = await Movimento.findOne({
+      where: { user_id: userId, data: { [Op.lte]: oggiISO() }, ...filtro },
+      attributes: ['data'],
+      order: [['data', 'DESC']],
+    });
+    return riga?.data ?? null;
+  };
+
+  let ultima = contoId ? await ultimaData({ conto_id: contoId }) : null;
+  if (!ultima) ultima = await ultimaData({});
+  return ultima ? giornoDopoISO(ultima) : null;
+}
+
+/**
+ * L'UNICO punto in cui WALLT si chiede: «questa sincronizzazione
+ * importerebbe sopra uno storico che l'utente ha già?».
+ *
+ * Restituisce i dettagli della domanda quando è il caso di porla, `null`
+ * altrimenti. Gli esiti sono due — 409 per una persona, salto per il cron —
+ * ma la domanda resta una sola: due punti che la calcolano sarebbero due
+ * risposte possibili alla stessa cosa, ed è anche la ragione per cui
+ * `GET /bank-sync/riconciliazione` non la espone.
+ *
+ * La deduplica non può sostituirla: il livello 2 filtra per
+ * `bank_connection_id`, che sui movimenti manuali è nullo, e il livello 3
+ * (`DuplicateChecker`) si applica solo alle transazioni senza id stabile.
+ */
+async function sogliaMancante({ userId, connessione }) {
+  // Non è la prima volta, oppure la soglia c'è già: niente da chiedere.
+  if (connessione.last_successful_sync_at || connessione.import_da) return null;
+
+  // I movimenti che NON vengono da questa connessione: inseriti a mano,
+  // importati da file, o portati da un collegamento precedente.
+  const preesistenti = await Movimento.count({
+    where: {
+      user_id: userId,
+      [Op.or]: [
+        { bank_connection_id: null },
+        { bank_connection_id: { [Op.ne]: connessione.id } },
+      ],
+    },
+  });
+  if (preesistenti === 0) return null;
+
+  return {
+    data_suggerita: await dataSuggeritaImport({ userId, contoId: connessione.conto_id }),
+    movimenti_preesistenti: preesistenti,
+  };
+}
+
 /** Errore di sincronizzazione con codice, per il client e per l'audit. */
 class SyncError extends Error {
   constructor(codice, messaggio, { statusCode = 409, dettagli = null } = {}) {
@@ -148,6 +233,9 @@ const statoDopoErrore = (codice) => {
  * @param {import('./providers/BankProvider').BankProvider} [dati.provider]
  * @param {boolean} [dati.ignoraCooldown] solo per il cron, che ha un proprio
  *   criterio di selezione (ore minime dall'ultima sync riuscita)
+ * @param {string|null} [dati.importDa] la soglia `YYYY-MM-DD` scelta
+ *   dall'utente: viene persistita sulla connessione e vale anche per le
+ *   sincronizzazioni successive
  */
 async function sincronizza({
   userId,
@@ -155,6 +243,7 @@ async function sincronizza({
   origine = 'manuale',
   provider = null,
   ignoraCooldown = false,
+  importDa = null,
   dataDa: dataDaScelta = null,
   dataA: dataAScelta = null,
 }) {
@@ -181,6 +270,38 @@ async function sincronizza({
 
   if (!connessione.conto_id || !connessione.provider_account_id) {
     throw new SyncError(ERR_SYNC_FAILED, 'Connessione incompleta: ricollega il conto.');
+  }
+
+  // ─── La soglia: da quando importare ─────────────────────────────────────
+  //
+  // La scelta dell'utente va persistita PRIMA della guardia — è la risposta
+  // alla domanda che la guardia pone — e resta sulla connessione, così vale
+  // anche per le sincronizzazioni successive.
+  if (importDa && importDa !== connessione.import_da) {
+    await connessione.update({ import_da: importDa });
+  }
+
+  // La guardia sta prima del cooldown e del lock: una richiesta che va
+  // fermata non deve consumare né l'uno né l'altro.
+  const soglia = await sogliaMancante({ userId, connessione });
+  if (soglia) {
+    if (origine === 'cron') {
+      // Non c'è nessuno a cui chiedere la data. Marcare errore a ogni
+      // passaggio riempirebbe la connessione di un guasto che non esiste:
+      // l'utente vedrebbe «da sistemare» su una funzione che sta soltanto
+      // aspettando una sua scelta. Quindi si salta, senza toccare niente —
+      // né `error_code`, né `last_error_at`, né i contatori.
+      logger.info('Sincronizzazione pianificata saltata: soglia non impostata', {
+        connessione_id: connessione.id,
+      });
+      return { saltato: true, motivo: 'soglia_non_impostata', importati: 0 };
+    }
+    throw new SyncError(
+      ERR_SOGLIA_RICHIESTA,
+      'Hai già dei movimenti registrati. Scegli da quando importare per non '
+      + 'ritrovarti la stessa spesa due volte.',
+      { statusCode: 409, dettagli: soglia },
+    );
   }
 
   // Cooldown: protegge la quota API del provider da un utente che tiene
@@ -210,7 +331,10 @@ async function sincronizza({
   const adapter = provider ?? await getBankProvider({ nome: connessione.provider });
   const primaVolta = !connessione.last_successful_sync_at;
   const giorni = primaVolta ? GIORNI_STORICO_INIZIALE : GIORNI_STORICO_INCREMENTALE;
-  const dataDa = dataDaScelta || giorniPrimaISO(giorni);
+  // `import_da` è un PAVIMENTO sulla finestra, non un'alternativa: nemmeno
+  // un intervallo scelto a mano può scendere sotto la soglia, altrimenti
+  // riaprirebbe la strada al doppio conteggio che la soglia chiude.
+  const dataDa = maxDataISO(dataDaScelta || giorniPrimaISO(giorni), connessione.import_da);
   const dataA = dataAScelta || oggiISO();
 
   await registraAudit({
@@ -514,6 +638,7 @@ async function allineaSaldo({ userId, connessione, saldo }) {
 module.exports = {
   SyncError,
   sincronizza,
+  dataSuggeritaImport,
   importaTransazioni,
   acquisisciLock,
   rilasciaLock,
