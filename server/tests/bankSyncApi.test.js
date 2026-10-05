@@ -362,11 +362,20 @@ describe('sincronizzazione attraverso l\'API', () => {
   });
 
   it('rifiuta un intervallo incompleto, invertito, futuro o oltre 90 giorni', async () => {
+    // La data finale nel futuro va calcolata da oggi, non scritta a mano:
+    // una data fissa smette di essere futura il giorno dopo, e il caso che
+    // doveva verificare diventa un intervallo perfettamente valido.
+    const giorniDaOggi = (giorni) => {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() + giorni);
+      return d.toISOString().slice(0, 10);
+    };
+
     const richieste = [
       { data_da: '2026-09-01' },
       { data_da: '2026-10-01', data_a: '2026-09-01' },
       { data_da: '2026-06-01', data_a: '2026-10-01' },
-      { data_da: '2026-09-01', data_a: '2026-10-04' },
+      { data_da: giorniDaOggi(-1), data_a: giorniDaOggi(1) },
       { data_da: '2026-02-30', data_a: '2026-03-01' },
     ];
 
