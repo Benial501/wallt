@@ -816,3 +816,68 @@ describe('la soglia di importazione (da quando importare)', () => {
     expect(await Movimento.count({ where: { user_id: utente.userId } })).toBe(1);
   });
 });
+
+describe('il saldo di un conto collegato lo decide la banca', () => {
+  let utente;
+
+  beforeEach(async () => {
+    azzeraConfigurazione();
+    await abilitaSandbox();
+    utente = await creaUtente(app);
+    await concediEntitlement(utente.userId);
+  });
+
+  it('rifiuta la modifica del saldo e spiega perché', async () => {
+    const { riconciliazione } = await collegaBanca(app, utente.headers);
+    const contoId = riconciliazione.body.conto.id;
+    const saldoPrima = (await Conto.findByPk(contoId)).saldo;
+
+    const r = await request(app).put(`/api/conti/${contoId}`).set(utente.headers)
+      .send({ saldo: 999 });
+
+    expect(r.status).toBe(422);
+    expect(r.body.message).toMatch(/banca/i);
+    expect((await Conto.findByPk(contoId)).saldo).toBe(saldoPrima);
+  });
+
+  it('il nome resta modificabile', async () => {
+    const { riconciliazione } = await collegaBanca(app, utente.headers);
+    const contoId = riconciliazione.body.conto.id;
+
+    const r = await request(app).put(`/api/conti/${contoId}`).set(utente.headers)
+      .send({ nome: 'Il mio Revolut' });
+
+    expect(r.status).toBe(200);
+    expect((await Conto.findByPk(contoId)).nome).toBe('Il mio Revolut');
+  });
+
+  it('su un conto non collegato il saldo si modifica come sempre', async () => {
+    const mio = await Conto.create({
+      user_id: utente.userId, nome: 'CONTANTI', tipo: 'contanti', saldo: 10, attivo: true,
+    });
+
+    const r = await request(app).put(`/api/conti/${mio.id}`).set(utente.headers)
+      .send({ saldo: 50 });
+
+    expect(r.status).toBe(200);
+  });
+
+  it('scollegare la banca rende il saldo di nuovo modificabile a mano', async () => {
+    // La guardia guarda le connessioni VIVE: una connessione revocata non
+    // deve più bloccare nulla, altrimenti scollegare la banca (Regola 24,
+    // "scollegare non cancella movimenti") lascerebbe il conto bloccato per
+    // sempre, senza nessuna sincronizzazione che possa più contraddire il
+    // valore scritto a mano.
+    const { riconciliazione } = await collegaBanca(app, utente.headers);
+    const contoId = riconciliazione.body.conto.id;
+
+    const scollega = await request(app).post('/api/bank-sync/disconnect').set(utente.headers).send({});
+    expect(scollega.status).toBe(200);
+
+    const r = await request(app).put(`/api/conti/${contoId}`).set(utente.headers)
+      .send({ saldo: 123.45 });
+
+    expect(r.status).toBe(200);
+    expect((await Conto.findByPk(contoId)).saldo).toBe('123.45');
+  });
+});

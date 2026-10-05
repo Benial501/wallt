@@ -10,6 +10,7 @@ const {
 const { calcolaPatrimonio, calcolaPatrimonioNetto, calcolaVariazioneMensile } = require('../services/financialSummary.service');
 const { calcolaLiquidita } = require('../services/liquidita.service');
 const { isContoFondo } = require('../services/fondoEmergenza.service');
+const { contoCollegatoAConnessioneViva } = require('../services/bankSync/connections.service');
 
 const toNumber = (val) => parseFloat(val) || 0;
 
@@ -173,6 +174,20 @@ const updateConto = async (req, res) => {
       await t.rollback();
       return res.status(400).json({
         message: 'Il fondo di emergenza resta fuori dai soldi spendibili: puoi chiuderlo, non renderlo spendibile',
+      });
+    }
+
+    // Il saldo di un conto collegato lo scrive la sincronizzazione: accettare
+    // una modifica qui non sarebbe rischioso, sarebbe INUTILE — il valore
+    // vale fino alla chiamata successiva. Si rifiuta, come si rifiuta di
+    // rendere visibile il fondo di emergenza qui sopra: un invariante si
+    // impone, non si raccomanda.
+    if (saldo !== undefined && await contoCollegatoAConnessioneViva(conto.id, req.userId)) {
+      await t.rollback();
+      return res.status(422).json({
+        message: 'Il saldo di un conto collegato lo aggiorna la banca. '
+          + 'Puoi cambiarne nome, icona e colore.',
+        codice: 'saldo_gestito_dalla_banca',
       });
     }
 

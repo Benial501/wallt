@@ -874,6 +874,22 @@ async function riattivaDopoEntitlement({ userId }) {
   return { riattivate: quante };
 }
 
+/**
+ * Se questo conto è alimentato da una banca.
+ *
+ * Vive qui e non in `conti.controller.js` perché il controller dei conti non
+ * deve imparare cose sulle connessioni: gli basta la risposta. Guarda solo
+ * le connessioni VIVE (`STATI_VIVI`, cioè tutto tranne `revocata`): una banca
+ * scollegata non deve bloccare per sempre un conto che è tornato manuale —
+ * `scollega` non cancella movimenti né il legame storico `conto_id`, ma da
+ * quel momento nessuna sincronizzazione può più contraddire un valore
+ * scritto a mano.
+ */
+const contoCollegatoAConnessioneViva = async (contoId, userId) => !!await BankConnection.findOne({
+  where: { user_id: userId, conto_id: contoId, status: { [Op.in]: STATI_VIVI } },
+  attributes: ['id'],
+});
+
 module.exports = {
   hashState,
   redirectCallback,
@@ -890,4 +906,5 @@ module.exports = {
   eliminaDatiImportati,
   sospendiPerEntitlement,
   riattivaDopoEntitlement,
+  contoCollegatoAConnessioneViva,
 };
