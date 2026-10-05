@@ -365,6 +365,12 @@ describe('sincronizzazione attraverso l\'API', () => {
     // La data finale nel futuro va calcolata da oggi, non scritta a mano:
     // una data fissa smette di essere futura il giorno dopo, e il caso che
     // doveva verificare diventa un intervallo perfettamente valido.
+    //
+    // Il margine è di DUE giorni, non uno: qui si conta in UTC mentre la
+    // validazione confronta con `oggiLocale()` (Europe/Rome), e fra le
+    // 22:00/23:00 UTC e la mezzanotte di Roma il giorno locale è già il
+    // successivo. Con `+1` la data smetterebbe di essere futura per un'ora
+    // al giorno — e la CI gira in UTC, quindi la finestra è raggiungibile.
     const giorniDaOggi = (giorni) => {
       const d = new Date();
       d.setUTCDate(d.getUTCDate() + giorni);
@@ -375,7 +381,7 @@ describe('sincronizzazione attraverso l\'API', () => {
       { data_da: '2026-09-01' },
       { data_da: '2026-10-01', data_a: '2026-09-01' },
       { data_da: '2026-06-01', data_a: '2026-10-01' },
-      { data_da: giorniDaOggi(-1), data_a: giorniDaOggi(1) },
+      { data_da: giorniDaOggi(-1), data_a: giorniDaOggi(2) },
       { data_da: '2026-02-30', data_a: '2026-03-01' },
     ];
 

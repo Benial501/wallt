@@ -11,6 +11,7 @@ const {
   ORIGINE_OPEN_BANKING, TX_BOOKED,
 } = require('../../constants/bankSync');
 const { BANK_SYNC_COOLDOWN_SECONDI } = require('../../constants/appConfig');
+const { oggiLocale, FUSO_DEFAULT } = require('../../utils/dateRome');
 const { getConfig } = require('../appConfig.service');
 const { getBankProvider } = require('./providers');
 const { BankProviderError } = require('./providers/BankProvider');
@@ -114,14 +115,28 @@ const maxDataISO = (a, b) => {
  * avanti — una spesa programmata, un promemoria — produrrebbe un
  * suggerimento oltre oggi, cioè «non importare niente».
  *
+ * «Oggi» è il giorno civile nel fuso dell'utente (Regola 16), non quello del
+ * processo: su Vercel il processo gira in UTC, e fra le 22:00/23:00 UTC e la
+ * mezzanotte di Roma il giorno civile italiano è già quello successivo. Con
+ * l'UTC un movimento inserito «oggi» secondo Roma risulterebbe futuro,
+ * verrebbe escluso, e il suggerimento arretrerebbe di un giorno — proponendo
+ * di importare un giorno che l'utente ha già registrato a mano, cioè
+ * esattamente ciò che questa funzione esiste per evitare.
+ *
+ * `riferimento` è iniettabile come in `speseMedie.service.js` e
+ * `financialContext.service.js`: serve a poter verificare il confine senza
+ * congelare l'orologio. In produzione resta l'istante corrente.
+ *
  * Guarda prima il conto di destinazione; se quel conto è vuoto (il caso di
  * chi ha creato un conto nuovo pur avendo storico altrove) ripiega su tutti
  * i conti dell'utente, perché il rischio di doppio conteggio è cross-conto.
  */
-async function dataSuggeritaImport({ userId, contoId = null }) {
+async function dataSuggeritaImport({ userId, contoId = null, riferimento = new Date() }) {
+  const oggi = oggiLocale(FUSO_DEFAULT, riferimento);
+
   const ultimaData = async (filtro) => {
     const riga = await Movimento.findOne({
-      where: { user_id: userId, data: { [Op.lte]: oggiISO() }, ...filtro },
+      where: { user_id: userId, data: { [Op.lte]: oggi }, ...filtro },
       attributes: ['data'],
       order: [['data', 'DESC']],
     });

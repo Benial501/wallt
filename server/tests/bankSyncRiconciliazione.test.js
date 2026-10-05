@@ -8,7 +8,9 @@ const request = require('supertest');
 const { createApp } = require('../app');
 const { Conto, BankConnection, Movimento, AuditLog } = require('../models');
 const { datiRiconciliazione } = require('../services/bankSync/connections.service');
-const { sincronizza } = require('../services/bankSync/syncEngine.service');
+const {
+  sincronizza, dataSuggeritaImport,
+} = require('../services/bankSync/syncEngine.service');
 const { processaSincronizzazioniPianificate } = require('../services/bankSync/cronSync.service');
 const SandboxBankProvider = require('../services/bankSync/providers/SandboxBankProvider');
 const {
@@ -768,13 +770,45 @@ describe('la soglia di importazione (da quando importare)', () => {
     })).toBe(2);
   });
 
+  it('il confine del giorno è quello di Roma, non quello del processo', async () => {
+    // Regola 16: i confini di giorno si calcolano nel fuso dell'utente, mai
+    // in quello del processo (su Vercel, UTC).
+    //
+    // Le 22:30 UTC del 5 ottobre sono già le 00:30 del 6 a Roma (CEST, l'ora
+    // legale finisce il 25). A quell'istante un movimento datato 6 ottobre è
+    // «oggi» per l'utente e «domani» per il processo: con il confine in UTC
+    // verrebbe scartato come futuro e il suggerimento arretrerebbe al 6,
+    // cioè a un giorno che l'utente ha già registrato a mano — l'esatto
+    // contrario dello scopo di questa funzione.
+    //
+    // Il movimento dell'8 serve a dimostrare che il filtro sul futuro c'è
+    // ancora: è futuro anche per Roma e non deve spostare nulla. Le tre
+    // ipotesi danno tre risultati distinti — nessun filtro 2026-10-09,
+    // filtro in UTC 2026-10-06, filtro di Roma 2026-10-07 — quindi questa
+    // sola asserzione le separa tutte.
+    const conto = await contoConStorico(['2026-10-05', '2026-10-06', '2026-10-08']);
+
+    const suggerita = await dataSuggeritaImport({
+      userId: utente.userId,
+      contoId: conto.id,
+      riferimento: new Date('2026-10-05T22:30:00.000Z'),
+    });
+
+    expect(suggerita).toBe('2026-10-07');
+  });
+
   it('una soglia nel futuro è rifiutata dalla validazione', async () => {
     // Una soglia oltre oggi significa «non importare niente», che si
     // ottiene semplicemente non sincronizzando.
     const conto = await contoConStorico([giorniDaOggi(-5)]);
     await collegaBanca(app, utente.headers, { destinazione: conto.id });
 
-    const res = await sync({ import_da: giorniDaOggi(+1) });
+    // `+2` e non `+1`: `giorniDaOggi` conta in UTC mentre la validazione
+    // confronta con `oggiLocale()` (Europe/Rome). Fra le 22:00/23:00 UTC e la
+    // mezzanotte di Roma il giorno locale è già quello successivo, quindi
+    // `+1` non sarebbe più futuro e il test attenderebbe un 400 ricevendo un
+    // 200 — un fallimento a un'ora casuale del giorno, e la CI gira in UTC.
+    const res = await sync({ import_da: giorniDaOggi(+2) });
 
     expect(res.status).toBe(400);
     const connessione = await laConnessione();
