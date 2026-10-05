@@ -9,19 +9,39 @@ import { useToastStore } from '@/stores/toast.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { useValuta } from '@/composables/useValuta';
 import { formatData } from '@/utils/formatters';
-import { CONTO_TIPO_ICON_MAP, CreditCard, Repeat2, AlertTriangle } from '@/utils/appIcons';
+import {
+  CONTO_TIPO_ICON_MAP, CreditCard, Repeat2, AlertTriangle, RefreshCw,
+} from '@/utils/appIcons';
 import { DEFAULT_ICON_BY_TIPO } from '@/utils/contoIcons';
 import ImportEstrattoHint from '@/components/common/ImportEstrattoHint.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import HelpNote from '@/components/help/HelpNote.vue';
 import DataState from '@/components/common/DataState.vue';
 import BankSyncSection from '@/components/conti/BankSyncSection.vue';
+import { useBankSyncStore } from '@/stores/bankSync.store';
+import { isContoSincronizzato } from '@/utils/entitlements';
 import { etichetta } from '@/content/glossario';
 
 const contiStore = useContiStore();
 const toastStore = useToastStore();
 const authStore = useAuthStore();
+const bankSyncStore = useBankSyncStore();
 const { formatValuta } = useValuta();
+
+/**
+ * Quale di questi conti si aggiorna da sé.
+ *
+ * `contiStore` non lo sa: il legame sta sulla connessione bancaria
+ * (`connessione.conto_id`). Serve perché su un conto alimentato dalla banca
+ * un movimento inserito a mano è un doppione in arrivo, e un saldo corretto a
+ * mano viene sovrascritto alla sincronizzazione successiva — il server lo
+ * rifiuta già con un 422, qui si evita di far compiere il gesto.
+ *
+ * Lo stato della connessione lo carica `BankSyncSection`, che questa pagina
+ * monta sempre: finché quella lettura non è arrivata nessun conto risulta
+ * sincronizzato, e l'indicatore compare quando il dato c'è.
+ */
+const sincronizzatoDallaBanca = (conto) => isContoSincronizzato(conto, bankSyncStore.connessione);
 
 const contiVisibili = computed(() => {
   const showInv = authStore.mostraInvestimenti;
@@ -36,6 +56,10 @@ const loading = ref(false);
 const deleteLoading = ref(false);
 const contoEdit = ref(null);
 const contoDaEliminare = ref(null);
+
+/** Il conto in modifica è quello alimentato dalla banca: il suo saldo non si
+ * corregge a mano. */
+const contoEditSincronizzato = computed(() => sincronizzatoDallaBanca(contoEdit.value));
 
 const TIPI_BASE = [
   { id: 'banca', label: 'Banca', icon: CONTO_TIPO_ICON_MAP.banca },
@@ -132,7 +156,14 @@ const salvaModifica = async () => {
     await contiStore.updateConto(
       contoEdit.value.id,
       {
-        nome, icona, colore, saldo, nascosto,
+        nome,
+        icona,
+        colore,
+        nascosto,
+        // Su un conto collegato il saldo NON si invia affatto: il server
+        // rifiuta con 422 la sola presenza del campo, anche col valore
+        // invariato, e rinominare il conto diventerebbe impossibile.
+        ...(contoEditSincronizzato.value ? {} : { saldo }),
       },
       { tipo: contoEdit.value.tipo },
     );
@@ -215,7 +246,19 @@ const confermaElimina = async () => {
           </div>
           <div class="conto-card__body">
             <div class="conto-card__top">
-              <h3>{{ conto.nome }}</h3>
+              <div class="conto-card__nome">
+                <h3>{{ conto.nome }}</h3>
+                <!-- L'icona accompagna il testo: il significato non dipende
+                     dal solo colore. -->
+                <span
+                  v-if="sincronizzatoDallaBanca(conto)"
+                  class="conto-badge-sync"
+                  title="I movimenti e il saldo di questo conto arrivano dalla banca"
+                >
+                  <RefreshCw :size="12" :stroke-width="2" aria-hidden="true" />
+                  Dalla banca
+                </span>
+              </div>
               <span v-if="conto.nascosto" class="conto-badge-nascosto">Fuori dal saldo effettivo</span>
             </div>
             <p class="conto-card__balance-label">Saldo disponibile</p>
@@ -317,8 +360,17 @@ const confermaElimina = async () => {
         </label>
         <div class="field">
           <label>Saldo attuale (€)</label>
-          <input v-model.number="editForm.saldo" type="number" step="0.01" class="form-input" />
-          <p class="field-hint">
+          <input
+            v-model.number="editForm.saldo"
+            type="number"
+            step="0.01"
+            class="form-input"
+            :disabled="contoEditSincronizzato"
+          />
+          <p v-if="contoEditSincronizzato" class="field-hint">
+            Lo aggiorna la banca a ogni sincronizzazione.
+          </p>
+          <p v-else class="field-hint">
             Correggi qui il saldo solo per sistemare un errore (es. una transazione sbagliata):
             sovrascrive il saldo direttamente, senza creare un movimento nello storico.
           </p>
@@ -389,6 +441,9 @@ const confermaElimina = async () => {
 .conto-card__top h3 { font-size: 1.0625rem; font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
 .badge { font-size: var(--text-xs); padding: 0.25rem 0.5rem; border-radius: 999px; background: var(--bg-input); color: var(--text-muted); }
 .conto-badge-nascosto { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
+.conto-card__nome { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; min-width: 0; }
+.conto-badge-sync { display: inline-flex; align-items: center; gap: 0.25rem; font-size: var(--text-xs); font-weight: 600; color: var(--accent-text); white-space: nowrap; }
+.conto-badge-sync svg { flex-shrink: 0; }
 .conto-nascondi { display: flex; align-items: flex-start; gap: 0.625rem; padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-input); cursor: pointer; }
 .conto-nascondi input[type="checkbox"] { margin-top: 0.125rem; flex-shrink: 0; }
 .conto-nascondi span { display: flex; flex-direction: column; gap: 0.25rem; }
