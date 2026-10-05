@@ -210,7 +210,7 @@ Entità core: `users` → `conti` → `movimenti`. Entità satellite: budget, ob
 
 ## API
 
-133 endpoint REST sotto `/api/*` (incluse le 3 rotte `/api/fondo-emergenza`, le 7 di `/api/categorie`, le due dello step-up Google, le 6 di Piano Smart e le 27 di WALLT Premium: 1 `/api/piano`, 10 `/api/bank-sync`, 3 `/api/premium`, 12 `/api/admin`, 1 `GET /api/cron/bank-sync`). Vedi `docs/API.md` per inventario completo e `docs/piano-smart-api-contract.md` per il contratto di Piano Smart.
+134 endpoint REST sotto `/api/*` (incluse le 3 rotte `/api/fondo-emergenza`, le 7 di `/api/categorie`, le due dello step-up Google, le 6 di Piano Smart e le 27 di WALLT Premium: 1 `/api/piano`, 10 `/api/bank-sync`, 3 `/api/premium`, 12 `/api/admin`, 1 `GET /api/cron/bank-sync`). Vedi `docs/API.md` per inventario completo e `docs/piano-smart-api-contract.md` per il contratto di Piano Smart.
 
 Comunicazione: Axios con `baseURL = VITE_API_URL` normalizzato da `client/src/config/api.js` (default `http://localhost:3000/api`), header `Authorization: Bearer <token>`.
 

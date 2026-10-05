@@ -1570,6 +1570,22 @@ const validateCreateInstallmentPlan = [
 
 const validateScheduledPaymentId = [idParam, validate];
 
+/**
+ * Riprogrammazione: ogni campo è opzionale (si invia solo ciò che cambia), ma
+ * il service pretende che almeno uno arrivi. `due_date` resta vincolata al
+ * presente o al futuro come nella creazione: una scadenza nel passato non è
+ * una programmazione, è un movimento da registrare.
+ */
+const validateUpdateScheduledPayment = [
+  idParam,
+  importoProgrammazione('amount').optional(),
+  categoriaProgrammata().optional(),
+  contoProgrammata().optional(),
+  descrizioneProgrammata(),
+  dataProgrammata('due_date').optional(),
+  validate,
+];
+
 const validateCreateScheduledPaymentContribution = [
   idParam,
   body('amount')
@@ -1877,6 +1893,7 @@ module.exports = {
   validateCreateFondoEmergenza,
   validateUpdateFondoEmergenza,
   validateCreateScheduledPayment,
+  validateUpdateScheduledPayment,
   validateCreateInstallmentPlan,
   validateScheduledPaymentId,
   validateCreateScheduledPaymentContribution,

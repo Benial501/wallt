@@ -15,6 +15,7 @@ import api from '@/utils/axios';
 import { useScheduledPaymentsStore } from '@/stores/scheduledPayments.store';
 import { useContiStore } from '@/stores/conti.store';
 import ScheduledPaymentItem from '@/components/programmate/ScheduledPaymentItem.vue';
+import ScheduledPaymentForm from '@/components/programmate/ScheduledPaymentForm.vue';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
 
 const movimentiStore = useMovimentiStore();
@@ -24,6 +25,7 @@ const scheduledStore = useScheduledPaymentsStore();
 const contiStore = useContiStore();
 const showNuovaProgrammata = ref(false);
 const movimentoInModifica = ref(null);
+const pagamentoInModifica = ref(null);
 const movimentoDaEliminare = ref(null);
 const eliminazioneInCorso = ref(false);
 const statoInCorso = ref(false);
@@ -57,6 +59,15 @@ const dopoSalvataggio = async () => {
 const dopoSalvataggioProgrammata = async () => {
   showNuovaProgrammata.value = false;
   await caricaPagina();
+};
+
+const modificaProgrammato = (payment) => { pagamentoInModifica.value = payment; };
+const chiudiFormProgrammato = () => { pagamentoInModifica.value = null; };
+const dopoModificaProgrammato = async () => {
+  // La lista si è già aggiornata nello store; qui si riallineano i conti,
+  // perché cambiare importo o conto di una scadenza sposta ciò che la home
+  // mostra come saldo effettivo (gli impegni entro 30 giorni).
+  await Promise.allSettled([caricaPagina(), contiStore.fetchPatrimonio()]);
 };
 
 const segnaPagata = async (payment) => {
@@ -180,6 +191,7 @@ const cambiaStato = async (movimento, stato) => {
             @confirm="segnaPagata"
             @late="segnaEntrataInRitardo"
             @cancel="annullaProgrammato"
+            @edit="modificaProgrammato"
           />
         </section>
         <section v-if="movimentiStore.ricorrenti.length" class="ricorrenti-view__gruppo">
@@ -202,6 +214,13 @@ const cambiaStato = async (movimento, stato) => {
       :movimento="movimentoInModifica"
       @close="chiudiForm"
       @saved="dopoSalvataggio"
+    />
+
+    <ScheduledPaymentForm
+      :open="Boolean(pagamentoInModifica)"
+      :payment="pagamentoInModifica"
+      @close="chiudiFormProgrammato"
+      @saved="dopoModificaProgrammato"
     />
 
     <MovimentoForm

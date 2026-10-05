@@ -7,7 +7,7 @@ import dayjs from 'dayjs';
 import { Calendar, Wallet, ArrowDownCircle, ArrowUpCircle } from '@/utils/appIcons';
 
 const props = defineProps({ payment: { type: Object, required: true }, valuta: { type: String, default: 'EUR' }, loading: { type: Boolean, default: false }, busy: { type: Boolean, default: false } });
-defineEmits(['confirm', 'late', 'cancel']);
+defineEmits(['confirm', 'late', 'cancel', 'edit']);
 const isIncome = computed(() => props.payment.tipo === 'entrata');
 const isOverdue = computed(() => props.payment.data_scadenza < dayjs().format('YYYY-MM-DD'));
 const isMarkedLate = computed(() => props.payment.stato === 'in_ritardo');
@@ -33,6 +33,7 @@ const isMarkedLate = computed(() => props.payment.stato === 'in_ritardo');
     <div class="scheduled-card__actions">
       <WButton variant="primary" size="sm" :loading="loading" :disabled="busy && !loading" @click="$emit('confirm', payment)">{{ isIncome ? 'Segna come ricevuta' : 'Segna come pagata' }}</WButton>
       <WButton v-if="isIncome && !isMarkedLate" variant="secondary" size="sm" :disabled="busy" @click="$emit('late', payment)">Non è arrivata</WButton>
+      <WButton variant="secondary" size="sm" :disabled="busy" @click="$emit('edit', payment)">Modifica</WButton>
       <WButton variant="secondary" size="sm" :disabled="busy" @click="$emit('cancel', payment)">{{ payment.piano ? 'Annulla piano' : 'Annulla' }}</WButton>
     </div>
   </WCard>

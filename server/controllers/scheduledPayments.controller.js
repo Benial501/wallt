@@ -16,6 +16,15 @@ const createScheduledPayment = async (req, res, next) => {
   } catch (error) { return next(error); }
 };
 
+const updateScheduledPayment = async (req, res, next) => {
+  try {
+    const result = await paymentsService.updateScheduledPayment({
+      userId: req.userId, paymentId: req.params.id, data: req.body,
+    });
+    return res.json(result);
+  } catch (error) { return next(error); }
+};
+
 const createInstallmentPlan = async (req, res, next) => {
   try {
     const result = await paymentsService.createInstallmentPlan({ userId: req.userId, data: req.body });
@@ -81,6 +90,7 @@ const addScheduledPaymentContribution = async (req, res, next) => {
 module.exports = {
   listScheduledPayments,
   createScheduledPayment,
+  updateScheduledPayment,
   createInstallmentPlan,
   confirmScheduledPayment,
   markScheduledIncomeLate,
