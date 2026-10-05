@@ -915,6 +915,32 @@ describe('un movimento inserito a mano su un conto collegato avvisa, non blocca'
     expect(await Movimento.count({ where: { conto_id: contoId, user_id: utente.userId } })).toBe(1);
   });
 
+  it('una regola ricorrente non muove denaro ora, quindi non avvisa: lo farà la sua occorrenza', async () => {
+    // Regola 11: l'origine di una ricorrenza NON è un movimento avvenuto
+    // (`muoveSaldo` è falso per lei), lo diventa solo l'occorrenza che il
+    // cron genera alla scadenza. Avvisare qui direbbe «questa operazione
+    // arriverà anche dalla banca» su un'operazione che non è ancora
+    // avvenuta: un'affermazione falsa, non solo imprecisa.
+    const { riconciliazione } = await collegaBanca(app, utente.headers);
+    const contoId = riconciliazione.body.conto.id;
+
+    const r = await request(app).post('/api/movimenti').set(utente.headers)
+      .send({
+        conto_id: contoId,
+        tipo: 'uscita',
+        importo: 10,
+        categoria: 'cibo_spesa',
+        descrizione: 'Affitto',
+        data: '2026-10-05',
+        ricorrente: true,
+        ricorrente_frequenza: 'mensile',
+        ricorrente_giorno: 5,
+      });
+
+    expect(r.status).toBe(201);
+    expect(Object.prototype.hasOwnProperty.call(r.body, 'avviso')).toBe(false);
+  });
+
   it('su un conto non collegato la forma della risposta non cambia: nessun campo avviso', async () => {
     const mio = await Conto.create({
       user_id: utente.userId, nome: 'CONTANTI', tipo: 'contanti', saldo: 100, attivo: true,

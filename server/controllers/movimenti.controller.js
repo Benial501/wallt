@@ -268,16 +268,23 @@ const createMovimento = async (req, res, next) => {
     // sincronizzazione: a differenza del saldo (bloccato in conti.controller.js),
     // qui l'azione ha già avuto effetto reale — una spesa di stamattina può non
     // essere ancora `booked` presso la banca. Si avvisa, non si blocca (vedi
-    // Regola 24). Fuori dalla transazione e protetto come valutaBudgetDopoMovimento:
-    // un fallimento nel rilevarlo equivale a nessun avviso, mai a un errore sul
+    // Regola 24). Ma solo se il movimento ha DAVVERO mosso denaro: una regola
+    // ricorrente (`muoveSaldo` falso, Regola 11) non è un'operazione avvenuta,
+    // lo sarà la sua occorrenza quando il cron la genererà — avvisare qui
+    // sarebbe affermare un fatto non vero. Stesso predicato già usato sopra
+    // per il saldo e in ricorrenti.service.js per il riepilogo mensile.
+    // Fuori dalla transazione e protetto come valutaBudgetDopoMovimento: un
+    // fallimento nel rilevarlo equivale a nessun avviso, mai a un errore sul
     // movimento già salvato.
     let avviso;
-    try {
-      if (await contoCollegatoAConnessioneViva(conto.id, req.userId)) {
-        avviso = 'conto_collegato';
+    if (muoveSaldo(movimento)) {
+      try {
+        if (await contoCollegatoAConnessioneViva(conto.id, req.userId)) {
+          avviso = 'conto_collegato';
+        }
+      } catch (error) {
+        logger.warn('Verifica conto collegato fallita dopo il movimento', { err: error, userId: req.userId });
       }
-    } catch (error) {
-      logger.warn('Verifica conto collegato fallita dopo il movimento', { err: error, userId: req.userId });
     }
 
     res.status(201).json({ movimento, conto, ...(avviso ? { avviso } : {}) });
