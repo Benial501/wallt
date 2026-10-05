@@ -212,6 +212,73 @@ describe('GET /bank-sync/riconciliazione', () => {
     });
   });
 
+  it('se la sessione non ha i campi descrittivi, il merge ripiega su getAccounts (caso GoCardless)', async () => {
+    // Il test precedente prova che la sessione vince quando è ricca — ma è
+    // sempre lei la fonte ricca in quel caso, quindi non esercita mai il
+    // ramo `?? daAccounts?.nome` di `contiDellaBanca`. Quel ramo esiste
+    // proprio per GoCardless: la sua requisition non porta nome/IBAN/valuta
+    // (vengono scritti a `null` in `getConnectionStatus`, GoCardlessBankProvider.js),
+    // mentre il suo `getAccounts` li ha sempre avuti (due chiamate per conto,
+    // non toccate da questo task). Senza un test in questa direzione, un
+    // refactor che invertisse l'ordine del `??`, o che usasse `||` (trattando
+    // una stringa vuota come assente), non verrebbe colto da nessuna suite:
+    // né questa (sessione sempre ricca) né enableBankingProvider.test.js
+    // (Enable Banking non ha mai bisogno del ripiego, perché la sua sessione
+    // è sempre quella ricca).
+    await BankConnection.create({
+      user_id: utente.userId,
+      provider: 'gocardless',
+      institution_id: 'FINTA_BANCA_2',
+      institution_name: 'Finta Banca 2',
+      provider_connection_id: 'req-finta-2',
+      status: STATO_DA_RICONCILIARE,
+    });
+
+    const providerFinto = {
+      async getConnectionStatus() {
+        // Forma reale di GoCardlessBankProvider.getConnectionStatus dopo
+        // questo task: `conti` esiste (contratto rispettato) ma è uno stub,
+        // perché la requisition non ha dati descrittivi senza una chiamata
+        // HTTP in più.
+        return {
+          stato: 'attiva',
+          accountIds: ['acc-finto-2'],
+          conti: [{
+            providerAccountId: 'acc-finto-2',
+            nome: null,
+            ibanMascherato: null,
+            valuta: null,
+            saldo: null,
+            istituto: { id: null, nome: null },
+          }],
+        };
+      },
+      async getAccounts() {
+        // Forma reale di GoCardlessBankProvider.getAccounts: ricca, perché
+        // legge /accounts/{id}/details/ e /accounts/{id}/balances/.
+        return [{
+          providerAccountId: 'acc-finto-2',
+          nome: 'Conto GoCardless',
+          ibanMascherato: 'IT•••1111',
+          valuta: 'EUR',
+          saldo: 42.1,
+          istituto: { id: null, nome: null },
+        }];
+      },
+    };
+
+    const esito = await datiRiconciliazione(utente.userId, { provider: providerFinto });
+
+    expect(esito.conti_banca).toHaveLength(1);
+    expect(esito.conti_banca[0]).toMatchObject({
+      provider_account_id: 'acc-finto-2',
+      nome: 'Conto GoCardless',
+      iban_mascherato: 'IT•••1111',
+      valuta: 'EUR',
+      saldo: 42.1,
+    });
+  });
+
   it('esclude il fondo di emergenza e i conti scommesse', async () => {
     await Conto.create({
       user_id: utente.userId, nome: 'Fondo', tipo: 'emergenza', saldo: 0,
