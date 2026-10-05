@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import dayjs from 'dayjs';
 import 'dayjs/locale/it';
 import WCard from '@/components/common/WCard.vue';
