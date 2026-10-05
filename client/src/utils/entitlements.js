@@ -160,6 +160,11 @@ export const MOTIVO_NESSUN_ENTITLEMENT = 'nessun_entitlement';
 export const MOTIVO_REVOCATO = 'entitlement_revocato';
 export const MOTIVO_SCADUTO = 'entitlement_scaduto';
 
+/** Il valore che, nel campo `destinazione` di `POST /bank-sync/riconciliazione`,
+ * chiede di creare un conto nuovo invece di agganciarne uno esistente. È
+ * vocabolario di protocollo: va letto da qui, mai scritto in linea. */
+export const DESTINAZIONE_NUOVO = 'nuovo';
+
 // ── Codici d'errore della sincronizzazione ─────────────────────────────────
 
 export const ERR_NETWORK = 'NETWORK_ERROR';

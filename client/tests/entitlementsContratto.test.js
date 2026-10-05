@@ -192,6 +192,10 @@ test('il codice della soglia di importazione coincide', () => {
   assert.equal(client.ERR_SOGLIA_RICHIESTA, serverBankSync.ERR_SOGLIA_RICHIESTA);
 });
 
+test('il valore "destinazione nuovo conto" della riconciliazione coincide', () => {
+  assert.equal(client.DESTINAZIONE_NUOVO, serverBankSync.DESTINAZIONE_NUOVO);
+});
+
 // ── Codici d'errore ────────────────────────────────────────────────────────
 
 test('i codici d\'errore della sincronizzazione coincidono', () => {
