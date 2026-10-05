@@ -9,6 +9,9 @@ const { aggiornaSaldoConto } = require('../services/scommesseContoSync.service')
 const { calcolaEntrate } = require('../services/entrate.service');
 const { cambiaStatoRicorrenza, muoveSaldo } = require('../services/ricorrenti.service');
 const { isContoFondo } = require('../services/fondoEmergenza.service');
+// Serve solo per avvisare, dopo il commit, che un movimento inserito a mano
+// arriverà anche dalla banca su un conto collegato (vedi commento su createMovimento).
+const { contoCollegatoAConnessioneViva } = require('../services/bankSync/connections.service');
 // Valutazione delle soglie di budget dopo una scrittura. Gira FUORI dalla
 // transazione, non lancia mai e non può alterare saldi o esito
 // dell'operazione (vedi services/notifiche/NotificheGenerator.js).
@@ -261,7 +264,23 @@ const createMovimento = async (req, res, next) => {
     // Solo le uscite consumano budget.
     if (tipo === 'uscita') await valutaBudgetDopoMovimento(req.userId);
 
-    res.status(201).json({ movimento, conto });
+    // Un conto collegato a una banca riceverà questa stessa spesa anche dalla
+    // sincronizzazione: a differenza del saldo (bloccato in conti.controller.js),
+    // qui l'azione ha già avuto effetto reale — una spesa di stamattina può non
+    // essere ancora `booked` presso la banca. Si avvisa, non si blocca (vedi
+    // Regola 24). Fuori dalla transazione e protetto come valutaBudgetDopoMovimento:
+    // un fallimento nel rilevarlo equivale a nessun avviso, mai a un errore sul
+    // movimento già salvato.
+    let avviso;
+    try {
+      if (await contoCollegatoAConnessioneViva(conto.id, req.userId)) {
+        avviso = 'conto_collegato';
+      }
+    } catch (error) {
+      logger.warn('Verifica conto collegato fallita dopo il movimento', { err: error, userId: req.userId });
+    }
+
+    res.status(201).json({ movimento, conto, ...(avviso ? { avviso } : {}) });
   } catch (error) {
     await t.rollback();
     return next(error);

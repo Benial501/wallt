@@ -881,3 +881,81 @@ describe('il saldo di un conto collegato lo decide la banca', () => {
     expect((await Conto.findByPk(contoId)).saldo).toBe('123.45');
   });
 });
+
+describe('un movimento inserito a mano su un conto collegato avvisa, non blocca', () => {
+  let utente;
+
+  beforeEach(async () => {
+    azzeraConfigurazione();
+    await abilitaSandbox();
+    utente = await creaUtente(app);
+    await concediEntitlement(utente.userId);
+  });
+
+  const payloadMovimento = (contoId) => ({
+    conto_id: contoId,
+    tipo: 'uscita',
+    importo: 10,
+    categoria: 'cibo_spesa',
+    descrizione: 'Spesa di stamattina',
+    data: '2026-10-05',
+  });
+
+  it('riesce e segnala avviso: conto_collegato quando il conto è agganciato a una connessione viva', async () => {
+    const { riconciliazione } = await collegaBanca(app, utente.headers);
+    const contoId = riconciliazione.body.conto.id;
+
+    const r = await request(app).post('/api/movimenti').set(utente.headers)
+      .send(payloadMovimento(contoId));
+
+    expect(r.status).toBe(201);
+    expect(r.body.avviso).toBe('conto_collegato');
+    // L'operazione È riuscita: non è un errore, il movimento esiste davvero
+    // e ha mosso il saldo come qualunque altro.
+    expect(await Movimento.count({ where: { conto_id: contoId, user_id: utente.userId } })).toBe(1);
+  });
+
+  it('su un conto non collegato la forma della risposta non cambia: nessun campo avviso', async () => {
+    const mio = await Conto.create({
+      user_id: utente.userId, nome: 'CONTANTI', tipo: 'contanti', saldo: 100, attivo: true,
+    });
+
+    const r = await request(app).post('/api/movimenti').set(utente.headers)
+      .send(payloadMovimento(mio.id));
+
+    expect(r.status).toBe(201);
+    expect(Object.prototype.hasOwnProperty.call(r.body, 'avviso')).toBe(false);
+  });
+
+  it('scollegare la banca fa sparire l\'avviso sui movimenti successivi', async () => {
+    // Stessa guardia del Task 6 (`contoCollegatoAConnessioneViva` guarda solo
+    // le connessioni VIVE): una banca scollegata non deve avvisare per
+    // sempre su un conto tornato manuale.
+    const { riconciliazione } = await collegaBanca(app, utente.headers);
+    const contoId = riconciliazione.body.conto.id;
+
+    const scollega = await request(app).post('/api/bank-sync/disconnect').set(utente.headers).send({});
+    expect(scollega.status).toBe(200);
+
+    const r = await request(app).post('/api/movimenti').set(utente.headers)
+      .send(payloadMovimento(contoId));
+
+    expect(r.status).toBe(201);
+    expect(Object.prototype.hasOwnProperty.call(r.body, 'avviso')).toBe(false);
+  });
+
+  it('resta fuori dal perimetro di updateMovimento', async () => {
+    const { riconciliazione } = await collegaBanca(app, utente.headers);
+    const contoId = riconciliazione.body.conto.id;
+
+    const creato = await request(app).post('/api/movimenti').set(utente.headers)
+      .send(payloadMovimento(contoId));
+    expect(creato.status).toBe(201);
+
+    const aggiornato = await request(app).put(`/api/movimenti/${creato.body.movimento.id}`).set(utente.headers)
+      .send({ descrizione: 'Modificato' });
+
+    expect(aggiornato.status).toBe(200);
+    expect(Object.prototype.hasOwnProperty.call(aggiornato.body, 'avviso')).toBe(false);
+  });
+});

@@ -278,6 +278,10 @@ const salva = async () => {
   feedback.value = null;
   try {
     let messaggio;
+    // Valorizzato solo dalla creazione di un movimento su un conto collegato
+    // a una banca viva: il server avvisa (non blocca, Regola 24) perché la
+    // stessa spesa arriverà anche dalla sincronizzazione.
+    let avvisoContoCollegato = false;
 
     if (isTrasferimento.value) {
       await contiStore.trasferimento({ ...trasferimentoForm.value });
@@ -309,8 +313,9 @@ const salva = async () => {
         });
         messaggio = 'Piano a rate creato!';
       } else {
-        await movimentiStore.createMovimento(buildUpdatePayload());
+        const risultato = await movimentiStore.createMovimento(buildUpdatePayload());
         messaggio = form.value.ricorrente ? 'Movimento programmato!' : 'Movimento salvato!';
+        avvisoContoCollegato = risultato?.avviso === 'conto_collegato';
       }
     }
 
@@ -328,6 +333,13 @@ const salva = async () => {
       trasferimentoForm.value.conto_destinazione_id,
     ].some((id) => contiStore.contiAttivi.find((account) => account.id === id)?.tipo === 'scommesse');
     toastStore.success(messaggio);
+    // Avviso informativo, non un errore: l'operazione è già riuscita. Dice
+    // cosa succederà (arriverà anche dalla banca) e cosa fare se succede
+    // (cancellare il doppione inserito a mano) — mai un blocco, perché qui
+    // l'azione ha già avuto un effetto reale (Regola 24).
+    if (avvisoContoCollegato) {
+      toastStore.info('Salvato. Questa operazione arriverà anche dalla banca: se la vedi comparire due volte, cancella quella inserita a mano.');
+    }
     emit('saved');
     // Solo il tipo, che e' una categoria: nessun importo lascia l'app.
     tracciaEvento('movimento_creato', { tipo: props.tipo || form.value.tipo });
