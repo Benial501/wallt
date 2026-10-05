@@ -10,7 +10,7 @@ const {
   DESTINAZIONE_NUOVO, GIORNI_STORICO_MANUALE_MASSIMO,
 } = require('../constants/bankSync');
 const { isImportoValido, toCents } = require('../services/pianoSmart/money');
-const { oggiLocale, FUSO_DEFAULT } = require('../utils/dateRome');
+const { oggiLocale, FUSO_DEFAULT, sommaGiorni } = require('../utils/dateRome');
 const {
   UNITA_VALIDE, QUANTITA_MIN, QUANTITA_MAX, QUANTITA_MAX_PER_UNITA,
 } = require('../services/confrontoPeriodi.service');
@@ -1635,9 +1635,20 @@ const dataISOValida = (valore) => {
  * La soglia da cui iniziare a importare (`POST /bank-sync/sync`).
  *
  * Facoltativa: assente significa «nessuna soglia, vale la finestra di
- * sempre». Quando c'è deve essere una data vera e NON futura — una soglia
- * oltre oggi significherebbe «non importare niente», che si ottiene
- * semplicemente non sincronizzando.
+ * sempre». Quando c'è deve essere una data vera e non oltre DOMANI (fuso
+ * dell'utente, Regola 16).
+ *
+ * Non "non oltre oggi": `dataSuggeritaImport` propone il giorno successivo
+ * all'ultimo movimento non futuro, quindi per chi ha registrato qualcosa
+ * oggi la proposta è esattamente domani. Rifiutarla renderebbe inutilizzabile
+ * il suggerimento del server proprio per il caso più comune — chi è in pari
+ * col proprio storico. Una soglia a domani non significa "non importare
+ * niente": significa "non importare nulla adesso, e tieni questo pavimento
+ * per le sincronizzazioni future", che è esattamente ciò che serve a chi è
+ * in pari. Domani resta anche il massimo che la proposta può produrre
+ * (l'ultimo movimento non futuro è al più oggi), quindi la proposta è
+ * sempre accettabile; oltre domani restano esclusi i pavimenti lontani nel
+ * futuro, che disabiliterebbero gli import a tempo indeterminato.
  */
 const validateBankSyncSoglia = [
   body('import_da')
@@ -1646,8 +1657,8 @@ const validateBankSyncSoglia = [
       if (!dataISOValida(valore)) {
         throw new Error('Inserisci una data valida da cui iniziare a importare.');
       }
-      if (valore > oggiLocale()) {
-        throw new Error('La data da cui importare non può essere nel futuro.');
+      if (valore > sommaGiorni(oggiLocale(FUSO_DEFAULT), 1)) {
+        throw new Error('La data da cui importare non può andare oltre domani.');
       }
       return true;
     }),

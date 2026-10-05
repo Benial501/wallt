@@ -797,23 +797,107 @@ describe('la soglia di importazione (da quando importare)', () => {
     expect(suggerita).toBe('2026-10-07');
   });
 
-  it('una soglia nel futuro è rifiutata dalla validazione', async () => {
-    // Una soglia oltre oggi significa «non importare niente», che si
-    // ottiene semplicemente non sincronizzando.
+  it('una soglia oltre domani è rifiutata dalla validazione', async () => {
+    // Il pavimento accetta fino a DOMANI compreso (vedi i due test al
+    // confine, più sotto, con l'orologio congelato): oltre domani resta
+    // rifiutato, perché un pavimento più lontano nel futuro disabiliterebbe
+    // gli import a tempo indeterminato.
     const conto = await contoConStorico([giorniDaOggi(-5)]);
     await collegaBanca(app, utente.headers, { destinazione: conto.id });
 
-    // `+2` e non `+1`: `giorniDaOggi` conta in UTC mentre la validazione
-    // confronta con `oggiLocale()` (Europe/Rome). Fra le 22:00/23:00 UTC e la
-    // mezzanotte di Roma il giorno locale è già quello successivo, quindi
-    // `+1` non sarebbe più futuro e il test attenderebbe un 400 ricevendo un
-    // 200 — un fallimento a un'ora casuale del giorno, e la CI gira in UTC.
-    const res = await sync({ import_da: giorniDaOggi(+2) });
+    // `+3` e non `+2`: `giorniDaOggi` conta in UTC mentre la validazione
+    // confronta con `oggiLocale()` (Europe/Rome) e ora ammette anche domani.
+    // Fra le 22:00/23:00 UTC e la mezzanotte di Roma il giorno locale è già
+    // quello successivo, quindi nel caso peggiore `oggiLocale()` vale già
+    // "UTC + 1" e il massimo accettato vale "UTC + 2": `+2` non basterebbe più
+    // a restare oltre il limite in ogni finestra oraria, `+3` sì.
+    const res = await sync({ import_da: giorniDaOggi(+3) });
 
     expect(res.status).toBe(400);
     const connessione = await laConnessione();
     expect(connessione.import_da).toBeNull();
     expect(await Movimento.count({ where: { user_id: utente.userId } })).toBe(1);
+  });
+
+  describe('il confine di "domani" (Difetto 1: il server non può proporre una data che rifiuta da sé)', () => {
+    // Orologio congelato a mezzogiorno UTC del 5 ottobre 2026: a quell'ora
+    // Roma (CEST, +2) è già pomeriggio dello stesso giorno, quindi non c'è
+    // ambiguità di fuso sul "oggi" — il test isola solo il confine
+    // domani/dopodomani, non l'offset Roma/UTC (già coperto sopra).
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    const congelaOggi = () => {
+      jest.useFakeTimers({
+        doNotFake: ['nextTick', 'setImmediate', 'setInterval', 'setTimeout', 'clearImmediate', 'clearInterval', 'clearTimeout'],
+      }).setSystemTime(new Date('2026-10-05T12:00:00.000Z'));
+    };
+
+    it('accetta "domani" — è esattamente ciò che dataSuggeritaImport può proporre a chi è in pari', async () => {
+      congelaOggi();
+      // Nessuno storico preesistente: la guardia non deve intervenire, qui
+      // si verifica solo la validazione del campo.
+      await collegaBanca(app, utente.headers);
+
+      const res = await sync({ import_da: '2026-10-06' }); // domani
+
+      expect(res.status).toBe(200);
+      const connessione = await laConnessione();
+      expect(connessione.import_da).toBe('2026-10-06');
+    });
+
+    it('rifiuta "dopodomani"', async () => {
+      congelaOggi();
+      await collegaBanca(app, utente.headers);
+
+      const res = await sync({ import_da: '2026-10-07' }); // dopodomani
+
+      expect(res.status).toBe(400);
+      const connessione = await laConnessione();
+      expect(connessione.import_da).toBeNull();
+    });
+  });
+
+  describe('il pavimento e un intervallo scelto a mano (Difetto 2: la soglia non deve diventare permanente)', () => {
+    /** Transazioni sandbox fisse a -3/-2/-1 giorni (booked) + oggi (pending,
+     * mai importata): vedi SandboxBankProvider. */
+    const impostaPavimentoRecente = async () => {
+      const connessione = await laConnessione();
+      // Un pavimento impostato in precedenza (come dopo aver accettato la
+      // data suggerita), più recente delle transazioni sandbox più vecchie.
+      await connessione.update({ import_da: giorniDaOggi(-1) });
+      return connessione;
+    };
+
+    it('un data_da esplicito più vecchio del pavimento viene rispettato', async () => {
+      await collegaBanca(app, utente.headers);
+      await impostaPavimentoRecente();
+
+      // Intervallo scelto a mano, più vecchio del pavimento: è la scelta
+      // deliberata che deve superarlo, non un'alternativa ignorata.
+      const res = await sync({ data_da: giorniDaOggi(-3), data_a: giorniDaOggi(-1) });
+
+      expect(res.status).toBe(200);
+      // Le tre transazioni booked (-3, -2, -1) entrano tutte: se il pavimento
+      // avesse vinto, ne sarebbe entrata solo una (quella di -1 giorno).
+      expect(res.body.importati).toBe(3);
+    });
+
+    it('senza un data_da esplicito, il pavimento continua a limitare la finestra predefinita', async () => {
+      // È il test che impedisce alla correzione di diventare una regressione:
+      // senza di lui si sarebbe rimossa la protezione invece di circoscriverla
+      // al solo intervallo scelto a mano.
+      await collegaBanca(app, utente.headers);
+      await impostaPavimentoRecente();
+
+      const res = await sync(); // nessun data_da/data_a: finestra predefinita
+
+      expect(res.status).toBe(200);
+      // Il pavimento esclude le transazioni di -3 e -2 giorni: resta solo
+      // quella di -1 giorno.
+      expect(res.body.importati).toBe(1);
+    });
   });
 });
 

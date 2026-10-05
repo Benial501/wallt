@@ -346,10 +346,15 @@ async function sincronizza({
   const adapter = provider ?? await getBankProvider({ nome: connessione.provider });
   const primaVolta = !connessione.last_successful_sync_at;
   const giorni = primaVolta ? GIORNI_STORICO_INIZIALE : GIORNI_STORICO_INCREMENTALE;
-  // `import_da` è un PAVIMENTO sulla finestra, non un'alternativa: nemmeno
-  // un intervallo scelto a mano può scendere sotto la soglia, altrimenti
-  // riaprirebbe la strada al doppio conteggio che la soglia chiude.
-  const dataDa = maxDataISO(dataDaScelta || giorniPrimaISO(giorni), connessione.import_da);
+  // `import_da` è un PAVIMENTO sulla FINESTRA PREDEFINITA (quella del cron e
+  // del normale "Sincronizza"), non su un intervallo scelto esplicitamente
+  // dall'utente. Confermare la soglia proposta non deve essere l'unico modo
+  // per cambiarla: un `dataDaScelta` esplicito è già una scelta deliberata,
+  // fatta dopo aver visto l'avviso sui duplicati, e supera il pavimento —
+  // altrimenti chi accetta la soglia proposta rinuncerebbe per sempre ai 90
+  // giorni di storico bancario, senza nessun modo di tornare indietro (non
+  // esiste una rotta per modificare `import_da` a parte questa).
+  const dataDa = dataDaScelta || maxDataISO(giorniPrimaISO(giorni), connessione.import_da);
   const dataA = dataAScelta || oggiISO();
 
   await registraAudit({
