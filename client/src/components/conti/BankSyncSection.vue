@@ -261,34 +261,52 @@ const sincronizza = async () => {
  * senza che l'utente abbia detto da quando partire: WALLT non può riconoscere
  * un movimento scritto a mano come lo stesso di uno della banca.
  *
- * `data_suggerita` è il giorno dopo l'ultimo movimento dell'utente. Può
- * essere nulla (tutti i movimenti sono futuri): in quel caso si parte dal
+ * `data_suggerita` è il giorno dopo l'ultimo movimento dell'utente, e arriva
+ * all'utente come il server la calcola. Non viene più abbassata a oggi: per
+ * chi è in pari col proprio storico la proposta è esattamente DOMANI, il
+ * server la accetta (`validateBankSyncSoglia`, commit 8633011) e significa
+ * «non importare nulla adesso, tieni questo pavimento per dopo». Riportarla
+ * a oggi scaricherebbe le operazioni di oggi, cioè proprio il doppione che
+ * questo modale esiste per evitare.
+ *
+ * Può essere nulla (tutti i movimenti sono futuri): in quel caso si parte dal
  * limite della finestra, cioè da tutto lo storico disponibile.
+ *
+ * Il giorno civile è quello di Roma, non quello del browser: è il fuso in cui
+ * il server valida (Regola 16), e un browser avanti di qualche ora
+ * proporrebbe un `max` che il server rifiuta. Stessa primitiva già usata in
+ * `PianoSmartExpenseFunding.vue`, nessuna dipendenza nuova.
  */
-const dataMinimaSoglia = computed(() => dayjs().subtract(GIORNI_SYNC_MASSIMO - 1, 'day').format('YYYY-MM-DD'));
-const oggiSoglia = computed(() => dayjs().format('YYYY-MM-DD'));
+const FUSO_APP = 'Europe/Rome';
+
+const oggiRoma = () => {
+  const parti = new Intl.DateTimeFormat('en-CA', {
+    timeZone: FUSO_APP, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const v = Object.fromEntries(parti.map((parte) => [parte.type, parte.value]));
+  return `${v.year}-${v.month}-${v.day}`;
+};
+
+/* Aritmetica fra giorni civili già noti: nessuna conversione di fuso residua. */
+const dataMinimaSoglia = computed(() => dayjs(oggiRoma()).subtract(GIORNI_SYNC_MASSIMO - 1, 'day').format('YYYY-MM-DD'));
+/** Il limite del campo è DOMANI, non oggi: è il massimo che la proposta del
+ * server può produrre, e il massimo che la sua validazione accetta. */
+const dataMassimaSoglia = computed(() => dayjs(oggiRoma()).add(1, 'day').format('YYYY-MM-DD'));
 const dataMinimaSogliaTesto = computed(() => dayjs(dataMinimaSoglia.value).format('D MMMM YYYY'));
 
-/**
- * La data suggerita riportata dentro i limiti del campo.
- *
- * Serve in due casi veri, visti entrambi in verifica: il suggerimento è il
- * giorno DOPO l'ultimo movimento, quindi chi ne ha registrato uno oggi si
- * vede proporre domani — una data che il server stesso rifiuta come futura;
- * e chi non registra nulla da mesi si vede proporre una data più vecchia
- * della finestra che la banca può dare, cioè tutto lo storico disponibile.
- */
-const dentroILimiti = (data) => {
-  if (data > oggiSoglia.value) return oggiSoglia.value;
-  if (data < dataMinimaSoglia.value) return dataMinimaSoglia.value;
-  return data;
-};
+/** Resta il solo pavimento, e non è un ripiego: una soglia più vecchia della
+ * finestra equivale a non averla (il server applica `max(finestra, import_da)`
+ * su 90 giorni), ma come valore del campo sarebbe sotto il `min` e il browser
+ * rifiuterebbe l'invio. Il tetto non si tocca più. */
+const nonPrimaDellaFinestra = (data) => (
+  data < dataMinimaSoglia.value ? dataMinimaSoglia.value : data
+);
 
 watch(() => bankSyncStore.sogliaRichiesta, (soglia) => {
   if (!soglia) return;
   showSincronizza.value = false;
   importDaSoglia.value = soglia.data_suggerita
-    ? dentroILimiti(soglia.data_suggerita)
+    ? nonPrimaDellaFinestra(soglia.data_suggerita)
     : dataMinimaSoglia.value;
   showSoglia.value = true;
 });
@@ -758,13 +776,23 @@ const confermaSostituzione = async () => {
             class="form-input"
             type="date"
             :min="dataMinimaSoglia"
-            :max="oggiSoglia"
+            :max="dataMassimaSoglia"
             required
           />
         </label>
         <button type="button" class="bank-sync__link" @click="vuoiTuttoLoStorico">
           Importa tutto lo storico disponibile (dal {{ dataMinimaSogliaTesto }})
         </button>
+        <!-- È l'unico punto del prodotto in cui questo si può dire: la soglia
+             resta sulla connessione e nessuna schermata la rimette in
+             discussione. La via d'uscita esiste davvero (un periodo scelto a
+             mano supera il pavimento), quindi va detta insieme. -->
+        <p class="bank-sync__nota-soglia">
+          La data vale anche per le sincronizzazioni successive: da sola WALLT
+          non tornerà più indietro di qui. Se un giorno ti servisse lo storico
+          precedente, puoi chiederlo scegliendo un periodo a mano da
+          «Sincronizza».
+        </p>
         <div class="bank-sync__intervallo-azioni">
           <WButton variant="secondary" size="md" @click="showSoglia = false">
             Annulla
@@ -1206,6 +1234,15 @@ const confermaSostituzione = async () => {
 .bank-sync__link:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
+}
+
+/* Più specifica di `.bank-sync__intervallo p`, che altrimenti vincerebbe sul
+   colore essendo dichiarata più sotto. */
+.bank-sync__intervallo .bank-sync__nota-soglia {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  color: var(--text-muted);
 }
 
 /* --- Gestisci ------------------------------------------------------------ */
