@@ -815,6 +815,16 @@ conserva uno storico dei saldi.
 
 ---
 
+## Bank Sync e WALLT Premium
+
+Le rotte `/api/bank-sync`, `/api/premium`, `/api/admin`, `/api/piano` e
+`GET /api/cron/bank-sync` non sono inventariate qui: la tabella completa, già
+mantenuta e verificata, vive in
+[premium-bank-sync.md](premium-bank-sync.md#3-rotte), insieme al contratto del
+callback e alla configurazione. Duplicarla in questo file creerebbe due
+tabelle da tenere allineate a mano — il difetto che i test di contratto e la
+Coding Rule 6 esistono per evitare.
+
 ## Endpoint non utilizzati dal frontend
 
 | Endpoint | Note |

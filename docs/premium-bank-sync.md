@@ -59,16 +59,25 @@ Non esiste nessuna rotta con cui un utente possa cambiarsi il piano.
 
 ### `/api/bank-sync`
 
+Il percorso di chi collega una banca è in quattro passi, non tre:
+`connect` → `callback` → **riconciliazione** → primo `sync` con soglia. Il
+passo aggiunto sta fra l'autorizzazione presso la banca e la prima
+sincronizzazione: finché l'utente non ha detto a quale conto WALLT
+appartengono i movimenti in arrivo, la connessione resta `da_riconciliare` e
+`POST /sync` non può partire (vedi CLAUDE.md Regola 24).
+
 | Metodo | Rotta | Entitlement | Note |
 |---|---|---|---|
 | GET | `/status` | no | serve anche a chi non ce l'ha: è ciò che propone l'attivazione |
 | GET | `/beta` | no | posti rimasti (dato aggregato, non personale) |
 | POST | `/claim-beta` | **no** | è la rotta che serve a ottenerlo. **Nessun corpo**: feature e origine sono cablate |
 | GET | `/istituti?paese=IT` | sì | elenco dal provider |
+| GET | `/riconciliazione` | sì | i conti della banca (dal provider) e i conti WALLT a cui si possono agganciare |
+| POST | `/riconciliazione` | sì | `{ provider_account_id, destinazione }` — `destinazione` è `'nuovo'` oppure l'id di un conto esistente; agganciarne uno non elimina né archivia nulla |
 | POST | `/connect` | sì | `{ institution_id, sostituisci? }` → `{ url_autorizzazione, scade_il }` |
 | POST | `/reconnect` | sì | l'istituto viene letto dalla connessione, **non** dal corpo |
 | POST | `/callback` | sì | `{ state }` — autenticata, vedi §4 |
-| POST | `/sync` | sì | sync manuale; `{ data_da, data_a }` opzionali per scegliere il periodo (fino a 90 giorni) |
+| POST | `/sync` | sì | sync manuale; `{ data_da, data_a }` opzionali per scegliere il periodo (fino a 90 giorni), `{ import_da }` opzionale per fissare la soglia sotto cui non importare. Può rispondere `409 SOGLIA_RICHIESTA` con `dettagli: { data_suggerita, movimenti_preesistenti }` quando è il primo sync di chi ha già movimenti propri e non ha ancora scelto una soglia |
 | POST | `/disconnect` | **no** | chi ha perso il permesso deve poter revocare il consenso alla banca |
 | DELETE | `/dati-importati` | no | elimina i movimenti Open Banking dopo la conferma `ELIMINA`; JWT + rate limit, senza step-up |
 
@@ -88,6 +97,21 @@ Le date devono essere valide, non future e in ordine. La deduplica tramite
 identificativo bancario rende sicuro ripetere o sovrapporre un periodo. Le
 sincronizzazioni pianificate non ricevono date dall'interfaccia e continuano a
 richiedere la finestra incrementale di 14 giorni.
+
+Il **primo** sync di chi ha già movimenti propri è un caso a parte: il server
+rifiuta `409 SOGLIA_RICHIESTA` finché non riceve `import_da`, la data sotto la
+quale non importare (la deduplica non riconosce un movimento inserito a mano,
+che non ha un identificativo bancario). La data proposta — il giorno dopo
+l'ultimo movimento non futuro dell'utente — può cadere **domani**, ed è
+accettata: per chi è in pari col proprio storico è l'unica proposta
+possibile. `import_da` resta un pavimento sulla sola **finestra predefinita**
+(quella del cron e del normale «Sincronizza»): un intervallo `data_da`/`data_a`
+scelto esplicitamente lo supera, perché è una decisione presa dopo aver già
+visto l'avviso sui duplicati. Una volta impostata, la soglia è **permanente**:
+non esiste una rotta per cambiarla in seguito, e il modale lo dichiara —
+«La data vale anche per le sincronizzazioni successive: da sola WALLT non
+tornerà più indietro di qui. Se un giorno ti servisse lo storico precedente,
+puoi chiederlo scegliendo un periodo a mano da "Sincronizza"».
 
 Ogni sincronizzazione legge anche il saldo corrente dal provider con una
 richiesta dedicata. Se la banca non espone il saldo o la richiesta fallisce,

@@ -434,6 +434,27 @@ categoria con una UPDATE (senza perdere le `recommended`) e lascia
 Le percentuali sono nullable per progetto: a capitale allocabile zero una
 percentuale non esiste (0/0), e scrivere `0.00` dichiarerebbe un dato che non c'è.
 
+### `bank_connections`
+| Campo | Tipo | Note |
+|---|---|---|
+| `id` | INTEGER PK AI | |
+| `user_id` | INTEGER FK → users | |
+| `conto_id` | INTEGER FK → conti NULL | `null` finché la connessione è `da_riconciliare`: l'utente non ha ancora detto a quale conto appartengono i movimenti |
+| `provider` | STRING(30) | `enablebanking` (default), `gocardless`, `sandbox` (rifiutato in produzione) |
+| `institution_id`, `institution_name` | STRING(120), STRING(200) NULL | Banca scelta dall'utente |
+| `provider_connection_id`, `provider_account_id` | STRING(255) NULL | Identificatori opachi del provider, non credenziali |
+| `status` | STRING(30) | CHECK: `in_attesa`, `da_riconciliare`, `attiva`, `consenso_scaduto`, `errore`, `sospesa_entitlement`, `revocata`. Tutti tranne `revocata` occupano il posto per utente (`STATI_VIVI`); solo `attiva` ed `errore` sono sincronizzabili (`STATI_SINCRONIZZABILI`) |
+| `state_hash`, `state_expires_at`, `state_used_at` | STRING(64) NULL, DATE NULL, DATE NULL | SHA-256 dello `state` del callback (mai il valore in chiaro), scadenza, consumo monouso |
+| `import_da` | DATEONLY NULL | La soglia sotto la quale non si importa. `null` = nessuna soglia, vale la finestra dei 90 giorni di sempre — è ciò che fa comportare una connessione preesistente come prima che la soglia esistesse. Una volta impostata non è più modificabile da nessuna rotta |
+| `last_sync_at`, `last_successful_sync_at`, `last_error_at`, `error_code` | DATE NULL, DATE NULL, DATE NULL, STRING(40) NULL | Un errore scrive solo questi ultimi due: `last_successful_sync_at` resta quello dell'ultima sync riuscita |
+| `iban_mascherato` | STRING(30) NULL | Solo le ultime 4 cifre (`mascheraIban`) |
+| `saldo_provider`, `valuta` | DECIMAL(12,2) NULL, STRING(3) NULL | Il saldo lo dice la banca, non la somma dei movimenti |
+| `sync_ok_totali`, `sync_errori_totali`, `movimenti_importati_totali`, `duplicati_evitati_totali` | INTEGER | Contatori cumulativi per la UI |
+
+`UNIQUE(user_id) WHERE status <> 'revocata'`: un conto bancario vivo per
+utente, storico conservato. Vedi CLAUDE.md Regola 24 per il perché di
+`da_riconciliare` e di `import_da`.
+
 ## Relazioni testuali
 
 ```
