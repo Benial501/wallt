@@ -17,6 +17,7 @@ const {
   ORIGINE_OPEN_BANKING, ORIGINE_MANUALE, TX_BOOKED,
 } = require('../constants/bankSync');
 const { SOURCE_BETA_25 } = require('../constants/entitlements');
+const { oggiLocale, sommaGiorni } = require('../utils/dateRome');
 const {
   azzeraConfigurazione, abilitaSandbox, creaUtente, concediEntitlement,
   collegaBanca, estraiState,
@@ -362,26 +363,19 @@ describe('sincronizzazione attraverso l\'API', () => {
   });
 
   it('rifiuta un intervallo incompleto, invertito, futuro o oltre 90 giorni', async () => {
-    // La data finale nel futuro va calcolata da oggi, non scritta a mano:
-    // una data fissa smette di essere futura il giorno dopo, e il caso che
-    // doveva verificare diventa un intervallo perfettamente valido.
-    //
-    // Il margine è di DUE giorni, non uno: qui si conta in UTC mentre la
-    // validazione confronta con `oggiLocale()` (Europe/Rome), e fra le
-    // 22:00/23:00 UTC e la mezzanotte di Roma il giorno locale è già il
-    // successivo. Con `+1` la data smetterebbe di essere futura per un'ora
-    // al giorno — e la CI gira in UTC, quindi la finestra è raggiungibile.
-    const giorniDaOggi = (giorni) => {
-      const d = new Date();
-      d.setUTCDate(d.getUTCDate() + giorni);
-      return d.toISOString().slice(0, 10);
-    };
-
+    // Le date stanno in relazione a OGGI, non a valori fissi: "futuro" e
+    // "oltre 90 giorni" sono proprietà rispetto al giorno in cui il test
+    // gira. Cablandole, il caso "futuro" diventava un intervallo passato e
+    // perfettamente legittimo al passare dei giorni, e il test cominciava a
+    // fallire da solo senza che nulla fosse cambiato nel codice.
+    const oggi = oggiLocale();
     const richieste = [
-      { data_da: '2026-09-01' },
-      { data_da: '2026-10-01', data_a: '2026-09-01' },
-      { data_da: '2026-06-01', data_a: '2026-10-01' },
-      { data_da: giorniDaOggi(-1), data_a: giorniDaOggi(2) },
+      { data_da: sommaGiorni(oggi, -30) },                               // manca data_a
+      { data_da: oggi, data_a: sommaGiorni(oggi, -30) },                 // invertito
+      { data_da: sommaGiorni(oggi, -120), data_a: oggi },                // oltre 90 giorni
+      { data_da: sommaGiorni(oggi, -30), data_a: sommaGiorni(oggi, 1) }, // futuro
+      // Questa resta letterale di proposito: il 30 febbraio non è una data
+      // nel tempo, non esiste in nessun anno.
       { data_da: '2026-02-30', data_a: '2026-03-01' },
     ];
 
@@ -404,17 +398,21 @@ describe('sincronizzazione attraverso l\'API', () => {
         return originale.call(this, parametri);
       });
 
+    // Un intervallo valido è per definizione relativo a oggi (non futuro,
+    // sotto i 90 giorni): con date cablate la finestra finiva per cadere
+    // fuori dallo storico della sandbox, e il test non inoltrava più un
+    // intervallo che contenesse davvero qualcosa.
+    const dataDa = sommaGiorni(oggiLocale(), -30);
+    const dataA = oggiLocale();
+
     try {
       const res = await request(app).post('/api/bank-sync/sync')
         .set(utente.headers)
-        .send({ data_da: '2026-09-01', data_a: '2026-10-01' })
+        .send({ data_da: dataDa, data_a: dataA })
         .expect(200);
 
       expect(res.body.esito).toBe('ok');
-      expect(chiamate[0]).toMatchObject({
-        dataDa: '2026-09-01',
-        dataA: '2026-10-01',
-      });
+      expect(chiamate[0]).toMatchObject({ dataDa, dataA });
     } finally {
       spy.mockRestore();
     }

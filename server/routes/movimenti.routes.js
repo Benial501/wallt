@@ -12,6 +12,7 @@ const {
   validateMovimentiQuery,
   validateStatoRicorrenza,
   validateCreateScheduledPayment,
+  validateUpdateScheduledPayment,
   validateCreateInstallmentPlan,
   validateScheduledPaymentId,
   validateCreateScheduledPaymentContribution,
@@ -23,6 +24,7 @@ router.get('/bilancio', authMiddleware, getBilancioMese);
 router.get('/ricorrenti', authMiddleware, getRicorrenti);
 router.get('/programmate', authMiddleware, scheduledPayments.listScheduledPayments);
 router.post('/programmate', authMiddleware, validateCreateScheduledPayment, scheduledPayments.createScheduledPayment);
+router.patch('/programmate/:id', authMiddleware, validateUpdateScheduledPayment, scheduledPayments.updateScheduledPayment);
 router.post('/installment-plans', authMiddleware, validateCreateInstallmentPlan, scheduledPayments.createInstallmentPlan);
 router.post('/programmate/:id/conferma', authMiddleware, validateScheduledPaymentId, scheduledPayments.confirmScheduledPayment);
 router.get('/programmate/:id/accantonamenti', authMiddleware, validateScheduledPaymentId, scheduledPayments.listScheduledPaymentContributions);

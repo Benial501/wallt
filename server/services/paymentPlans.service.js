@@ -18,6 +18,17 @@ const centsOf = (amount) => {
   return cents;
 };
 
+/** Quanto è già stato accantonato per una spesa, in centesimi. */
+const sommaAccantonamenti = (contributions) => contributions.reduce(
+  (sum, contribution) => sum + centsOf(contribution.importo), 0,
+);
+async function sumContributions({ userId, paymentId, transaction }) {
+  return sommaAccantonamenti(await ScheduledPaymentContribution.findAll({
+    where: { user_id: userId, pagamento_programmato_id: paymentId },
+    transaction,
+  }));
+}
+
 function calculateInstallmentPlan({ purchaseAmount, initialPayment = 0, paymentCount, annualRate = 0 }) {
   const purchaseCents = centsOf(purchaseAmount);
   const initialCents = centsOf(initialPayment);
@@ -118,6 +129,85 @@ async function createScheduledPayment({ userId, data }) {
       descrizione: data.description || null,
       data_scadenza: data.due_date,
     }, { transaction });
+  });
+}
+
+/**
+ * Riprogramma una scadenza ancora da gestire. Non muove denaro: i pagamenti
+ * programmati non toccano i saldi finché non vengono confermati, quindi qui si
+ * scrive solo la riga di `pagamenti_programmati`.
+ *
+ * Il "ricalcolo" di cui ha bisogno chi sposta una data (quanto mettere da parte
+ * a settimana) non è un dato salvato: `buildExpenseFundingPlan` lo deriva dalla
+ * scadenza a ogni lettura, qui compresa. Spostare la data basta perché Piano
+ * Smart, gli accantonamenti e la lista si aggiornino da sé.
+ *
+ * Di una rata si può spostare solo la data: importo, categoria e conto
+ * appartengono al piano che l'ha generata (`totale_da_restituire` e
+ * `interessi_stimati` sono già stati calcolati su di essi), e cambiarli su una
+ * sola rata renderebbe il piano incoerente con le sue stesse rate.
+ */
+async function updateScheduledPayment({ userId, paymentId, data }) {
+  const fornito = (campo) => Object.prototype.hasOwnProperty.call(data, campo);
+  const campiPiano = ['amount', 'category', 'account_id', 'description'];
+  if (!fornito('due_date') && !campiPiano.some(fornito)) {
+    throw new BadRequestError('Non c’è nessuna modifica da salvare');
+  }
+
+  return sequelize.transaction(async (transaction) => {
+    const payment = await ScheduledPayment.findOne({
+      where: { id: paymentId, user_id: userId }, transaction, lock: transaction.LOCK.UPDATE,
+    });
+    if (!payment) throw new NotFoundError('Pagamento programmato non trovato');
+    if (!['in_attesa', 'in_ritardo'].includes(payment.stato)) {
+      throw new AppError('È possibile modificare solo una scadenza ancora da gestire', 409);
+    }
+    if (payment.piano_id && campiPiano.some(fornito)) {
+      throw new AppError('Di una rata puoi spostare solo la data: importo, categoria e conto appartengono al piano di pagamento', 409);
+    }
+
+    const changes = {};
+    if (fornito('description')) {
+      const descrizione = typeof data.description === 'string' ? data.description.trim() : '';
+      changes.descrizione = descrizione || null;
+    }
+    if (fornito('category')) {
+      await assertCategory(userId, data.category, payment.tipo, { transaction });
+      changes.categoria = data.category;
+    }
+    if (fornito('account_id') && data.account_id !== payment.conto_id) {
+      const account = await getActiveAccount(userId, data.account_id, transaction);
+      changes.conto_id = account.id;
+    }
+    if (fornito('amount')) {
+      const amountCents = centsOf(data.amount);
+      if (amountCents <= 0) throw new BadRequestError('L’importo deve essere maggiore di zero');
+      const contributedCents = await sumContributions({ userId, paymentId: payment.id, transaction });
+      if (amountCents < contributedCents) {
+        throw new BadRequestError(
+          `L’importo non può scendere sotto i €${fromCents(contributedCents)} già accantonati per questa spesa`,
+        );
+      }
+      changes.importo = fromCents(amountCents);
+    }
+    if (fornito('due_date')) changes.data_scadenza = data.due_date;
+
+    // Un'entrata è "in ritardo" perché non è arrivata alla data prevista:
+    // riprogrammarla a una data non ancora passata rimuove il presupposto, e
+    // lasciarla in ritardo la terrebbe segnalata per un giorno che non è
+    // ancora arrivato.
+    const nuovaScadenza = changes.data_scadenza || payment.data_scadenza;
+    if (payment.stato === 'in_ritardo' && nuovaScadenza >= oggiLocale()) changes.stato = 'in_attesa';
+
+    await payment.update(changes, { transaction });
+    const funding = payment.tipo === 'uscita' && !payment.piano_id
+      ? buildExpenseFundingPlan({
+        payment,
+        contributedCents: await sumContributions({ userId, paymentId: payment.id, transaction }),
+        referenceDate: oggiLocale(),
+      })
+      : null;
+    return { payment, funding };
   });
 }
 
@@ -261,9 +351,7 @@ async function listScheduledPaymentContributions({ userId, paymentId }) {
     where: { user_id: userId, pagamento_programmato_id: paymentId },
     order: [['data_contributo', 'ASC'], ['id', 'ASC']],
   });
-  const contributedCents = contributions.reduce((sum, contribution) => (
-    sum + centsOf(contribution.importo)
-  ), 0);
+  const contributedCents = sommaAccantonamenti(contributions);
   const plan = buildExpenseFundingPlan({
     payment,
     contributedCents,
@@ -302,9 +390,7 @@ async function addScheduledPaymentContribution({ userId, paymentId, amount, date
       where: { user_id: userId, pagamento_programmato_id: payment.id },
       transaction,
     });
-    const contributedCents = contributions.reduce((sum, contribution) => (
-      sum + centsOf(contribution.importo)
-    ), 0);
+    const contributedCents = sommaAccantonamenti(contributions);
     const remainingCents = Math.max(centsOf(payment.importo) - contributedCents, 0);
     if (amountCents > remainingCents) {
       throw new BadRequestError(`L’importo supera il residuo di €${fromCents(remainingCents)}`);
@@ -336,6 +422,7 @@ async function addScheduledPaymentContribution({ userId, paymentId, amount, date
 module.exports = {
   calculateInstallmentPlan,
   createScheduledPayment,
+  updateScheduledPayment,
   createInstallmentPlan,
   listScheduledPayments,
   confirmScheduledPayment,

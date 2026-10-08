@@ -380,6 +380,7 @@ Tutte le rotte richiedono autenticazione e limitano letture e scritture all'uten
 |---|---|---|
 | `GET /api/movimenti/programmate` | — | `{ payments[] }`, in ordine di scadenza; include quelle in attesa e le entrate segnate in ritardo |
 | `POST /api/movimenti/programmate` | `{ type, amount, category, account_id, description?, due_date }` | `201 { payment }` |
+| `PATCH /api/movimenti/programmate/:id` | uno o più fra `{ due_date, amount, category, account_id, description }` | `{ payment, funding }`; riprogramma una scadenza in attesa o in ritardo senza muovere denaro. `funding` è il piano di accantonamento ricalcolato sulla nuova scadenza (`null` per entrate e rate). Di una rata si sposta solo `due_date` (gli altri campi → 409); l'importo non può scendere sotto quanto già accantonato; una scadenza pagata o annullata → 409; un'entrata `in_ritardo` riprogrammata nel futuro torna `in_attesa` |
 | `GET /api/movimenti/programmate/:id/accantonamenti` | — | Totale accantonato, residuo e contributi dell'utente autenticato |
 | `POST /api/movimenti/programmate/:id/accantonamenti` | `{ amount, date }` | `201 { paymentId, contributed, remaining, writesAccountBalance: false, writesMovement: false, contribution }`; solo spese singole in attesa, importo positivo entro il residuo |
 | `POST /api/movimenti/installment-plans` | `{ purchase_amount, initial_payment, payment_count, annual_rate, first_due_date, category, account_id, description? }` | `201 { plan, payments[], account }` |

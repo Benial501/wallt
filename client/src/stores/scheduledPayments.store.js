@@ -37,6 +37,16 @@ export const useScheduledPaymentsStore = defineStore('scheduledPayments', () => 
     await refreshQuietly();
     return data;
   };
+  /**
+   * Riprogrammazione: il server risponde con il piano di accantonamento
+   * ricalcolato sulla nuova scadenza (`funding`), che la form mostra senza
+   * rifare il conto — gli accantonamenti già versati li conosce solo lui.
+   */
+  const updatePayment = async (id, payload) => {
+    const { data } = await api.patch(`/movimenti/programmate/${id}`, payload);
+    await refreshQuietly();
+    return data;
+  };
   const confirmPayment = async (id) => {
     const { data } = await api.post(`/movimenti/programmate/${id}/conferma`);
     await refreshQuietly();
@@ -69,7 +79,7 @@ export const useScheduledPaymentsStore = defineStore('scheduledPayments', () => 
   };
   const reset = () => { generation += 1; payments.value = []; contributionsByPayment.value = {}; loading.value = false; error.value = null; lastUpdated.value = null; };
   return {
-    payments, loading, error, lastUpdated, contributionsByPayment, fetchPayments, createPayment, createInstallmentPlan,
+    payments, loading, error, lastUpdated, contributionsByPayment, fetchPayments, createPayment, updatePayment, createInstallmentPlan,
     confirmPayment, fetchContributions, addContribution, markIncomeLate, cancelPayment, cancelPlan, reset,
   };
 });
