@@ -196,8 +196,15 @@ const GIORNI_STORICO_INIZIALE = 90;
 /** Finestra richiesta nelle sincronizzazioni successive. Sovrapposizione
  * voluta rispetto all'ultima sync: una transazione può essere contabilizzata
  * con qualche giorno di ritardo, e la deduplica rende la sovrapposizione
- * gratuita. */
-const GIORNI_STORICO_INCREMENTALE = 14;
+ * gratuita.
+ *
+ * Non può scendere a 1: la data di un movimento è la `booking_date` della
+ * banca, non il giorno in cui WALLT scarica. Un pagamento di lunedì che
+ * diventa `booked` mercoledì, con una finestra `oggi→oggi`, non rientrerebbe
+ * in nessuna richiesta — né mercoledì (chiesto per mercoledì) né lunedì (già
+ * passato). Tre giorni coprono il ritardo tipico delle carte; l'unica cosa
+ * che la sovrapposizione produce è un incremento di `duplicati_evitati`. */
+const GIORNI_STORICO_INCREMENTALE = 3;
 
 /** Limite della finestra selezionabile dall'utente, coerente con lo storico
  * massimo richiesto al provider al primo collegamento. */
