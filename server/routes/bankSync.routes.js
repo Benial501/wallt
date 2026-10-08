@@ -8,6 +8,7 @@ const {
   validateBankCallback,
   validateDeleteBankImportedData,
   validateBankSyncRange,
+  validateBankSyncSoglia,
   validateRiconciliazione,
   validateIstitutiQuery,
 } = require('../middleware/validation.middleware');
@@ -67,8 +68,14 @@ router.post(
 router.post('/connect', authMiddleware, bankConnectLimiter, feature, validateBankConnect, bankSync.connect);
 router.post('/reconnect', authMiddleware, bankConnectLimiter, feature, bankSync.reconnect);
 router.post('/callback', authMiddleware, bankCallbackLimiter, feature, validateBankCallback, bankSync.callback);
+// `import_da` è la soglia da cui iniziare a importare, `data_da`/`data_a`
+// l'intervallo di una singola richiesta: due concetti distinti, due
+// validazioni distinte.
 router.post(
-  '/sync', authMiddleware, bankSyncLimiter, feature, validateBankSyncRange, bankSync.sync,
+  '/sync',
+  authMiddleware, bankSyncLimiter, feature,
+  validateBankSyncSoglia, validateBankSyncRange,
+  bankSync.sync,
 );
 
 // Scollegare NON richiede l'entitlement: chi ha perso il permesso deve

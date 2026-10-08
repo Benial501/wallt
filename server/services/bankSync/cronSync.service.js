@@ -134,7 +134,9 @@ async function processaSincronizzazioniPianificate({ provider = null } = {}) {
     massimo: config[BANK_SYNC_CRON_MAX_PER_ESECUZIONE],
   });
 
-  const esiti = { processate: 0, riuscite: 0, fallite: 0, senza_permesso: 0, importati: 0 };
+  const esiti = {
+    processate: 0, riuscite: 0, saltate: 0, fallite: 0, senza_permesso: 0, importati: 0,
+  };
 
   for (const connessione of candidate) {
     // Riverifica del permesso a ogni passaggio: una revoca avvenuta nel
@@ -156,6 +158,14 @@ async function processaSincronizzazioniPianificate({ provider = null } = {}) {
         // cooldown dei click manuali non lo riguarda.
         ignoraCooldown: true,
       });
+      if (esito.saltato) {
+        // Non è un successo e non è un guasto: la connessione aspetta che
+        // l'utente dica da quando importare (vedi `sogliaMancante` nel
+        // motore). Contarla fra le riuscite racconterebbe una sync che non
+        // è avvenuta.
+        esiti.saltate += 1;
+        continue;
+      }
       esiti.riuscite += 1;
       esiti.importati += esito.importati;
     } catch (error) {

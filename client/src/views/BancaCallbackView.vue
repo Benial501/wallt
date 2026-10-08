@@ -62,7 +62,7 @@ onMounted(async () => {
   try {
     await bankSyncStore.completaCollegamento(state, code);
     stato.value = 'ok';
-    toastStore.success('Conto bancario collegato');
+    toastStore.success('Banca autorizzata');
     // Un attimo per far leggere l'esito, poi la pagina dove il conto vive.
     setTimeout(() => router.replace({ name: 'conti' }), 1600);
   } catch (err) {
@@ -94,10 +94,13 @@ onMounted(async () => {
       </template>
 
       <template v-else-if="stato === 'ok'">
-        <h1 class="banca-callback__titolo">Conto collegato</h1>
+        <h1 class="banca-callback__titolo">Banca autorizzata</h1>
+        <!-- Non si promette qui quanti giorni verranno importati: prima c'è la
+             riconciliazione (a quale conto WALLT appartiene questa banca) e poi
+             la soglia, che l'utente sceglie se ha già movimenti propri. -->
         <p class="banca-callback__testo">
-          La prima sincronizzazione importerà gli ultimi 90 giorni di movimenti.
-          Ti portiamo ai tuoi conti.
+          Ora scegli a quale conto WALLT associare questa banca: ti portiamo ai
+          tuoi conti.
         </p>
       </template>
 

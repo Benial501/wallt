@@ -248,6 +248,9 @@ const sync = async (req, res) => {
     const esito = await sincronizza({
       userId: req.userId,
       origine: 'manuale',
+      // La soglia da cui iniziare a importare, quando l'utente l'ha scelta:
+      // il motore la persiste sulla connessione prima di procedere.
+      importDa: req.body?.import_da ?? null,
       dataDa: req.body?.data_da ?? null,
       dataA: req.body?.data_a ?? null,
     });

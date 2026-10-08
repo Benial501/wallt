@@ -1,5 +1,7 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import {
+  computed, onMounted, ref, watch,
+} from 'vue';
 import dayjs from 'dayjs';
 import 'dayjs/locale/it';
 import WCard from '@/components/common/WCard.vue';
@@ -15,7 +17,9 @@ import { usePianoStore } from '@/stores/piano.store';
 import { useBankSyncStore } from '@/stores/bankSync.store';
 import { useToastStore } from '@/stores/toast.store';
 import { useValuta } from '@/composables/useValuta';
-import { STATO_SOSPESA_ENTITLEMENT, messaggioErrore } from '@/utils/entitlements';
+import {
+  STATO_SOSPESA_ENTITLEMENT, DESTINAZIONE_NUOVO, messaggioErrore,
+} from '@/utils/entitlements';
 
 dayjs.locale('it');
 
@@ -58,6 +62,21 @@ const dataASync = ref('');
 const oggiSync = ref('');
 const GIORNI_SYNC_MASSIMO = 90;
 
+/** La scelta in corso nella scheda di riconciliazione: quale conto della
+ * banca, e a quale conto WALLT associarlo (`DESTINAZIONE_NUOVO` per crearne
+ * uno). Finché non sono entrambe decise il pulsante resta disabilitato. */
+const contoBancaScelto = ref(null);
+const destinazioneScelta = ref(null);
+const caricandoRiconciliazione = ref(false);
+const erroreRiconciliazione = ref(null);
+const confermando = ref(false);
+
+/** L'avviso dei duplicati. `showSoglia` non è una copia dello stato dello
+ * store: è il fatto che il modale sia aperto, che l'utente può chiudere senza
+ * che la domanda del server smetta di essere stata posta. */
+const showSoglia = ref(false);
+const importDaSoglia = ref('');
+
 onMounted(() => {
   bankSyncStore.fetchStato();
   if (!pianoStore.risorsa.lastUpdated) pianoStore.fetchPiano();
@@ -85,6 +104,80 @@ const connessione = computed(() => bankSyncStore.connessione);
 const haPermesso = computed(() => pianoStore.bankSyncAttiva);
 
 const sospesa = computed(() => connessione.value?.stato === STATO_SOSPESA_ENTITLEMENT);
+
+/* ── La riconciliazione ───────────────────────────────────────────────────
+ *
+ * La banca è autorizzata ma nessuno ha ancora detto a quale conto WALLT
+ * appartengono i suoi movimenti. È la decisione irreversibile del flusso:
+ * agganciare il conto che l'utente già usa conserva lo storico inserito a
+ * mano, crearne uno nuovo lascerebbe lo stesso denaro contato due volte.
+ *
+ * I conti della banca si mostrano TUTTI. Prendere il primo è il difetto che
+ * questo lavoro corregge, e sceglierne uno al posto dell'utente
+ * nell'interfaccia lo reintrodurrebbe da questo lato.
+ */
+const contiBanca = computed(() => bankSyncStore.riconciliazione?.conti_banca ?? []);
+const contiAgganciabili = computed(() => bankSyncStore.riconciliazione?.conti_wallt ?? []);
+
+const riconciliazionePronta = computed(() => (
+  !!contoBancaScelto.value && destinazioneScelta.value !== null
+));
+
+/** Il saldo di un conto bancario può non esserci: con Enable Banking si legge
+ * con una chiamata per conto che questa rotta non fa. Un «saldo: 0» inventato
+ * sarebbe peggio del silenzio, perché è un numero che l'utente crederebbe. */
+const haSaldo = (conto) => conto.saldo !== null && conto.saldo !== undefined;
+
+const caricaRiconciliazione = async () => {
+  caricandoRiconciliazione.value = true;
+  erroreRiconciliazione.value = null;
+  try {
+    const dati = await bankSyncStore.caricaRiconciliazione();
+    // Con un solo conto la scelta è già fatta, ma resta visibile: è diverso
+    // dal non mostrarla.
+    contoBancaScelto.value = dati.conti_banca?.length === 1
+      ? dati.conti_banca[0].provider_account_id
+      : null;
+    destinazioneScelta.value = null;
+  } catch (err) {
+    erroreRiconciliazione.value = err?.response?.data?.message
+      || 'Non è stato possibile leggere i conti della banca. Riprova fra poco.';
+  } finally {
+    caricandoRiconciliazione.value = false;
+  }
+};
+
+// I dati per scegliere non si tengono in cache (lo dice lo store): si
+// rileggono quando la connessione entra in questo stato, perché un elenco
+// vecchio porterebbe a scegliere un conto bancario che non c'è più.
+watch(() => bankSyncStore.daRiconciliare, (attesa) => {
+  if (attesa && !bankSyncStore.riconciliazione) caricaRiconciliazione();
+}, { immediate: true });
+
+const confermaRiconciliazione = async () => {
+  if (!riconciliazionePronta.value) return;
+  confermando.value = true;
+  try {
+    const esito = await bankSyncStore.confermaRiconciliazione({
+      providerAccountId: contoBancaScelto.value,
+      destinazione: destinazioneScelta.value,
+    });
+    contoBancaScelto.value = null;
+    destinazioneScelta.value = null;
+    toastStore.success(
+      esito.creato
+        ? 'Conto creato e collegato alla banca.'
+        : 'Collegamento associato al conto: i movimenti che hai già restano dove sono.',
+    );
+  } catch (err) {
+    toastStore.error(
+      err?.response?.data?.message
+      || 'Non è stato possibile associare il collegamento. Riprova fra poco.',
+    );
+  } finally {
+    confermando.value = false;
+  }
+};
 
 /** L'orario assoluto dell'ultimo aggiornamento riuscito. Non relativo:
  * "3 minuti fa" invecchierebbe in silenzio senza un timer (stessa scelta di
@@ -127,13 +220,17 @@ const apriSincronizzazione = () => {
   showSincronizza.value = true;
 };
 
-const sincronizza = async () => {
-  const esito = await bankSyncStore.sincronizza({
-    dataDa: dataDaSync.value,
-    dataA: dataASync.value,
-  });
+/** L'esito di una sincronizzazione, qualunque sia la strada che l'ha avviata.
+ *
+ * La soglia NON passa da qui e non passa dalla mappa dei messaggi d'errore:
+ * `SYNC_ERROR_CODES` non la contiene di proposito, perché non è un guasto ma
+ * una domanda, e `messaggioErrore` le darebbe il ripiego sbagliato («riprova
+ * fra poco»). Chi la riceve è il modale, aperto dal watch sullo stato. */
+const mostraEsito = (esito) => {
+  if (esito.soglia) return;
   if (esito.ok) {
     showSincronizza.value = false;
+    showSoglia.value = false;
     const { importati = 0, duplicati_evitati: duplicati = 0 } = esito.esito;
     if (importati > 0) {
       toastStore.success(
@@ -150,6 +247,78 @@ const sincronizza = async () => {
     toastStore.error(esito.errore.titolo);
   }
 };
+
+const sincronizza = async () => {
+  mostraEsito(await bankSyncStore.sincronizza({
+    dataDa: dataDaSync.value,
+    dataA: dataASync.value,
+  }));
+};
+
+/* ── L'avviso dei duplicati ───────────────────────────────────────────────
+ *
+ * Il server si rifiuta di importare sopra uno storico già inserito a mano
+ * senza che l'utente abbia detto da quando partire: WALLT non può riconoscere
+ * un movimento scritto a mano come lo stesso di uno della banca.
+ *
+ * `data_suggerita` è il giorno dopo l'ultimo movimento dell'utente, e arriva
+ * all'utente come il server la calcola. Non viene più abbassata a oggi: per
+ * chi è in pari col proprio storico la proposta è esattamente DOMANI, il
+ * server la accetta (`validateBankSyncSoglia`, commit 8633011) e significa
+ * «non importare nulla adesso, tieni questo pavimento per dopo». Riportarla
+ * a oggi scaricherebbe le operazioni di oggi, cioè proprio il doppione che
+ * questo modale esiste per evitare.
+ *
+ * Può essere nulla (tutti i movimenti sono futuri): in quel caso si parte dal
+ * limite della finestra, cioè da tutto lo storico disponibile.
+ *
+ * Il giorno civile è quello di Roma, non quello del browser: è il fuso in cui
+ * il server valida (Regola 16), e un browser avanti di qualche ora
+ * proporrebbe un `max` che il server rifiuta. Stessa primitiva già usata in
+ * `PianoSmartExpenseFunding.vue`, nessuna dipendenza nuova.
+ */
+const FUSO_APP = 'Europe/Rome';
+
+const oggiRoma = () => {
+  const parti = new Intl.DateTimeFormat('en-CA', {
+    timeZone: FUSO_APP, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const v = Object.fromEntries(parti.map((parte) => [parte.type, parte.value]));
+  return `${v.year}-${v.month}-${v.day}`;
+};
+
+/* Aritmetica fra giorni civili già noti: nessuna conversione di fuso residua. */
+const dataMinimaSoglia = computed(() => dayjs(oggiRoma()).subtract(GIORNI_SYNC_MASSIMO - 1, 'day').format('YYYY-MM-DD'));
+/** Il limite del campo è DOMANI, non oggi: è il massimo che la proposta del
+ * server può produrre, e il massimo che la sua validazione accetta. */
+const dataMassimaSoglia = computed(() => dayjs(oggiRoma()).add(1, 'day').format('YYYY-MM-DD'));
+const dataMinimaSogliaTesto = computed(() => dayjs(dataMinimaSoglia.value).format('D MMMM YYYY'));
+
+/** Resta il solo pavimento, e non è un ripiego: una soglia più vecchia della
+ * finestra equivale a non averla (il server applica `max(finestra, import_da)`
+ * su 90 giorni), ma come valore del campo sarebbe sotto il `min` e il browser
+ * rifiuterebbe l'invio. Il tetto non si tocca più. */
+const nonPrimaDellaFinestra = (data) => (
+  data < dataMinimaSoglia.value ? dataMinimaSoglia.value : data
+);
+
+watch(() => bankSyncStore.sogliaRichiesta, (soglia) => {
+  if (!soglia) return;
+  showSincronizza.value = false;
+  importDaSoglia.value = soglia.data_suggerita
+    ? nonPrimaDellaFinestra(soglia.data_suggerita)
+    : dataMinimaSoglia.value;
+  showSoglia.value = true;
+});
+
+const confermaSoglia = async () => {
+  if (!importDaSoglia.value) return;
+  mostraEsito(await bankSyncStore.sincronizza({ importDa: importDaSoglia.value }));
+};
+
+/** «Importa tutto lo storico disponibile» non è una seconda strada: scrive
+ * nello stesso campo la data più vecchia che la banca può dare. */
+const vuoiTuttoLoStorico = () => { importDaSoglia.value = dataMinimaSoglia.value; };
 
 /**
  * Apre la scelta della banca.
@@ -285,6 +454,137 @@ const confermaSostituzione = async () => {
           Scopri come attivarlo
           <ChevronRight :size="16" :stroke-width="1.75" aria-hidden="true" />
         </WButton>
+      </WCard>
+
+      <!-- ── Banca autorizzata, conto ancora da scegliere ───────────────
+           Sta PRIMA della scheda del conto collegato perché finché la scelta
+           manca non esiste nessun conto collegato da mostrare, e il saldo
+           sarebbe uno zero inventato. -->
+      <WCard v-else-if="bankSyncStore.daRiconciliare" class="bank-sync__card">
+        <div class="bank-sync__intestazione">
+          <span class="bank-sync__icona">
+            <Landmark :size="22" :stroke-width="1.65" aria-hidden="true" />
+          </span>
+          <div class="bank-sync__titolo-riga">
+            <h2 class="bank-sync__titolo">
+              {{ connessione.istituto?.nome || 'Banca collegata' }}
+            </h2>
+            <span class="bank-sync__stato bank-sync__stato--problema">
+              <AlertTriangle :size="14" :stroke-width="1.9" aria-hidden="true" />
+              Da completare
+            </span>
+          </div>
+        </div>
+
+        <p class="bank-sync__testo">
+          Associa questo collegamento a un conto che usi già: i movimenti che
+          hai inserito a mano restano, e da ora in poi li scrive la banca.
+          Oppure creane uno nuovo.
+        </p>
+
+        <p v-if="caricandoRiconciliazione" class="bank-sync__attesa">
+          Stiamo leggendo i conti dalla tua banca…
+        </p>
+
+        <template v-else-if="erroreRiconciliazione || !contiBanca.length">
+          <div class="bank-sync__avviso" role="status">
+            <AlertTriangle :size="16" :stroke-width="1.75" aria-hidden="true" />
+            <div>
+              <p class="bank-sync__avviso-titolo">Conti della banca non disponibili</p>
+              <p class="bank-sync__avviso-testo">
+                {{ erroreRiconciliazione
+                  || 'La banca non ha restituito nessun conto per questa autorizzazione.' }}
+              </p>
+            </div>
+          </div>
+          <div class="bank-sync__azioni">
+            <WButton variant="secondary" size="md" @click="caricaRiconciliazione">
+              Riprova
+            </WButton>
+          </div>
+        </template>
+
+        <template v-else>
+          <!-- TUTTI i conti che la banca espone, non il primo. -->
+          <fieldset class="bank-sync__gruppo">
+            <legend>
+              {{ contiBanca.length === 1
+                ? 'Il conto che la banca ha autorizzato'
+                : `La banca ha autorizzato ${contiBanca.length} conti: scegli quale sincronizzare` }}
+            </legend>
+            <label
+              v-for="cb in contiBanca"
+              :key="cb.provider_account_id"
+              class="bank-sync__opzione"
+              :class="{ 'bank-sync__opzione--scelta': contoBancaScelto === cb.provider_account_id }"
+            >
+              <input
+                v-model="contoBancaScelto"
+                type="radio"
+                name="conto-banca"
+                :value="cb.provider_account_id"
+              />
+              <span class="bank-sync__opzione-testo">
+                <strong>{{ cb.nome || 'Conto bancario' }}</strong>
+                <small>
+                  {{ cb.iban_mascherato || 'IBAN non comunicato' }}
+                  <!-- Il saldo si mostra solo se la banca l'ha dato: uno zero
+                       al posto di un dato mancante sarebbe una bugia. -->
+                  <template v-if="haSaldo(cb)"> · {{ formatValuta(cb.saldo) }}</template>
+                </small>
+              </span>
+            </label>
+          </fieldset>
+
+          <fieldset class="bank-sync__gruppo">
+            <legend>A quale conto WALLT appartiene</legend>
+            <label
+              v-for="cw in contiAgganciabili"
+              :key="cw.id"
+              class="bank-sync__opzione"
+              :class="{ 'bank-sync__opzione--scelta': destinazioneScelta === cw.id }"
+            >
+              <input
+                v-model="destinazioneScelta"
+                type="radio"
+                name="destinazione-conto"
+                :value="cw.id"
+              />
+              <span class="bank-sync__opzione-testo">
+                <strong>{{ cw.nome }}</strong>
+                <small>{{ formatValuta(cw.saldo) }} · i movimenti già presenti restano</small>
+              </span>
+            </label>
+
+            <label
+              class="bank-sync__opzione"
+              :class="{ 'bank-sync__opzione--scelta': destinazioneScelta === DESTINAZIONE_NUOVO }"
+            >
+              <input
+                v-model="destinazioneScelta"
+                type="radio"
+                name="destinazione-conto"
+                :value="DESTINAZIONE_NUOVO"
+              />
+              <span class="bank-sync__opzione-testo">
+                <strong>Crea un conto nuovo</strong>
+                <small>Scegli questa se non hai ancora un conto per questa banca</small>
+              </span>
+            </label>
+          </fieldset>
+
+          <div class="bank-sync__azioni">
+            <WButton
+              variant="primary"
+              size="md"
+              :loading="confermando"
+              :disabled="!riconciliazionePronta"
+              @click="confermaRiconciliazione"
+            >
+              Collega a questo conto
+            </WButton>
+          </div>
+        </template>
       </WCard>
 
       <!-- ── Conto collegato ─────────────────────────────────────────── -->
@@ -448,6 +748,63 @@ const confermaSostituzione = async () => {
             :disabled="!intervalloSyncValido"
           >
             Sincronizza periodo
+          </WButton>
+        </div>
+      </form>
+    </AppDialog>
+
+    <!-- ── Da quando importare ─────────────────────────────────────────
+         Non è un errore da mostrare con un messaggio generico: è una domanda,
+         e la risposta è una data. -->
+    <AppDialog
+      :open="showSoglia"
+      title="Da quando vuoi importare?"
+      @close="showSoglia = false"
+    >
+      <form class="bank-sync__intervallo" @submit.prevent="confermaSoglia">
+        <p>
+          Hai già
+          {{ bankSyncStore.sogliaRichiesta?.movimenti_preesistenti ?? 0 }}
+          movimenti registrati. Importando da una data precedente potresti
+          ritrovarti la stessa spesa due volte: WALLT non può riconoscere i
+          movimenti che hai inserito a mano.
+        </p>
+        <label>
+          <span>Importa i movimenti dal</span>
+          <input
+            v-model="importDaSoglia"
+            class="form-input"
+            type="date"
+            :min="dataMinimaSoglia"
+            :max="dataMassimaSoglia"
+            required
+          />
+        </label>
+        <button type="button" class="bank-sync__link" @click="vuoiTuttoLoStorico">
+          Importa tutto lo storico disponibile (dal {{ dataMinimaSogliaTesto }})
+        </button>
+        <!-- È l'unico punto del prodotto in cui questo si può dire: la soglia
+             resta sulla connessione e nessuna schermata la rimette in
+             discussione. La via d'uscita esiste davvero (un periodo scelto a
+             mano supera il pavimento), quindi va detta insieme. -->
+        <p class="bank-sync__nota-soglia">
+          La data vale anche per le sincronizzazioni successive: da sola WALLT
+          non tornerà più indietro di qui. Se un giorno ti servisse lo storico
+          precedente, puoi chiederlo scegliendo un periodo a mano da
+          «Sincronizza».
+        </p>
+        <div class="bank-sync__intervallo-azioni">
+          <WButton variant="secondary" size="md" @click="showSoglia = false">
+            Annulla
+          </WButton>
+          <WButton
+            type="submit"
+            variant="primary"
+            size="md"
+            :loading="bankSyncStore.sincronizzando"
+            :disabled="!importDaSoglia"
+          >
+            Importa da questa data
           </WButton>
         </div>
       </form>
@@ -793,6 +1150,99 @@ const confermaSostituzione = async () => {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+/* --- Riconciliazione ----------------------------------------------------- */
+.bank-sync__attesa {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.bank-sync__gruppo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.bank-sync__gruppo legend {
+  padding: 0 0 0.375rem;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.bank-sync__opzione {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  /* 44px di area toccabile su mobile. */
+  min-height: 44px;
+  padding: 0.625rem 0.75rem;
+  background: var(--glass-secondary-bg);
+  border: 1px solid var(--glass-secondary-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.bank-sync__opzione:hover { background: var(--glass-interactive-bg-hover); }
+.bank-sync__opzione--scelta { border-color: var(--accent-green); }
+
+.bank-sync__opzione input { margin-top: 0.25rem; flex-shrink: 0; }
+
+.bank-sync__opzione:focus-within {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.bank-sync__opzione-testo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.bank-sync__opzione-testo strong {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.bank-sync__opzione-testo small {
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.bank-sync__link {
+  align-self: flex-start;
+  padding: 0.25rem 0;
+  font-family: inherit;
+  font-size: var(--text-xs);
+  color: var(--accent-text);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.bank-sync__link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Più specifica di `.bank-sync__intervallo p`, che altrimenti vincerebbe sul
+   colore essendo dichiarata più sotto. */
+.bank-sync__intervallo .bank-sync__nota-soglia {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  color: var(--text-muted);
 }
 
 /* --- Gestisci ------------------------------------------------------------ */

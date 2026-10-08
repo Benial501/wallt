@@ -3,7 +3,9 @@ import { computed, ref } from 'vue';
 import api from '@/utils/axios';
 import { creaRisorsa } from '@/utils/risorsa';
 import { refreshAfterWrite } from '@/utils/afterWrite';
-import { messaggioErrore, STATO_ATTIVA } from '@/utils/entitlements';
+import {
+  messaggioErrore, STATO_ATTIVA, STATO_DA_RICONCILIARE, ERR_SOGLIA_RICHIESTA,
+} from '@/utils/entitlements';
 import { getWithOneRetry } from '@/utils/getWithOneRetry';
 
 /**
@@ -51,6 +53,13 @@ export const useBankSyncStore = defineStore('bankSync', () => {
   /** @type {import('vue').Ref<{codice: string, titolo: string, testo: string, azione: string}|null>} */
   const ultimoErrore = ref(null);
   const ultimoEsito = ref(null);
+  /** I dati per scegliere il conto, quando la connessione è `da_riconciliare`:
+   * i conti esposti dalla banca e i conti WALLT agganciabili. */
+  const riconciliazione = ref(null);
+  /** La domanda posta dal server quando l'utente ha già movimenti propri e
+   * deve scegliere da quando importare (409 `SOGLIA_RICHIESTA`). Non è un
+   * errore: è lo stato "serve una risposta prima di sincronizzare". */
+  const sogliaRichiesta = ref(null);
 
   /** Getter calcolati: dentro lo store `data` è un ref vero, ma attraverso il
    * proxy Pinia i ref annidati sono già scompattati e `.value` da una vista
@@ -63,6 +72,9 @@ export const useBankSyncStore = defineStore('bankSync', () => {
   const richiedeRiconnessione = computed(() => connessione.value?.richiede_riconnessione === true);
   const sincronizzabile = computed(() => connessione.value?.sincronizzabile === true);
   const ultimaSincronizzazione = computed(() => connessione.value?.ultima_sincronizzazione ?? null);
+  /** Il consenso è stato dato ma manca ancora il conto a cui associarlo:
+   * finché resta così la connessione non è sincronizzabile (Regola 24). */
+  const daRiconciliare = computed(() => connessione.value?.stato === STATO_DA_RICONCILIARE);
 
   /** Dal codice d'errore salvato sulla connessione: è ciò che permette di
    * mostrare lo stato anche al primo caricamento della pagina, senza che
@@ -79,6 +91,36 @@ export const useBankSyncStore = defineStore('bankSync', () => {
 
   const fetchStato = () => risorsaStato.carica();
   const fetchIstituti = (paese = 'IT') => risorsaIstituti.carica(paese);
+
+  /** I dati per scegliere il conto. Non li teniamo in cache attraverso
+   * `creaRisorsa`: la rotta rilegge dal provider, e un elenco vecchio
+   * porterebbe a scegliere un conto bancario che non c'è più. */
+  const caricaRiconciliazione = async () => {
+    const { data } = await api.get('/bank-sync/riconciliazione');
+    riconciliazione.value = data;
+    return data;
+  };
+
+  /** Associa il collegamento a un conto WALLT (esistente o nuovo). Chiude la
+   * domanda e ricarica lo stato: `connessione` è un getter calcolato su
+   * `risorsaStato.data` (Regola 23), non un ref scrivibile da qui, e la sua
+   * transizione `da_riconciliare → attiva` va letta dalla stessa fonte di
+   * sempre. Un conto può essere stato appena creato, quindi anche i conti
+   * vanno riletti. */
+  const confermaRiconciliazione = async ({ providerAccountId, destinazione }) => {
+    const { data } = await api.post('/bank-sync/riconciliazione', {
+      provider_account_id: providerAccountId,
+      destinazione,
+    });
+    riconciliazione.value = null;
+    const { useContiStore } = await import('./conti.store');
+    await refreshAfterWrite(
+      () => fetchStato(),
+      () => useContiStore().fetchConti(),
+      () => useContiStore().fetchPatrimonio(),
+    );
+    return data;
+  };
 
   /** Attiva la beta gratuita. Solo dopo un click esplicito dell'utente. */
   const attivaBeta = async () => {
@@ -152,14 +194,22 @@ export const useBankSyncStore = defineStore('bankSync', () => {
    * `{ ok, esito }` oppure `{ ok: false, errore }`, perché la vista deve
    * poter mostrare "la banca non risponde, i tuoi dati precedenti sono
    * ancora disponibili" senza un try/catch in ogni punto.
+   *
+   * `importDa` risponde alla domanda posta da `SOGLIA_RICHIESTA`: quando
+   * l'utente la riceve e sceglie una data, la richiamata passa di qui. Non è
+   * un errore da propagare: il 409 con quel codice viene intercettato
+   * esplicitamente, prima della gestione generica, e messo in
+   * `sogliaRichiesta` perché il chiamante lo distingua da un guasto vero.
    */
-  const sincronizza = async ({ dataDa = null, dataA = null } = {}) => {
+  const sincronizza = async ({ dataDa = null, dataA = null, importDa = null } = {}) => {
     sincronizzando.value = true;
     ultimoErrore.value = null;
+    sogliaRichiesta.value = null;
     try {
-      const { data } = await api.post('/bank-sync/sync', dataDa && dataA
-        ? { data_da: dataDa, data_a: dataA }
-        : {});
+      const { data } = await api.post('/bank-sync/sync', {
+        ...(dataDa && dataA ? { data_da: dataDa, data_a: dataA } : {}),
+        ...(importDa ? { import_da: importDa } : {}),
+      });
       ultimoEsito.value = data;
       // I movimenti importati cambiano saldi, patrimonio e liste: vanno
       // ricaricati, e un fallimento di queste letture non deve far sembrare
@@ -174,6 +224,18 @@ export const useBankSyncStore = defineStore('bankSync', () => {
       );
       return { ok: true, esito: data };
     } catch (err) {
+      const corpo = err?.response?.data;
+      if (corpo?.codice === ERR_SOGLIA_RICHIESTA) {
+        // Non un guasto: serve che l'utente scelga da quando importare. I
+        // dettagli sono annidati da `rispondiErrore`
+        // (bankSync.controller.js): `{ codice, dettagli: { data_suggerita,
+        // movimenti_preesistenti } }`, un'unica forma, senza ripiego.
+        sogliaRichiesta.value = {
+          data_suggerita: corpo.dettagli?.data_suggerita ?? null,
+          movimenti_preesistenti: corpo.dettagli?.movimenti_preesistenti ?? null,
+        };
+        return { ok: false, soglia: sogliaRichiesta.value };
+      }
       const codice = codiceDa(err);
       const errore = { codice, ...messaggioErrore(codice) };
       ultimoErrore.value = errore;
@@ -222,6 +284,8 @@ export const useBankSyncStore = defineStore('bankSync', () => {
     collegando.value = false;
     ultimoErrore.value = null;
     ultimoEsito.value = null;
+    riconciliazione.value = null;
+    sogliaRichiesta.value = null;
   };
 
   return {
@@ -236,16 +300,21 @@ export const useBankSyncStore = defineStore('bankSync', () => {
     sincronizzabile,
     ultimaSincronizzazione,
     erroreConnessione,
+    daRiconciliare,
     sincronizzando,
     collegando,
     ultimoErrore,
     ultimoEsito,
+    riconciliazione,
+    sogliaRichiesta,
     fetchStato,
     fetchIstituti,
     attivaBeta,
     avviaCollegamento,
     ricollega,
     completaCollegamento,
+    caricaRiconciliazione,
+    confermaRiconciliazione,
     sincronizza,
     scollega,
     eliminaDatiImportati,
