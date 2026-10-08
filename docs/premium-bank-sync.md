@@ -106,8 +106,12 @@ l'ultimo movimento non futuro dell'utente — può cadere **domani**, ed è
 accettata: per chi è in pari col proprio storico è l'unica proposta
 possibile. `import_da` resta un pavimento sulla sola **finestra predefinita**
 (quella del cron e del normale «Sincronizza»): un intervallo `data_da`/`data_a`
-scelto esplicitamente lo supera, perché è una decisione presa dopo aver già
-visto l'avviso sui duplicati. Una volta impostata, la soglia è **permanente**:
+scelto esplicitamente lo supera. Il server non sa nulla di ciò che l'utente ha
+visto prima di chiamare: distingue soltanto un intervallo *richiesto* da una
+finestra *predefinita*, e serve proprio quella distinzione — senza di essa,
+confermare la soglia proposta sarebbe l'unico modo per fissarla, e chi
+l'accetta rinuncerebbe per sempre allo storico bancario anteriore. Una volta
+impostata, la soglia è **permanente**:
 non esiste una rotta per cambiarla in seguito, e il modale lo dichiara —
 «La data vale anche per le sincronizzazioni successive: da sola WALLT non
 tornerà più indietro di qui. Se un giorno ti servisse lo storico precedente,
