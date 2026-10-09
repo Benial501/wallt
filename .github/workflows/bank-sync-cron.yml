@@ -1,12 +1,25 @@
 # La sincronizzazione bancaria automatica usa GitHub Actions perché il piano
-# Hobby di Vercel consente un solo cron giornaliero. GitHub pianifica in UTC:
-# questi quattro passaggi corrispondono alle 08, 12, 16 e 20 in Italia durante
-# l'ora legale, e un'ora prima durante l'ora solare.
+# Hobby di Vercel consente un solo cron giornaliero con meno libertà di orario.
+#
+# UN SOLO passaggio, a notte: l'aggiornamento automatico è quotidiano, e i
+# tentativi manuali (due al giorno, `bank_sync_manuali_al_giorno`) coprono il
+# bisogno di vedere subito un movimento.
+#
+# GitHub pianifica in UTC e non segue l'ora legale italiana: le 23 UTC sono la
+# mezzanotte in ora solare e l'una di notte in ora legale. La scelta fra 22 e
+# 23 UTC non è indifferente — alle 22 UTC d'inverno sarebbero le 23:00 in
+# Italia, cioè il giorno PRIMA, e la finestra importata si fermerebbe a ieri
+# lasciando fuori la giornata appena conclusa. Con le 23 UTC il passaggio cade
+# sempre dopo la mezzanotte italiana, mai prima.
+#
+# Nota: GitHub esegue i cron con ritardo e sotto carico può saltarli. Un
+# passaggio perso non perde movimenti — la sincronizzazione importa una
+# finestra, non un singolo giorno, e la deduplica rende il recupero gratuito.
 name: Sincronizzazione conti collegati
 
 on:
   schedule:
-    - cron: '0 6,10,14,18 * * *'
+    - cron: '0 23 * * *'
 
 concurrency:
   group: bank-sync-cron
@@ -35,7 +48,30 @@ jobs:
             "$API_URL/api/cron/bank-sync")
 
           echo "Riepilogo: $risposta"
-          if ! jq -e 'type == "object" and .saltato != true and (.fallite // 0) == 0' <<< "$risposta" >/dev/null; then
-            echo "::error::La sincronizzazione è stata saltata o almeno un conto non si è sincronizzato."
+
+          if ! jq -e 'type == "object"' <<< "$risposta" >/dev/null; then
+            echo "::error::Risposta non interpretabile dall'endpoint di sincronizzazione."
+            exit 1
+          fi
+
+          # Un interruttore spento è una scelta, non un guasto: segnalarlo come
+          # errore ogni notte mostrerebbe "da sistemare" su una funzione che sta
+          # solo facendo ciò che le è stato chiesto. Resta visibile come avviso.
+          motivo=$(jq -r 'if .saltato == true then (.motivo // "ignoto") else "" end' <<< "$risposta")
+          case "$motivo" in
+            '')
+              ;;
+            bank_sync_disattivato|cron_disattivato)
+              echo "::warning::Sincronizzazione non eseguita: $motivo (interruttore spento in app_config)."
+              exit 0
+              ;;
+            *)
+              echo "::error::Sincronizzazione saltata per un motivo inatteso: $motivo"
+              exit 1
+              ;;
+          esac
+
+          if ! jq -e '(.fallite // 0) == 0' <<< "$risposta" >/dev/null; then
+            echo "::error::Almeno un conto non si è sincronizzato."
             exit 1
           fi

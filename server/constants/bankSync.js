@@ -103,6 +103,11 @@ const ERR_CONFIG = 'PROVIDER_NON_CONFIGURATO';
  * scelga da quando importare, altrimenti i 90 giorni si sommerebbero a
  * quanto ha inserito a mano. Non è un guasto, è una domanda. */
 const ERR_SOGLIA_RICHIESTA = 'SOGLIA_RICHIESTA';
+/** Le sincronizzazioni manuali di oggi sono esaurite. Come la soglia, non è
+ * un guasto: è un limite raggiunto, e per questo non entra in
+ * `SYNC_ERROR_CODES` — scriverlo in `error_code` mostrerebbe un conto "da
+ * sistemare" a chi ha solo premuto il pulsante una volta di troppo. */
+const ERR_LIMITE_MANUALI = 'LIMITE_MANUALI_GIORNALIERO';
 
 const SYNC_ERROR_CODES = [
   ERR_NETWORK,
@@ -237,6 +242,7 @@ module.exports = {
   ERR_COOLDOWN,
   ERR_CONFIG,
   ERR_SOGLIA_RICHIESTA,
+  ERR_LIMITE_MANUALI,
   SYNC_ERROR_CODES,
   ERRORI_RICHIEDONO_RICONNESSIONE,
   TX_BOOKED,

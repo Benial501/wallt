@@ -8,9 +8,11 @@ const {
   SYNC_LOCK_SCADENZA_MINUTI, GIORNI_STORICO_INIZIALE, GIORNI_STORICO_INCREMENTALE,
   ERR_SYNC_IN_CORSO, ERR_COOLDOWN, ERR_SYNC_FAILED, ERR_NO_TRANSACTIONS,
   ERR_CONSENT_EXPIRED, ERR_AUTHORIZATION_REVOKED, ERR_SOGLIA_RICHIESTA,
-  ORIGINE_OPEN_BANKING, TX_BOOKED,
+  ERR_LIMITE_MANUALI, ORIGINE_OPEN_BANKING, TX_BOOKED,
 } = require('../../constants/bankSync');
-const { BANK_SYNC_COOLDOWN_SECONDI } = require('../../constants/appConfig');
+const {
+  BANK_SYNC_COOLDOWN_SECONDI, BANK_SYNC_MANUALI_AL_GIORNO,
+} = require('../../constants/appConfig');
 const { oggiLocale, FUSO_DEFAULT } = require('../../utils/dateRome');
 const { getConfig } = require('../appConfig.service');
 const { getBankProvider } = require('./providers');
@@ -221,6 +223,50 @@ async function acquisisciLock(connectionId, userId) {
   return righe === 1;
 }
 
+/**
+ * Consuma uno dei gettoni giornalieri per le sincronizzazioni manuali.
+ *
+ * Un solo UPDATE condizionale, per la stessa ragione del lock qui sopra:
+ * "conta e poi scrivi" non è atomico, e due richieste simultanee leggerebbero
+ * entrambe lo stesso contatore (Coding Rule 22). Il CASE azzera il contatore
+ * quando il giorno civile registrato non è più quello corrente, così il
+ * limite si resetta a mezzanotte da sé, senza nessun cron che lo ripulisca.
+ *
+ * `oggi` è un giorno civile nel fuso applicativo, calcolato da chi chiama:
+ * su Vercel il processo gira in UTC, e `CURRENT_DATE` farebbe scattare il
+ * reset all'ora sbagliata per metà dell'anno (Regola 16).
+ *
+ * @returns {Promise<number|null>} i gettoni usati dopo il consumo, oppure
+ *   `null` se erano già esauriti (nessuna riga aggiornata).
+ */
+async function consumaGettoneManuale(connectionId, userId, oggi, limite) {
+  const [righe] = await sequelize.query(
+    `UPDATE bank_connections
+        SET sync_manuali_giorno = CASE
+              WHEN sync_manuali_giorno_data = :oggi THEN sync_manuali_giorno + 1
+              ELSE 1
+            END,
+            sync_manuali_giorno_data = :oggi,
+            updated_at = now()
+      WHERE id = :id
+        AND user_id = :userId
+        AND (sync_manuali_giorno_data IS DISTINCT FROM :oggi
+             OR sync_manuali_giorno < :limite)
+      RETURNING sync_manuali_giorno`,
+    {
+      replacements: {
+        id: connectionId, userId, oggi, limite,
+      },
+      type: QueryTypes.UPDATE,
+    },
+  );
+  // Con RETURNING, Postgres + Sequelize mettono le righe aggiornate nel primo
+  // elemento: un array vuoto significa che la WHERE non ha trovato nulla da
+  // aggiornare, cioè che i gettoni di oggi sono finiti.
+  const aggiornata = Array.isArray(righe) ? righe[0] : null;
+  return aggiornata ? Number(aggiornata.sync_manuali_giorno) : null;
+}
+
 const rilasciaLock = (connectionId) => BankConnection.update(
   { sync_started_at: null },
   { where: { id: connectionId } },
@@ -331,6 +377,34 @@ async function sincronizza({
         ERR_COOLDOWN,
         'Hai sincronizzato di recente. Riprova fra poco.',
         { statusCode: 429, dettagli: { riprova_fra_secondi: Math.ceil(attesa / 1000) } },
+      );
+    }
+  }
+
+  // ─── Il tetto giornaliero delle sincronizzazioni manuali ───────────────
+  //
+  // Sta DOPO i controlli che fermano una richiesta per un altro motivo
+  // (soglia, cooldown) e PRIMA del lock: un gettone si consuma solo se la
+  // sincronizzazione sta davvero partendo, ma consumarlo prima del lock
+  // significa che un doppio clic simultaneo può spenderne due, di cui uno
+  // sprecato. È il compromesso scelto: metterlo dopo il lock lascerebbe il
+  // lock appeso fino alla sua scadenza — il `finally` che lo rilascia apre
+  // più in basso — e l'utente leggerebbe "sincronizzazione già in corso" per
+  // minuti al posto del vero motivo.
+  //
+  // Il passaggio automatico notturno non consuma nulla: è il cron a dover
+  // garantire l'aggiornamento quotidiano, e sottrarlo dai due gettoni
+  // dell'utente significherebbe dargliene uno solo.
+  if (origine === 'manuale') {
+    const limite = await getConfig(BANK_SYNC_MANUALI_AL_GIORNO);
+    const oggi = oggiLocale(FUSO_DEFAULT);
+    const usati = await consumaGettoneManuale(connessione.id, userId, oggi, limite);
+    if (usati === null) {
+      throw new SyncError(
+        ERR_LIMITE_MANUALI,
+        `Hai già sincronizzato ${limite} volte oggi. Il prossimo aggiornamento `
+        + 'automatico è stanotte, e domani i tentativi manuali tornano disponibili.',
+        { statusCode: 429, dettagli: { limite, usati: limite, giorno: oggi } },
       );
     }
   }

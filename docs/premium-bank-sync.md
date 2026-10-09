@@ -174,9 +174,55 @@ Una riga `cancelled` può tornare `pending` se l'utente si ripresenta; una
 ### `GET /api/cron/bank-sync`
 Worker a lotti, attivo per default (`bank_sync_cron_enabled`). Seleziona le
 connessioni arretrate, riverifica l'entitlement per ciascuna, rispetta un
-backoff esponenziale sui fallimenti. GitHub Actions richiama l'endpoint alle
-08:00, 12:00, 16:00 e 20:00 italiane durante l'ora legale (un'ora prima in
-inverno); il minimo di sei ore evita richiami duplicati per connessione.
+backoff esponenziale sui fallimenti.
+
+GitHub Actions lo richiama **una volta al giorno, alle 23:00 UTC**: la
+mezzanotte italiana in ora solare, l'una di notte in ora legale. Le 23 UTC e
+non le 22 perché d'inverno le 22 UTC sarebbero le 23:00 italiane, cioè il
+giorno *prima*: la finestra importata si fermerebbe a ieri e la giornata
+appena conclusa resterebbe fuori. Il minimo di `bank_sync_cron_ore_minime`
+(un'ora) serve solo a non ripetere una sincronizzazione appena avvenuta — un
+valore ampio farebbe saltare la notte a chi ha aggiornato a mano la sera.
+
+Un passaggio che GitHub salta o ritarda non perde movimenti: si importa una
+finestra di giorni, non un singolo giorno, e la deduplica rende il recupero
+gratuito al passaggio successivo.
+
+### Il tetto delle sincronizzazioni manuali
+
+Due al giorno per utente (`bank_sync_manuali_al_giorno`), per giorno civile
+nel fuso applicativo. Il contatore sta sulla connessione come coppia
+(`sync_manuali_giorno_data`, `sync_manuali_giorno`): la data è ciò che fa
+azzerare il tetto a mezzanotte **da sé**, senza nessun cron di pulizia, con
+la stessa logica per cui la scadenza di un entitlement si legge dalla data e
+non da una colonna di stato (Regola 23).
+
+Il gettone si consuma con un **UPDATE condizionale** (`WHERE … OR
+sync_manuali_giorno < :limite … RETURNING`): zero righe aggiornate significa
+gettoni esauriti. "Conta e poi scrivi" non è atomico e due richieste
+simultanee leggerebbero lo stesso contatore (Coding Rule 22).
+
+Tre proprietà da non erodere:
+
+- **Il passaggio automatico non consuma gettoni.** È il cron a garantire
+  l'aggiornamento quotidiano; sottrarlo dai due dell'utente gliene lascerebbe
+  uno.
+- **Un tentativo fermato prima di partire non consuma nulla.** Il consumo sta
+  dopo le guardie su soglia e cooldown: chi riceve `SOGLIA_RICHIESTA` o
+  `COOLDOWN` non ha speso niente.
+- **Il consumo precede il lock, non lo segue.** Dopo il lock, un limite
+  raggiunto lascerebbe il lock appeso fino alla scadenza — il `finally` che lo
+  rilascia apre più in basso — e l'utente leggerebbe "sincronizzazione già in
+  corso" per minuti invece del motivo vero. Il prezzo è che due clic
+  simultanei possono spendere due gettoni di cui uno sprecato; il tetto non
+  viene comunque mai superato.
+
+`LIMITE_MANUALI_GIORNALIERO` (429) **non** entra in `SYNC_ERROR_CODES`, come
+`SOGLIA_RICHIESTA`: non è un guasto del conto, e scriverlo in `error_code`
+mostrerebbe un conto "da sistemare" a chi ha solo premuto il pulsante una
+volta di troppo. `GET /status` espone `sincronizzazioni_manuali`
+(`limite`, `usate_oggi`, `rimaste_oggi`) perché l'interfaccia possa dirlo
+prima, non solo dopo il rifiuto.
 
 ## 4. Il callback, in dettaglio
 
@@ -257,9 +303,10 @@ ritorno da scambiare con una sessione — per questo
 | `bank_sync_beta_enabled` | `true` | solo le attivazioni gratuite. Distinto dal precedente di proposito |
 | `bank_sync_beta_limit` | `25` | i posti. **Unico posto in cui questo numero esiste** |
 | `bank_sync_provider` | `gocardless` | `sandbox` è rifiutato in produzione |
-| `bank_sync_cooldown_secondi` | `300` | attesa fra due sync manuali della stessa connessione |
+| `bank_sync_cooldown_secondi` | `300` | attesa fra due sync manuali della stessa connessione. A `0` il solo limite resta il tetto giornaliero |
 | `bank_sync_cron_enabled` | `true` | sincronizzazione pianificata; può essere disattivata come interruttore operativo |
-| `bank_sync_cron_ore_minime` | `6` | ore dall'ultima sync riuscita; quattro controlli al giorno |
+| `bank_sync_cron_ore_minime` | `1` | ore dall'ultima sync riuscita; con un unico passaggio notturno evita solo di ripetere una sync appena avvenuta |
+| `bank_sync_manuali_al_giorno` | `2` | tentativi manuali per utente e per giorno civile. **Unico posto in cui questo numero esiste** |
 | `bank_sync_cron_max_per_esecuzione` | `20` | dimensione del lotto |
 
 ## 6-bis. Il piano dello staff

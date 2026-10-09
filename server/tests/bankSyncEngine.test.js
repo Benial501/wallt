@@ -23,12 +23,13 @@ const {
 } = require('../services/bankSync/cronSync.service');
 const {
   TX_BOOKED, TX_PENDING, ERR_BANK_UNAVAILABLE, ERR_CONSENT_EXPIRED,
-  ERR_RATE_LIMIT, ERR_SYNC_IN_CORSO, ERR_COOLDOWN, STATO_ATTIVA,
+  ERR_RATE_LIMIT, ERR_SYNC_IN_CORSO, ERR_COOLDOWN, ERR_LIMITE_MANUALI, STATO_ATTIVA,
   STATO_ERRORE, STATO_CONSENSO_SCADUTO, ORIGINE_OPEN_BANKING,
   GIORNI_STORICO_INIZIALE, GIORNI_STORICO_INCREMENTALE,
 } = require('../constants/bankSync');
 const {
   BANK_SYNC_COOLDOWN_SECONDI, BANK_SYNC_CRON_ENABLED, BANK_SYNC_CRON_ORE_MINIME,
+  BANK_SYNC_MANUALI_AL_GIORNO,
 } = require('../constants/appConfig');
 const appConfig = require('../services/appConfig.service');
 const { SOURCE_BETA_25 } = require('../constants/entitlements');
@@ -217,6 +218,11 @@ describe('idempotenza della sincronizzazione', () => {
   it('ripetuta molte volte non duplica nulla', async () => {
     const { utente, connessione } = await preparaCollegato();
     const provider = new SandboxBankProvider();
+    // Qui si misura la deduplica, non il tetto giornaliero: il limite va
+    // alzato, altrimenti la quarta chiamata verrebbe fermata prima di
+    // arrivare al punto in esame.
+    await appConfig.setConfig(BANK_SYNC_MANUALI_AL_GIORNO, 10);
+    await appConfig.setConfig(BANK_SYNC_COOLDOWN_SECONDI, 0);
 
     for (let i = 0; i < 4; i += 1) {
       await sincronizza({ userId: utente.userId, connectionId: connessione.id, provider });
@@ -468,6 +474,131 @@ describe('cooldown: la quota del provider va protetta', () => {
   });
 });
 
+describe('tetto giornaliero: due sincronizzazioni manuali al giorno', () => {
+  /** Il cooldown è un limite diverso: qui va spento per isolare il tetto. */
+  const senzaCooldown = async () => appConfig.setConfig(BANK_SYNC_COOLDOWN_SECONDI, 0);
+
+  it('la terza sincronizzazione manuale della giornata viene rifiutata', async () => {
+    const { utente, connessione } = await preparaCollegato();
+    await senzaCooldown();
+    await appConfig.setConfig(BANK_SYNC_MANUALI_AL_GIORNO, 2);
+    const provider = new SandboxBankProvider();
+    const chiama = () => sincronizza({
+      userId: utente.userId, connectionId: connessione.id, provider,
+    });
+
+    await chiama();
+    await chiama();
+    await expect(chiama()).rejects.toMatchObject({
+      codice: ERR_LIMITE_MANUALI,
+      statusCode: 429,
+    });
+
+    // Il punto del tetto: la banca non viene interrogata la terza volta.
+    expect(provider.chiamate.getTransactions).toBe(2);
+  });
+
+  it('il limite si legge dalla configurazione, non è cablato', async () => {
+    const { utente, connessione } = await preparaCollegato();
+    await senzaCooldown();
+    await appConfig.setConfig(BANK_SYNC_MANUALI_AL_GIORNO, 1);
+    const provider = new SandboxBankProvider();
+    const chiama = () => sincronizza({
+      userId: utente.userId, connectionId: connessione.id, provider,
+    });
+
+    await chiama();
+    await expect(chiama()).rejects.toMatchObject({ codice: ERR_LIMITE_MANUALI });
+  });
+
+  it('il contatore si azzera a mezzanotte: un giorno diverso riparte da zero', async () => {
+    const { utente, connessione } = await preparaCollegato();
+    await senzaCooldown();
+    await appConfig.setConfig(BANK_SYNC_MANUALI_AL_GIORNO, 2);
+    const provider = new SandboxBankProvider();
+    const chiama = () => sincronizza({
+      userId: utente.userId, connectionId: connessione.id, provider,
+    });
+
+    await chiama();
+    await chiama();
+
+    // Si sposta indietro il GIORNO registrato, non l'orologio: è esattamente
+    // ciò che succede al primo passaggio di mezzanotte.
+    await connessione.update({ sync_manuali_giorno_data: '2026-01-01' });
+
+    const esito = await chiama();
+    expect(esito.esito).toBe('ok');
+    await connessione.reload();
+    expect(connessione.sync_manuali_giorno).toBe(1);
+  });
+
+  it('il passaggio automatico non consuma i gettoni dell\'utente', async () => {
+    const { utente, connessione } = await preparaCollegato();
+    await senzaCooldown();
+    await appConfig.setConfig(BANK_SYNC_MANUALI_AL_GIORNO, 2);
+    const provider = new SandboxBankProvider();
+
+    // Tre passaggi del cron: nessuno tocca il contatore.
+    for (let i = 0; i < 3; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await sincronizza({
+        userId: utente.userId,
+        connectionId: connessione.id,
+        provider,
+        origine: 'cron',
+        ignoraCooldown: true,
+      });
+    }
+
+    await connessione.reload();
+    expect(connessione.sync_manuali_giorno).toBe(0);
+
+    // E i due tentativi manuali sono ancora interamente disponibili: due
+    // riescono, il terzo no. Senza quest'ultima asserzione il test passerebbe
+    // anche con il tetto disattivato del tutto.
+    const chiama = () => sincronizza({
+      userId: utente.userId, connectionId: connessione.id, provider,
+    });
+    await expect(chiama()).resolves.toMatchObject({ esito: 'ok' });
+    await expect(chiama()).resolves.toMatchObject({ esito: 'ok' });
+    await expect(chiama()).rejects.toMatchObject({ codice: ERR_LIMITE_MANUALI });
+  });
+
+  it('due richieste simultanee non sfondano il tetto', async () => {
+    const { utente, connessione } = await preparaCollegato();
+    await senzaCooldown();
+    await appConfig.setConfig(BANK_SYNC_MANUALI_AL_GIORNO, 1);
+    const provider = new SandboxBankProvider();
+
+    const esiti = await Promise.allSettled([
+      sincronizza({ userId: utente.userId, connectionId: connessione.id, provider }),
+      sincronizza({ userId: utente.userId, connectionId: connessione.id, provider }),
+    ]);
+
+    // Il contatore non supera il limite: è l'invariante che il database deve
+    // garantire, non il servizio (Coding Rule 22).
+    await connessione.reload();
+    expect(connessione.sync_manuali_giorno).toBeLessThanOrEqual(1);
+    expect(esiti.filter((e) => e.status === 'fulfilled').length).toBeLessThanOrEqual(1);
+  });
+
+  it('un tentativo fermato dal cooldown non consuma un gettone', async () => {
+    const { utente, connessione } = await preparaCollegato();
+    await appConfig.setConfig(BANK_SYNC_COOLDOWN_SECONDI, 300);
+    await appConfig.setConfig(BANK_SYNC_MANUALI_AL_GIORNO, 2);
+    const provider = new SandboxBankProvider();
+
+    await sincronizza({ userId: utente.userId, connectionId: connessione.id, provider });
+    await expect(sincronizza({
+      userId: utente.userId, connectionId: connessione.id, provider,
+    })).rejects.toMatchObject({ codice: ERR_COOLDOWN });
+
+    await connessione.reload();
+    expect(connessione.sync_manuali_giorno).toBe(1);
+  });
+});
+
 describe('categorizzazione: la cascata esistente, non una seconda', () => {
   it('una regola dell\'utente vince sulle regole globali', async () => {
     const { utente, connessione } = await preparaCollegato();
@@ -535,10 +666,12 @@ describe('categorizzazione: la cascata esistente, non una seconda', () => {
 describe('sincronizzazione pianificata (cron)', () => {
   beforeEach(() => azzeraConfigurazione());
 
-  it('sincronizza automaticamente quattro volte al giorno per default', async () => {
+  it('sincronizza automaticamente una volta al giorno per default', async () => {
     const { utente, connessione } = await preparaCollegato();
     expect(await appConfig.getConfig(BANK_SYNC_CRON_ENABLED)).toBe(true);
-    expect(await appConfig.getConfig(BANK_SYNC_CRON_ORE_MINIME)).toBe(6);
+    // Un'ora, non sei: il passaggio è uno solo a notte, e una soglia ampia
+    // farebbe saltare la notte a chi ha aggiornato a mano la sera prima.
+    expect(await appConfig.getConfig(BANK_SYNC_CRON_ORE_MINIME)).toBe(1);
 
     const esito = await processaSincronizzazioniPianificate({ provider: new SandboxBankProvider() });
     expect(esito.saltato).toBe(false);

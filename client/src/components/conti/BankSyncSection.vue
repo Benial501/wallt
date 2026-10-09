@@ -191,6 +191,19 @@ const ultimoAggiornamento = computed(() => {
     : `${d.format('D MMMM')} alle ${d.format('HH:mm')}`;
 });
 
+/** Gli aggiornamenti manuali ancora disponibili oggi, come frase. `null`
+ * quando il server non espone il dato: un'interfaccia che inventa un numero
+ * sarebbe peggio di una che non lo mostra. */
+const manualiOggi = computed(() => {
+  const rimaste = bankSyncStore.manualiRimasteOggi;
+  const limite = bankSyncStore.manualiAlGiorno;
+  if (rimaste === null || limite === null) return null;
+  if (rimaste === 0) return 'Esauriti per oggi';
+  return `${rimaste} di ${limite} disponibili oggi`;
+});
+
+const manualiEsauriti = computed(() => bankSyncStore.manualiRimasteOggi === 0);
+
 const dataMinimaSync = computed(() => (
   oggiSync.value ? dayjs(oggiSync.value).subtract(GIORNI_SYNC_MASSIMO - 1, 'day').format('YYYY-MM-DD') : ''
 ));
@@ -668,6 +681,13 @@ const confermaSostituzione = async () => {
             <dt>Conto</dt>
             <dd>{{ connessione.iban_mascherato }}</dd>
           </div>
+          <!-- Il tetto va detto PRIMA, non solo quando si sbatte contro:
+               "nessun aggiornamento manuale disponibile" scoperto premendo il
+               pulsante sembra un guasto, annunciato sembra una regola. -->
+          <div v-if="manualiOggi">
+            <dt>Aggiornamenti manuali</dt>
+            <dd>{{ manualiOggi }}</dd>
+          </div>
         </dl>
 
         <div class="bank-sync__azioni">
@@ -685,6 +705,10 @@ const confermaSostituzione = async () => {
             variant="primary"
             size="md"
             :loading="bankSyncStore.sincronizzando"
+            :disabled="manualiEsauriti"
+            :title="manualiEsauriti
+              ? 'Aggiornamenti manuali esauriti per oggi. Stanotte WALLT sincronizza da sola.'
+              : undefined"
             @click="apriSincronizzazione"
           >
             <RefreshCw :size="16" :stroke-width="1.75" aria-hidden="true" />

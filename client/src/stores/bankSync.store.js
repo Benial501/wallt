@@ -72,6 +72,17 @@ export const useBankSyncStore = defineStore('bankSync', () => {
   const richiedeRiconnessione = computed(() => connessione.value?.richiede_riconnessione === true);
   const sincronizzabile = computed(() => connessione.value?.sincronizzabile === true);
   const ultimaSincronizzazione = computed(() => connessione.value?.ultima_sincronizzazione ?? null);
+  /** Quante sincronizzazioni manuali restano oggi, e quante ne ammette la
+   * giornata. Il server è l'unica fonte: il conteggio si azzera a mezzanotte
+   * nel fuso applicativo, e ricalcolarlo nel client lo farebbe divergere da
+   * quello che il motore applica davvero. `null` finché lo stato non è noto. */
+  const manualiRimasteOggi = computed(() => (
+    connessione.value?.sincronizzazioni_manuali?.rimaste_oggi ?? null
+  ));
+  const manualiAlGiorno = computed(() => (
+    connessione.value?.sincronizzazioni_manuali?.limite ?? null
+  ));
+
   /** Il consenso è stato dato ma manca ancora il conto a cui associarlo:
    * finché resta così la connessione non è sincronizzabile (Regola 24). */
   const daRiconciliare = computed(() => connessione.value?.stato === STATO_DA_RICONCILIARE);
@@ -299,6 +310,8 @@ export const useBankSyncStore = defineStore('bankSync', () => {
     richiedeRiconnessione,
     sincronizzabile,
     ultimaSincronizzazione,
+    manualiRimasteOggi,
+    manualiAlGiorno,
     erroreConnessione,
     daRiconciliare,
     sincronizzando,

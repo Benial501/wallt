@@ -39,6 +39,11 @@ const BankConnection = sequelize.define('BankConnection', {
   sync_errori_totali: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   movimenti_importati_totali: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   duplicati_evitati_totali: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  // Il tetto giornaliero delle sincronizzazioni manuali. La data è un giorno
+  // civile nel fuso applicativo, non un istante: è ciò che fa azzerare il
+  // contatore a mezzanotte in Italia e non a mezzanotte UTC.
+  sync_manuali_giorno: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  sync_manuali_giorno_data: { type: DataTypes.DATEONLY, allowNull: true },
 }, { tableName: 'bank_connections' });
 
 module.exports = BankConnection;

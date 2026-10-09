@@ -192,6 +192,15 @@ test('il codice della soglia di importazione coincide', () => {
   assert.equal(client.ERR_SOGLIA_RICHIESTA, serverBankSync.ERR_SOGLIA_RICHIESTA);
 });
 
+test('il codice del tetto giornaliero coincide, e ha un messaggio per l\'utente', () => {
+  // Come la soglia, non sta in SYNC_ERROR_CODES — non è un guasto del conto —
+  // quindi il test generico sui messaggi non lo coprirebbe.
+  assert.equal(client.ERR_LIMITE_MANUALI, serverBankSync.ERR_LIMITE_MANUALI);
+  const messaggio = client.ERRORE_MESSAGGI[client.ERR_LIMITE_MANUALI];
+  assert.ok(messaggio?.titolo?.trim(), 'titolo mancante per il tetto giornaliero');
+  assert.ok(messaggio?.testo?.trim(), 'testo mancante per il tetto giornaliero');
+});
+
 test('il valore "destinazione nuovo conto" della riconciliazione coincide', () => {
   assert.equal(client.DESTINAZIONE_NUOVO, serverBankSync.DESTINAZIONE_NUOVO);
 });
