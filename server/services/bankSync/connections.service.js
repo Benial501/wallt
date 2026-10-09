@@ -10,6 +10,9 @@ const {
   STATI_SINCRONIZZABILI, STATE_TTL_MINUTI, ERRORI_RICHIEDONO_RICONNESSIONE,
   ORIGINE_OPEN_BANKING, ERR_CONFIG, DESTINAZIONE_NUOVO,
 } = require('../../constants/bankSync');
+const { BANK_SYNC_MANUALI_AL_GIORNO } = require('../../constants/appConfig');
+const { oggiLocale, FUSO_DEFAULT } = require('../../utils/dateRome');
+const { getConfig } = require('../appConfig.service');
 const { getBankProvider } = require('./providers');
 const { BankProviderError } = require('./providers/BankProvider');
 const { aggiornaSaldoConto } = require('../scommesseContoSync.service');
@@ -98,7 +101,7 @@ async function liberaTentativiScaduti(userId, { transaction } = {}) {
 /** Una connessione nella forma esposta dall'API. Mai identificatori del
  * provider, mai IBAN completo, mai hash: al client serve riconoscere il
  * proprio conto e sapere cosa può fare. */
-const serializza = (c, { conto = null } = {}) => (c ? {
+const serializza = (c, { conto = null, limiteManuali = null, oggi = null } = {}) => (c ? {
   id: c.id,
   stato: c.status,
   provider: c.provider,
@@ -123,6 +126,19 @@ const serializza = (c, { conto = null } = {}) => (c ? {
     movimenti_importati: c.movimenti_importati_totali,
     duplicati_evitati: c.duplicati_evitati_totali,
   },
+  // Quante sincronizzazioni manuali restano oggi. Il contatore vale solo per
+  // il giorno civile che porta scritto: se quello registrato non è più
+  // quello corrente, i gettoni tornano tutti disponibili — la stessa
+  // lettura che fa il motore quando ne consuma uno, perché due letture
+  // divergenti mostrerebbero un numero diverso da quello applicato.
+  sincronizzazioni_manuali: limiteManuali === null ? null : {
+    limite: limiteManuali,
+    usate_oggi: c.sync_manuali_giorno_data === oggi ? c.sync_manuali_giorno : 0,
+    rimaste_oggi: Math.max(
+      0,
+      limiteManuali - (c.sync_manuali_giorno_data === oggi ? c.sync_manuali_giorno : 0),
+    ),
+  },
 } : null);
 
 /** Lo stato per `GET /bank-sync/status`. */
@@ -135,7 +151,12 @@ async function statoConnessione(userId) {
     ? await Conto.findOne({ where: { id: connessione.conto_id, user_id: userId } })
     : null;
 
-  return { connessione: serializza(connessione, { conto }) };
+  const limiteManuali = await getConfig(BANK_SYNC_MANUALI_AL_GIORNO);
+  return {
+    connessione: serializza(connessione, {
+      conto, limiteManuali, oggi: oggiLocale(FUSO_DEFAULT),
+    }),
+  };
 }
 
 /**

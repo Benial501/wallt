@@ -179,6 +179,7 @@ export const ERR_SYNC_IN_CORSO = 'SYNC_IN_CORSO';
 export const ERR_COOLDOWN = 'COOLDOWN';
 export const ERR_CONFIG = 'PROVIDER_NON_CONFIGURATO';
 export const ERR_SOGLIA_RICHIESTA = 'SOGLIA_RICHIESTA';
+export const ERR_LIMITE_MANUALI = 'LIMITE_MANUALI_GIORNALIERO';
 
 export const SYNC_ERROR_CODES = Object.freeze([
   ERR_NETWORK, ERR_PROVIDER, ERR_RATE_LIMIT, ERR_CONSENT_EXPIRED,
@@ -230,6 +231,11 @@ export const ERRORE_MESSAGGI = Object.freeze({
   [ERR_COOLDOWN]: {
     titolo: 'Hai sincronizzato di recente',
     testo: 'I tuoi movimenti sono già aggiornati. Riprova fra qualche minuto.',
+    azione: 'attendi',
+  },
+  [ERR_LIMITE_MANUALI]: {
+    titolo: 'Aggiornamenti manuali esauriti per oggi',
+    testo: 'Puoi aggiornare a mano due volte al giorno. Stanotte WALLT sincronizza da sola, e domani i due tentativi tornano disponibili.',
     azione: 'attendi',
   },
   [ERR_SYNC_IN_CORSO]: {

@@ -27,6 +27,7 @@ const BANK_SYNC_COOLDOWN_SECONDI = 'bank_sync_cooldown_secondi';
 const BANK_SYNC_CRON_ENABLED = 'bank_sync_cron_enabled';
 const BANK_SYNC_CRON_ORE_MINIME = 'bank_sync_cron_ore_minime';
 const BANK_SYNC_CRON_MAX_PER_ESECUZIONE = 'bank_sync_cron_max_per_esecuzione';
+const BANK_SYNC_MANUALI_AL_GIORNO = 'bank_sync_manuali_al_giorno';
 
 /**
  * Ogni chiave dichiara tipo e default. Il tipo non è decorativo: è ciò che
@@ -71,10 +72,10 @@ const SCHEMA = Object.freeze({
   },
   [BANK_SYNC_CRON_ORE_MINIME]: {
     tipo: 'intero',
-    default: 6,
+    default: 1,
     min: 1,
     max: 168,
-    descrizione: 'Ore minime dall\'ultima sincronizzazione riuscita perché il cron ne tenti un\'altra. Il valore 6 permette quattro controlli al giorno.',
+    descrizione: 'Ore minime dall\'ultima sincronizzazione riuscita perché il cron ne tenti un\'altra. Con un solo passaggio notturno il valore 1 serve solo a non ripetere una sincronizzazione appena avvenuta: un valore alto farebbe saltare la notte a chi ha aggiornato a mano la sera prima.',
   },
   [BANK_SYNC_CRON_MAX_PER_ESECUZIONE]: {
     tipo: 'intero',
@@ -82,6 +83,13 @@ const SCHEMA = Object.freeze({
     min: 1,
     max: 1000,
     descrizione: 'Quante connessioni al massimo il cron processa in un passaggio. Il batch rispetta il rate limit del provider.',
+  },
+  [BANK_SYNC_MANUALI_AL_GIORNO]: {
+    tipo: 'intero',
+    default: 2,
+    min: 1,
+    max: 50,
+    descrizione: 'Quante sincronizzazioni manuali un utente può avviare in una giornata (fuso Europe/Rome). Il passaggio automatico notturno non le consuma.',
   },
 });
 
@@ -130,6 +138,7 @@ module.exports = {
   BANK_SYNC_CRON_ENABLED,
   BANK_SYNC_CRON_ORE_MINIME,
   BANK_SYNC_CRON_MAX_PER_ESECUZIONE,
+  BANK_SYNC_MANUALI_AL_GIORNO,
   SCHEMA,
   CHIAVI,
   isChiaveConfig,

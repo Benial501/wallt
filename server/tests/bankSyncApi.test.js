@@ -362,6 +362,25 @@ describe('sincronizzazione attraverso l\'API', () => {
     await collegaBanca(app, utente.headers);
   });
 
+  it('lo stato dichiara quanti aggiornamenti manuali restano oggi', async () => {
+    // È il contratto che l'interfaccia legge per annunciare il tetto PRIMA
+    // che l'utente ci sbatta contro: se il campo cambia nome, la vista smette
+    // di mostrarlo in silenzio.
+    const prima = await request(app).get('/api/bank-sync/status')
+      .set(utente.headers).expect(200);
+    expect(prima.body.connessione.sincronizzazioni_manuali).toEqual({
+      limite: 2, usate_oggi: 0, rimaste_oggi: 2,
+    });
+
+    await request(app).post('/api/bank-sync/sync').set(utente.headers).send({}).expect(200);
+
+    const dopo = await request(app).get('/api/bank-sync/status')
+      .set(utente.headers).expect(200);
+    expect(dopo.body.connessione.sincronizzazioni_manuali).toEqual({
+      limite: 2, usate_oggi: 1, rimaste_oggi: 1,
+    });
+  });
+
   it('rifiuta un intervallo incompleto, invertito, futuro o oltre 90 giorni', async () => {
     // Le date stanno in relazione a OGGI, non a valori fissi: "futuro" e
     // "oltre 90 giorni" sono proprietà rispetto al giorno in cui il test
