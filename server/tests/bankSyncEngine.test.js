@@ -25,6 +25,7 @@ const {
   TX_BOOKED, TX_PENDING, ERR_BANK_UNAVAILABLE, ERR_CONSENT_EXPIRED,
   ERR_RATE_LIMIT, ERR_SYNC_IN_CORSO, ERR_COOLDOWN, STATO_ATTIVA,
   STATO_ERRORE, STATO_CONSENSO_SCADUTO, ORIGINE_OPEN_BANKING,
+  GIORNI_STORICO_INIZIALE, GIORNI_STORICO_INCREMENTALE,
 } = require('../constants/bankSync');
 const {
   BANK_SYNC_COOLDOWN_SECONDI, BANK_SYNC_CRON_ENABLED, BANK_SYNC_CRON_ORE_MINIME,
@@ -164,6 +165,35 @@ describe('idempotenza della sincronizzazione', () => {
     expect(Number((await Conto.findByPk(connessione.conto_id)).saldo)).toBe(37.25);
     await connessione.reload();
     expect(Number(connessione.saldo_provider)).toBe(37.25);
+  });
+
+  it('la finestra predefinita è 90 giorni la prima volta e 3 giorni dopo', async () => {
+    // Il valore incrementale non è arbitrario e non può scendere a 1: la data
+    // di un movimento è la `booking_date` della banca, non il giorno dello
+    // scarico, quindi una finestra `oggi→oggi` perderebbe per sempre un
+    // pagamento contabilizzato in ritardo. Il test esiste per rendere
+    // deliberata qualunque riduzione.
+    const { utente, connessione } = await preparaCollegato();
+    const provider = new SandboxBankProvider();
+    provider.getTransactions = jest.fn().mockResolvedValue({ booked: [], pending: [], saldo: null });
+
+    // Quanto indietro parte la finestra rispetto a oggi: la costante è un
+    // numero di giorni indietro, non la lunghezza dell'intervallo inclusivo.
+    const giorniIndietro = () => {
+      const { dataDa, dataA } = provider.getTransactions.mock.calls.at(-1)[0];
+      return Math.round((Date.parse(dataA) - Date.parse(dataDa)) / 86400000);
+    };
+
+    await connessione.update({ last_successful_sync_at: null, import_da: null });
+    await sincronizza({ userId: utente.userId, connectionId: connessione.id, provider });
+    expect(giorniIndietro()).toBe(GIORNI_STORICO_INIZIALE);
+
+    await connessione.update({ last_successful_sync_at: new Date(), import_da: null });
+    await sincronizza({
+      userId: utente.userId, connectionId: connessione.id, provider, ignoraCooldown: true,
+    });
+    expect(giorniIndietro()).toBe(GIORNI_STORICO_INCREMENTALE);
+    expect(GIORNI_STORICO_INCREMENTALE).toBeGreaterThan(1);
   });
 
   it('importa comunque i movimenti se la banca non rende disponibile il saldo', async () => {

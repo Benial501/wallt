@@ -96,7 +96,14 @@ modulo propone gli ultimi 30 giorni e consente intervalli fino a 90 giorni.
 Le date devono essere valide, non future e in ordine. La deduplica tramite
 identificativo bancario rende sicuro ripetere o sovrapporre un periodo. Le
 sincronizzazioni pianificate non ricevono date dall'interfaccia e continuano a
-richiedere la finestra incrementale di 14 giorni.
+richiedere la finestra incrementale, che parte **3 giorni** prima di oggi
+(`GIORNI_STORICO_INCREMENTALE`). La sovrapposizione non è uno spreco e non
+può essere ridotta a un solo giorno: la data di un movimento è la
+`booking_date` della banca, non il giorno dello scarico, quindi un pagamento
+contabilizzato con due giorni di ritardo non rientrerebbe in nessuna
+richiesta — né oggi, né nel giorno a cui è intestato, già passato. Ripetere i
+giorni non produce movimenti doppi (incrementa `duplicati_evitati_totali`), e
+`bankSyncEngine.test.js` inchioda entrambe le finestre.
 
 Il **primo** sync di chi ha già movimenti propri è un caso a parte: il server
 rifiuta `409 SOGLIA_RICHIESTA` finché non riceve `import_da`, la data sotto la
