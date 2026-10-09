@@ -123,6 +123,11 @@ segnare `profili_utente.onboarding_completato`. Il saldo dichiarato del conto
 | `categoria_automatica` | BOOLEAN | |
 | `categoria_confidenza` | INTEGER | 0-100 |
 | `categoria_modificata` | BOOLEAN | Utente ha corretto |
+| `origine` | STRING | `manuale`, `import`, `open_banking`. Resta `manuale` su una riga che la sincronizzazione ha *adottato*: `eliminaDatiImportati` filtra per questa colonna, e quella riga l'ha scritta l'utente (CLAUDE.md Regola 27) |
+| `bank_connection_id` | INTEGER FK → bank_connections NULL | `ON DELETE SET NULL`: scollegare una banca non cancella movimenti |
+| `external_transaction_id` | STRING NULL | Id del provider. Con `bank_connection_id` forma l'indice UNIQUE parziale che rende la sincronizzazione idempotente |
+| `stato_banca` | STRING(20) NULL | `booked` / `pending`. Solo le `booked` diventano movimenti |
+| `scommesse_proposta_archiviata` | BOOLEAN NOT NULL DEFAULT false | "Non è un'operazione di gioco": spegne la richiesta di conferma su una riga bancaria senza costringere a falsarne la categoria. Non esiste la colonna simmetrica "confermata": confermare trasforma la riga in trasferimento, e la trasformazione è essa stessa il registro (Regola 27) |
 
 ### `piani_pagamento`
 | Campo | Tipo | Note |

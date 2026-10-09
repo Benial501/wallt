@@ -7,6 +7,7 @@ import GettingStartedCard from '@/components/help/GettingStartedCard.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import WOverviewCarousel from '@/components/custom/WOverviewCarousel.vue';
 import RecentTransactions from '@/components/dashboard/RecentTransactions.vue';
+import ScommesseDaConfermareCard from '@/components/dashboard/ScommesseDaConfermareCard.vue';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
 import SceltaTipoMovimento from '@/components/movimenti/SceltaTipoMovimento.vue';
 import { useAuthStore } from '@/stores/auth.store';
@@ -241,9 +242,21 @@ const loadScommesse = async () => {
   if (!canAccessScommesseFeature.value) return;
   await scommesseStore.fetchPiattaforme();
   if (scommesseStore.piattaforme.length) {
-    await scommesseStore.fetchAnalisi({ da: meseStart, a: oggiStr });
+    await Promise.all([
+      scommesseStore.fetchAnalisi({ da: meseStart, a: oggiStr }),
+      // Le conferme in sospeso: senza piattaforme non c'è nulla a cui
+      // attribuire un'operazione, quindi la domanda non si pone.
+      scommesseStore.fetchDaConfermare(),
+    ]);
   }
 };
+
+const onConfermaScommesse = async ({ movimentoId, piattaformaId }) => {
+  await scommesseStore.confermaDaConfermare(movimentoId, piattaformaId);
+  await loadDashboardMovimenti();
+};
+
+const onArchiviaScommesse = (movimentoId) => scommesseStore.archiviaDaConfermare(movimentoId);
 
 const loadInvestimenti = async () => {
   if (!canAccessInvestimentiFeature.value) return;
@@ -428,6 +441,14 @@ onMounted(async () => {
       @riprova-investimenti="investimentiStore.risorsaInvestimenti.riprova()"
       @riprova-obiettivi="obiettiviStore.risorsaObiettivi.riprova()"
       @riprova-ricorrenti="movimentiStore.risorsaRicorrenti.riprova()"
+    />
+
+    <ScommesseDaConfermareCard
+      v-if="canAccessScommesseFeature"
+      :proposte="scommesseStore.daConfermare"
+      :piattaforme="scommesseStore.piattaforme"
+      @conferma="onConfermaScommesse"
+      @archivia="onArchiviaScommesse"
     />
 
     <button type="button" class="dashboard-view__cta" @click="apriSceltaTipo">

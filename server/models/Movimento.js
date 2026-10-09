@@ -135,6 +135,14 @@ const Movimento = sequelize.define('Movimento', {
     type: DataTypes.STRING(20),
     allowNull: true,
   },
+  // "Non è un deposito di gioco": la decisione che spegne la richiesta di
+  // conferma su una riga portata dal conto collegato, senza costringere a
+  // falsarne la categoria.
+  scommesse_proposta_archiviata: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
 }, {
   tableName: 'movimenti',
 });

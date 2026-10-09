@@ -678,6 +678,29 @@ Passività dell'utente (prestiti, mutui, finanziamenti, ecc.), usate per calcola
 ### POST /api/scommesse/movimenti
 - **Validazione**: `validateMovimentoScommesse`
 - **Frontend**: `ScommesseView.vue`
+- **Risposta POST**: `{ movimento, piattaforma, conto, avviso? }` — `avviso: 'conto_collegato'`
+  quando il denaro passa da un conto sincronizzato: la stessa operazione arriverà anche
+  dalla banca, e la sincronizzazione **adotta** questa riga invece di scriverne una
+  seconda (CLAUDE.md Regola 24)
+
+### GET /api/scommesse/da-confermare
+- **Risposta**: `{ proposte: [{ id, tipo, categoria, importo, data, descrizione, conto_id }] }`
+  — le righe portate dal conto collegato con una categoria di gioco che nessuno ha ancora
+  attribuito a una piattaforma
+- **Frontend**: `scommesse.store.js` → `ScommesseDaConfermareCard.vue` (home)
+
+### POST /api/scommesse/da-confermare/:id/conferma
+- **Body**: `{ piattaforma_id }`
+- **Azione**: trasforma la riga in trasferimento verso il conto di gioco, crea il
+  `MovimentoScommesse` e accredita la piattaforma, in una sola transazione. **Non** tocca
+  il saldo del conto collegato: per un conto sincronizzato la verità sul saldo la dice la
+  banca, che quell'operazione l'ha già riportata
+- **Errori**: `404` proposta o piattaforma non trovata; `422` prelievo superiore al saldo
+  registrato per la piattaforma
+
+### POST /api/scommesse/da-confermare/:id/archivia
+- **Azione**: `scommesse_proposta_archiviata: true`. Il movimento resta in lista, la
+  richiesta di conferma si spegne
 
 ---
 

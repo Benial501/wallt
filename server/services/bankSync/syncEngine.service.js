@@ -19,6 +19,9 @@ const { getBankProvider } = require('./providers');
 const { BankProviderError } = require('./providers/BankProvider');
 const { normalizzaTransazioni } = require('./normalizer');
 const DuplicateChecker = require('../import/DuplicateChecker');
+const {
+  adottaMovimentiGiaSegnati, notificaProposteAperte,
+} = require('../riconciliazioneScommesse.service');
 const CategoryMatcherService = require('../import/CategoryMatcherService');
 const { assertCategory, loadHiddenDefaults } = require('../categorie.service');
 const { aggiornaSaldoConto } = require('../scommesseContoSync.service');
@@ -516,6 +519,15 @@ async function sincronizza({
       await valutaBudgetDopoMovimento(userId);
     }
 
+    // Un'uscita verso un operatore di gioco che la banca ha portato e che
+    // nessuno ha attribuito a una piattaforma è una domanda aperta: il saldo
+    // di gioco in WALLT resta sbagliato finché non la si risponde. L'avviso
+    // sta qui, fuori dalla transazione e senza poter lanciare, perché deve
+    // raggiungere anche chi non apre l'app.
+    if (esito.importati > 0) {
+      await notificaProposteAperte({ userId });
+    }
+
     return {
       esito: 'ok',
       ...esito,
@@ -580,7 +592,7 @@ async function importaTransazioni({ userId, connessione, risposta }) {
     const saldo = risposta.saldo ?? null;
     if (saldo !== null) await allineaSaldo({ userId, connessione, saldo });
     return {
-      importati: 0, duplicati_evitati: 0, scartate, pending, saldo, da_verificare: 0,
+      importati: 0, duplicati_evitati: 0, riconciliati: 0, scartate, pending, saldo, da_verificare: 0,
     };
   }
 
@@ -618,11 +630,20 @@ async function importaTransazioni({ userId, connessione, risposta }) {
     }
   });
 
+  // ─── Riconciliazione scommesse: adozione prima di qualunque scrittura ─
+  // Se l'utente ha già segnato questo deposito (o prelievo) dalla sezione
+  // Scommesse, la riga esistente adotta l'identità bancaria e non ne nasce
+  // una seconda. Deve stare PRIMA del `DuplicateChecker`: quello confronta
+  // anche le descrizioni, e per le righe con id stabile non gira affatto.
+  const { daImportare: superstiti, riconciliati } = await adottaMovimentiGiaSegnati({
+    userId, connessione, candidati: conIdStabile,
+  });
+
   // ─── Deduplica livello 3: solo per chi non ha un id stabile ───────────
   // Chi ha un id NON passa da qui: l'id dice già che è un'operazione
   // distinta, e il confronto per somiglianza scarterebbe per sbaglio due
   // acquisti identici legittimi dello stesso giorno.
-  const daImportare = [...conIdStabile];
+  const daImportare = [...superstiti];
   if (senzaIdStabile.length > 0) {
     const verificati = await new DuplicateChecker().check(userId, senzaIdStabile);
     verificati.forEach((v) => {
@@ -635,7 +656,7 @@ async function importaTransazioni({ userId, connessione, risposta }) {
     const saldo = risposta.saldo ?? null;
     if (saldo !== null) await allineaSaldo({ userId, connessione, saldo });
     return {
-      importati: 0, duplicati_evitati: duplicatiEvitati, scartate, pending, saldo, da_verificare: 0,
+      importati: 0, duplicati_evitati: duplicatiEvitati, riconciliati, scartate, pending, saldo, da_verificare: 0,
     };
   }
 
@@ -711,6 +732,7 @@ async function importaTransazioni({ userId, connessione, risposta }) {
   return {
     importati,
     duplicati_evitati: duplicatiEvitati,
+    riconciliati,
     scartate,
     pending,
     saldo: risposta.saldo ?? null,

@@ -215,6 +215,16 @@ const GIORNI_STORICO_INCREMENTALE = 3;
  * massimo richiesto al provider al primo collegamento. */
 const GIORNI_STORICO_MANUALE_MASSIMO = 90;
 
+/** Finestra entro cui una transazione bancaria può adottare un movimento di
+ * scommesse che l'utente ha già segnato a mano.
+ *
+ * Asimmetrica di proposito: la banca contabilizza DOPO: l'utente segna il
+ * deposito nel momento in cui lo fa, la `booking_date` arriva fino a qualche
+ * giorno più tardi. Il margine in avanti esiste solo perché l'utente può
+ * segnare l'operazione in ritardo, o datarla al giorno dopo. */
+const GIORNI_ADOZIONE_PRIMA = 5;
+const GIORNI_ADOZIONE_DOPO = 2;
+
 module.exports = {
   PROVIDER_GOCARDLESS,
   PROVIDER_ENABLE_BANKING,
@@ -259,5 +269,7 @@ module.exports = {
   SYNC_LOCK_SCADENZA_MINUTI,
   GIORNI_STORICO_INIZIALE,
   GIORNI_STORICO_INCREMENTALE,
+  GIORNI_ADOZIONE_PRIMA,
+  GIORNI_ADOZIONE_DOPO,
   GIORNI_STORICO_MANUALE_MASSIMO,
 };

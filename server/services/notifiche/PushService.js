@@ -26,6 +26,7 @@ const TESTI_PUSH_GENERICI = {
   obiettivo_raggiunto: 'Hai raggiunto un obiettivo di risparmio.',
   riepilogo_settimanale: 'Il riepilogo della tua settimana è pronto.',
   sicurezza: 'Controlla la sicurezza del tuo account.',
+  scommesse_da_confermare: 'Un’operazione dal conto collegato attende una conferma.',
 };
 
 const TESTO_PUSH_FALLBACK = 'Hai un nuovo avviso finanziario. Apri WALLT per i dettagli.';

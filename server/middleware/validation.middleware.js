@@ -1214,6 +1214,18 @@ const validateMovimentoScommesse = [
   validate,
 ];
 
+// Il client non invia mai l'utente né lo stato: li determina il server.
+const validateContoDaConfermare = [
+  param('id').isInt({ min: 1 }).withMessage('Movimento non valido'),
+  validate,
+];
+
+const validateConfermaDaConfermare = [
+  param('id').isInt({ min: 1 }).withMessage('Movimento non valido'),
+  body('piattaforma_id').isInt({ min: 1 }).withMessage('Piattaforma non valida'),
+  validate,
+];
+
 // --- Profilo finanziario ---
 
 const validateUpdateProfiloFinanziario = [
@@ -1918,6 +1930,8 @@ module.exports = {
   validateUpdatePiattaformaScommesse,
   validateDeletePiattaformaScommesse,
   validateMovimentoScommesse,
+  validateContoDaConfermare,
+  validateConfermaDaConfermare,
   validateUpdateProfiloFinanziario,
   validatePianoSmartInput,
   validateCreatePianoSmart,

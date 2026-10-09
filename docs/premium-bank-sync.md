@@ -224,6 +224,35 @@ volta di troppo. `GET /status` espone `sincronizzazioni_manuali`
 (`limite`, `usate_oggi`, `rimaste_oggi`) perché l'interfaccia possa dirlo
 prima, non solo dopo il rifiuto.
 
+### Scommesse: una sola operazione, due fonti
+
+Un deposito su una piattaforma di gioco pagato con la carta di un conto
+sincronizzato è **un** movimento reale che due fonti indipendenti possono
+raccontare: l'utente, subito, dalla sezione Scommesse; la banca, fino a
+qualche giorno dopo. `services/riconciliazioneScommesse.service.js` è il punto
+sorgente unico di questo incrocio (CLAUDE.md Regola 27).
+
+Nel verso "l'utente l'ha già segnato", la sincronizzazione **adotta** la riga
+esistente — stesso conto, verso coerente, importo identico, data nella
+finestra `[−5, +2]` giorni — attaccandole `external_transaction_id`,
+`bank_connection_id` e `stato_banca: booked`. Non nasce una seconda riga, e
+l'indice UNIQUE parziale già esistente rende la riga adottata immune a una
+risincronizzazione. L'adozione sta **prima** del `DuplicateChecker`: quello
+confronta anche le descrizioni, e «Deposito SNAI» contro «SNAI SPA PAGAMENTO»
+non supera la soglia di somiglianza — oltre al fatto che per una riga con id
+stabile non gira affatto. `origine` resta `manuale`, perché
+`eliminaDatiImportati` filtra per `origine` e quella riga è l'unica che
+accredita la piattaforma.
+
+Nel verso opposto — la banca ha visto un'operazione che nessuno ha attribuito
+— la domanda resta aperta nei movimenti stessi (`origine: open_banking`,
+categoria di gioco, nessun `conto_destinazione_id`): nessuna tabella nuova.
+`GET /api/scommesse/da-confermare` la espone, la conferma trasforma la riga in
+trasferimento verso il conto di gioco e accredita la piattaforma **senza
+toccare il saldo del conto collegato**, che la banca ha già riportato scalato.
+L'attribuzione è sempre una scelta dell'utente, anche con una sola piattaforma
+attiva.
+
 ## 4. Il callback, in dettaglio
 
 ```

@@ -16,6 +16,8 @@ const {
   sommaStats,
   toNumber,
 } = require('../services/scommesseStats.service');
+const riconciliazione = require('../services/riconciliazioneScommesse.service');
+const { contoCollegatoAConnessioneViva } = require('../services/bankSync/connections.service');
 
 const calcolaStatsPiattaforma = async (piattaformaId) => {
   const movimenti = await MovimentoScommesse.findAll({
@@ -237,7 +239,29 @@ const addMovimentoScommesse = async (req, res) => {
     await syncContoSaldoFromPiattaforma(piattaforma, t);
     await t.commit();
 
-    res.status(201).json({ movimento: movScommesse, piattaforma, conto });
+    // Se il denaro è passato da un conto collegato, la stessa operazione
+    // arriverà anche dalla banca: non è un doppione, perché la
+    // sincronizzazione adotta questa riga invece di scriverne una seconda
+    // (Regola 24). Lo si dice, perché il movimento bancario comparirà con
+    // una descrizione diversa. Fuori dalla transazione e protetto: non
+    // riuscire a rilevarlo equivale a nessun avviso, mai a un errore su un
+    // movimento già salvato.
+    let avviso;
+    if (conto) {
+      try {
+        if (await contoCollegatoAConnessioneViva(conto.id, req.userId)) {
+          avviso = 'conto_collegato';
+        }
+      } catch (error) {
+        logger.warn('Verifica conto collegato fallita dopo il movimento scommesse', {
+          err: error, userId: req.userId,
+        });
+      }
+    }
+
+    res.status(201).json({
+      movimento: movScommesse, piattaforma, conto, ...(avviso ? { avviso } : {}),
+    });
   } catch (error) {
     await t.rollback();
     logger.error('Errore addMovimentoScommesse', { err: error });
@@ -428,6 +452,54 @@ const getAnalisiScommesse = async (req, res) => {
   }
 };
 
+/**
+ * Le operazioni portate dal conto collegato che aspettano di sapere su quale
+ * piattaforma è finito il denaro. Vuote per chi non ha un conto collegato:
+ * la lista non esiste come stato, è una domanda posta ai movimenti.
+ */
+const getDaConfermare = async (req, res) => {
+  try {
+    const proposte = await riconciliazione.listaDaConfermare(req.userId);
+    res.json({ proposte });
+  } catch (error) {
+    logger.error('Errore getDaConfermare', { err: error });
+    res.status(500).json({ message: 'Errore nel recupero delle conferme' });
+  }
+};
+
+const confermaDaConfermare = async (req, res) => {
+  try {
+    const { piattaforma, movimento } = await riconciliazione.confermaAttribuzione({
+      userId: req.userId,
+      movimentoId: Number(req.params.id),
+      piattaformaId: Number(req.body.piattaforma_id),
+    });
+    res.json({ movimento, piattaforma });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
+    logger.error('Errore confermaDaConfermare', { err: error });
+    res.status(500).json({ message: 'Errore nella conferma' });
+  }
+};
+
+const archiviaDaConfermare = async (req, res) => {
+  try {
+    await riconciliazione.archiviaProposta({
+      userId: req.userId,
+      movimentoId: Number(req.params.id),
+    });
+    res.json({ message: 'Proposta archiviata' });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
+    logger.error('Errore archiviaDaConfermare', { err: error });
+    res.status(500).json({ message: 'Errore nell’archiviazione' });
+  }
+};
+
 module.exports = {
   getPiattaforme,
   createPiattaforma,
@@ -437,4 +509,7 @@ module.exports = {
   getMovimentiScommesse,
   getPanoramica,
   getAnalisiScommesse,
+  getDaConfermare,
+  confermaDaConfermare,
+  archiviaDaConfermare,
 };
