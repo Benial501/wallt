@@ -169,6 +169,11 @@ describe('Validazione delle spese programmate', () => {
   let token;
   let conto;
 
+  // La POST rifiuta una spesa programmata già passata: una data cablata qui
+  // scadrebbe col passare dei giorni e farebbe fallire i test per il motivo
+  // sbagliato. Si calcola rispetto a oggi.
+  const domani = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
   const corpo = (extra) => ({
     conto_id: conto.id,
     tipo: 'uscita',
@@ -190,7 +195,6 @@ describe('Validazione delle spese programmate', () => {
   });
 
   it('accetta una spesa programmata con la sua data', async () => {
-    const domani = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
     const res = await request(app).post('/api/movimenti').set(authHeader(token))
       .send(corpo({ ricorrente_frequenza: 'una_tantum', ricorrente_data: domani }));
     expect(res.status).toBe(201);
@@ -205,7 +209,7 @@ describe('Validazione delle spese programmate', () => {
 
   it('rifiuta una data programmata su una frequenza periodica', async () => {
     const res = await request(app).post('/api/movimenti').set(authHeader(token))
-      .send(corpo({ ricorrente_frequenza: 'mensile', ricorrente_giorno: 5, ricorrente_data: '2026-10-10' }));
+      .send(corpo({ ricorrente_frequenza: 'mensile', ricorrente_giorno: 5, ricorrente_data: domani }));
     expect(res.status).toBe(400);
   });
 
@@ -217,7 +221,7 @@ describe('Validazione delle spese programmate', () => {
 
   it('PUT accetta di spostare una spesa programmata a una data passata (corregge un promemoria non ancora chiuso)', async () => {
     const creato = await request(app).post('/api/movimenti').set(authHeader(token))
-      .send(corpo({ ricorrente_frequenza: 'una_tantum', ricorrente_data: '2026-10-10' }));
+      .send(corpo({ ricorrente_frequenza: 'una_tantum', ricorrente_data: domani }));
     const res = await request(app)
       .put(`/api/movimenti/${creato.body.movimento.id}`)
       .set(authHeader(token))
@@ -238,7 +242,7 @@ describe('Validazione delle spese programmate', () => {
 
   it('PUT pulisce il campo della frequenza abbandonata in entrambe le direzioni', async () => {
     const programmata = await request(app).post('/api/movimenti').set(authHeader(token))
-      .send(corpo({ ricorrente_frequenza: 'una_tantum', ricorrente_data: '2026-10-10' }));
+      .send(corpo({ ricorrente_frequenza: 'una_tantum', ricorrente_data: domani }));
     const resAMensile = await request(app)
       .put(`/api/movimenti/${programmata.body.movimento.id}`)
       .set(authHeader(token))
