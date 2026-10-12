@@ -250,6 +250,15 @@ describe('fondo di emergenza come informazione', () => {
     expect(con.horizon.capitaleLibero).toBe(senza.horizon.capitaleLibero);
     expect(con.horizon.budgetGiornaliero).toBe(senza.horizon.budgetGiornaliero);
   });
+
+  test('un fondo esistente a saldo zero non è un fondo assente', () => {
+    const situazione = buildCurrentSituation({
+      context: contestoData({ emergencyFund: { status: 'attivo', current: '0.00' } }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    expect(situazione.horizon.fondoDisponibile).toBe('0.00');
+    expect(situazione.horizon.fondoGiorniAggiuntivi).toBe(0);
+  });
 });
 
 describe('Piano Smart: simulazione acquisto', () => {

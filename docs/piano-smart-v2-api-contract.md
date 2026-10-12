@@ -117,11 +117,16 @@ a fine mese. Non scrive dati finanziari.
   `current.dailyLimitBasis` vale allora `orizzonte_data` e il tetto della spesa
   media storica non si applica. `stato` vale `in_rotta`, `scoperto` o
   `non_stimabile` (quest'ultimo anche quando manca la proiezione lunga).
-  `fondoDisponibile` e `fondoGiorniAggiuntivi` sono presenti solo in modalità
-  `data`: informano quanti giorni in più coprirebbe il fondo di emergenza al
-  ritmo attuale, senza farlo entrare nel capitale (il fondo è un conto
-  nascosto, Regola 22) — `null` quando il fondo non esiste o manca il ritmo
-  osservato.
+  `fondoDisponibile` e `fondoGiorniAggiuntivi` sono presenti in entrambe le
+  modalità, con la stessa forma del contratto, ma **valgono** solo in
+  modalità `data`: informano quanti giorni in più coprirebbe il fondo di
+  emergenza al ritmo attuale, senza farlo entrare nel capitale (il fondo è un
+  conto nascosto, Regola 22). In modalità `mensile` restano sempre `null`.
+  In modalità `data` sono `null` quando il saldo del fondo non è noto o il
+  fondo è assente (`emergencyFund.status === 'assente'`); con un fondo
+  esistente a saldo zero `fondoDisponibile` vale `'0.00'` e
+  `fondoGiorniAggiuntivi` vale `0`, non `null` — un saldo zero non è la stessa
+  cosa di un fondo assente.
 
 Il simulatore frontend sottrae una spesa **aggiuntiva** dai risultati del server,
 senza registrare movimenti. Mostra prima/dopo e conserva valori negativi.

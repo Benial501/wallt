@@ -370,9 +370,14 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
         // fuori da `baseCents` (Regola 22). Qui diciamo soltanto quanti
         // giorni in più coprirebbe al ritmo attuale, perché chi non arriva
         // alla data scelta deve poterlo sapere senza che l'app decida per lui.
-        fondoDisponibile: money(emergencyFundBalance || null),
-        fondoGiorniAggiuntivi: emergencyFundBalance && actualDailySpend > 0
-          ? Math.floor(emergencyFundBalance / actualDailySpend) : null,
+        // Controlli espliciti su null/assente: `||`/`&&` tratterebbero un
+        // fondo esistente a saldo zero come un fondo assente, perdendo una
+        // distinzione che il dominio fa (`emergencyFund.status`).
+        fondoDisponibile: fondoAssente || emergencyFundBalance === null
+          ? null : money(emergencyFundBalance),
+        fondoGiorniAggiuntivi: fondoAssente || emergencyFundBalance === null
+          || actualDailySpend === null || actualDailySpend <= 0
+          ? null : Math.floor(emergencyFundBalance / actualDailySpend),
       };
     })();
 
