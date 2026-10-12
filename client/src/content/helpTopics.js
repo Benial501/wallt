@@ -288,7 +288,7 @@ const TOPICS = [
       'Di default Piano Smart lavora sul ciclo mensile: il budget giornaliero che puoi spendere oggi riparte con ogni mese. Puoi invece scegliere una data: da quel momento il capitale libero deve bastare fino a quel giorno, e il budget si ricalcola ogni giorno su quello che resta davvero.',
       'Il capitale libero non comprende il fondo di emergenza: resta una riserva separata, e se gli impegni fino al termine superano il capitale disponibile Piano Smart lo segnala invece di proporre un budget che non si potrebbe sostenere.',
     ],
-    link: { label: 'Apri Piano Smart', to: '/funzionalita/piano-smart' },
+    link: { label: 'Apri la tua situazione', to: '/funzionalita/situazione' },
     related: ['piano-smart'],
   },
 ];

@@ -147,6 +147,11 @@ export const routes = [
         component: () => import('@/views/AiutoView.vue'),
       },
       {
+        path: 'funzionalita/situazione',
+        name: 'situazione',
+        component: () => import('@/views/SituazioneView.vue'),
+      },
+      {
         path: 'funzionalita/piano-smart',
         name: 'piano-smart',
         component: () => import('@/views/PianoSmartView.vue'),
@@ -173,6 +178,12 @@ export const routes = [
           if (authStore.user?.ruolo !== 'admin') return { name: 'dashboard' };
           return true;
         },
+      },
+      {
+        // La pagina era una sola fino all'ottobre 2026: chi arriva da un
+        // vecchio link cercava il monitoraggio, non il wizard.
+        path: 'funzionalita/piano-smart/situazione',
+        redirect: { name: 'situazione' },
       },
     ],
   },
