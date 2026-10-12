@@ -3,14 +3,18 @@ const { NATURE_ENTRATA, PERIODICITA_ENTRATA } = require('../services/entrate.ser
 const { LIQUIDABILITA } = require('../services/investimentiLiquidabilita.service');
 const { STATI_RICORRENZA } = require('../services/ricorrenti.service');
 const { MESI_TARGET_AMMESSI } = require('../services/fondoEmergenza.service');
-const { SOURCE_TYPES, STATI_PIANO, CHIAVI_CONTESTO_MANUALE } = require('../constants/pianoSmart');
+const {
+  SOURCE_TYPES, STATI_PIANO, CHIAVI_CONTESTO_MANUALE, ORIZZONTE_TIPI, ORIZZONTE_MESI_MAX,
+} = require('../constants/pianoSmart');
 const { FEATURE_KEYS, FEATURE_RICHIEDIBILI, RICHIESTA_STATI } = require('../constants/entitlements');
 const { CHIAVI: CHIAVI_CONFIG } = require('../constants/appConfig');
 const {
   DESTINAZIONE_NUOVO, GIORNI_STORICO_MANUALE_MASSIMO,
 } = require('../constants/bankSync');
 const { isImportoValido, toCents } = require('../services/pianoSmart/money');
-const { oggiLocale, FUSO_DEFAULT, sommaGiorni } = require('../utils/dateRome');
+const {
+  oggiLocale, FUSO_DEFAULT, sommaGiorni, sommaMesi,
+} = require('../utils/dateRome');
 const {
   UNITA_VALIDE, QUANTITA_MIN, QUANTITA_MAX, QUANTITA_MAX_PER_UNITA,
 } = require('../services/confrontoPeriodi.service');
@@ -1252,6 +1256,33 @@ const validateUpdateProfiloFinanziario = [
     .isInt({ min: 1, max: 6 })
     .toInt()
     .withMessage('Scegli una copertura da 1 a 6 mesi'),
+  body('orizzonte_tipo')
+    .optional({ values: 'null' })
+    .isIn(ORIZZONTE_TIPI)
+    .withMessage('orizzonte_tipo non valido'),
+  // La data è obbligatoria solo quando il tipo la richiede, deve stare nel
+  // futuro nel fuso dell'utente e sotto il tetto di calcolo: senza tetto una
+  // data nel 2090 farebbe proiettare le ricorrenze su ventimila giorni.
+  body('orizzonte_data')
+    .if(body('orizzonte_tipo').equals('data'))
+    .exists({ values: 'null' })
+    .withMessage('Scegli la data entro cui il capitale deve bastare')
+    .bail()
+    .isISO8601({ strict: true })
+    .withMessage('orizzonte_data non valida')
+    .bail()
+    .custom((value) => {
+      const oggi = oggiLocale();
+      if (value <= oggi) throw new Error('La data deve essere nel futuro');
+      if (value > sommaMesi(oggi, ORIZZONTE_MESI_MAX)) {
+        throw new Error(`La data non può superare ${ORIZZONTE_MESI_MAX} mesi da oggi`);
+      }
+      return true;
+    }),
+  body('orizzonte_data')
+    .optional({ values: 'null' })
+    .isISO8601({ strict: true })
+    .withMessage('orizzonte_data non valida'),
   body('situazione_abitativa')
     .optional({ values: 'null' })
     .isString()
