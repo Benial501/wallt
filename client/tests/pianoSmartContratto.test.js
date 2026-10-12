@@ -17,6 +17,7 @@ import serverConstants from '../../server/constants/pianoSmart.js';
 import {
   CATEGORIE_PIANO, ORIGINI_SOMMA, STATI_PIANO, TRANSIZIONI_STATO, CATEGORIA_CONCETTO,
   importoInCentesimi, centesimiInImporto, formattaEuro,
+  ORIZZONTE_TIPI, ORIZZONTE_MESI_MAX, ETICHETTE_ORIZZONTE,
 } from '../src/utils/pianoSmart.js';
 import { GLOSSARIO } from '../src/content/glossario.js';
 
@@ -110,4 +111,19 @@ test('la view non manda etichette al posto dei valori API', () => {
   assert.doesNotMatch(view, /:value="'Regalo'"|value="Regalo"/);
   assert.doesNotMatch(view, /'completato'|'archiviato'/, 'stati in italiano inviati al backend');
   assert.match(view, /ORIGINI_SOMMA/, 'la view deve usare il vocabolario condiviso');
+});
+
+test('i tipi di orizzonte coincidono con quelli del backend', () => {
+  assert.deepEqual([...ORIZZONTE_TIPI], [...serverConstants.ORIZZONTE_TIPI]);
+});
+
+test('il tetto in mesi dell orizzonte e lo stesso sui due lati', () => {
+  assert.equal(ORIZZONTE_MESI_MAX, serverConstants.ORIZZONTE_MESI_MAX);
+});
+
+test('ogni tipo di orizzonte ha una etichetta leggibile diversa dal valore API', () => {
+  ORIZZONTE_TIPI.forEach((tipo) => {
+    const etichetta = ETICHETTE_ORIZZONTE[tipo];
+    assert.ok(etichetta && etichetta !== tipo, `tipo senza etichetta: ${tipo}`);
+  });
 });

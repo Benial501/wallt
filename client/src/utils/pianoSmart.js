@@ -20,6 +20,15 @@
  * restituisce, e coincide con il suo spareggio deterministico. */
 export const CATEGORIE_PIANO = Object.freeze(['needs', 'safety', 'goals', 'future', 'freedom']);
 
+/** Duplicato di `server/constants/pianoSmart.js`: il contratto è verificato
+ * da `client/tests/pianoSmartContratto.test.js`, non dalla buona volontà. */
+export const ORIZZONTE_TIPI = Object.freeze(['mensile', 'data']);
+export const ORIZZONTE_MESI_MAX = 36;
+export const ETICHETTE_ORIZZONTE = Object.freeze({
+  mensile: 'Ciclo mensile',
+  data: 'Fino a una data',
+});
+
 /** Categoria API → id del concetto nel glossario (Coding Rule 18: le
  * etichette dei concetti finanziari si leggono, non si scrivono in linea). */
 export const CATEGORIA_CONCETTO = Object.freeze({

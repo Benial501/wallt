@@ -46,6 +46,19 @@ const CHIAVI_CONTESTO_MANUALE = [
   'upcoming_obligations',
 ];
 
+/**
+ * Orizzonte di spesa: entro quale termine il capitale deve bastare.
+ * `mensile` è il ciclo che si rinnova col mese civile (comportamento
+ * storico); `data` è un termine fisso scelto dall'utente, che si avvicina
+ * ogni giorno.
+ */
+const ORIZZONTE_TIPI = ['mensile', 'data'];
+
+/** Tetto alla data scelta. Non è una regola di prodotto ma di calcolo: oltre
+ * questo limite la proiezione delle ricorrenze diventa un esercizio teorico
+ * (e un ciclo di migliaia di giorni per ogni richiesta). */
+const ORIZZONTE_MESI_MAX = 36;
+
 module.exports = {
   CATEGORIE,
   SOURCE_TYPES,
@@ -53,4 +66,6 @@ module.exports = {
   STATI_PIANO,
   TRANSIZIONI_STATO,
   CHIAVI_CONTESTO_MANUALE,
+  ORIZZONTE_TIPI,
+  ORIZZONTE_MESI_MAX,
 };
