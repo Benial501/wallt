@@ -55,6 +55,20 @@ function simulatePurchase(situation, rawAmount) {
   const impact = available === 0 || amount * 100 > available * 45 ? 'alto'
     : amount * 100 > available * 20 ? 'moderato' : 'basso';
 
+  // Giorni di autonomia persi: la lettura più parlante dell'impatto quando
+  // esiste un orizzonte a data. Senza ritmo osservato non si calcola: la
+  // percentuale di spendibile resta l'unica cosa che si può dire.
+  const ritmo = cents(situation.current?.actualDailySpend);
+  const autonomiaPrima = situation.horizon?.dataRaggiungibile ?? null;
+  let giorniAutonomiaPersi = null;
+  let dataRaggiungibileAfter = null;
+  if (autonomiaPrima !== null && Number.isFinite(ritmo) && ritmo > 0) {
+    giorniAutonomiaPersi = Math.floor(amount / ritmo);
+    dataRaggiungibileAfter = new Date(
+      Date.parse(`${autonomiaPrima}T00:00:00Z`) - giorniAutonomiaPersi * 86400000,
+    ).toISOString().slice(0, 10);
+  }
+
   return {
     amount: fromCents(amount),
     availableBefore: fromCents(available),
@@ -65,6 +79,8 @@ function simulatePurchase(situation, rawAmount) {
     forecastAfter: signedMoney(forecastAfter),
     status,
     impact,
+    giorniAutonomiaPersi,
+    dataRaggiungibileAfter,
     writesFinancialData: false,
   };
 }

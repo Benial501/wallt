@@ -230,4 +230,27 @@ describe('Piano Smart: simulazione acquisto', () => {
     expect(simulatePurchase(situazione, '0')).toBeNull();
     expect(simulatePurchase(situazione, '1.005')).toBeNull();
   });
+
+  test('la simulazione dice quanti giorni di autonomia costa l acquisto', () => {
+    const situazioneOrizzonte = buildCurrentSituation({
+      context: contestoBase({
+        preferences: { orizzonteTipo: 'data', orizzonteData: '2027-02-28' },
+        recurringHorizon: { through: '2027-02-28', items: [], totalOutflow: 0 },
+      }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    const esito = simulatePurchase(situazioneOrizzonte, '300.00');
+    expect(esito.giorniAutonomiaPersi).toBeGreaterThan(0);
+    expect(esito.dataRaggiungibileAfter < situazioneOrizzonte.horizon.dataRaggiungibile).toBe(true);
+  });
+
+  test('senza ritmo osservato non inventa giorni persi', () => {
+    const situazioneMensile = buildCurrentSituation({
+      context: contestoBase({ preferences: { orizzonteTipo: 'mensile' } }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    const esito = simulatePurchase(situazioneMensile, '300.00');
+    expect(esito.giorniAutonomiaPersi).toBeNull();
+    expect(esito.dataRaggiungibileAfter).toBeNull();
+  });
 });
