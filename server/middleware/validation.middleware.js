@@ -1260,14 +1260,20 @@ const validateUpdateProfiloFinanziario = [
     .optional({ values: 'null' })
     .isIn(ORIZZONTE_TIPI)
     .withMessage('orizzonte_tipo non valido'),
-  // La data è obbligatoria solo quando il tipo la richiede, deve stare nel
-  // futuro nel fuso dell'utente e sotto il tetto di calcolo: senza tetto una
-  // data nel 2090 farebbe proiettare le ricorrenze su ventimila giorni.
+  // La data è obbligatoria solo quando il tipo la richiede: `updateProfilo`
+  // applica solo i campi presenti nel body, quindi un PUT che manda solo
+  // `orizzonte_data` (senza `orizzonte_tipo`) non deve poter saltare i
+  // controlli "nel futuro" e "tetto di calcolo" — una data nel passato non è
+  // valida in nessuna delle due modalità, quindi quei due controlli si
+  // applicano SEMPRE che il campo sia presente, indipendentemente dal tipo
+  // (letto o no dal body): leggere il tipo salvato a database dentro un
+  // validator introdurrebbe un pattern che questo middleware non usa.
   body('orizzonte_data')
     .if(body('orizzonte_tipo').equals('data'))
     .exists({ values: 'null' })
-    .withMessage('Scegli la data entro cui il capitale deve bastare')
-    .bail()
+    .withMessage('Scegli la data entro cui il capitale deve bastare'),
+  body('orizzonte_data')
+    .optional({ values: 'null' })
     .isISO8601({ strict: true })
     .withMessage('orizzonte_data non valida')
     .bail()
@@ -1279,10 +1285,6 @@ const validateUpdateProfiloFinanziario = [
       }
       return true;
     }),
-  body('orizzonte_data')
-    .optional({ values: 'null' })
-    .isISO8601({ strict: true })
-    .withMessage('orizzonte_data non valida'),
   body('situazione_abitativa')
     .optional({ values: 'null' })
     .isString()

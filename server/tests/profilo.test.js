@@ -161,5 +161,30 @@ describe('Profilo API', () => {
 
       expect(res.status).toBe(400);
     });
+
+    it('un update parziale non bypassa il controllo sul passato', async () => {
+      const { res: regRes } = await registerUser(app);
+      const token = regRes.body.token;
+      const userId = regRes.body.user.id;
+
+      const salvataggio = await request(app)
+        .put('/api/profilo')
+        .set(authHeader(token))
+        .send({ orizzonte_tipo: 'data', orizzonte_data: '2027-06-30' });
+      expect(salvataggio.status).toBe(200);
+
+      // PUT parziale: manda SOLO orizzonte_data, senza orizzonte_tipo. Il
+      // controllo "nel futuro" deve applicarsi comunque, perché updateProfilo
+      // applica solo i campi presenti nel body e la condizione sul tipo non
+      // deve poter saltare la validazione della data.
+      const res = await request(app)
+        .put('/api/profilo')
+        .set(authHeader(token))
+        .send({ orizzonte_data: '2020-01-01' });
+
+      expect(res.status).toBe(400);
+      const profilo = await ProfiloUtente.findOne({ where: { user_id: userId } });
+      expect(String(profilo.orizzonte_data)).toBe('2027-06-30');
+    });
   });
 });
