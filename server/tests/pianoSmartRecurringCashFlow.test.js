@@ -78,3 +78,71 @@ describe('flussi ricorrenti previsti', () => {
     }
   });
 });
+
+describe('proiezione oltre i 30 giorni', () => {
+  // Affitto da 800 il 5 di ogni mese. Il periodo di ottobre è già stato
+  // addebitato: senza quella riga la ricorrenza risulterebbe dovuta OGGI,
+  // perché `valutaOccorrenza` apre una finestra e il 12 è oltre il 5
+  // (recupero di un cron saltato, vedi ricorrenti.service.js).
+  const affitto = [{
+    id: 27, descrizione: 'Affitto', data: '2026-09-01', stato_ricorrenza: 'attiva',
+    ricorrente_frequenza: 'mensile', ricorrente_giorno: 5, tipo: 'uscita', importo: 800,
+  }];
+  const ottobreGiaAddebitato = [{ ricorrenza_origine_id: 27, ricorrenza_periodo: '2026-10' }];
+  const adesso = new Date('2026-10-12T12:00:00Z');
+
+  const conMock = async (programmate, esecuzione) => {
+    const originalMovimenti = Movimento.findAll;
+    const originalProgrammate = ScheduledPayment.findAll;
+    Movimento.findAll = jest.fn()
+      .mockResolvedValueOnce(affitto)
+      .mockResolvedValueOnce(ottobreGiaAddebitato);
+    ScheduledPayment.findAll = jest.fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(programmate);
+    try {
+      return await esecuzione();
+    } finally {
+      Movimento.findAll = originalMovimenti;
+      ScheduledPayment.findAll = originalProgrammate;
+    }
+  };
+
+  test('senza orizzonte il risultato non cresce di un campo valorizzato', async () => {
+    const esito = await conMock([], () => riepilogoRicorrenti(42, adesso));
+    expect(esito.horizon).toBeNull();
+  });
+
+  test('la mensile e proiettata fino alla data, una volta per periodo', async () => {
+    const esito = await conMock([], () => riepilogoRicorrenti(42, adesso, '2026-12-31'));
+    expect(esito.horizon.through).toBe('2026-12-31');
+    expect(esito.horizon.items.map((item) => item.dueDate))
+      .toEqual(['2026-11-05', '2026-12-05']);
+    const chiavi = esito.horizon.items.map((item) => item.occurrenceKey);
+    expect(new Set(chiavi).size).toBe(chiavi.length);
+    expect(esito.horizon.totalOutflow).toBe(1600);
+  });
+
+  test('la finestra breve resta a 30 giorni', async () => {
+    const esito = await conMock([], () => riepilogoRicorrenti(42, adesso, '2026-12-31'));
+    expect(esito.cashFlowItems.map((item) => item.dueDate)).toEqual(['2026-11-05']);
+  });
+
+  test('le uscite programmate entro l orizzonte entrano una volta sola', async () => {
+    const programmate = [{
+      id: 9, descrizione: 'Assicurazione', importo: 150, data_scadenza: '2026-12-20',
+    }];
+    const esito = await conMock(programmate, () => riepilogoRicorrenti(42, adesso, '2026-12-31'));
+    const chiavi = esito.horizon.items.map((item) => item.occurrenceKey);
+    expect(chiavi).toContain('programmata:9');
+    expect(new Set(chiavi).size).toBe(chiavi.length);
+    expect(esito.horizon.totalOutflow).toBe(1750);
+    // La finestra breve non deve vedere una scadenza di dicembre.
+    expect(esito.cashFlowItems.map((item) => item.dueDate)).toEqual(['2026-11-05']);
+  });
+
+  test('una data nel passato non attiva la proiezione', async () => {
+    const esito = await conMock([], () => riepilogoRicorrenti(42, adesso, '2026-09-01'));
+    expect(esito.horizon).toBeNull();
+  });
+});
