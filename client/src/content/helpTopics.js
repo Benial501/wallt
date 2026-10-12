@@ -280,6 +280,17 @@ const TOPICS = [
     ],
     link: { label: 'Apri la guida completa e interattiva', to: '/aiuto?argomento=piano-smart' },
   },
+  {
+    id: 'orizzonte-di-spesa',
+    title: 'L\'orizzonte di spesa',
+    summary: 'Il ciclo mensile di sempre, oppure una data entro cui il capitale deve bastare.',
+    paragraphs: [
+      'Di default Piano Smart lavora sul ciclo mensile: il budget giornaliero che puoi spendere oggi riparte con ogni mese. Puoi invece scegliere una data: da quel momento il capitale libero deve bastare fino a quel giorno, e il budget si ricalcola ogni giorno su quello che resta davvero.',
+      'Il capitale libero non comprende il fondo di emergenza: resta una riserva separata, e se gli impegni fino al termine superano il capitale disponibile Piano Smart lo segnala invece di proporre un budget che non si potrebbe sostenere.',
+    ],
+    link: { label: 'Apri Piano Smart', to: '/funzionalita/piano-smart' },
+    related: ['piano-smart'],
+  },
 ];
 
 /** Mappa id → argomento, per accessi diretti. */
@@ -324,7 +335,7 @@ export const HELP_SECTIONS = [
     id: 'strumenti',
     title: 'Home, budget, obiettivi e analisi',
     description: 'Come leggere i riepiloghi e cosa fanno davvero i pulsanti.',
-    topics: ['patrimonio-come-si-calcola', 'saldo-effettivo-come-si-calcola', 'dashboard-riepilogo', 'budget-come-funziona', 'obiettivi-contributi', 'analisi-come-funziona', 'piano-smart'],
+    topics: ['patrimonio-come-si-calcola', 'saldo-effettivo-come-si-calcola', 'dashboard-riepilogo', 'budget-come-funziona', 'obiettivi-contributi', 'analisi-come-funziona', 'piano-smart', 'orizzonte-di-spesa'],
   },
   {
     id: 'notifiche',

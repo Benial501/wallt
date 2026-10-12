@@ -127,3 +127,17 @@ test('ogni tipo di orizzonte ha una etichetta leggibile diversa dal valore API',
     assert.ok(etichetta && etichetta !== tipo, `tipo senza etichetta: ${tipo}`);
   });
 });
+
+test('i concetti dell orizzonte hanno etichetta e descrizione', () => {
+  ['budget_giornaliero', 'capitale_libero', 'impegni_orizzonte', 'ritmo_attuale']
+    .forEach((id) => {
+      const concetto = GLOSSARIO[id];
+      assert.ok(concetto, `concetto mancante: ${id}`);
+      assert.ok(concetto.etichetta && concetto.descrizione, `concetto incompleto: ${id}`);
+    });
+});
+
+test('nessun concetto si chiama piu Spendibile', () => {
+  const etichette = Object.values(GLOSSARIO).map((c) => c.etichetta);
+  assert.ok(!etichette.includes('Spendibile'), 'etichetta ritirata ancora presente');
+});
