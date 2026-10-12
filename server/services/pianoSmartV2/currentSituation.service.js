@@ -339,6 +339,8 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
       stato: dailyLimit === null ? 'non_stimabile' : shortfall > 0 ? 'scoperto' : 'in_rotta',
       mancanti: shortfall > 0 ? money(shortfall) : null,
       dataRaggiungibile: null,
+      fondoDisponibile: null,
+      fondoGiorniAggiuntivi: null,
     }
     : (() => {
       const esito = calcolaOrizzonte({
@@ -364,6 +366,13 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
         impegniFinoA: money(esito.impegniFinoA),
         budgetGiornaliero: money(esito.budgetGiornaliero),
         mancanti: money(esito.mancanti),
+        // Informazione, non capitale: il fondo è un conto nascosto e resta
+        // fuori da `baseCents` (Regola 22). Qui diciamo soltanto quanti
+        // giorni in più coprirebbe al ritmo attuale, perché chi non arriva
+        // alla data scelta deve poterlo sapere senza che l'app decida per lui.
+        fondoDisponibile: money(emergencyFundBalance || null),
+        fondoGiorniAggiuntivi: emergencyFundBalance && actualDailySpend > 0
+          ? Math.floor(emergencyFundBalance / actualDailySpend) : null,
       };
     })();
 

@@ -211,6 +211,47 @@ describe('horizon', () => {
   });
 });
 
+describe('fondo di emergenza come informazione', () => {
+  const contestoData = (extra = {}) => contestoBase({
+    preferences: { orizzonteTipo: 'data', orizzonteData: '2027-02-28' },
+    recurringHorizon: { through: '2027-02-28', items: [], totalOutflow: 0 },
+    ...extra,
+  });
+
+  test('dice quanti giorni in piu coprirebbe il fondo', () => {
+    const situazione = buildCurrentSituation({
+      context: contestoData({ emergencyFund: { status: 'attivo', current: '900.00' } }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    const ritmo = Number(situazione.current.actualDailySpend);
+    expect(ritmo).toBeGreaterThan(0);
+    expect(situazione.horizon.fondoGiorniAggiuntivi)
+      .toBe(Math.floor(90000 / Math.round(ritmo * 100)));
+  });
+
+  test('senza fondo non promette giorni', () => {
+    const situazione = buildCurrentSituation({
+      context: contestoData({ emergencyFund: { status: 'assente', current: null } }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    expect(situazione.horizon.fondoGiorniAggiuntivi).toBeNull();
+    expect(situazione.horizon.fondoDisponibile).toBeNull();
+  });
+
+  test('il fondo non entra nel capitale libero', () => {
+    const senza = buildCurrentSituation({
+      context: contestoData({ emergencyFund: { status: 'assente', current: null } }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    const con = buildCurrentSituation({
+      context: contestoData({ emergencyFund: { status: 'attivo', current: '900.00' } }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    expect(con.horizon.capitaleLibero).toBe(senza.horizon.capitaleLibero);
+    expect(con.horizon.budgetGiornaliero).toBe(senza.horizon.budgetGiornaliero);
+  });
+});
+
 describe('Piano Smart: simulazione acquisto', () => {
   const situazione = {
     current: { availableToSpend: '1000.00', shortfall: '0.00', dailyLimit: '100.00', remainingDays: 10 },
