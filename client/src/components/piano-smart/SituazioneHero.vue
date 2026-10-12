@@ -1,0 +1,145 @@
+<script setup>
+import { computed } from 'vue';
+import WCard from '@/components/common/WCard.vue';
+import OrizzonteSelector from '@/components/piano-smart/OrizzonteSelector.vue';
+import { GLOSSARIO } from '@/content/glossario';
+import { formattaEuro } from '@/utils/pianoSmart';
+
+/**
+ * L'hero della situazione: UN numero in cima, tre di supporto, tutto il resto
+ * dietro una porta sola.
+ *
+ * Non calcola niente. Il budget, i giorni, la data raggiungibile e lo stato
+ * arrivano da `horizon` (GET /piano-smart-v2/current-situation): questo
+ * componente scrive solo le frasi.
+ */
+const props = defineProps({
+  situazione: { type: Object, required: true },
+  salvataggioInCorso: { type: Boolean, default: false },
+});
+defineEmits(['cambiaOrizzonte']);
+
+const h = computed(() => props.situazione.horizon ?? {});
+const corrente = computed(() => props.situazione.current ?? {});
+
+const dataLunga = (iso) => (iso
+  ? new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'long', timeZone: 'UTC' })
+    .format(new Date(`${iso}T12:00:00Z`))
+  : null);
+
+const contesto = computed(() => (h.value.tipo === 'data'
+  ? `per arrivare al ${dataLunga(h.value.dataFine)} · ${h.value.giorni} giorni`
+  : `fino al ${dataLunga(h.value.dataFine)} · ${h.value.giorni} giorni`));
+
+const arrivaPrima = computed(() => h.value.dataRaggiungibile
+  && h.value.dataFine && h.value.dataRaggiungibile < h.value.dataFine);
+
+const margine = computed(() => {
+  const budget = Number(h.value.budgetGiornaliero);
+  const ritmo = Number(corrente.value.actualDailySpend);
+  if (!Number.isFinite(budget) || !Number.isFinite(ritmo)) return null;
+  return budget - ritmo;
+});
+</script>
+
+<template>
+  <WCard class="situation-hero">
+    <p class="hero-kicker">{{ GLOSSARIO.budget_giornaliero.etichetta }}</p>
+    <strong class="hero-amount">{{ formattaEuro(h.budgetGiornaliero) }}</strong>
+    <p class="hero-context">{{ contesto }}</p>
+
+    <p v-if="h.stato === 'scoperto'" class="shortfall" role="status">
+      Gli impegni fino al {{ dataLunga(h.dataFine) }} superano il capitale di
+      {{ formattaEuro(h.mancanti) }}.
+    </p>
+    <p v-else-if="arrivaPrima" class="situation-status situation-status--sopra_il_ritmo" role="status">
+      Al ritmo attuale arrivi al {{ dataLunga(h.dataRaggiungibile) }}.
+    </p>
+
+    <!-- Sola lettura: il fondo non è compreso nel capitale, lo diciamo solo
+         a chi non arriva alla data scelta. -->
+    <p v-if="(h.stato === 'scoperto' || arrivaPrima) && h.fondoGiorniAggiuntivi" class="hint">
+      Il fondo di emergenza coprirebbe altri {{ h.fondoGiorniAggiuntivi }} giorni
+      ({{ formattaEuro(h.fondoDisponibile) }}), ma non è compreso nel budget.
+    </p>
+    <p v-else-if="h.stato === 'in_rotta'" class="situation-status situation-status--sotto_controllo">
+      In rotta.
+    </p>
+    <p v-else class="muted">
+      Serve ancora qualche registrazione per calcolare il budget.
+    </p>
+
+    <OrizzonteSelector
+      :tipo="h.tipo" :data-fine="h.dataFine"
+      :mesi-riserva="corrente.reserveMonths ?? 1"
+      :suggerisci-data="corrente.incomeMode === 'irregolare' && h.tipo === 'mensile'"
+      :salvataggio-in-corso="salvataggioInCorso"
+      @cambia="$emit('cambiaOrizzonte', $event)"
+    />
+
+    <div class="situation-grid">
+      <div>
+        <span>{{ GLOSSARIO.capitale_libero.etichetta }}</span>
+        <strong>{{ formattaEuro(h.capitaleLibero) }}</strong>
+      </div>
+      <div>
+        <!-- Etichetta dal glossario (Coding Rule 18), la data concreta accanto. -->
+        <span>{{ GLOSSARIO.impegni_orizzonte.etichetta }}</span>
+        <strong>{{ formattaEuro(h.impegniFinoA) }}</strong>
+        <small>entro il {{ dataLunga(h.dataFine) }}</small>
+      </div>
+      <div>
+        <span>{{ GLOSSARIO.ritmo_attuale.etichetta }}</span>
+        <strong>{{ formattaEuro(corrente.actualDailySpend) }}/giorno</strong>
+        <small v-if="margine !== null">
+          {{ margine >= 0 ? `${formattaEuro(margine)} sotto il budget` : `${formattaEuro(Math.abs(margine))} sopra il budget` }}
+        </small>
+      </div>
+    </div>
+
+    <details class="explanation">
+      <summary>Come è calcolato</summary>
+      <dl class="hero-breakdown">
+        <dt>Liquidità dei conti</dt><dd>{{ formattaEuro(corrente.liquidity) }}</dd>
+        <dt>− obiettivi accantonati</dt><dd>{{ formattaEuro(corrente.allocatedToGoals) }}</dd>
+        <dt>− {{ GLOSSARIO.impegni_orizzonte.etichetta.toLowerCase() }} ({{ dataLunga(h.dataFine) }})</dt><dd>{{ formattaEuro(h.impegniFinoA) }}</dd>
+        <dt>= capitale libero</dt><dd>{{ formattaEuro(h.capitaleLibero) }}</dd>
+        <dt>÷ {{ h.giorni }} giorni</dt><dd>{{ formattaEuro(h.budgetGiornaliero) }}/giorno</dd>
+      </dl>
+      <p>{{ GLOSSARIO.capitale_libero.descrizione }}</p>
+      <p v-if="h.tipo === 'data'">
+        Il fondo di emergenza non è compreso nel capitale: resta da parte.
+      </p>
+    </details>
+  </WCard>
+</template>
+
+<style scoped>
+.situation-hero { display: flex; flex-direction: column; align-items: center; gap: .45rem; margin-bottom: 1rem; text-align: center; }
+.hero-kicker { margin: 0 0 .35rem; color: var(--text-secondary); font-size: var(--text-xs); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.hero-amount { color: var(--text-primary); font-size: 2.9rem; line-height: 1.05; }
+.hero-context { margin: -.2rem 0 .25rem; color: var(--text-secondary); font-size: var(--text-sm); }
+
+.shortfall { margin: 0; color: var(--negative); font-weight: 600; }
+.situation-status { margin: 0; padding: .35rem .65rem; border-radius: 999px; font-size: var(--text-xs); background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.situation-status--sopra_il_ritmo { background: color-mix(in srgb, #f0a35b 16%, transparent); color: #f0a35b; }
+.hint { margin: 0; color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.5; }
+.muted { margin: 0; color: var(--text-secondary); line-height: 1.55; font-size: var(--text-sm); }
+
+.situation-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; width: 100%; margin-top: .5rem; }
+.situation-grid > div { display: flex; flex-direction: column; gap: .25rem; padding: .75rem; border: 1px solid var(--divider); border-radius: var(--radius-md); text-align: left; }
+.situation-grid span { color: var(--text-secondary); font-size: var(--text-xs); }
+.situation-grid strong { color: var(--text-primary); }
+.situation-grid small { color: var(--text-secondary); font-size: var(--text-xs); }
+
+.explanation { width: 100%; border-top: 1px solid var(--divider); padding-top: .7rem; color: var(--text-secondary); font-size: var(--text-xs); text-align: left; }
+.explanation summary { color: var(--accent-text); cursor: pointer; font-weight: 600; }
+.explanation p { margin: .6rem 0 0; line-height: 1.55; }
+.hero-breakdown { display: grid; grid-template-columns: 1fr auto; gap: .3rem .75rem; margin: .6rem 0 0; }
+.hero-breakdown dt { margin: 0; color: var(--text-secondary); }
+.hero-breakdown dd { margin: 0; color: var(--text-primary); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 560px) {
+  .situation-grid { grid-template-columns: 1fr; }
+}
+</style>

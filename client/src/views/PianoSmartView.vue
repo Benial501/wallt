@@ -12,11 +12,12 @@ import PianoSmartCashFlowRadar from '@/components/piano-smart/PianoSmartCashFlow
 import PianoSmartGoalsSummary from '@/components/piano-smart/PianoSmartGoalsSummary.vue';
 import PianoSmartExpenseFunding from '@/components/piano-smart/PianoSmartExpenseFunding.vue';
 import PianoSmartGuide from '@/components/piano-smart/PianoSmartGuide.vue';
+import SituazioneHero from '@/components/piano-smart/SituazioneHero.vue';
 import { usePianoSmartStore } from '@/stores/pianoSmart.store';
 import { useScheduledPaymentsStore } from '@/stores/scheduledPayments.store';
 import { useProfiloStore } from '@/stores/profilo.store';
 import { useToastStore } from '@/stores/toast.store';
-import { CircleHelp, Trash2 } from '@/utils/appIcons';
+import { Trash2 } from '@/utils/appIcons';
 import { purchaseAmountCents } from '@/utils/pianoSmartSimulation';
 import { GLOSSARIO } from '@/content/glossario';
 import {
@@ -66,7 +67,6 @@ const confermaEliminazione = ref(false);
 const eliminazioneInCorso = ref(false);
 const simulatoreImporto = ref('');
 const salvaMesiRiservaInCorso = ref(false);
-const spiegazioneImportiAperta = ref(false);
 const expenseFundingBusyPaymentId = ref(null);
 
 const ORIGINI = ORIGINI_SOMMA;
@@ -117,7 +117,6 @@ const speseFrequenti = computed(() => {
 const simulatoreErrore = computed(() => simulatoreImporto.value !== '' && purchaseAmountCents(simulatoreImporto.value) === null);
 const formattaScadenza = (value) => new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`));
 const qualitaPrevisione = computed(() => ({ dati_insufficienti: 'Previsione non disponibile', storico_limitato: 'Storico ancora limitato', storico_disponibile: 'Storico disponibile' })[currentSituation.value?.forecast.quality]);
-const margineGiornaliero = computed(() => currentSituation.value?.current?.dailyMargin ?? null);
 const simulaAcquisto = async () => {
   if (!simulatoreErrore.value && simulatoreImporto.value) await store.simulatePurchase(simulatoreImporto.value);
 };
@@ -132,16 +131,15 @@ const apriGuida = (sezione) => {
   guidaSpiegazioneAperta.value = true;
 };
 
-const aggiornaMesiRiserva = async (event) => {
-  const months = Number(event.target.value);
-  if (!Number.isInteger(months) || months < 1 || months > 6 || salvaMesiRiservaInCorso.value) return;
+const aggiornaOrizzonte = async (payload) => {
+  if (salvaMesiRiservaInCorso.value) return;
   salvaMesiRiservaInCorso.value = true;
   try {
-    await profiloStore.updateProfilo({ mesi_riserva_piano_smart: months });
+    await profiloStore.updateProfilo(payload);
     await store.loadCurrentSituation();
-    toast.success('Copertura della riserva aggiornata.');
+    toast.success('Orizzonte aggiornato.');
   } catch {
-    toast.error('Non è stato possibile aggiornare la copertura. Riprova.');
+    toast.error('Non è stato possibile aggiornare l’orizzonte. Riprova.');
   } finally {
     salvaMesiRiservaInCorso.value = false;
   }
@@ -404,68 +402,11 @@ onMounted(() => {
       <div v-if="currentSituationState === 'loading'" class="loading">Sto leggendo la tua situazione…</div>
       <div v-else-if="currentSituationState === 'error'" class="error" role="alert">{{ currentSituationError?.message || 'Non riesco a recuperare la situazione.' }}</div>
       <template v-else-if="currentSituation">
-        <WCard v-if="tab === 'today'" class="situation-hero">
-          <p class="hero-kicker">Situazione oggi</p>
-          <p class="muted">Limite giornaliero indicativo</p>
-          <strong>{{ formattaEuro(currentSituation.current.dailyLimit) }}</strong>
-          <p class="hero-today">oggi</p>
-          <p v-if="currentSituation.current.incomeMode === 'irregolare' && currentSituation.current.dailyLimit !== null">
-            Il limite considera la riserva che hai scelto, la spesa media osservata e i {{ currentSituation.current.remainingDays }} giorni fino a fine mese.
-          </p>
-          <p v-else-if="currentSituation.current.dailyLimit !== null">
-            Calcolato sul margine e sui {{ currentSituation.current.remainingDays }} giorni da oggi a fine mese.
-          </p>
-          <p v-else>Per calcolare un limite prudente servono mesi completi di spese registrate.</p>
-          <div v-if="currentSituation.current.incomeMode === 'irregolare'" class="reserve-setting">
-            <label for="piano-smart-reserve-months">Mesi di spese da proteggere</label>
-            <select
-              id="piano-smart-reserve-months"
-              :value="currentSituation.current.reserveMonths"
-              :disabled="salvaMesiRiservaInCorso"
-              @change="aggiornaMesiRiserva"
-            >
-              <option v-for="months in 6" :key="months" :value="months">{{ months }} {{ months === 1 ? 'mese' : 'mesi' }}</option>
-            </select>
-            <span v-if="currentSituation.current.reserveTarget !== null">
-              Riserva obiettivo: {{ formattaEuro(currentSituation.current.reserveTarget) }}
-              <template v-if="currentSituation.current.reserveFromLiquidity > 0">· da proteggere: {{ formattaEuro(currentSituation.current.reserveFromLiquidity) }}</template>
-            </span>
-          </div>
-          <div class="safe-to-spend">
-            <div><span>Liquidità dei conti</span><strong>{{ formattaEuro(currentSituation.current.liquidity) }}</strong></div>
-            <div><span>Da proteggere</span><strong>{{ formattaEuro(currentSituation.current.protectedAmount) }}</strong></div>
-            <div class="safe-to-spend__highlight"><span>Spendibile</span><strong>{{ formattaEuro(currentSituation.current.availableToSpend) }}</strong></div>
-          </div>
-          <div class="protection-details-row">
-            <details class="explanation protection-details">
-              <summary>Quali somme sono protette?</summary>
-              <p>Obiettivi già accantonati: {{ formattaEuro(currentSituation.current.allocatedToGoals) }}.</p>
-              <p>Impegni rilevati: {{ formattaEuro(currentSituation.current.commitments) }}. Ulteriori scadenze entro fine mese: {{ formattaEuro(currentSituation.current.additionalCommitments) }}.</p>
-              <p>Lo spendibile è già al netto di queste somme. Il saldo dei conti scommesse è escluso.</p>
-              <p v-if="currentSituation.current.incomeMode === 'irregolare' && currentSituation.current.reserveTarget !== null">
-                La riserva scelta copre {{ currentSituation.current.reserveMonths }} {{ currentSituation.current.reserveMonths === 1 ? 'mese' : 'mesi' }} di spese {{ currentSituation.current.reserveExpenseBasis === 'essenziale' ? 'essenziali' : 'medie' }}. Il saldo già presente nel fondo di sicurezza viene conteggiato, così non viene protetto due volte.
-              </p>
-            </details>
-            <button
-              type="button"
-              class="protection-info-button"
-              aria-label="Spiega Da proteggere e Spendibile"
-              @click="spiegazioneImportiAperta = true"
-            ><CircleHelp :size="18" aria-hidden="true" /></button>
-          </div>
-          <p v-if="Number(currentSituation.current.shortfall) > 0" class="shortfall" role="status">Mancano {{ formattaEuro(currentSituation.current.shortfall) }} per coprire tutte le somme protette.</p>
-          <div class="hero-availability">
-            <span>{{ currentSituation.current.remainingDays }} giorni, oggi incluso, fino a fine mese</span>
-          </div>
-          <span class="situation-status" :class="`situation-status--${currentSituation.current.paceStatus}`">
-            {{ currentSituation.current.paceStatus === 'sopra_il_ritmo' ? 'Sopra il ritmo previsto' : currentSituation.current.paceStatus === 'sotto_controllo' ? 'Ritmo entro il limite' : 'Stiamo imparando il tuo ritmo' }}
-          </span>
-          <div class="situation-grid">
-            <div><span>Ritmo non ricorrente</span><strong>{{ formattaEuro(currentSituation.current.actualDailySpend) }}/giorno</strong></div>
-            <div><span>Margine giornaliero</span><strong>{{ margineGiornaliero === null ? '—' : `${Number(margineGiornaliero) >= 0 ? '+' : ''}${formattaEuro(margineGiornaliero)}` }}</strong></div>
-            <div><span>Il tuo limite</span><strong>{{ formattaEuro(currentSituation.current.dailyLimit) }}/giorno</strong></div>
-          </div>
-        </WCard>
+        <SituazioneHero
+          v-if="tab === 'today'" :situazione="currentSituation"
+          :salvataggio-in-corso="salvaMesiRiservaInCorso"
+          @cambia-orizzonte="aggiornaOrizzonte"
+        />
 
         <template v-if="tab === 'analysis'">
         <div class="analysis-heading"><h2>Cosa è cambiato?</h2><button type="button" class="context-help" @click="apriGuida('analisi')">Che cosa significa?</button></div>
@@ -1128,29 +1069,6 @@ onMounted(() => {
       @close="guidaSpiegazioneAperta = false"
     />
 
-    <AppDialog
-      :open="spiegazioneImportiAperta"
-      title="Da proteggere e spendibile"
-      @close="spiegazioneImportiAperta = false"
-    >
-      <div class="protection-help">
-        <p class="protection-help__summary">
-          In questo momento WALLT considera {{ formattaEuro(currentSituation?.current?.protectedAmount) }} da proteggere e {{ formattaEuro(currentSituation?.current?.availableToSpend) }} spendibili, su {{ formattaEuro(currentSituation?.current?.liquidity) }} di liquidità.
-        </p>
-        <h3>Da proteggere</h3>
-        <p>
-          È la somma che il Piano Smart tiene da parte nei calcoli per gli obiettivi già accantonati, gli impegni rilevati e le scadenze vicine. Se hai entrate non regolari, comprende anche la quota della riserva di sicurezza ancora da coprire.
-        </p>
-        <p v-if="currentSituation?.current?.incomeMode === 'irregolare' && currentSituation?.current?.reserveTarget !== null && currentSituation?.current?.reserveTarget !== undefined">
-          La riserva scelta ha un obiettivo di {{ formattaEuro(currentSituation.current.reserveTarget) }} per {{ currentSituation.current.reserveMonths }} {{ currentSituation.current.reserveMonths === 1 ? 'mese' : 'mesi' }} di spese {{ currentSituation.current.reserveExpenseBasis === 'essenziale' ? 'essenziali' : 'medie' }}. Dopo aver contato l’eventuale saldo nel fondo, restano {{ formattaEuro(currentSituation.current.reserveFromLiquidity) }} da coprire.
-        </p>
-        <p>Questi soldi non vengono spostati né bloccati: restano nei tuoi conti. È una quota prudenziale usata per calcolare lo spendibile.</p>
-        <h3>Spendibile</h3>
-        <p>
-          È la liquidità che rimane dopo aver considerato le somme da proteggere. WALLT la usa per stimare quanto puoi destinare a nuove spese senza intaccare obiettivi, impegni e riserva. È un’indicazione, non l’obbligo di spendere tutto l’importo.
-        </p>
-      </div>
-    </AppDialog>
   </div>
 </template>
 
@@ -1193,26 +1111,10 @@ onMounted(() => {
 .steps__link:disabled { cursor: default; text-decoration: none; opacity: .6; }
 
 .flow-card, .allocations, .hero, .text-card, .empty, .zero-capital { display: flex; flex-direction: column; gap: .9rem; margin-bottom: 1rem; }
-.situation-hero { display: flex; flex-direction: column; align-items: center; gap: .45rem; margin-bottom: 1rem; text-align: center; }
-.situation-hero > strong { color: var(--text-primary); font-size: 2.9rem; line-height: 1.05; }
-.reserve-setting { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .35rem .75rem; width: 100%; max-width: 28rem; margin: .35rem 0; padding: .75rem; border: 1px solid var(--divider); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface) 72%, transparent); text-align: left; }
-.reserve-setting label { color: var(--text-primary); font-size: var(--text-sm); font-weight: 600; }
-.reserve-setting select { min-height: 40px; padding: .35rem .6rem; border: 1px solid var(--divider); border-radius: var(--radius-sm); background: var(--surface); color: var(--text-primary); font: inherit; }
-.reserve-setting span { grid-column: 1 / -1; color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.45; }
-.hero-kicker { margin: 0 0 .35rem; color: var(--text-secondary); font-size: var(--text-xs); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-.hero-today { margin: -.2rem 0 .25rem !important; color: var(--text-primary) !important; font-size: 1rem; font-weight: 600; }
-.hero-availability { display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; margin: .45rem 0 .2rem; color: var(--text-secondary); font-size: var(--text-sm); }
-.safe-to-spend { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; width: 100%; margin: .6rem 0 .15rem; }
-.safe-to-spend > div { display: grid; gap: .2rem; padding: .65rem .5rem; border: 1px solid var(--divider); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface) 72%, transparent); }
-.safe-to-spend span { color: var(--text-secondary); font-size: var(--text-xs); }
-.safe-to-spend strong { color: var(--text-primary); font-size: 1rem; }
-.safe-to-spend__highlight { border-color: color-mix(in srgb, var(--accent-green) 55%, var(--divider)) !important; background: color-mix(in srgb, var(--accent-green) 10%, transparent) !important; }
 .situation-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; width: 100%; margin-top: .5rem; }
 .situation-grid > div { display: flex; flex-direction: column; gap: .25rem; padding: .75rem; border: 1px solid var(--divider); border-radius: var(--radius-md); text-align: left; }
 .situation-grid span { color: var(--text-secondary); font-size: var(--text-xs); }
 .situation-grid strong { color: var(--text-primary); }
-.situation-status { padding: .35rem .65rem; border-radius: 999px; font-size: var(--text-xs); background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
-.situation-status--sopra_il_ritmo { background: color-mix(in srgb, #f0a35b 16%, transparent); color: #f0a35b; }
 .situation-section { margin: 1.25rem 0; padding: 0 .25rem; }
 .situation-section h2 { margin-bottom: .4rem; }
 .situation-section p { margin: 0; color: var(--text-secondary); line-height: 1.5; }
@@ -1340,7 +1242,6 @@ summary { cursor: pointer; color: var(--text-primary); font-weight: 600; font-si
 
 @media (max-width: 600px) {
   .situation-grid { grid-template-columns: 1fr; }
-  .safe-to-spend { grid-template-columns: 1fr; }
   .forecast-grid { grid-template-columns: 1fr; }
 }
 
@@ -1370,15 +1271,6 @@ summary { cursor: pointer; color: var(--text-primary); font-weight: 600; font-si
 .delete-confirmation__copy p { margin: 0; color: var(--text-primary); line-height: 1.5; }
 .delete-confirmation__copy .hint { color: var(--text-secondary); }
 
-.protection-details-row { display: grid; grid-template-columns: minmax(0, 1fr) 2.5rem; align-items: start; gap: .25rem; width: 100%; text-align: left; }
-.protection-details { width: auto; min-width: 0; text-align: left; }
-.protection-info-button { display: grid; place-items: center; min-width: 40px; min-height: 40px; margin-top: .35rem; border: 1px solid var(--glass-interactive-border); border-radius: 50%; background: var(--glass-interactive-bg); color: var(--accent-text); cursor: pointer; }
-.protection-info-button:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 3px; }
-.protection-help { display: grid; gap: .6rem; color: var(--text-secondary); font-size: var(--text-sm); line-height: 1.6; }
-.protection-help p, .protection-help h3 { margin: 0; }
-.protection-help h3 { color: var(--text-primary); font-size: var(--text-sm); }
-.protection-help__summary { padding: .8rem; border: 1px solid var(--divider); border-radius: var(--radius-md); background: var(--surface-subtle); color: var(--text-primary); font-variant-numeric: tabular-nums; }
-.shortfall { color: var(--negative); font-weight: 600; }
 .forecast-quality { padding: .8rem 0; border-top: 1px solid var(--divider); color: var(--text-secondary); }
 .forecast-quality strong { color: var(--text-primary); }
 .forecast-quality p { margin: .4rem 0 0; font-size: var(--text-xs); line-height: 1.5; }
