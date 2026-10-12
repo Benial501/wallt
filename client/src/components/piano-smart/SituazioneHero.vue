@@ -34,11 +34,16 @@ const contesto = computed(() => (h.value.tipo === 'data'
 const arrivaPrima = computed(() => h.value.dataRaggiungibile
   && h.value.dataFine && h.value.dataRaggiungibile < h.value.dataFine);
 
+// Non ricalcoliamo budget − ritmo: il server lo espone già in
+// `current.dailyMargin` (positivo quando si è sotto il budget), gestendo da
+// sé il caso "non stimabile" con un `null` esplicito. `Number(null) === 0`
+// renderebbe falsa una guardia scritta sul valore convertito: il controllo
+// va fatto sul dato grezzo, prima della conversione.
 const margine = computed(() => {
-  const budget = Number(h.value.budgetGiornaliero);
-  const ritmo = Number(corrente.value.actualDailySpend);
-  if (!Number.isFinite(budget) || !Number.isFinite(ritmo)) return null;
-  return budget - ritmo;
+  const raw = corrente.value.dailyMargin;
+  if (raw === null || raw === undefined) return null;
+  const valore = Number(raw);
+  return Number.isFinite(valore) ? valore : null;
 });
 </script>
 
@@ -63,7 +68,7 @@ const margine = computed(() => {
       ({{ formattaEuro(h.fondoDisponibile) }}), ma non è compreso nel budget.
     </p>
     <p v-else-if="h.stato === 'in_rotta'" class="situation-status situation-status--sotto_controllo">
-      In rotta.
+      {{ h.dataRaggiungibile ? `In rotta: il capitale arriva al ${dataLunga(h.dataRaggiungibile)}.` : 'In rotta.' }}
     </p>
     <p v-else class="muted">
       Serve ancora qualche registrazione per calcolare il budget.
@@ -72,6 +77,7 @@ const margine = computed(() => {
     <OrizzonteSelector
       :tipo="h.tipo" :data-fine="h.dataFine"
       :mesi-riserva="corrente.reserveMonths ?? 1"
+      :income-mode="corrente.incomeMode ?? 'ricorrente'"
       :suggerisci-data="corrente.incomeMode === 'irregolare' && h.tipo === 'mensile'"
       :salvataggio-in-corso="salvataggioInCorso"
       @cambia="$emit('cambiaOrizzonte', $event)"

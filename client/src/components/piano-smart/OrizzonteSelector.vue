@@ -1,11 +1,16 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { ETICHETTE_ORIZZONTE, ORIZZONTE_MESI_MAX } from '@/utils/pianoSmart';
 
 const props = defineProps({
   tipo: { type: String, default: 'mensile' },
   dataFine: { type: String, default: null },
   mesiRiserva: { type: Number, default: 1 },
+  // Il giudizio del server sulla stabilità delle entrate ('ricorrente' /
+  // 'irregolare'): decide se i mesi di riserva contano davvero, ma il
+  // controllo resta visibile in entrambi i casi — non è lui a far
+  // comparire o sparire un comando.
+  incomeMode: { type: String, default: 'ricorrente' },
   // Il giudizio del server sulla stabilità delle entrate diventa una frase
   // visibile, non un criterio che decide in silenzio quali controlli esistono.
   suggerisciData: { type: Boolean, default: false },
@@ -15,6 +20,15 @@ const emit = defineEmits(['cambia']);
 
 const aperto = ref(false);
 const dataScelta = ref(props.dataFine ?? '');
+
+// L'orizzonte può cambiare altrove (un altro pannello, un refresh della
+// situazione): senza questo watch il campo data resta sull'ultimo valore
+// digitato anche quando non è più coerente con `dataFine`.
+watch(() => props.dataFine, (nuovaData) => {
+  dataScelta.value = nuovaData ?? '';
+});
+
+const entrateIrregolari = computed(() => props.incomeMode === 'irregolare');
 
 const minima = computed(() => {
   const domani = new Date(Date.now() + 86400000);
@@ -65,10 +79,13 @@ const cambiaMesi = (event) => {
         <label for="orizzonte-mesi">Mesi di spese da proteggere</label>
         <select
           id="orizzonte-mesi" :value="mesiRiserva"
-          :disabled="salvataggioInCorso" @change="cambiaMesi"
+          :disabled="salvataggioInCorso || !entrateIrregolari" @change="cambiaMesi"
         >
           <option v-for="m in 6" :key="m" :value="m">{{ m }} {{ m === 1 ? 'mese' : 'mesi' }}</option>
         </select>
+        <p v-if="!entrateIrregolari" class="orizzonte__nota">
+          I mesi di riserva contano solo con entrate irregolari.
+        </p>
         <button
           type="button" :disabled="tipo === 'mensile' || salvataggioInCorso"
           @click="scegliMensile"
@@ -121,6 +138,7 @@ const cambiaMesi = (event) => {
 }
 .orizzonte__opzione p { margin: 0; color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.5; }
 .orizzonte__opzione label { color: var(--text-primary); font-size: var(--text-xs); font-weight: 600; }
+.orizzonte__nota { margin: 0; color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.4; }
 .orizzonte__opzione select, .orizzonte__opzione input {
   width: 100%; min-height: 44px; padding: .5rem .65rem; border: 1px solid var(--border);
   border-radius: var(--radius-sm); background: var(--surface); color: var(--text-primary); font: inherit;
