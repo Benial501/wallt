@@ -1,23 +1,35 @@
 const { buildCurrentSituation, simulatePurchase } = require('../services/pianoSmartV2/currentSituation.service');
 const now = new Date('2026-09-25T12:00:00Z');
-const context = (overrides = {}) => ({
-  period: { referenceDate: '2026-09-25' },
-  liquidity: { ordinary: 800, allocated: 200, allocatable: 500, commitments: 100 },
-  expenses: { currentMonth: 300, variableCurrentMonth: 300, monthlyAverage: 400 },
-  income: {
-    currentMonth: 1200,
-    monthlyAverage: 1200,
-    recurringMonthlyAverage: 1200,
-    stability: 'stabile',
-  },
-  emergencyFund: { status: 'assente', missingAmount: null },
-  dataQuality: { completeMonths: 3, firstMovementDate: '2026-06-01', registrationCompleteness: 'non_verificabile' },
-  netWorth: { total: 2000, assets: 2500, liabilities: 500 },
-  debts: { totalOutstanding: 500 }, goals: [],
-  recurring: { items: [{ id: 1, occurrenceKey: '1:2026-09', dueDate: '2026-09-27', amount: 100, reserved: true }] },
-  ...overrides,
-});
-const build = (overrides = {}, date = now) => buildCurrentSituation({ context: context(overrides), now: date });
+// `contestoBase` è l'helper condiviso dai test esistenti e da quelli
+// sull'orizzonte di spesa: `preferences` sostituisce il default (vuoto) e
+// `recurringHorizon` (chiave sintetica, non un campo reale del contesto)
+// popola `recurring.horizon`, incluso il caso esplicito `null` per "nessuna
+// proiezione disponibile".
+const contestoBase = (overrides = {}) => {
+  const { recurringHorizon, ...rest } = overrides;
+  const base = {
+    liquidity: { ordinary: 800, allocated: 200, allocatable: 500, commitments: 100 },
+    expenses: { currentMonth: 300, variableCurrentMonth: 300, monthlyAverage: 400 },
+    income: {
+      currentMonth: 1200,
+      monthlyAverage: 1200,
+      recurringMonthlyAverage: 1200,
+      stability: 'stabile',
+    },
+    emergencyFund: { status: 'assente', missingAmount: null },
+    dataQuality: { completeMonths: 3, firstMovementDate: '2026-06-01', registrationCompleteness: 'non_verificabile' },
+    netWorth: { total: 2000, assets: 2500, liabilities: 500 },
+    debts: { totalOutstanding: 500 }, goals: [],
+    recurring: { items: [{ id: 1, occurrenceKey: '1:2026-09', dueDate: '2026-09-27', amount: 100, reserved: true }] },
+    preferences: {},
+    ...rest,
+  };
+  if (recurringHorizon !== undefined) {
+    base.recurring = { ...base.recurring, horizon: recurringHorizon };
+  }
+  return base;
+};
+const build = (overrides = {}, date = now) => buildCurrentSituation({ context: contestoBase(overrides), now: date });
 
 describe('Piano Smart: situazione corrente', () => {
   test('riconcilia saldo ordinario, obiettivi e impegni senza bloccare il fondo ancora da costruire', () => {
@@ -158,6 +170,44 @@ describe('Piano Smart: situazione corrente', () => {
     expect(goals[0].importo_restante).toBeNull();
     expect(goals.map((goal) => goal.estimatedMonthsAtCurrentMargin)).toEqual([null, null, null, null]);
     expect(goals[3].importo_restante).toBeNull();
+  });
+});
+
+describe('horizon', () => {
+  test('in modalita mensile serializza il ciclo del mese senza cambiare i valori storici', () => {
+    const situazione = buildCurrentSituation({
+      context: contestoBase({ preferences: { orizzonteTipo: 'mensile' } }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    expect(situazione.horizon.tipo).toBe('mensile');
+    expect(situazione.horizon.dataFine).toBe('2026-10-31');
+    expect(situazione.horizon.giorni).toBe(situazione.current.remainingDays);
+    expect(situazione.horizon.budgetGiornaliero).toBe(situazione.current.dailyLimit);
+  });
+
+  test('in modalita data il budget non e limitato dalla spesa media storica', () => {
+    const contesto = contestoBase({
+      preferences: { orizzonteTipo: 'data', orizzonteData: '2027-02-28' },
+      recurringHorizon: { through: '2027-02-28', items: [], totalOutflow: 0 },
+    });
+    const situazione = buildCurrentSituation({
+      context: contesto, now: new Date('2026-10-12T12:00:00Z'),
+    });
+    expect(situazione.horizon.tipo).toBe('data');
+    expect(situazione.horizon.dataFine).toBe('2027-02-28');
+    expect(situazione.horizon.giorni).toBe(140);
+    expect(situazione.current.dailyLimitBasis).toBe('orizzonte_data');
+  });
+
+  test('senza orizzonte proiettato la modalita data non stima', () => {
+    const situazione = buildCurrentSituation({
+      context: contestoBase({
+        preferences: { orizzonteTipo: 'data', orizzonteData: '2027-02-28' },
+        recurringHorizon: null,
+      }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    expect(situazione.horizon.stato).toBe('non_stimabile');
   });
 });
 

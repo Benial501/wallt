@@ -1,4 +1,4 @@
-const { getFinancialContext } = require('../services/financialContext.service');
+const { getFinancialContext, riepilogoRicorrenti } = require('../services/financialContext.service');
 const { buildPlanningContext } = require('../services/pianoSmartV2/planningContext.service');
 const { generateScenarios } = require('../services/pianoSmartV2/scenario.service');
 const { projectScenario } = require('../services/pianoSmartV2/projection.service');
@@ -49,6 +49,18 @@ const preview = async (req, res) => {
 const currentSituation = async (req, res) => {
   try {
     const financialContext = await getFinancialContext(req.userId);
+    // La proiezione lunga costa un giro di query in più: la si chiede solo a
+    // chi ha scelto un orizzonte a data. `riepilogoRicorrenti` è già
+    // esportata, quindi non serve allargare `getFinancialContext`.
+    if (financialContext.preferences?.orizzonteTipo === 'data'
+      && financialContext.preferences?.orizzonteData) {
+      const conOrizzonte = await riepilogoRicorrenti(
+        req.userId,
+        new Date(financialContext.period.referenceDate),
+        financialContext.preferences.orizzonteData,
+      );
+      financialContext.recurring.horizon = conOrizzonte.horizon;
+    }
     const { dailyTotals, firstMovementDate } = await getMovementDailyTotals(
       req.userId,
       financialContext.period.referenceDate,

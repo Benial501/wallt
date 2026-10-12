@@ -102,6 +102,26 @@ a fine mese. Non scrive dati finanziari.
   `prudente` applica +20% alla spesa non ricorrente residua, `attuale` usa il
   ritmo osservato, `limite` usa il limite giornaliero; sono ipotesi deterministiche,
   non intervalli probabilistici. La pagina privilegia una sola stima spiegata.
+- `horizon`: l'orizzonte di spesa scelto dall'utente (`preferences.orizzonteTipo`),
+  calcolato da `orizzonte.service.js` e serializzato qui. In modalità `mensile`
+  (il default di ogni profilo) **non è un ricalcolo**: è la serializzazione dei
+  valori che questo stesso servizio ha già prodotto per il ciclo del mese
+  (`dataFine` = fine mese, `giorni` = `current.remainingDays`,
+  `budgetGiornaliero` = `current.dailyLimit`), così i numeri storici restano
+  identici a prima dell'introduzione del campo. In modalità `data`
+  (`preferences.orizzonteData` impostata) è il calcolo puro dell'orizzonte sul
+  capitale lordo spendibile (saldo ordinario meno liquidità allocata sugli
+  obiettivi — non `liquidity.allocatable`, che sottrarrebbe gli impegni due
+  volte) meno gli impegni ricorrenti proiettati fino alla data
+  (`recurring.horizon`, assente finché il controller non lo richiede);
+  `current.dailyLimitBasis` vale allora `orizzonte_data` e il tetto della spesa
+  media storica non si applica. `stato` vale `in_rotta`, `scoperto` o
+  `non_stimabile` (quest'ultimo anche quando manca la proiezione lunga).
+  `fondoDisponibile` e `fondoGiorniAggiuntivi` sono presenti solo in modalità
+  `data`: informano quanti giorni in più coprirebbe il fondo di emergenza al
+  ritmo attuale, senza farlo entrare nel capitale (il fondo è un conto
+  nascosto, Regola 22) — `null` quando il fondo non esiste o manca il ritmo
+  osservato.
 
 Il simulatore frontend sottrae una spesa **aggiuntiva** dai risultati del server,
 senza registrare movimenti. Mostra prima/dopo e conserva valori negativi.
