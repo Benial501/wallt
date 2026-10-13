@@ -24,6 +24,11 @@ export const CATEGORIE_PIANO = Object.freeze(['needs', 'safety', 'goals', 'futur
  * da `client/tests/pianoSmartContratto.test.js`, non dalla buona volontà. */
 export const ORIZZONTE_TIPI = Object.freeze(['mensile', 'data']);
 export const ORIZZONTE_MESI_MAX = 36;
+
+/** Copertura della riserva prudenziale, duplicato di `RISERVA_MESI_MIN`/
+ * `RISERVA_MESI_MAX` nel backend. */
+export const RISERVA_MESI_MIN = 1;
+export const RISERVA_MESI_MAX = 6;
 export const ETICHETTE_ORIZZONTE = Object.freeze({
   mensile: 'Ciclo mensile',
   data: 'Fino a una data',

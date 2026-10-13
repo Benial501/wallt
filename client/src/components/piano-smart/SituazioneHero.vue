@@ -22,10 +22,16 @@ defineEmits(['cambiaOrizzonte']);
 const h = computed(() => props.situazione.horizon ?? {});
 const corrente = computed(() => props.situazione.current ?? {});
 
-const dataLunga = (iso) => (iso
-  ? new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'long', timeZone: 'UTC' })
-    .format(new Date(`${iso}T12:00:00Z`))
-  : null);
+// L'orizzonte arriva a 36 mesi: "fino al 30 giugno" è ambiguo quando non è
+// l'anno corrente. L'anno compare solo quando serve, non sempre — per non
+// appesantire la lettura del caso comune (mensile, pochi giorni avanti).
+const dataLunga = (iso) => {
+  if (!iso) return null;
+  const data = new Date(`${iso}T12:00:00Z`);
+  const opzioni = { day: 'numeric', month: 'long', timeZone: 'UTC' };
+  if (data.getUTCFullYear() !== new Date().getUTCFullYear()) opzioni.year = 'numeric';
+  return new Intl.DateTimeFormat('it-IT', opzioni).format(data);
+};
 
 const contesto = computed(() => (h.value.tipo === 'data'
   ? `per arrivare al ${dataLunga(h.value.dataFine)} · ${h.value.giorni} giorni`

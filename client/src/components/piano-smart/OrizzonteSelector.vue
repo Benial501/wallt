@@ -1,6 +1,8 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { ETICHETTE_ORIZZONTE, ORIZZONTE_MESI_MAX } from '@/utils/pianoSmart';
+import {
+  ETICHETTE_ORIZZONTE, ORIZZONTE_MESI_MAX, RISERVA_MESI_MIN, RISERVA_MESI_MAX,
+} from '@/utils/pianoSmart';
 
 const props = defineProps({
   tipo: { type: String, default: 'mensile' },
@@ -39,8 +41,16 @@ const massima = computed(() => {
   limite.setUTCMonth(limite.getUTCMonth() + ORIZZONTE_MESI_MAX);
   return limite.toISOString().slice(0, 10);
 });
+// L'orizzonte arriva a ORIZZONTE_MESI_MAX mesi: "fino al 30 giugno" è
+// ambiguo quando non è l'anno corrente. L'anno compare solo quando serve.
+const dataLunga = (iso) => {
+  const data = new Date(`${iso}T12:00:00Z`);
+  const opzioni = { day: 'numeric', month: 'long', timeZone: 'UTC' };
+  if (data.getUTCFullYear() !== new Date().getUTCFullYear()) opzioni.year = 'numeric';
+  return new Intl.DateTimeFormat('it-IT', opzioni).format(data);
+};
 const etichettaCorrente = computed(() => (props.tipo === 'data' && props.dataFine
-  ? `fino al ${new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${props.dataFine}T12:00:00Z`))}`
+  ? `fino al ${dataLunga(props.dataFine)}`
   : ETICHETTE_ORIZZONTE.mensile.toLowerCase()));
 
 const scegliMensile = () => {
@@ -54,7 +64,7 @@ const scegliData = () => {
 };
 const cambiaMesi = (event) => {
   const months = Number(event.target.value);
-  if (Number.isInteger(months) && months >= 1 && months <= 6) {
+  if (Number.isInteger(months) && months >= RISERVA_MESI_MIN && months <= RISERVA_MESI_MAX) {
     emit('cambia', { mesi_riserva_piano_smart: months });
   }
 };
@@ -81,7 +91,7 @@ const cambiaMesi = (event) => {
           id="orizzonte-mesi" :value="mesiRiserva"
           :disabled="salvataggioInCorso || !entrateIrregolari" @change="cambiaMesi"
         >
-          <option v-for="m in 6" :key="m" :value="m">{{ m }} {{ m === 1 ? 'mese' : 'mesi' }}</option>
+          <option v-for="m in RISERVA_MESI_MAX" :key="m" :value="m">{{ m }} {{ m === 1 ? 'mese' : 'mesi' }}</option>
         </select>
         <p v-if="!entrateIrregolari" class="orizzonte__nota">
           I mesi di riserva contano solo con entrate irregolari.

@@ -9,7 +9,7 @@ const props = defineProps({
   initialSection: { type: String, default: 'cos-e' },
   showStart: { type: Boolean, default: true },
 });
-const emit = defineEmits(['close', 'start']);
+const emit = defineEmits(['close', 'start', 'start-situazione']);
 const sezione = ref(0);
 const allocazioni = ref({ ...GUIDA_ESEMPIO.allocazioni });
 const contenuto = computed(() => GUIDA_PIANO_SMART[sezione.value]);
@@ -96,7 +96,15 @@ const formattaEuro = (value) => new Intl.NumberFormat('it-IT', { style: 'currenc
       <footer class="guide__footer">
         <button type="button" class="guide__back" :disabled="sezione === 0" @click="indietro">Indietro</button>
         <WButton v-if="!ultima" variant="primary" @click="avanti">Continua</WButton>
-        <WButton v-else-if="showStart" variant="primary" @click="emit('start'); emit('close')">Apri Piano Smart</WButton>
+        <!-- La guida descrive due pagine distinte (La tua situazione per il
+             monitoraggio, Piano Smart per creare un piano): un solo pulsante
+             che portava sempre al wizard mandava al solo wizard anche chi
+             aveva letto soltanto le sezioni di monitoraggio (Oggi,
+             previsione, flussi, simulazione, analisi). -->
+        <template v-else-if="showStart">
+          <WButton variant="secondary" @click="emit('start-situazione'); emit('close')">Apri la tua situazione</WButton>
+          <WButton variant="primary" @click="emit('start'); emit('close')">Crea un piano</WButton>
+        </template>
         <WButton v-else variant="primary" @click="emit('close')">Chiudi guida</WButton>
       </footer>
     </div>

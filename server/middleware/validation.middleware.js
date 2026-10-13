@@ -5,6 +5,7 @@ const { STATI_RICORRENZA } = require('../services/ricorrenti.service');
 const { MESI_TARGET_AMMESSI } = require('../services/fondoEmergenza.service');
 const {
   SOURCE_TYPES, STATI_PIANO, CHIAVI_CONTESTO_MANUALE, ORIZZONTE_TIPI, ORIZZONTE_MESI_MAX,
+  RISERVA_MESI_MIN, RISERVA_MESI_MAX,
 } = require('../constants/pianoSmart');
 const { FEATURE_KEYS, FEATURE_RICHIEDIBILI, RICHIESTA_STATI } = require('../constants/entitlements');
 const { CHIAVI: CHIAVI_CONFIG } = require('../constants/appConfig');
@@ -1253,9 +1254,9 @@ const validateUpdateProfiloFinanziario = [
     .withMessage('entrata_mensile non valida'),
   body('mesi_riserva_piano_smart')
     .optional({ values: 'null' })
-    .isInt({ min: 1, max: 6 })
+    .isInt({ min: RISERVA_MESI_MIN, max: RISERVA_MESI_MAX })
     .toInt()
-    .withMessage('Scegli una copertura da 1 a 6 mesi'),
+    .withMessage(`Scegli una copertura da ${RISERVA_MESI_MIN} a ${RISERVA_MESI_MAX} mesi`),
   body('orizzonte_tipo')
     .optional({ values: 'null' })
     .isIn(ORIZZONTE_TIPI)

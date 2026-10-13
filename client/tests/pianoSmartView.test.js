@@ -25,6 +25,23 @@ test('Piano Smart (il wizard) resta sulla sua rotta e salva lo scenario V2 selez
   assert.match(store, /selectedScenario: selectedScenario\.value/);
 });
 
+// Voce 11 della review finale: il passaggio del suggerimento "crea un piano"
+// da tab locale a navigazione con query non aveva un test. Il codice è
+// corretto, ma il modo in cui fallirebbe è silenzioso: un suggerimento che
+// porta a una pagina che ignora la richiesta, senza nessun errore a
+// segnalarlo. Qui si verificano insieme il lato che invia (La tua
+// situazione naviga con una query, non impostando più un tab locale, perché
+// il wizard vive ora su una rotta separata) e il lato che riceve (il wizard
+// legge quella query in onMounted).
+test('il suggerimento "crea un piano" passa il focus con una query che il wizard legge', async () => {
+  const situazione = await readFile(new URL('../src/views/SituazioneView.vue', import.meta.url), 'utf8');
+  const wizard = await readFile(new URL('../src/views/PianoSmartView.vue', import.meta.url), 'utf8');
+  assert.match(situazione, /router\.push\(\{\s*path:\s*'\/funzionalita\/piano-smart',\s*query:\s*focus\s*\?\s*\{\s*focus\s*\}\s*:\s*undefined\s*\}\)/);
+  assert.match(situazione, /const focus = suggestion\.action\.mode === 'emergency-fund' \? 'emergency-fund' : undefined/);
+  assert.match(wizard, /onMounted\(\(\) => \{[\s\S]*?route\.query\.focus === 'emergency-fund'[\s\S]*?\}\);/);
+  assert.match(wizard, /pianoFocus\.value = 'emergency-fund'/);
+});
+
 test('Piano Smart apre da Aiuto la sezione richiesta dalla statistica', async () => {
   const help = await readFile(new URL('../src/views/AiutoView.vue', import.meta.url), 'utf8');
   const guide = await readFile(new URL('../src/components/piano-smart/PianoSmartGuide.vue', import.meta.url), 'utf8');

@@ -36,6 +36,15 @@ export const FUNCTIONALITY_ITEMS = Object.freeze([
     id: 'analisi', label: 'Analisi', description: 'Andamento delle finanze', icon: 'analisi',
     route: '/analisi', placements: ['sidebar'], order: { sidebar: 60 }, active: true,
   },
+  // Solo nel foglio "Altro": sulla sidebar desktop il wizard ha già una voce
+  // propria (AppLayout.vue, navItems). Sulla barra inferiore mobile, invece,
+  // la voce diretta è stata sostituita da "La tua situazione" — senza questa
+  // riga il wizard restava raggiungibile solo da una card di suggerimento o
+  // da Aiuto (difetto 9 della review finale).
+  {
+    id: 'piano-smart', label: 'Piano Smart', description: 'Crea un nuovo piano', icon: 'pianoSmart',
+    route: '/funzionalita/piano-smart', placements: ['sheet'], order: { sheet: 60 }, active: true,
+  },
 ]);
 
 export const getFunctionalityItems = (

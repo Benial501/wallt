@@ -183,6 +183,7 @@ const chiudiGuidaPiano = () => router.replace({ path: '/aiuto' });
       :initial-section="sezioneGuidaPiano"
       @close="chiudiGuidaPiano"
       @start="router.push('/funzionalita/piano-smart')"
+      @start-situazione="router.push('/funzionalita/situazione')"
     />
   </div>
 </template>

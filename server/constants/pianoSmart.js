@@ -60,6 +60,16 @@ const ORIZZONTE_TIPI = ['mensile', 'data'];
 const ORIZZONTE_MESI_MAX = 36;
 
 /**
+ * Copertura scelta dall'utente per la riserva prudenziale
+ * (`profili_utente.mesi_riserva_piano_smart`), in mesi di spese essenziali.
+ * Un solo numero, non due copie: prima di questa costante il tetto era
+ * scritto due volte lato server (qui e nel validatore) e una terza volta,
+ * sganciata, nell'opzione `v-for` del selettore lato client.
+ */
+const RISERVA_MESI_MIN = 1;
+const RISERVA_MESI_MAX = 6;
+
+/**
  * Stato di `horizon` (`orizzonte.service.js`). `in_ritardo` esiste perché un
  * capitale che basta non vuol dire "al ritmo giusto": se al ritmo attuale il
  * capitale si esaurirebbe prima del termine scelto, il piano non è "in
@@ -85,6 +95,8 @@ module.exports = {
   CHIAVI_CONTESTO_MANUALE,
   ORIZZONTE_TIPI,
   ORIZZONTE_MESI_MAX,
+  RISERVA_MESI_MIN,
+  RISERVA_MESI_MAX,
   ORIZZONTE_STATI,
   DAILY_LIMIT_BASIS,
 };

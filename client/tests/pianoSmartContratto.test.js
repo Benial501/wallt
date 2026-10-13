@@ -18,7 +18,7 @@ import {
   CATEGORIE_PIANO, ORIGINI_SOMMA, STATI_PIANO, TRANSIZIONI_STATO, CATEGORIA_CONCETTO,
   importoInCentesimi, centesimiInImporto, formattaEuro,
   ORIZZONTE_TIPI, ORIZZONTE_MESI_MAX, ETICHETTE_ORIZZONTE,
-  ORIZZONTE_STATI, DAILY_LIMIT_BASIS,
+  ORIZZONTE_STATI, DAILY_LIMIT_BASIS, RISERVA_MESI_MIN, RISERVA_MESI_MAX,
 } from '../src/utils/pianoSmart.js';
 import { GLOSSARIO } from '../src/content/glossario.js';
 
@@ -135,6 +135,11 @@ test('gli stati dell orizzonte coincidono con quelli del backend', () => {
 
 test('le basi del limite giornaliero coincidono con quelle del backend', () => {
   assert.deepEqual([...DAILY_LIMIT_BASIS], [...serverConstants.DAILY_LIMIT_BASIS]);
+});
+
+test('la copertura della riserva prudenziale è la stessa sui due lati', () => {
+  assert.equal(RISERVA_MESI_MIN, serverConstants.RISERVA_MESI_MIN);
+  assert.equal(RISERVA_MESI_MAX, serverConstants.RISERVA_MESI_MAX);
 });
 
 test('i concetti dell orizzonte hanno etichetta e descrizione', () => {

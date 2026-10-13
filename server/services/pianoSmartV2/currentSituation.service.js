@@ -1,4 +1,5 @@
 const { fromCents, toCents } = require('../pianoSmart/money');
+const { RISERVA_MESI_MIN, RISERVA_MESI_MAX } = require('../../constants/pianoSmart');
 const { oggiLocale, fineMese, inizioMese } = require('../../utils/dateRome');
 const { buildExpenseFundingInsights } = require('./expenseFundingInsights.service');
 const { calcolaOrizzonte } = require('./orizzonte.service');
@@ -221,7 +222,8 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
   const reliableRecurringIncome = context.income?.stability === 'stabile'
     && (cents(context.income?.recurringMonthlyAverage) || 0) > 0;
   const incomeMode = reliableRecurringIncome ? 'ricorrente' : 'irregolare';
-  const reserveMonths = Math.min(6, Math.max(1, Number(context.preferences?.mesiRiservaPianoSmart) || 1));
+  const reserveMonths = Math.min(RISERVA_MESI_MAX,
+    Math.max(RISERVA_MESI_MIN, Number(context.preferences?.mesiRiservaPianoSmart) || RISERVA_MESI_MIN));
   const essentialAverage = cents(context.expenses?.byNecessity?.essential?.monthlyAverage);
   const reserveExpenseBasis = essentialAverage !== null ? 'essenziale'
     : monthlyExpenses !== null ? 'totale' : null;
