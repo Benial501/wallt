@@ -106,10 +106,22 @@ describe('dati mancanti', () => {
     expect(calcolaOrizzonte({ ...base, impegniFinoACents: null }).stato).toBe('non_stimabile');
   });
 
-  test('una data nel passato non produce un budget', () => {
+  // Difetto 4 della review finale: una data già passata non è un dato
+  // mancante, è una scelta da rifare. `scaduto` lo dice esplicitamente
+  // invece di suggerire (falsamente) che manchino registrazioni.
+  test('una data nel passato non produce un budget ed è scaduta, non "non stimabile"', () => {
     const esito = calcolaOrizzonte({ ...base, dataFine: '2026-10-01' });
-    expect(esito.stato).toBe('non_stimabile');
+    expect(esito.stato).toBe('scaduto');
     expect(esito.giorni).toBe(0);
+    expect(esito.budgetGiornaliero).toBeNull();
+  });
+
+  test('la data uguale a oggi produce un solo giorno da distribuire', () => {
+    const esito = calcolaOrizzonte({ ...base, dataFine: base.referenceDate });
+    expect(esito.stato).not.toBe('scaduto');
+    expect(esito.stato).not.toBe('non_stimabile');
+    expect(esito.giorni).toBe(1);
+    expect(esito.budgetGiornaliero).toBe(esito.capitaleLibero);
   });
 });
 

@@ -115,8 +115,15 @@ a fine mese. Non scrive dati finanziari.
   volte) meno gli impegni ricorrenti proiettati fino alla data
   (`recurring.horizon`, assente finché il controller non lo richiede);
   `current.dailyLimitBasis` vale allora `orizzonte_data` e il tetto della spesa
-  media storica non si applica. `stato` vale `in_rotta`, `scoperto` o
-  `non_stimabile` (quest'ultimo anche quando manca la proiezione lunga).
+  media storica non si applica. `stato` vale `in_rotta` (il capitale copre il
+  termine al ritmo attuale), `in_ritardo` (il capitale basta — non è
+  `scoperto` — ma al ritmo attuale si esaurirebbe prima del termine scelto:
+  `dataRaggiungibile < dataFine`), `scoperto`, `scaduto` (la data scelta è
+  già passata: non un dato mancante, una scelta da rifare) o `non_stimabile`
+  (quest'ultimo anche quando manca la proiezione lunga, inclusa la data
+  scelta uguale a oggi se la proiezione non è ancora disponibile). `scaduto`,
+  `in_ritardo` e `in_rotta` sono mutuamente esclusivi: il client mostra un
+  unico messaggio di stato, mai due insieme.
   `fondoDisponibile` e `fondoGiorniAggiuntivi` sono presenti in entrambe le
   modalità, con la stessa forma del contratto, ma **valgono** solo in
   modalità `data`: informano quanti giorni in più coprirebbe il fondo di

@@ -18,6 +18,7 @@ import {
   CATEGORIE_PIANO, ORIGINI_SOMMA, STATI_PIANO, TRANSIZIONI_STATO, CATEGORIA_CONCETTO,
   importoInCentesimi, centesimiInImporto, formattaEuro,
   ORIZZONTE_TIPI, ORIZZONTE_MESI_MAX, ETICHETTE_ORIZZONTE,
+  ORIZZONTE_STATI, DAILY_LIMIT_BASIS,
 } from '../src/utils/pianoSmart.js';
 import { GLOSSARIO } from '../src/content/glossario.js';
 
@@ -126,6 +127,14 @@ test('ogni tipo di orizzonte ha una etichetta leggibile diversa dal valore API',
     const etichetta = ETICHETTE_ORIZZONTE[tipo];
     assert.ok(etichetta && etichetta !== tipo, `tipo senza etichetta: ${tipo}`);
   });
+});
+
+test('gli stati dell orizzonte coincidono con quelli del backend', () => {
+  assert.deepEqual([...ORIZZONTE_STATI], [...serverConstants.ORIZZONTE_STATI]);
+});
+
+test('le basi del limite giornaliero coincidono con quelle del backend', () => {
+  assert.deepEqual([...DAILY_LIMIT_BASIS], [...serverConstants.DAILY_LIMIT_BASIS]);
 });
 
 test('i concetti dell orizzonte hanno etichetta e descrizione', () => {

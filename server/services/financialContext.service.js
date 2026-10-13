@@ -58,7 +58,16 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date(), orizzonte
   // altre due di proposito: `cashFlowItems` (30 giorni) e `items` (fine mese)
   // alimentano radar, insight e motore V1, e allungarle cambierebbe numeri
   // che nessuno ha chiesto di cambiare.
-  const termineOrizzonte = orizzonteFine && orizzonteFine > oggi.date ? orizzonteFine : null;
+  // `>=`, non `>`: il termine può essere oggi stesso (ultimo giorno
+  // dell'orizzonte, un solo giorno da distribuire — la spec lo elenca
+  // esplicitamente come caso da far funzionare). Con `>` quel caso perdeva
+  // la proiezione delle ricorrenze e `calcolaOrizzonte` finiva per dire
+  // "non stimabile" su dati che in realtà c'erano tutti (difetto 4 della
+  // review finale). Una data già passata resta `null` qui: non c'è una
+  // finestra `[oggi, passato]` da proiettare, ed è `calcolaOrizzonte` stesso
+  // (confrontando `dataFine` con `referenceDate`) a riconoscere quel caso
+  // come `scaduto`, non come dati mancanti.
+  const termineOrizzonte = orizzonteFine && orizzonteFine >= oggi.date ? orizzonteFine : null;
   const orizzonteEmesse = new Set();
   const orizzonteItems = [];
   const addebiti = ricorrenti.length ? await Movimento.findAll({

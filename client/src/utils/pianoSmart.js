@@ -29,6 +29,12 @@ export const ETICHETTE_ORIZZONTE = Object.freeze({
   data: 'Fino a una data',
 });
 
+/** Stato di `horizon`, duplicato di `ORIZZONTE_STATI` nel backend. */
+export const ORIZZONTE_STATI = Object.freeze(['non_stimabile', 'scaduto', 'scoperto', 'in_ritardo', 'in_rotta']);
+
+/** `current.dailyLimitBasis`, duplicato di `DAILY_LIMIT_BASIS` nel backend. */
+export const DAILY_LIMIT_BASIS = Object.freeze(['margine_mese', 'spesa_media', 'orizzonte_data']);
+
 /** Categoria API → id del concetto nel glossario (Coding Rule 18: le
  * etichette dei concetti finanziari si leggono, non si scrivono in linea). */
 export const CATEGORIA_CONCETTO = Object.freeze({

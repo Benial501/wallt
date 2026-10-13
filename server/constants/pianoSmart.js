@@ -59,6 +59,23 @@ const ORIZZONTE_TIPI = ['mensile', 'data'];
  * (e un ciclo di migliaia di giorni per ogni richiesta). */
 const ORIZZONTE_MESI_MAX = 36;
 
+/**
+ * Stato di `horizon` (`orizzonte.service.js`). `in_ritardo` esiste perché un
+ * capitale che basta non vuol dire "al ritmo giusto": se al ritmo attuale il
+ * capitale si esaurirebbe prima del termine scelto, il piano non è "in
+ * rotta" — prima della sua introduzione questa distinzione viveva solo in
+ * un confronto di date lato client, indipendente dallo stato del server, e i
+ * due potevano risultare veri insieme.
+ */
+const ORIZZONTE_STATI = ['non_stimabile', 'scaduto', 'scoperto', 'in_ritardo', 'in_rotta'];
+
+/**
+ * `current.dailyLimitBasis`: quale valore determina il limite giornaliero
+ * mostrato. `orizzonte_data` è l'unico discriminante con cui il client sa
+ * che il tetto della spesa media storica non si applica (modalità data).
+ */
+const DAILY_LIMIT_BASIS = ['margine_mese', 'spesa_media', 'orizzonte_data'];
+
 module.exports = {
   CATEGORIE,
   SOURCE_TYPES,
@@ -68,4 +85,6 @@ module.exports = {
   CHIAVI_CONTESTO_MANUALE,
   ORIZZONTE_TIPI,
   ORIZZONTE_MESI_MAX,
+  ORIZZONTE_STATI,
+  DAILY_LIMIT_BASIS,
 };

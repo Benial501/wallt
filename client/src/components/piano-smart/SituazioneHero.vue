@@ -31,9 +31,6 @@ const contesto = computed(() => (h.value.tipo === 'data'
   ? `per arrivare al ${dataLunga(h.value.dataFine)} · ${h.value.giorni} giorni`
   : `fino al ${dataLunga(h.value.dataFine)} · ${h.value.giorni} giorni`));
 
-const arrivaPrima = computed(() => h.value.dataRaggiungibile
-  && h.value.dataFine && h.value.dataRaggiungibile < h.value.dataFine);
-
 // Non ricalcoliamo budget − ritmo: il server lo espone già in
 // `current.dailyMargin` (positivo quando si è sotto il budget), gestendo da
 // sé il caso "non stimabile" con un `null` esplicito. `Number(null) === 0`
@@ -53,25 +50,36 @@ const margine = computed(() => {
     <strong class="hero-amount">{{ formattaEuro(h.budgetGiornaliero) }}</strong>
     <p class="hero-context">{{ contesto }}</p>
 
-    <p v-if="h.stato === 'scoperto'" class="shortfall" role="status">
+    <!-- Una sola catena per lo stato: prima era divisa in due catene
+         `v-if` indipendenti (una sul confronto date lato client, una sullo
+         stato del server) che potevano risultare vere insieme — l'avviso
+         "arrivi prima" e l'etichetta verde "in rotta" comparivano
+         contemporaneamente (difetto 3 della review finale). Lo stato è
+         uno solo, deciso dal server (`horizon.stato`, vocabolario di
+         `orizzonte.service.js`). -->
+    <p v-if="h.stato === 'scaduto'" class="shortfall" role="status">
+      La data che hai scelto è passata: scegline una nuova.
+    </p>
+    <p v-else-if="h.stato === 'scoperto'" class="shortfall" role="status">
       Gli impegni fino al {{ dataLunga(h.dataFine) }} superano il capitale di
       {{ formattaEuro(h.mancanti) }}.
     </p>
-    <p v-else-if="arrivaPrima" class="situation-status situation-status--sopra_il_ritmo" role="status">
+    <p v-else-if="h.stato === 'in_ritardo'" class="situation-status situation-status--sopra_il_ritmo" role="status">
       Al ritmo attuale arrivi al {{ dataLunga(h.dataRaggiungibile) }}.
-    </p>
-
-    <!-- Sola lettura: il fondo non è compreso nel capitale, lo diciamo solo
-         a chi non arriva alla data scelta. -->
-    <p v-if="(h.stato === 'scoperto' || arrivaPrima) && h.fondoGiorniAggiuntivi" class="hint">
-      Il fondo di emergenza coprirebbe altri {{ h.fondoGiorniAggiuntivi }} giorni
-      ({{ formattaEuro(h.fondoDisponibile) }}), ma non è compreso nel budget.
     </p>
     <p v-else-if="h.stato === 'in_rotta'" class="situation-status situation-status--sotto_controllo">
       {{ h.dataRaggiungibile ? `In rotta: il capitale arriva al ${dataLunga(h.dataRaggiungibile)}.` : 'In rotta.' }}
     </p>
     <p v-else class="muted">
       Serve ancora qualche registrazione per calcolare il budget.
+    </p>
+
+    <!-- Sola lettura e additiva, non un'alternativa allo stato sopra: il
+         fondo non è compreso nel capitale, lo diciamo solo a chi non arriva
+         alla data scelta. -->
+    <p v-if="(h.stato === 'scoperto' || h.stato === 'in_ritardo') && h.fondoGiorniAggiuntivi" class="hint">
+      Il fondo di emergenza coprirebbe altri {{ h.fondoGiorniAggiuntivi }} giorni
+      ({{ formattaEuro(h.fondoDisponibile) }}), ma non è compreso nel budget.
     </p>
 
     <OrizzonteSelector

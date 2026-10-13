@@ -36,16 +36,23 @@ function calcolaOrizzonte({
   ritmoGiornalieroCents = null,
 }) {
   const giorni = giorniInclusivi(referenceDate, dataFine);
+  // Una data già passata non è un dato mancante: è una scelta da rifare.
+  // Dirle "non stimabile" (il difetto 4 della review finale) è una
+  // spiegazione falsa — i dati ci sono tutti, è la data a essere scaduta —
+  // e non invita l'utente a cambiarla. Il confronto è sulla data, non su
+  // `giorni === 0`: quel conteggio torna 0 anche per una data scaduta, ma è
+  // un effetto, non la causa, e non deve essere l'unico modo di saperlo.
+  const scaduto = dataFine < referenceDate;
   const vuoto = {
     tipo, dataFine, giorni,
     capitaleLibero: null,
     impegniFinoA: impegniFinoACents ?? null,
     budgetGiornaliero: null,
-    stato: 'non_stimabile',
+    stato: scaduto ? 'scaduto' : 'non_stimabile',
     mancanti: null,
     dataRaggiungibile: null,
   };
-  if (giorni === 0 || baseCents === null || baseCents === undefined) return vuoto;
+  if (scaduto || giorni === 0 || baseCents === null || baseCents === undefined) return vuoto;
   if (impegniFinoACents === null || impegniFinoACents === undefined) return vuoto;
 
   const capitaleLibero = baseCents - impegniFinoACents;
@@ -61,6 +68,15 @@ function calcolaOrizzonte({
     // sostenibile la copertura finisce oggi.
     dataRaggiungibile = sommaGiorniIso(referenceDate, Math.max(giorniSostenibili - 1, 0));
   }
+  // Un capitale che basta non vuol dire "al ritmo giusto": se al ritmo
+  // attuale il capitale si esaurirebbe prima del termine scelto
+  // (`dataRaggiungibile < dataFine`), il piano non è "in rotta" — è in
+  // ritardo. Guardare solo il segno del capitale libero (difetto 3 della
+  // review finale) confondeva questi due stati in chi mostra il risultato:
+  // l'hero arrivava a disegnare insieme l'avviso "arrivi prima" e
+  // l'etichetta verde "in rotta", perché erano due catene indipendenti che
+  // guardavano informazioni diverse.
+  const inRitardo = !scoperto && dataRaggiungibile !== null && dataRaggiungibile < dataFine;
 
   return {
     tipo,
@@ -69,7 +85,7 @@ function calcolaOrizzonte({
     capitaleLibero,
     impegniFinoA: impegniFinoACents,
     budgetGiornaliero,
-    stato: scoperto ? 'scoperto' : 'in_rotta',
+    stato: scoperto ? 'scoperto' : inRitardo ? 'in_ritardo' : 'in_rotta',
     mancanti: scoperto ? -capitaleLibero : null,
     dataRaggiungibile,
   };
