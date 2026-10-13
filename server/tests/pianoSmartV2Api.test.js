@@ -1,4 +1,4 @@
-const { request, createApp, registerUser, authHeader } = require('./setup');
+const { request, createApp, registerUser, authHeader, Conto } = require('./setup');
 
 const app = createApp({ enableRateLimit: false });
 
@@ -52,5 +52,42 @@ describe('Piano Smart V2 API', () => {
 
     expect(response.status).toBe(400);
     expect(response.body.error).toBe('Dati non validi');
+  });
+
+  // Secondo difetto Critico trovato dalla verifica end-to-end nel browser:
+  // `simulatePurchase` costruiva il contesto con `getFinancialContext`
+  // nudo, senza l'arricchimento dell'orizzonte che `currentSituation`
+  // applicava da sé (`financialContext.recurring.horizon`). In modalità a
+  // data `impegniFinoACents` arrivava sempre `null`, la situazione
+  // risultava `non_stimabile`, e l'endpoint rispondeva SEMPRE 400 — un
+  // importo valido veniva rifiutato con un messaggio che ne accusava la
+  // validità. Questa prova chiama la rotta reale (non il service): è
+  // l'unico modo di vedere ciò che manca nel caricamento del contesto, lo
+  // stesso motivo per cui il primo difetto era invisibile ai test del
+  // service.
+  test('simulare una spesa in modalità a data risponde 200, non 400, e il limite non sale dopo l\'acquisto', async () => {
+    const { res: registration } = await registerUser(app);
+    const token = registration.body.token;
+    const userId = registration.body.user.id;
+
+    const profileUpdate = await request(app)
+      .put('/api/profilo')
+      .set(authHeader(token))
+      .send({ orizzonte_tipo: 'data', orizzonte_data: '2027-04-30' });
+    expect(profileUpdate.status).toBe(200);
+
+    // Un conto con saldo, altrimenti il caso sarebbe vero ma banale
+    // (limite 0 prima, 0 dopo): qui il budget prima dell'acquisto deve
+    // essere positivo per dire qualcosa sul "dopo".
+    await Conto.create({ user_id: userId, nome: 'Conto corrente', tipo: 'banca', saldo: 5000, attivo: true });
+
+    const response = await request(app)
+      .post('/api/piano-smart/v2/simulate-purchase')
+      .set(authHeader(token))
+      .send({ amount: '250.00' });
+
+    expect(response.status).toBe(200);
+    expect(Number(response.body.dailyLimitBefore)).toBeGreaterThan(0);
+    expect(Number(response.body.dailyLimitAfter)).toBeLessThanOrEqual(Number(response.body.dailyLimitBefore));
   });
 });

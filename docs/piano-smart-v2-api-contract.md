@@ -21,7 +21,7 @@ Le scadenze non entrano nei movimenti, nelle medie o nelle analisi finché l'ute
 
 ## Simulazione di una spesa
 
-`POST /api/piano-smart/v2/simulate-purchase` accetta `{ "amount": "125.50" }` e restituisce importo, valori iniziali e valori dopo l'acquisto per spendibile, limite giornaliero indicativo e previsione. Il calcolo avviene nel backend in centesimi interi. La risposta include `writesFinancialData: false`; l'endpoint non crea movimenti e non aggiorna saldi o obiettivi. Importi non positivi, malformati o con più di due decimali sono rifiutati. Un campo non stimabile resta `null`.
+`POST /api/piano-smart/v2/simulate-purchase` accetta `{ "amount": "125.50" }` e restituisce importo, valori iniziali e valori dopo l'acquisto per spendibile, limite giornaliero indicativo e previsione. Il calcolo avviene nel backend in centesimi interi. La risposta include `writesFinancialData: false`; l'endpoint non crea movimenti e non aggiorna saldi o obiettivi. Importi non positivi, malformati o con più di due decimali sono rifiutati. Un campo non stimabile resta `null`. Un importo non valido risponde `400`; se l'importo è valido ma la situazione finanziaria non è calcolabile (dati insufficienti o inconsistenti) risponde `422`, senza attribuire la causa all'importo inserito.
 
 In modalità orizzonte a data (`horizon.tipo === 'data'`) la risposta include anche `giorniAutonomiaPersi` (giorni di copertura persi al ritmo giornaliero osservato, `amount ÷ ritmo` troncato) e `dataRaggiungibileAfter` (la data raggiungibile, `horizon.dataRaggiungibile`, spostata indietro di quei giorni). Entrambi restano `null` senza un ritmo giornaliero osservato positivo: senza quel dato non c'è una base su cui misurare l'autonomia persa.
 
