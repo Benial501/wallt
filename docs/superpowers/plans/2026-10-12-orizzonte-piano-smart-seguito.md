@@ -78,12 +78,33 @@ re-review del giro di correzione.
   nomi per due domande), non quello di dimensione: `PianoSmartView.vue` resta
   grande e `SituazioneView.vue` nasce con tre tab.
 
+## Un falso difetto, chiarito
+
+Durante il lavoro `server/tests/saldoEffettivo.test.js` mostrava **2 test
+rossi**, e sono stati a lungo creduti un difetto preesistente del repository:
+erano stati riprodotti identici sul commit di partenza, il che sembrava
+escludere che fossero una regressione.
+
+**Non erano un difetto del codice.** Erano contaminazione del database di test
+condiviso: su un database fresco, con il file di test identico a quello di
+`main`, la suite passa **30/30**.
+
+L'errore di metodo vale più della conclusione: la riproduzione sul commit di
+partenza teneva costante il *codice*, ma teneva costante anche il *database*, ed
+era quello la variabile vera. Un fallimento che si riproduce "anche prima" non è
+per questo un difetto preesistente del codice: lo è solo se l'ambiente è stato
+isolato.
+
+Da qui la prassi: quando una suite fallisce in modo inspiegabile, **prima** si
+riesegue su un database appena creato, poi si cerca nel codice. Il commit
+`9eb804d` su `main` («Dà a ogni checkout il proprio database di test») risolve
+la causa alla radice.
+
 ## Fuori perimetro, aperto come lavoro separato
 
-`server/tests/saldoEffettivo.test.js` ha **2 test rossi preesistenti** a tutto
-questo lavoro, riprodotti identici sul commit di partenza: la POST che crea una
-spesa programmata non restituisce `movimento`, e il test a riga 243 vi accede.
-Non è una regressione dell'orizzonte di spesa e non va nascosto in questo merge.
+Niente. I 2 test rossi di `server/tests/saldoEffettivo.test.js` che erano stati
+aperti come lavoro separato **non esistono**: vedi la sezione precedente. Su un
+database isolato la suite passa 30/30.
 
 ## Rilievi emersi dalla verifica nel browser (13 ottobre)
 
