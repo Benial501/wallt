@@ -35,13 +35,31 @@ const obiettivoAttivo = (goal) => goal.stato !== 'completato';
 function simulatePurchase(situation, rawAmount) {
   const amount = toCents(rawAmount);
   if (!situation || amount === null || amount <= 0) return null;
-  const available = cents(situation.current?.availableToSpend);
-  const shortfall = cents(situation.current?.shortfall);
   const dailyLimit = cents(situation.current?.dailyLimit);
   const averageDailyExpenses = cents(situation.current?.averageDailyExpenses);
   const incomeMode = situation.current?.incomeMode;
   const forecast = cents(situation.forecast?.endOfMonthAvailable);
   const remainingDays = Number(situation.current?.remainingDays);
+  const isOrizzonteData = situation.horizon?.tipo === 'data';
+  // La prima riga del risultato è etichettata dal glossario
+  // (`GLOSSARIO.capitale_libero`, Coding Rule 18), la cui origine
+  // dichiarata è `horizon.capitaleLibero`: in modalità data la base del
+  // confronto prima/dopo DEVE essere quel numero, non il margine mensile
+  // (`current.availableToSpend`) — altrimenti l'etichetta e il numero
+  // raccontano due concetti diversi. È lo stesso difetto 1 della review
+  // finale (un nome, due numeri), reintrodotto qui dal fix della voce 7.
+  // Il simulatore sa già esprimere l'effetto su questo numero: è lo stesso
+  // calcolo (`capitaleLibero - importo`) già usato più sotto per il
+  // limite giornaliero in modalità data.
+  const available = isOrizzonteData
+    ? cents(situation.horizon?.capitaleLibero)
+    : cents(situation.current?.availableToSpend);
+  // Il margine mensile separa il deficit (`shortfall`) dal margine già
+  // troncato a zero. Il capitale libero dell'orizzonte non ha questa
+  // separazione: è già un numero con segno (negativo quando l'orizzonte è
+  // `scoperto`), quindi in modalità data non c'è nulla da sottrarre oltre
+  // all'importo simulato.
+  const shortfall = isOrizzonteData ? 0 : cents(situation.current?.shortfall);
   if (available === null || shortfall === null || !Number.isInteger(remainingDays) || remainingDays <= 0) return null;
 
   const availableAfter = available - shortfall - amount;
@@ -58,13 +76,11 @@ function simulatePurchase(situation, rawAmount) {
   // va fatto sul budget dell'orizzonte — non sul margine mensile, che misura
   // una domanda diversa (quanto resta a fine mese, non quanto resta fino alla
   // data scelta).
-  const horizonTipo = situation.horizon?.tipo;
   let dailyLimitAfter;
-  if (horizonTipo === 'data') {
-    const capitaleLibero = cents(situation.horizon?.capitaleLibero);
+  if (isOrizzonteData) {
     const giorniOrizzonte = Number(situation.horizon?.giorni);
-    dailyLimitAfter = capitaleLibero === null || !Number.isInteger(giorniOrizzonte) || giorniOrizzonte <= 0
-      ? null : Math.floor(Math.max(capitaleLibero - amount, 0) / giorniOrizzonte);
+    dailyLimitAfter = !Number.isInteger(giorniOrizzonte) || giorniOrizzonte <= 0
+      ? null : Math.floor(Math.max(available - amount, 0) / giorniOrizzonte);
   } else {
     const marginLimitAfter = Math.floor(Math.max(availableAfter, 0) / remainingDays);
     dailyLimitAfter = capSpesaMediaSiApplica
@@ -93,7 +109,11 @@ function simulatePurchase(situation, rawAmount) {
 
   return {
     amount: fromCents(amount),
-    availableBefore: fromCents(available),
+    // `signedMoney`, non `fromCents`: in modalità mensile `available` è
+    // sempre troncato a zero (comportamento invariato), ma il capitale
+    // libero dell'orizzonte può essere negativo quando lo stato è
+    // `scoperto` — `fromCents` lancia su un numero negativo.
+    availableBefore: signedMoney(available),
     availableAfter: signedMoney(availableAfter),
     dailyLimitBefore: money(dailyLimit),
     dailyLimitAfter: money(dailyLimitAfter),

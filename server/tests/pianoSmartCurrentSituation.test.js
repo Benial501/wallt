@@ -358,6 +358,35 @@ describe('Piano Smart: simulazione acquisto', () => {
     expect(esito.dataRaggiungibileAfter < situazioneOrizzonte.horizon.dataRaggiungibile).toBe(true);
   });
 
+  // Rottura introdotta dal fix della voce 7 (segnalata dalla re-review): la
+  // riga del simulatore era stata rinominata con l'etichetta del glossario
+  // `GLOSSARIO.capitale_libero`, la cui origine dichiarata è
+  // `horizon.capitaleLibero` — ma il numero mostrato restava
+  // `current.availableToSpend` (il margine mensile). In modalità mensile i
+  // due coincidono e il difetto non si vede; in modalità data divergono: lo
+  // stesso nome su due numeri diversi, esattamente il difetto 1 reintrodotto
+  // altrove. La riga del simulatore e `horizon.capitaleLibero` devono
+  // raccontare lo stesso numero.
+  test('in modalita data la riga "Capitale libero" del simulatore racconta lo stesso numero di horizon.capitaleLibero', () => {
+    const contesto = contestoBase({
+      income: {
+        currentMonth: 1000, monthlyAverage: 1000, recurringMonthlyAverage: 0, stability: 'irregolare',
+      },
+      expenses: { currentMonth: 900, variableCurrentMonth: 900, monthlyAverage: 900, averageMonths: 3 },
+      liquidity: { ordinary: 5000, allocated: 0, allocatable: 5000, commitments: 300 },
+      preferences: { orizzonteTipo: 'data', orizzonteData: '2027-04-30' },
+      recurringHorizon: { through: '2027-04-30', items: [], totalOutflow: 500 },
+    });
+    const situazioneOrizzonte = buildCurrentSituation({ context: contesto, now: new Date('2026-10-12T12:00:00Z') });
+    // Il margine mensile e il capitale libero dell'orizzonte sono numeri
+    // diversi in questa fixture: la prova sarebbe vuota se coincidessero.
+    expect(situazioneOrizzonte.horizon.capitaleLibero).toBe('4500.00');
+    expect(situazioneOrizzonte.current.availableToSpend).toBe('4100.00');
+    const esito = simulatePurchase(situazioneOrizzonte, '300.00');
+    expect(esito.availableBefore).toBe(situazioneOrizzonte.horizon.capitaleLibero);
+    expect(Number(esito.availableAfter)).toBeCloseTo(Number(situazioneOrizzonte.horizon.capitaleLibero) - 300, 2);
+  });
+
   // Difetto 2 della review finale: il tetto della spesa media veniva
   // riapplicato al valore "dopo" solo controllando la stringa
   // `dailyLimitBasis === 'spesa_media'`, che in modalità data vale sempre
