@@ -273,6 +273,29 @@ describe('horizon', () => {
     });
     expect(situazione.horizon.stato).toBe('non_stimabile');
   });
+
+  // Terzo difetto Critico della review finale: quando gli impegni fino
+  // alla data superano il capitale, `calcolaOrizzonte` restituisce
+  // correttamente un `capitaleLibero` negativo e lo stato `scoperto` — è
+  // il comportamento prescritto. Ma `buildHorizonData` lo serializzava con
+  // `money`, che passa da `fromCents` e SOLLEVA su un valore negativo:
+  // l'intera `GET /current-situation` rispondeva 500, non solo l'orizzonte
+  // — la pagina intera, per chi ne ha più bisogno (un orizzonte in
+  // deficit). Nessuna eccezione, `capitaleLibero` col segno meno,
+  // `mancanti` valorizzato.
+  test('in modalita data un capitale libero negativo non lancia: stato scoperto, segno conservato', () => {
+    const contesto = contestoBase({
+      liquidity: { ordinary: 1000, allocated: 0, allocatable: 1000, commitments: 0 },
+      preferences: { orizzonteTipo: 'data', orizzonteData: '2027-02-28' },
+      recurringHorizon: { through: '2027-02-28', items: [], totalOutflow: 1500 },
+    });
+    expect(() => buildCurrentSituation({ context: contesto, now: new Date('2026-10-12T12:00:00Z') }))
+      .not.toThrow();
+    const situazione = buildCurrentSituation({ context: contesto, now: new Date('2026-10-12T12:00:00Z') });
+    expect(situazione.horizon.stato).toBe('scoperto');
+    expect(situazione.horizon.capitaleLibero).toBe('-500.00');
+    expect(situazione.horizon.mancanti).toBe('500.00');
+  });
 });
 
 describe('fondo di emergenza come informazione', () => {

@@ -157,6 +157,13 @@ function buildHorizonData({
     // somma di quattro numeri, non tre che non si corrispondono più.
     const impegniRicorrentiCents = recurringCommitments === null || additionalCommitments === null
       ? null : recurringCommitments + additionalCommitments;
+    // Nessun campo di questo ramo può essere negativo, a differenza del
+    // ramo dati più sotto: `available` è già `Math.max(netAvailable, 0)`
+    // (calcolato più in alto in `buildCurrentSituation`), `impegniFinoA` e
+    // `riservaFinoA` sono somme non negative per costruzione, e `mancanti`
+    // è protetto dalla stessa guardia `shortfall > 0`. `money` resta quindi
+    // corretto per tutti, qui — non c'è un `capitaleLibero` con segno da
+    // gestire come nel ramo dati.
     const horizon = {
       tipo: 'mensile',
       dataFine: monthEnd,
@@ -193,7 +200,24 @@ function buildHorizonData({
   });
   const horizon = {
     ...esito,
-    capitaleLibero: money(esito.capitaleLibero),
+    // `signedMoney`, non `money`: quando gli impegni fino alla data
+    // superano il capitale, `calcolaOrizzonte` restituisce correttamente un
+    // `capitaleLibero` negativo (è il comportamento prescritto: lo stato
+    // diventa `scoperto`) — ma `money` passa da `fromCents`, che SOLLEVA su
+    // un valore negativo. Prima questo rompeva l'intera `GET
+    // /current-situation` con un 500, non solo l'orizzonte: la pagina
+    // intera, per chi ne ha più bisogno (un orizzonte in deficit). È lo
+    // stesso trattamento già dato ad `availableBefore` nel simulatore, per
+    // la stessa ragione.
+    //
+    // Gli altri campi di questo ramo restano con `money` perché, per
+    // costruzione, non possono essere negativi:
+    // - `impegniFinoA` è una somma di uscite (sempre ≥ 0);
+    // - `budgetGiornaliero` è `Math.max(capitaleLibero, 0) / giorni`,
+    //   già troncato a zero da `calcolaOrizzonte`;
+    // - `mancanti` è `null` oppure `-capitaleLibero` quando `capitaleLibero`
+    //   è negativo, quindi è sempre positivo quando esiste.
+    capitaleLibero: signedMoney(esito.capitaleLibero),
     impegniFinoA: money(esito.impegniFinoA),
     // La riserva prudenziale è un concetto del ciclo mensile (Regola 20,
     // liquidita.service.js): in modalità data non entra nel capitale
@@ -209,6 +233,13 @@ function buildHorizonData({
     // espliciti su null/assente: `||`/`&&` tratterebbero un fondo esistente
     // a saldo zero come un fondo assente, perdendo una distinzione che il
     // dominio fa (`emergencyFund.status`).
+    //
+    // `money`, non `signedMoney`: il fondo di emergenza è un conto senza
+    // entrate/uscite dirette (Regola 22, solo trasferimenti), quindi il suo
+    // saldo non dovrebbe mai essere negativo per come WALLT lo scrive. Non
+    // ho trovato un percorso di codice che lo renda negativo — se esiste e
+    // non l'ho visto, va segnalato: altrimenti un saldo negativo qui
+    // solleverebbe la stessa eccezione appena corretta sopra.
     fondoDisponibile: fondoAssente || emergencyFundBalance === null
       ? null : money(emergencyFundBalance),
     fondoGiorniAggiuntivi: fondoAssente || emergencyFundBalance === null
