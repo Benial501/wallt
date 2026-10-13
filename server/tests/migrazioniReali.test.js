@@ -8,7 +8,7 @@
  * che rompe la produzione.
  *
  * Tutto avviene su un database USA E GETTA, creato e distrutto qui: non
- * `wallt_db` (sviluppo), non `wallt_test` (le altre suite), mai Supabase. I
+ * `wallt_db` (sviluppo), non il database delle altre suite, mai Supabase. I
  * controlli in `assertDatabaseUsaEGetta` sono la barriera: se il nome o l'host
  * non sono quelli attesi, la suite si rifiuta di partire invece di lavorare
  * sul database sbagliato.
@@ -20,7 +20,14 @@ const { Client } = require('pg');
 const CLI = path.resolve(__dirname, '../node_modules/sequelize-cli/lib/sequelize');
 const RADICE = path.resolve(__dirname, '..');
 
-const NOME_DB = process.env.DB_NAME_MIGRAZIONI_TEST || 'wallt_migrazioni_usaegetta';
+// Il nome porta il suffisso del checkout per la stessa ragione del database
+// delle altre suite (`databaseDiTest.js`): questa suite CREA e DROPPA il
+// database, quindi un nome condiviso fra worktree permetterebbe a una
+// sessione di cancellarlo sotto i piedi di un'altra a metà catena.
+const { suffissoCheckout, RADICE_CHECKOUT } = require('./databaseDiTest');
+
+const NOME_DB = process.env.DB_NAME_MIGRAZIONI_TEST
+  || `wallt_migrazioni_usaegetta_${suffissoCheckout(RADICE_CHECKOUT)}`;
 // Ultima migrazione PRIMA del gruppo aggiunto per le fondamenta pre-Smart
 // (essenzialità, tipo_obiettivo, debiti, ricorrenze settimanali/annuali,
 // classificazione entrate, liquidabilità, stato ricorrenza, priorità).
@@ -99,7 +106,7 @@ const eliminaDatabase = async () => {
 };
 
 /** sequelize-cli sul solo database usa e getta: l'env del processo non viene
- * mai modificato, così le altre suite continuano a puntare a wallt_test. */
+ * mai modificato, così le altre suite continuano a puntare al proprio. */
 const cli = (args) => execFileSync(process.execPath, [CLI, ...args], {
   cwd: RADICE,
   env: {

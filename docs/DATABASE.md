@@ -18,7 +18,7 @@ Il path primario è la connection string `DATABASE_URL` (runtime, Transaction Po
 | `DB_HOST` | `127.0.0.1` | Host PostgreSQL |
 | `DB_PORT` | `5432` | Porta |
 | `DB_NAME` | `wallt_db` | Database produzione |
-| `DB_NAME_TEST` | `wallt_test` | Database test (Jest) |
+| `DB_NAME_TEST` | `wallt_test_<hash del checkout>` | Database test (Jest). Il default è derivato dalla radice del checkout (`server/tests/databaseDiTest.js`), così due worktree non condividono lo stesso database; impostarlo nell'ambiente del processo lo sovrascrive (la CI usa `wallt_test`) |
 | `DB_USER` | `root` | Utente |
 | `DB_PASSWORD` | (vuoto) | Password |
 

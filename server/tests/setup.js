@@ -3,6 +3,15 @@ const fs = require('fs');
 const { execFileSync } = require('child_process');
 const { Client } = require('pg');
 
+// Come in `tests/env.js`: la fotografia va presa PRIMA di dotenv, altrimenti
+// un valore scritto in `.env` passerebbe per esplicito e rimetterebbe tutti i
+// checkout sullo stesso database. Normalmente qui arriva già deciso da env.js
+// (setupFiles gira prima), ma la regola non deve dipendere da quell'ordine.
+const espliciti = {
+  DB_NAME_TEST: process.env.DB_NAME_TEST,
+  TEST_DATABASE_URL: process.env.TEST_DATABASE_URL,
+};
+
 // Env test già configurato da tests/env.js (setupFiles Jest)
 const envTestPath = path.resolve(__dirname, '../.env.test');
 if (fs.existsSync(envTestPath)) {
@@ -11,15 +20,16 @@ if (fs.existsSync(envTestPath)) {
 require('dotenv').config();
 
 process.env.NODE_ENV = 'test';
-process.env.DB_NAME_TEST = process.env.DB_NAME_TEST || 'wallt_test';
-process.env.DB_NAME = process.env.DB_NAME_TEST;
-if (!process.env.TEST_DATABASE_URL) {
-  const user = encodeURIComponent(process.env.DB_USER || 'postgres');
-  const password = encodeURIComponent(process.env.DB_PASSWORD || '');
-  const host = process.env.DB_HOST || '127.0.0.1';
-  const port = Number(process.env.DB_PORT) || 5432;
-  process.env.TEST_DATABASE_URL = `postgresql://${user}:${password}@${host}:${port}/${process.env.DB_NAME_TEST}`;
-}
+
+// La scelta del database sta in un punto solo (`tests/databaseDiTest.js`):
+// ricalcolarla qui l'avrebbe fatta divergere da env.js. Ciò che env.js ha già
+// deciso arriva come esplicito, quindi vince e questa chiamata è idempotente.
+const { configuraDatabaseDiTest } = require('./databaseDiTest');
+
+const database = configuraDatabaseDiTest({ espliciti, env: process.env });
+process.env.DB_NAME_TEST = database.nome;
+process.env.DB_NAME = database.nome;
+process.env.TEST_DATABASE_URL = database.url;
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test_jwt_secret_lungo_abbastanza_per_i_test_12345';
 process.env.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'test-google-client-id';
 process.env.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || 'test-google-client-secret';
@@ -34,7 +44,9 @@ const {
   Movimento,
 } = require('../models');
 
-const TEST_DATABASE = process.env.DB_NAME_TEST || 'wallt_test';
+// Nessun default qui: il nome lo decide `configuraDatabaseDiTest` poche righe
+// sopra. Un `|| 'wallt_test'` rimetterebbe in circolo il nome condiviso.
+const TEST_DATABASE = process.env.DB_NAME_TEST;
 
 if (!/^[a-zA-Z0-9_]+$/.test(TEST_DATABASE)) {
   throw new Error(`DB_NAME_TEST non valido: "${TEST_DATABASE}"`);

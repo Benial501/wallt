@@ -317,9 +317,18 @@ mesi osservati e usa CV popolazione con soglia 0,25. La pressione debitoria
 usa solo reddito ricorrente sui medesimi mesi; debiti e ricorrenti non sono
 riconciliati automaticamente.
 
-I test Jest puntano al solo PostgreSQL locale `wallt_test` tramite
-`TEST_DATABASE_URL`; il setup applica le migrazioni al database di test e non
-tocca produzione.
+I test Jest puntano al solo PostgreSQL locale; il setup applica le migrazioni
+al database di test e non tocca produzione. Il nome del database è **derivato
+dalla radice del checkout** (`wallt_test_<hash>`, `tests/databaseDiTest.js`),
+creato e migrato dal setup al primo passaggio: un nome fisso condiviso fra
+worktree rendeva il database uno stato globale, e i `TRUNCATE` o le migrazioni
+di un'altra esecuzione producevano fallimenti che non si riproducono mai in
+isolamento (una registrazione che risponde 500 perché l'utente è stato
+cancellato a metà test, 500 su una colonna rinominata da un altro branch).
+`DB_NAME_TEST`/`TEST_DATABASE_URL` passati **nell'ambiente del processo**
+vincono sempre — è così che la CI resta su `wallt_test` — ma gli stessi valori
+scritti in `.env` non vincono: sono identici in ogni checkout e li
+rimetterebbero tutti sullo stesso database.
 
 Vedi `docs/PROJECT_STATUS.md` sezione Roadmap per priorità P0–P3.
 
