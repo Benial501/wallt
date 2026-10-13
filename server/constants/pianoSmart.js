@@ -46,6 +46,46 @@ const CHIAVI_CONTESTO_MANUALE = [
   'upcoming_obligations',
 ];
 
+/**
+ * Orizzonte di spesa: entro quale termine il capitale deve bastare.
+ * `mensile` è il ciclo che si rinnova col mese civile (comportamento
+ * storico); `data` è un termine fisso scelto dall'utente, che si avvicina
+ * ogni giorno.
+ */
+const ORIZZONTE_TIPI = ['mensile', 'data'];
+
+/** Tetto alla data scelta. Non è una regola di prodotto ma di calcolo: oltre
+ * questo limite la proiezione delle ricorrenze diventa un esercizio teorico
+ * (e un ciclo di migliaia di giorni per ogni richiesta). */
+const ORIZZONTE_MESI_MAX = 36;
+
+/**
+ * Copertura scelta dall'utente per la riserva prudenziale
+ * (`profili_utente.mesi_riserva_piano_smart`), in mesi di spese essenziali.
+ * Un solo numero, non due copie: prima di questa costante il tetto era
+ * scritto due volte lato server (qui e nel validatore) e una terza volta,
+ * sganciata, nell'opzione `v-for` del selettore lato client.
+ */
+const RISERVA_MESI_MIN = 1;
+const RISERVA_MESI_MAX = 6;
+
+/**
+ * Stato di `horizon` (`orizzonte.service.js`). `in_ritardo` esiste perché un
+ * capitale che basta non vuol dire "al ritmo giusto": se al ritmo attuale il
+ * capitale si esaurirebbe prima del termine scelto, il piano non è "in
+ * rotta" — prima della sua introduzione questa distinzione viveva solo in
+ * un confronto di date lato client, indipendente dallo stato del server, e i
+ * due potevano risultare veri insieme.
+ */
+const ORIZZONTE_STATI = ['non_stimabile', 'scaduto', 'scoperto', 'in_ritardo', 'in_rotta'];
+
+/**
+ * `current.dailyLimitBasis`: quale valore determina il limite giornaliero
+ * mostrato. `orizzonte_data` è l'unico discriminante con cui il client sa
+ * che il tetto della spesa media storica non si applica (modalità data).
+ */
+const DAILY_LIMIT_BASIS = ['margine_mese', 'spesa_media', 'orizzonte_data'];
+
 module.exports = {
   CATEGORIE,
   SOURCE_TYPES,
@@ -53,4 +93,10 @@ module.exports = {
   STATI_PIANO,
   TRANSIZIONI_STATO,
   CHIAVI_CONTESTO_MANUALE,
+  ORIZZONTE_TIPI,
+  ORIZZONTE_MESI_MAX,
+  RISERVA_MESI_MIN,
+  RISERVA_MESI_MAX,
+  ORIZZONTE_STATI,
+  DAILY_LIMIT_BASIS,
 };

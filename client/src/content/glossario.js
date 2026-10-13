@@ -125,6 +125,56 @@ const CONCETTI = [
       'Quello che resta a tua disposizione, senza vincoli. Serve a rendere il piano sostenibile: un piano che non lascia niente viene abbandonato.',
     origine: 'POST /piano-smart/preview → allocations[category=freedom]',
   },
+
+  // --- L'orizzonte di spesa di Piano Smart --------------------------------
+  // Il ciclo mensile di sempre, oppure una data entro cui il capitale deve
+  // bastare: GET /piano-smart-v2/current-situation → horizon ha la stessa
+  // forma in entrambi i casi.
+  {
+    id: 'budget_giornaliero',
+    etichetta: 'Puoi spendere oggi',
+    descrizione:
+      'Quanto puoi spendere oggi perché il capitale basti fino al termine che hai scelto. Si ricalcola ogni giorno su quello che ti resta davvero: se ieri hai speso meno, oggi puoi spendere di più.',
+    formula: 'capitale libero ÷ giorni rimanenti',
+    origine: 'GET /piano-smart-v2/current-situation → horizon.budgetGiornaliero',
+    topic: 'orizzonte-di-spesa',
+  },
+  {
+    id: 'capitale_libero',
+    etichetta: 'Capitale libero',
+    descrizione:
+      'I soldi dei conti che puoi davvero distribuire sui giorni: i conti attivi non nascosti, meno quanto hai già accantonato sugli obiettivi, meno gli impegni fino al termine scelto e, nel ciclo mensile con entrate irregolari, meno la riserva prudenziale ancora da coprire. Il fondo di emergenza non è compreso.',
+    formula: 'conti spendibili − obiettivi accantonati − impegni fino al termine − riserva prudenziale',
+    origine: 'GET /piano-smart-v2/current-situation → horizon.capitaleLibero',
+    topic: 'orizzonte-di-spesa',
+  },
+  {
+    id: 'impegni_orizzonte',
+    etichetta: 'Impegni fino al termine',
+    descrizione:
+      'Le uscite che sai già di dover sostenere entro il termine scelto: ricorrenze e spese programmate. Vengono messe da parte prima di calcolare quanto puoi spendere al giorno, così una bolletta non azzera il budget il giorno in cui scade. Non comprende la riserva prudenziale, che ha una riga propria.',
+    formula: 'ricorrenze + spese programmate con scadenza entro il termine',
+    origine: 'GET /piano-smart-v2/current-situation → horizon.impegniFinoA',
+    topic: 'orizzonte-di-spesa',
+  },
+  {
+    id: 'riserva_orizzonte',
+    etichetta: 'Riserva prudenziale',
+    descrizione:
+      'Quanto lasci da parte, oltre agli impegni già previsti, per i mesi di spese essenziali che hai scelto come cuscinetto. Si applica solo nel ciclo mensile, con entrate irregolari, e non supera mai quanto ti manca per raggiungere la soglia scelta.',
+    formula: 'spese essenziali mensili × mesi di riserva scelti − fondo di emergenza già disponibile',
+    origine: 'GET /piano-smart-v2/current-situation → horizon.riservaFinoA',
+    topic: 'orizzonte-di-spesa',
+  },
+  {
+    id: 'ritmo_attuale',
+    etichetta: 'Ritmo attuale',
+    descrizione:
+      'Quanto stai spendendo in media al giorno in spese libere, cioè escluse le ricorrenze. Confrontato col budget dice se stai sopra o sotto; da solo non è un limite.',
+    formula: 'spese libere del periodo osservato ÷ giorni osservati',
+    origine: 'GET /piano-smart-v2/current-situation → current.actualDailySpend',
+    topic: 'orizzonte-di-spesa',
+  },
 ];
 
 /** Mappa id → concetto, per accessi diretti. */

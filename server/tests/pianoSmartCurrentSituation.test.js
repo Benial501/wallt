@@ -1,23 +1,35 @@
 const { buildCurrentSituation, simulatePurchase } = require('../services/pianoSmartV2/currentSituation.service');
 const now = new Date('2026-09-25T12:00:00Z');
-const context = (overrides = {}) => ({
-  period: { referenceDate: '2026-09-25' },
-  liquidity: { ordinary: 800, allocated: 200, allocatable: 500, commitments: 100 },
-  expenses: { currentMonth: 300, variableCurrentMonth: 300, monthlyAverage: 400 },
-  income: {
-    currentMonth: 1200,
-    monthlyAverage: 1200,
-    recurringMonthlyAverage: 1200,
-    stability: 'stabile',
-  },
-  emergencyFund: { status: 'assente', missingAmount: null },
-  dataQuality: { completeMonths: 3, firstMovementDate: '2026-06-01', registrationCompleteness: 'non_verificabile' },
-  netWorth: { total: 2000, assets: 2500, liabilities: 500 },
-  debts: { totalOutstanding: 500 }, goals: [],
-  recurring: { items: [{ id: 1, occurrenceKey: '1:2026-09', dueDate: '2026-09-27', amount: 100, reserved: true }] },
-  ...overrides,
-});
-const build = (overrides = {}, date = now) => buildCurrentSituation({ context: context(overrides), now: date });
+// `contestoBase` è l'helper condiviso dai test esistenti e da quelli
+// sull'orizzonte di spesa: `preferences` sostituisce il default (vuoto) e
+// `recurringHorizon` (chiave sintetica, non un campo reale del contesto)
+// popola `recurring.horizon`, incluso il caso esplicito `null` per "nessuna
+// proiezione disponibile".
+const contestoBase = (overrides = {}) => {
+  const { recurringHorizon, ...rest } = overrides;
+  const base = {
+    liquidity: { ordinary: 800, allocated: 200, allocatable: 500, commitments: 100 },
+    expenses: { currentMonth: 300, variableCurrentMonth: 300, monthlyAverage: 400 },
+    income: {
+      currentMonth: 1200,
+      monthlyAverage: 1200,
+      recurringMonthlyAverage: 1200,
+      stability: 'stabile',
+    },
+    emergencyFund: { status: 'assente', missingAmount: null },
+    dataQuality: { completeMonths: 3, firstMovementDate: '2026-06-01', registrationCompleteness: 'non_verificabile' },
+    netWorth: { total: 2000, assets: 2500, liabilities: 500 },
+    debts: { totalOutstanding: 500 }, goals: [],
+    recurring: { items: [{ id: 1, occurrenceKey: '1:2026-09', dueDate: '2026-09-27', amount: 100, reserved: true }] },
+    preferences: {},
+    ...rest,
+  };
+  if (recurringHorizon !== undefined) {
+    base.recurring = { ...base.recurring, horizon: recurringHorizon };
+  }
+  return base;
+};
+const build = (overrides = {}, date = now) => buildCurrentSituation({ context: contestoBase(overrides), now: date });
 
 describe('Piano Smart: situazione corrente', () => {
   test('riconcilia saldo ordinario, obiettivi e impegni senza bloccare il fondo ancora da costruire', () => {
@@ -161,6 +173,181 @@ describe('Piano Smart: situazione corrente', () => {
   });
 });
 
+describe('horizon', () => {
+  test('in modalita mensile serializza il ciclo del mese senza cambiare i valori storici', () => {
+    const situazione = buildCurrentSituation({
+      context: contestoBase({ preferences: { orizzonteTipo: 'mensile' } }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    expect(situazione.horizon.tipo).toBe('mensile');
+    expect(situazione.horizon.dataFine).toBe('2026-10-31');
+    expect(situazione.horizon.giorni).toBe(situazione.current.remainingDays);
+    expect(situazione.horizon.budgetGiornaliero).toBe(situazione.current.dailyLimit);
+  });
+
+  // Difetto 5 della review finale: `impegniFinoA` serializzava
+  // `protectedAmount - allocated`, che contiene anche la riserva
+  // prudenziale. L'etichetta "Impegni fino al termine" (ricorrenze + spese
+  // programmate, Coding Rule 18) mostrava così un numero più alto delle
+  // sole ricorrenze. La riserva ha ora una riga propria (`riservaFinoA`), e
+  // la somma dei quattro numeri torna a coincidere col capitale libero.
+  test('impegniFinoA non contiene più la riserva prudenziale, che ha una riga propria', () => {
+    const contesto = contestoBase({
+      income: {
+        currentMonth: 1200, monthlyAverage: 1200, recurringMonthlyAverage: 0, stability: 'irregolare',
+      },
+      expenses: { currentMonth: 300, variableCurrentMonth: 300, monthlyAverage: 400, averageMonths: 3 },
+    });
+    const situazione = buildCurrentSituation({ context: contesto, now: new Date('2026-10-12T12:00:00Z') });
+    expect(situazione.current.incomeMode).toBe('irregolare');
+    // Le ricorrenze del contesto base sono 100 (recurring.items): non 500.
+    expect(situazione.horizon.impegniFinoA).toBe('100.00');
+    expect(situazione.horizon.riservaFinoA).toBe('400.00');
+    const liquidita = Number(situazione.current.liquidity);
+    const obiettivi = Number(situazione.current.allocatedToGoals);
+    const impegni = Number(situazione.horizon.impegniFinoA);
+    const riserva = Number(situazione.horizon.riservaFinoA);
+    expect(Number(situazione.horizon.capitaleLibero)).toBeCloseTo(liquidita - obiettivi - impegni - riserva, 2);
+  });
+
+  test('in modalita data la riserva prudenziale non esiste: resta null', () => {
+    const situazione = buildCurrentSituation({
+      context: contestoBase({
+        preferences: { orizzonteTipo: 'data', orizzonteData: '2027-02-28' },
+        recurringHorizon: { through: '2027-02-28', items: [], totalOutflow: 0 },
+      }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    expect(situazione.horizon.riservaFinoA).toBeNull();
+  });
+
+  test('in modalita data il budget non e limitato dalla spesa media storica', () => {
+    const contesto = contestoBase({
+      preferences: { orizzonteTipo: 'data', orizzonteData: '2027-02-28' },
+      recurringHorizon: { through: '2027-02-28', items: [], totalOutflow: 0 },
+    });
+    const situazione = buildCurrentSituation({
+      context: contesto, now: new Date('2026-10-12T12:00:00Z'),
+    });
+    expect(situazione.horizon.tipo).toBe('data');
+    expect(situazione.horizon.dataFine).toBe('2027-02-28');
+    expect(situazione.horizon.giorni).toBe(140);
+    expect(situazione.current.dailyLimitBasis).toBe('orizzonte_data');
+  });
+
+  // Voce 10 della review finale: è l'unica asserzione che avrebbe impedito i
+  // due difetti Critici. Con entrate irregolari il tetto della spesa media
+  // (29,56/giorno) è diverso dal budget dell'orizzonte (22,38/giorno): prima
+  // della correzione `current.dailyLimit` restava il calcolo mensile — il
+  // tetto — anche quando `horizon.budgetGiornaliero` mostrava già il numero
+  // giusto in cima alla pagina, e margine/ritmo derivavano dal numero sbagliato.
+  test('in modalita data current.dailyLimit e current.dailyMargin derivano dal budget dell orizzonte, non dal tetto mensile', () => {
+    const contesto = contestoBase({
+      income: {
+        currentMonth: 1000, monthlyAverage: 1000, recurringMonthlyAverage: 0, stability: 'irregolare',
+      },
+      expenses: { currentMonth: 900, variableCurrentMonth: 900, monthlyAverage: 900, averageMonths: 3 },
+      liquidity: { ordinary: 5000, allocated: 0, allocatable: 5000, commitments: 300 },
+      preferences: { orizzonteTipo: 'data', orizzonteData: '2027-04-30' },
+      recurringHorizon: { through: '2027-04-30', items: [], totalOutflow: 500 },
+    });
+    const situazione = buildCurrentSituation({ context: contesto, now: new Date('2026-10-12T12:00:00Z') });
+    // Il tetto mensile che il difetto mostrava al posto del budget giusto.
+    expect(situazione.current.averageDailyExpenses).toBe('29.56');
+    expect(situazione.horizon.budgetGiornaliero).toBe('22.38');
+    expect(situazione.current.dailyLimit).toBe(situazione.horizon.budgetGiornaliero);
+    expect(situazione.current.dailyLimit).not.toBe(situazione.current.averageDailyExpenses);
+    const budget = Number(situazione.horizon.budgetGiornaliero);
+    const ritmo = Number(situazione.current.actualDailySpend);
+    expect(Number(situazione.current.dailyMargin)).toBeCloseTo(budget - ritmo, 2);
+    expect(Number(situazione.current.paceDelta)).toBeCloseTo(ritmo - budget, 2);
+  });
+
+  test('senza orizzonte proiettato la modalita data non stima', () => {
+    const situazione = buildCurrentSituation({
+      context: contestoBase({
+        preferences: { orizzonteTipo: 'data', orizzonteData: '2027-02-28' },
+        recurringHorizon: null,
+      }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    expect(situazione.horizon.stato).toBe('non_stimabile');
+  });
+
+  // Terzo difetto Critico della review finale: quando gli impegni fino
+  // alla data superano il capitale, `calcolaOrizzonte` restituisce
+  // correttamente un `capitaleLibero` negativo e lo stato `scoperto` — è
+  // il comportamento prescritto. Ma `buildHorizonData` lo serializzava con
+  // `money`, che passa da `fromCents` e SOLLEVA su un valore negativo:
+  // l'intera `GET /current-situation` rispondeva 500, non solo l'orizzonte
+  // — la pagina intera, per chi ne ha più bisogno (un orizzonte in
+  // deficit). Nessuna eccezione, `capitaleLibero` col segno meno,
+  // `mancanti` valorizzato.
+  test('in modalita data un capitale libero negativo non lancia: stato scoperto, segno conservato', () => {
+    const contesto = contestoBase({
+      liquidity: { ordinary: 1000, allocated: 0, allocatable: 1000, commitments: 0 },
+      preferences: { orizzonteTipo: 'data', orizzonteData: '2027-02-28' },
+      recurringHorizon: { through: '2027-02-28', items: [], totalOutflow: 1500 },
+    });
+    expect(() => buildCurrentSituation({ context: contesto, now: new Date('2026-10-12T12:00:00Z') }))
+      .not.toThrow();
+    const situazione = buildCurrentSituation({ context: contesto, now: new Date('2026-10-12T12:00:00Z') });
+    expect(situazione.horizon.stato).toBe('scoperto');
+    expect(situazione.horizon.capitaleLibero).toBe('-500.00');
+    expect(situazione.horizon.mancanti).toBe('500.00');
+  });
+});
+
+describe('fondo di emergenza come informazione', () => {
+  const contestoData = (extra = {}) => contestoBase({
+    preferences: { orizzonteTipo: 'data', orizzonteData: '2027-02-28' },
+    recurringHorizon: { through: '2027-02-28', items: [], totalOutflow: 0 },
+    ...extra,
+  });
+
+  test('dice quanti giorni in piu coprirebbe il fondo', () => {
+    const situazione = buildCurrentSituation({
+      context: contestoData({ emergencyFund: { status: 'attivo', current: '900.00' } }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    const ritmo = Number(situazione.current.actualDailySpend);
+    expect(ritmo).toBeGreaterThan(0);
+    expect(situazione.horizon.fondoGiorniAggiuntivi)
+      .toBe(Math.floor(90000 / Math.round(ritmo * 100)));
+  });
+
+  test('senza fondo non promette giorni', () => {
+    const situazione = buildCurrentSituation({
+      context: contestoData({ emergencyFund: { status: 'assente', current: null } }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    expect(situazione.horizon.fondoGiorniAggiuntivi).toBeNull();
+    expect(situazione.horizon.fondoDisponibile).toBeNull();
+  });
+
+  test('il fondo non entra nel capitale libero', () => {
+    const senza = buildCurrentSituation({
+      context: contestoData({ emergencyFund: { status: 'assente', current: null } }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    const con = buildCurrentSituation({
+      context: contestoData({ emergencyFund: { status: 'attivo', current: '900.00' } }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    expect(con.horizon.capitaleLibero).toBe(senza.horizon.capitaleLibero);
+    expect(con.horizon.budgetGiornaliero).toBe(senza.horizon.budgetGiornaliero);
+  });
+
+  test('un fondo esistente a saldo zero non è un fondo assente', () => {
+    const situazione = buildCurrentSituation({
+      context: contestoData({ emergencyFund: { status: 'attivo', current: '0.00' } }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    expect(situazione.horizon.fondoDisponibile).toBe('0.00');
+    expect(situazione.horizon.fondoGiorniAggiuntivi).toBe(0);
+  });
+});
+
 describe('Piano Smart: simulazione acquisto', () => {
   const situazione = {
     current: { availableToSpend: '1000.00', shortfall: '0.00', dailyLimit: '100.00', remainingDays: 10 },
@@ -179,5 +366,83 @@ describe('Piano Smart: simulazione acquisto', () => {
   test('rifiuta importi non positivi o con più di due decimali', () => {
     expect(simulatePurchase(situazione, '0')).toBeNull();
     expect(simulatePurchase(situazione, '1.005')).toBeNull();
+  });
+
+  test('la simulazione dice quanti giorni di autonomia costa l acquisto', () => {
+    const situazioneOrizzonte = buildCurrentSituation({
+      context: contestoBase({
+        preferences: { orizzonteTipo: 'data', orizzonteData: '2027-02-28' },
+        recurringHorizon: { through: '2027-02-28', items: [], totalOutflow: 0 },
+      }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    const esito = simulatePurchase(situazioneOrizzonte, '300.00');
+    expect(esito.giorniAutonomiaPersi).toBeGreaterThan(0);
+    expect(esito.dataRaggiungibileAfter < situazioneOrizzonte.horizon.dataRaggiungibile).toBe(true);
+  });
+
+  // Rottura introdotta dal fix della voce 7 (segnalata dalla re-review): la
+  // riga del simulatore era stata rinominata con l'etichetta del glossario
+  // `GLOSSARIO.capitale_libero`, la cui origine dichiarata è
+  // `horizon.capitaleLibero` — ma il numero mostrato restava
+  // `current.availableToSpend` (il margine mensile). In modalità mensile i
+  // due coincidono e il difetto non si vede; in modalità data divergono: lo
+  // stesso nome su due numeri diversi, esattamente il difetto 1 reintrodotto
+  // altrove. La riga del simulatore e `horizon.capitaleLibero` devono
+  // raccontare lo stesso numero.
+  test('in modalita data la riga "Capitale libero" del simulatore racconta lo stesso numero di horizon.capitaleLibero', () => {
+    const contesto = contestoBase({
+      income: {
+        currentMonth: 1000, monthlyAverage: 1000, recurringMonthlyAverage: 0, stability: 'irregolare',
+      },
+      expenses: { currentMonth: 900, variableCurrentMonth: 900, monthlyAverage: 900, averageMonths: 3 },
+      liquidity: { ordinary: 5000, allocated: 0, allocatable: 5000, commitments: 300 },
+      preferences: { orizzonteTipo: 'data', orizzonteData: '2027-04-30' },
+      recurringHorizon: { through: '2027-04-30', items: [], totalOutflow: 500 },
+    });
+    const situazioneOrizzonte = buildCurrentSituation({ context: contesto, now: new Date('2026-10-12T12:00:00Z') });
+    // Il margine mensile e il capitale libero dell'orizzonte sono numeri
+    // diversi in questa fixture: la prova sarebbe vuota se coincidessero.
+    expect(situazioneOrizzonte.horizon.capitaleLibero).toBe('4500.00');
+    expect(situazioneOrizzonte.current.availableToSpend).toBe('4100.00');
+    const esito = simulatePurchase(situazioneOrizzonte, '300.00');
+    expect(esito.availableBefore).toBe(situazioneOrizzonte.horizon.capitaleLibero);
+    expect(Number(esito.availableAfter)).toBeCloseTo(Number(situazioneOrizzonte.horizon.capitaleLibero) - 300, 2);
+  });
+
+  // Difetto 2 della review finale: il tetto della spesa media veniva
+  // riapplicato al valore "dopo" solo controllando la stringa
+  // `dailyLimitBasis === 'spesa_media'`, che in modalità data vale sempre
+  // `orizzonte_data`. Il confronto prima/dopo deve usare il budget
+  // dell'orizzonte (capitale libero − importo, diviso i giorni), non il
+  // margine mensile: un acquisto non può MAI alzare il limite indicativo.
+  test('un acquisto non alza mai il limite indicativo in modalita data', () => {
+    const contesto = contestoBase({
+      income: {
+        currentMonth: 1000, monthlyAverage: 1000, recurringMonthlyAverage: 0, stability: 'irregolare',
+      },
+      expenses: { currentMonth: 900, variableCurrentMonth: 900, monthlyAverage: 900, averageMonths: 3 },
+      liquidity: { ordinary: 5000, allocated: 0, allocatable: 5000, commitments: 300 },
+      preferences: { orizzonteTipo: 'data', orizzonteData: '2027-04-30' },
+      recurringHorizon: { through: '2027-04-30', items: [], totalOutflow: 500 },
+    });
+    const situazione = buildCurrentSituation({ context: contesto, now: new Date('2026-10-12T12:00:00Z') });
+    const prima = Number(situazione.horizon.budgetGiornaliero);
+    const esito = simulatePurchase(situazione, '100.00');
+    expect(Number(esito.dailyLimitBefore)).toBe(prima);
+    expect(Number(esito.dailyLimitAfter)).toBeLessThan(prima);
+    const capitaleLiberoCents = Math.round(Number(situazione.horizon.capitaleLibero) * 100);
+    const attesoCents = Math.floor(Math.max(capitaleLiberoCents - 10000, 0) / situazione.horizon.giorni);
+    expect(Math.round(Number(esito.dailyLimitAfter) * 100)).toBe(attesoCents);
+  });
+
+  test('senza ritmo osservato non inventa giorni persi', () => {
+    const situazioneMensile = buildCurrentSituation({
+      context: contestoBase({ preferences: { orizzonteTipo: 'mensile' } }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    const esito = simulatePurchase(situazioneMensile, '300.00');
+    expect(esito.giorniAutonomiaPersi).toBeNull();
+    expect(esito.dataRaggiungibileAfter).toBeNull();
   });
 });

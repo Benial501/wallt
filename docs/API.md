@@ -552,7 +552,7 @@ versare o prelevare si usa `POST /api/conti/trasferimento`.
 
 ## Piano Smart
 
-La versione estesa `smart-v2` è documentata in [piano-smart-v2-api-contract.md](piano-smart-v2-api-contract.md). V1 resta compatibile e continua a usare le proprie rotte.
+La versione estesa `smart-v2` è documentata in [piano-smart-v2-api-contract.md](piano-smart-v2-api-contract.md). V1 resta compatibile e continua a usare le proprie rotte. `GET /api/piano-smart/v2/current-situation` non cresce di rotte: dal 2026-10 risponde anche con `horizon`, l'orizzonte di spesa (ciclo mensile o data) scelto dall'utente — vedi il contratto V2 per la forma completa.
 
 Ripartizione deterministica di una nuova somma fra cinque categorie
 (`needs`, `safety`, `goals`, `future`, `freedom`), a partire dal

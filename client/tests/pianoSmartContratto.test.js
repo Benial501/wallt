@@ -17,6 +17,8 @@ import serverConstants from '../../server/constants/pianoSmart.js';
 import {
   CATEGORIE_PIANO, ORIGINI_SOMMA, STATI_PIANO, TRANSIZIONI_STATO, CATEGORIA_CONCETTO,
   importoInCentesimi, centesimiInImporto, formattaEuro,
+  ORIZZONTE_TIPI, ORIZZONTE_MESI_MAX, ETICHETTE_ORIZZONTE,
+  ORIZZONTE_STATI, DAILY_LIMIT_BASIS, RISERVA_MESI_MIN, RISERVA_MESI_MAX,
 } from '../src/utils/pianoSmart.js';
 import { GLOSSARIO } from '../src/content/glossario.js';
 
@@ -110,4 +112,46 @@ test('la view non manda etichette al posto dei valori API', () => {
   assert.doesNotMatch(view, /:value="'Regalo'"|value="Regalo"/);
   assert.doesNotMatch(view, /'completato'|'archiviato'/, 'stati in italiano inviati al backend');
   assert.match(view, /ORIGINI_SOMMA/, 'la view deve usare il vocabolario condiviso');
+});
+
+test('i tipi di orizzonte coincidono con quelli del backend', () => {
+  assert.deepEqual([...ORIZZONTE_TIPI], [...serverConstants.ORIZZONTE_TIPI]);
+});
+
+test('il tetto in mesi dell orizzonte e lo stesso sui due lati', () => {
+  assert.equal(ORIZZONTE_MESI_MAX, serverConstants.ORIZZONTE_MESI_MAX);
+});
+
+test('ogni tipo di orizzonte ha una etichetta leggibile diversa dal valore API', () => {
+  ORIZZONTE_TIPI.forEach((tipo) => {
+    const etichetta = ETICHETTE_ORIZZONTE[tipo];
+    assert.ok(etichetta && etichetta !== tipo, `tipo senza etichetta: ${tipo}`);
+  });
+});
+
+test('gli stati dell orizzonte coincidono con quelli del backend', () => {
+  assert.deepEqual([...ORIZZONTE_STATI], [...serverConstants.ORIZZONTE_STATI]);
+});
+
+test('le basi del limite giornaliero coincidono con quelle del backend', () => {
+  assert.deepEqual([...DAILY_LIMIT_BASIS], [...serverConstants.DAILY_LIMIT_BASIS]);
+});
+
+test('la copertura della riserva prudenziale è la stessa sui due lati', () => {
+  assert.equal(RISERVA_MESI_MIN, serverConstants.RISERVA_MESI_MIN);
+  assert.equal(RISERVA_MESI_MAX, serverConstants.RISERVA_MESI_MAX);
+});
+
+test('i concetti dell orizzonte hanno etichetta e descrizione', () => {
+  ['budget_giornaliero', 'capitale_libero', 'impegni_orizzonte', 'ritmo_attuale']
+    .forEach((id) => {
+      const concetto = GLOSSARIO[id];
+      assert.ok(concetto, `concetto mancante: ${id}`);
+      assert.ok(concetto.etichetta && concetto.descrizione, `concetto incompleto: ${id}`);
+    });
+});
+
+test('nessun concetto si chiama piu Spendibile', () => {
+  const etichette = Object.values(GLOSSARIO).map((c) => c.etichetta);
+  assert.ok(!etichette.includes('Spendibile'), 'etichetta ritirata ancora presente');
 });

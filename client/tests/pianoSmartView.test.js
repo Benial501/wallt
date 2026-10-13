@@ -12,41 +12,34 @@ test('Piano Smart usa l’aiuto contestuale condiviso come le altre sezioni', as
   assert.match(source, /:open="guidaSpiegazioneAperta"/, 'le spiegazioni contestuali nella pagina devono restare disponibili');
 });
 
-test('Piano Smart espone timeline accessibile, radar e obiettivi dalla situazione del server', async () => {
-  const source = await readFile(new URL('../src/views/PianoSmartView.vue', import.meta.url), 'utf8');
-  assert.match(source, /PianoSmartChangeTimeline/);
-  assert.match(source, /PianoSmartCashFlowRadar/);
-  assert.match(source, /PianoSmartGoalsSummary/);
-  const timeline = await readFile(new URL('../src/components/piano-smart/PianoSmartChangeTimeline.vue', import.meta.url), 'utf8');
-  assert.match(timeline, /type="range"/);
-  assert.match(timeline, /aria-label=/);
-  assert.match(timeline, /currentPeriodPartial/);
-  const radar = await readFile(new URL('../src/components/piano-smart/PianoSmartCashFlowRadar.vue', import.meta.url), 'utf8');
-  assert.match(radar, /entrata|uscita/);
-  assert.match(radar, /marginAfter/);
-  const goals = await readFile(new URL('../src/components/piano-smart/PianoSmartGoalsSummary.vue', import.meta.url), 'utf8');
-  assert.match(goals, /stima teorica/i);
-  assert.match(goals, /estimateReason/);
-});
-
-test('Piano Smart distingue le tre aree e salva lo scenario V2 selezionato', async () => {
+test('Piano Smart (il wizard) resta sulla sua rotta e salva lo scenario V2 selezionato', async () => {
   const source = await readFile(new URL('../src/views/PianoSmartView.vue', import.meta.url), 'utf8');
   const store = await readFile(new URL('../src/stores/pianoSmart.store.js', import.meta.url), 'utf8');
-  assert.match(source, /\>Oggi<\/button>/);
-  assert.match(source, /\>Analisi<\/button>/);
-  assert.match(source, /\>Piani<\/button>/);
+  assert.match(source, /\>Crea un piano<\/button>/);
+  assert.match(source, /\>Piani salvati<\/button>/);
   assert.match(source, /selectedScenario/);
-  assert.match(store, /createV2Plan/);
+  // Il monitoraggio (Oggi/Prossimi 30 giorni/Analisi) è su una pagina
+  // separata (SituazioneView.vue, Fase 6): qui non deve più esistere.
+  assert.doesNotMatch(source, /currentSituation/);
   assert.match(store, /createV2Plan/);
   assert.match(store, /selectedScenario: selectedScenario\.value/);
 });
 
-test('il riquadro Accantona compare soltanto nei prossimi 30 giorni, non in Analisi', async () => {
-  const source = await readFile(new URL('../src/views/PianoSmartView.vue', import.meta.url), 'utf8');
-  const upcomingStart = source.indexOf('<template v-if="tab === \'upcoming\'">');
-  const funding = source.indexOf('<PianoSmartExpenseFunding');
-  const radar = source.indexOf('<PianoSmartCashFlowRadar', upcomingStart);
-  assert.ok(upcomingStart >= 0 && funding > upcomingStart && funding < radar);
+// Voce 11 della review finale: il passaggio del suggerimento "crea un piano"
+// da tab locale a navigazione con query non aveva un test. Il codice è
+// corretto, ma il modo in cui fallirebbe è silenzioso: un suggerimento che
+// porta a una pagina che ignora la richiesta, senza nessun errore a
+// segnalarlo. Qui si verificano insieme il lato che invia (La tua
+// situazione naviga con una query, non impostando più un tab locale, perché
+// il wizard vive ora su una rotta separata) e il lato che riceve (il wizard
+// legge quella query in onMounted).
+test('il suggerimento "crea un piano" passa il focus con una query che il wizard legge', async () => {
+  const situazione = await readFile(new URL('../src/views/SituazioneView.vue', import.meta.url), 'utf8');
+  const wizard = await readFile(new URL('../src/views/PianoSmartView.vue', import.meta.url), 'utf8');
+  assert.match(situazione, /router\.push\(\{\s*path:\s*'\/funzionalita\/piano-smart\/nuovo',\s*query:\s*focus\s*\?\s*\{\s*focus\s*\}\s*:\s*undefined\s*\}\)/);
+  assert.match(situazione, /const focus = suggestion\.action\.mode === 'emergency-fund' \? 'emergency-fund' : undefined/);
+  assert.match(wizard, /onMounted\(\(\) => \{[\s\S]*?route\.query\.focus === 'emergency-fund'[\s\S]*?\}\);/);
+  assert.match(wizard, /pianoFocus\.value = 'emergency-fund'/);
 });
 
 test('Piano Smart apre da Aiuto la sezione richiesta dalla statistica', async () => {

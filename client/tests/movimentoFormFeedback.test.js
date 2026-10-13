@@ -23,14 +23,14 @@ test('la barra mobile usa colonne uguali e mantiene le etichette su una riga', (
   assert.ok(/font-size:\s*clamp\(/.test(labelStyles), 'il testo deve adattarsi agli schermi stretti');
 });
 
-test('la barra mobile mostra Piano Smart al centro e Analisi subito dopo', () => {
+test('la barra mobile mostra La tua situazione al centro e Analisi subito dopo', () => {
   const navStart = layout.indexOf('const mobileNav = computed(() => [');
   const navEnd = layout.indexOf('\n]);', navStart);
   const navItems = layout.slice(navStart, navEnd);
   const expectedOrder = [
     "/dashboard', icon: Home, label: 'Home",
     "/movimenti', icon: ArrowLeftRight, label: 'Transazioni",
-    "/funzionalita/piano-smart', icon: NAV_ICON_MAP.pianoSmart, label: 'Piano Smart",
+    "/funzionalita/situazione', icon: NAV_ICON_MAP.pianoSmart, label: 'Situazione",
     "/analisi', icon: NAV_ICON_MAP.analisi, label: 'Analisi",
     "'altro', icon: LayoutGrid, label: 'Altro",
   ];
@@ -41,7 +41,7 @@ test('la barra mobile mostra Piano Smart al centro e Analisi subito dopo', () =>
     assert.ok(index > previousIndex, `la voce ${item} deve apparire nell’ordine richiesto`);
     previousIndex = index;
   }
-  assert.doesNotMatch(navItems, /label: 'Obiettivi'|label: 'Investimenti'/, 'la barra deve riservare gli accessi a Piano Smart e Analisi');
+  assert.doesNotMatch(navItems, /label: 'Obiettivi'|label: 'Investimenti'/, 'la barra deve riservare gli accessi a La tua situazione e Analisi');
 });
 
 test('il form Entrata/Uscita mostra sempre la descrizione, anche per i movimenti immediati', () => {

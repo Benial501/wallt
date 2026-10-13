@@ -147,7 +147,17 @@ export const routes = [
         component: () => import('@/views/AiutoView.vue'),
       },
       {
-        path: 'funzionalita/piano-smart',
+        path: 'funzionalita/situazione',
+        name: 'situazione',
+        component: () => import('@/views/SituazioneView.vue'),
+      },
+      {
+        // Il wizard si è spostato qui dall'ottobre 2026 (voce 8 della
+        // review finale): `funzionalita/piano-smart` è diventato un
+        // redirect verso la situazione, più sotto, perché chi aveva un
+        // segnalibro su quel percorso cercava il monitoraggio, non la
+        // creazione di un piano — è la lettura che la spec prescriveva.
+        path: 'funzionalita/piano-smart/nuovo',
         name: 'piano-smart',
         component: () => import('@/views/PianoSmartView.vue'),
       },
@@ -173,6 +183,13 @@ export const routes = [
           if (authStore.user?.ruolo !== 'admin') return { name: 'dashboard' };
           return true;
         },
+      },
+      {
+        // La vecchia URL del wizard, quando la pagina era una sola: chi
+        // arriva da un segnalibro o da un link vecchio cercava il
+        // monitoraggio, non la creazione di un piano.
+        path: 'funzionalita/piano-smart',
+        redirect: { name: 'situazione' },
       },
     ],
   },

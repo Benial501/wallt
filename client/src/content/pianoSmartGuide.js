@@ -11,9 +11,10 @@ export const GUIDA_PIANO_SMART = Object.freeze([
     id: 'cos-e', titolo: 'A cosa serve Piano Smart',
     sottotitolo: 'Leggi la situazione, valuta una scelta e organizza una somma.',
     paragraphs: [
-      'Piano Smart mette in ordine i dati che hai registrato per aiutarti a capire il margine di oggi, osservare come cambia nel tempo, simulare una spesa e preparare un piano collegato a una somma o a un obiettivo.',
+      'Sono due cose distinte, su due pagine separate. «La tua situazione» risponde a come sto e quanto posso spendere: riassume il margine di oggi, come cambia nel tempo e ti lascia simulare una spesa prima di farla. «Piano Smart» risponde a è arrivata una somma, come la divido: è il percorso guidato che riparte un importo appena ricevuto in cinque categorie.',
+      'In «La tua situazione» l’orizzonte di spesa ha due modalità: il ciclo mensile di sempre, dove il budget giornaliero riparte a ogni mese, oppure una data che scegli tu, entro cui il capitale libero deve bastare e che si ricalcola ogni giorno su quello che resta davvero.',
       'Puoi esplorare Oggi, Analisi e Piani nell’ordine che preferisci. Le indicazioni descrivono dati e ipotesi: le decisioni restano tue e non sono consulenza finanziaria.',
-      'Piano Smart non sposta denaro: le simulazioni e i piani non creano movimenti né aggiornano saldi o obiettivi.',
+      'In entrambe le pagine WALLT non sposta denaro: le simulazioni e i piani non creano movimenti né aggiornano saldi o obiettivi.',
     ],
     limits: ['Non collega automaticamente i conti bancari.', 'Non sposta denaro e non crea movimenti durante letture o simulazioni.', 'Una previsione non garantisce il saldo futuro.'],
   },

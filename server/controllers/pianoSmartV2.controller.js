@@ -1,4 +1,4 @@
-const { getFinancialContext } = require('../services/financialContext.service');
+const { getFinancialContext, riepilogoRicorrenti } = require('../services/financialContext.service');
 const { buildPlanningContext } = require('../services/pianoSmartV2/planningContext.service');
 const { generateScenarios } = require('../services/pianoSmartV2/scenario.service');
 const { projectScenario } = require('../services/pianoSmartV2/projection.service');
@@ -46,9 +46,41 @@ const preview = async (req, res) => {
   }
 };
 
+/**
+ * `getFinancialContext` più l'arricchimento dell'orizzonte: la proiezione
+ * lunga delle ricorrenze costa un giro di query in più, quindi si chiede
+ * solo a chi ha scelto un orizzonte a data. `riepilogoRicorrenti` è già
+ * esportata, quindi non serve allargare `getFinancialContext`.
+ *
+ * UNICA fonte per entrambi i gestori che costruiscono una situazione
+ * (`currentSituation` e `simulatePurchase`, gli unici due in tutto
+ * `server/controllers` e `server/services`): prima questo blocco viveva
+ * solo in `currentSituation`, e `simulatePurchase` chiamava
+ * `buildCurrentSituation` su un contesto senza `recurring.horizon`. In
+ * modalità a data `impegniFinoACents` arrivava sempre `null`,
+ * `calcolaOrizzonte` restituiva `non_stimabile` con `capitaleLibero: null`,
+ * e il simulatore rispondeva sempre 400 — un difetto Critico, il
+ * simulatore era completamente inutilizzabile in quella modalità. Due
+ * copie dello stesso arricchimento sono già divergite una volta; qui non
+ * ne resta che una.
+ */
+const caricaContestoConOrizzonte = async (userId) => {
+  const financialContext = await getFinancialContext(userId);
+  if (financialContext.preferences?.orizzonteTipo === 'data'
+    && financialContext.preferences?.orizzonteData) {
+    const conOrizzonte = await riepilogoRicorrenti(
+      userId,
+      new Date(financialContext.period.referenceDate),
+      financialContext.preferences.orizzonteData,
+    );
+    financialContext.recurring.horizon = conOrizzonte.horizon;
+  }
+  return financialContext;
+};
+
 const currentSituation = async (req, res) => {
   try {
-    const financialContext = await getFinancialContext(req.userId);
+    const financialContext = await caricaContestoConOrizzonte(req.userId);
     const { dailyTotals, firstMovementDate } = await getMovementDailyTotals(
       req.userId,
       financialContext.period.referenceDate,
@@ -71,10 +103,18 @@ const simulatePurchase = async (req, res) => {
     if (amountCents === null || amountCents <= 0) {
       return res.status(400).json({ error: 'Inserisci un importo positivo con al massimo due decimali.' });
     }
-    const financialContext = await getFinancialContext(req.userId);
+    const financialContext = await caricaContestoConOrizzonte(req.userId);
     const situation = buildCurrentSituation({ context: financialContext });
     const result = simulaAcquisto(situation, req.body.amount);
-    if (!result) return res.status(400).json({ error: 'Inserisci un importo positivo valido e assicurati che lo spendibile sia disponibile.' });
+    // Due cause diverse, due frasi diverse: un importo già respinto sopra
+    // non arriva qui, quindi se `simulaAcquisto` restituisce `null` non è
+    // l'importo a essere invalido (lo sappiamo già) — è la situazione a non
+    // essere calcolabile (dati insufficienti o inconsistenti). Prima la
+    // stessa frase copriva entrambe le cause e accusava l'utente di un
+    // errore che non aveva fatto.
+    if (!result) {
+      return res.status(422).json({ error: 'Non riesco a calcolare la tua situazione in questo momento: riprova più tardi.' });
+    }
     return res.json(result);
   } catch (error) {
     logger.error('Purchase simulation failed', { err: error, userId: req.userId });
