@@ -18,6 +18,7 @@ import { useProfiloStore } from '@/stores/profilo.store';
 import { useToastStore } from '@/stores/toast.store';
 import { purchaseAmountCents } from '@/utils/pianoSmartSimulation';
 import { formattaEuro } from '@/utils/pianoSmart';
+import { GLOSSARIO } from '@/content/glossario';
 
 /**
  * La tua situazione: il cruscotto di monitoraggio continuo di Piano Smart.
@@ -71,6 +72,11 @@ const speseFrequenti = computed(() => {
 });
 const simulatoreErrore = computed(() => simulatoreImporto.value !== '' && purchaseAmountCents(simulatoreImporto.value) === null);
 const formattaScadenza = (value) => new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`));
+// Con l'anno: l'orizzonte a data arriva fino a 36 mesi, e la data
+// raggiungibile dopo la simulazione può cadere nell'anno successivo.
+const formattaScadenzaConAnno = (value) => (value
+  ? new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`))
+  : null);
 const qualitaPrevisione = computed(() => ({ dati_insufficienti: 'Previsione non disponibile', storico_limitato: 'Storico ancora limitato', storico_disponibile: 'Storico disponibile' })[currentSituation.value?.forecast.quality]);
 const simulaAcquisto = async () => {
   if (!simulatoreErrore.value && simulatoreImporto.value) await store.simulatePurchase(simulatoreImporto.value);
@@ -204,11 +210,22 @@ onMounted(() => {
             <caption class="sr-only">Confronto prima e dopo una spesa di {{ formattaEuro(simulazione.amount) }}</caption>
             <thead><tr><th scope="col">Il tuo piano</th><th scope="col">Prima</th><th scope="col">Dopo</th></tr></thead>
             <tbody>
-            <tr><th scope="row">Spendibile</th><td>{{ formattaEuro(simulazione.availableBefore) }}</td><td>{{ formattaEuro(simulazione.availableAfter) }}</td></tr>
+            <tr><th scope="row">{{ GLOSSARIO.capitale_libero.etichetta }}</th><td>{{ formattaEuro(simulazione.availableBefore) }}</td><td>{{ formattaEuro(simulazione.availableAfter) }}</td></tr>
             <tr><th scope="row">Fine mese</th><td>{{ formattaEuro(simulazione.forecastBefore) }}</td><td>{{ formattaEuro(simulazione.forecastAfter) }}</td></tr>
             <tr><th scope="row">Limite indicativo / giorno</th><td>{{ formattaEuro(simulazione.dailyLimitBefore) }}</td><td>{{ formattaEuro(simulazione.dailyLimitAfter) }}</td></tr>
             </tbody>
           </table>
+          <!-- Solo in modalità data: in modalità mensile "a fine mese" è già
+               la lettura naturale, mentre con una scadenza scelta dall'utente
+               la domanda vera è quanto si allontana il giorno in cui il
+               capitale non basta più (promessa della spec non consegnata —
+               difetto 7 della review finale). -->
+          <p v-if="currentSituation.horizon?.tipo === 'data' && simulazione.giorniAutonomiaPersi" class="hint">
+            Questo acquisto ti costa {{ simulazione.giorniAutonomiaPersi }}
+            {{ simulazione.giorniAutonomiaPersi === 1 ? 'giorno' : 'giorni' }} di autonomia:
+            la data raggiungibile passa dal {{ formattaScadenzaConAnno(currentSituation.horizon.dataRaggiungibile) }}
+            al {{ formattaScadenzaConAnno(simulazione.dataRaggiungibileAfter) }}.
+          </p>
           <span class="simulator-result__impact">Quota del margine usata: {{ simulazione.impact }}</span>
           <p class="hint">Gli importi già accantonati a obiettivi o riserva restano invariati. La simulazione non ricalcola tempi degli obiettivi o ripartizioni: l’acquisto ipotetico non è collegato a un contributo o a un piano.</p>
           <p v-if="simulazione.availableAfter < 0" class="hint">L’acquisto supera il margine spendibile stimato.</p>

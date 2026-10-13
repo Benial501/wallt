@@ -120,17 +120,29 @@ function buildHorizonData({
   available, allocated, protectedAmount, shortfall,
   liquidity, horizonCommitments, actualDailySpend,
   emergencyFundBalance, fondoAssente, monthlyDailyLimit,
+  recurringCommitments, additionalCommitments, reserveFromLiquidity,
 }) {
   if (orizzonteTipo === 'mensile') {
+    // Senza gli obiettivi: nel riepilogo dell'hero quelli sono già una riga
+    // a sé, e sommarli qui li mostrerebbe sottratti due volte.
+    //
+    // `impegniFinoA` sono SOLO ricorrenze e spese programmate — la formula
+    // che il glossario dichiara (`impegni_orizzonte`, Coding Rule 18). Prima
+    // includeva anche la riserva prudenziale (`protectedAmount - allocated`,
+    // che contiene `reserveFromLiquidity`): l'etichetta mentiva sul
+    // contenuto, mostrando ad esempio 1.000 € di "impegni" quando le
+    // ricorrenze erano 100 (difetto 5 della review finale). La riserva ha
+    // una riga propria (`riservaFinoA`), così `capitaleLibero` resta la
+    // somma di quattro numeri, non tre che non si corrispondono più.
+    const impegniRicorrentiCents = recurringCommitments === null || additionalCommitments === null
+      ? null : recurringCommitments + additionalCommitments;
     const horizon = {
       tipo: 'mensile',
       dataFine: monthEnd,
       giorni: remainingDays,
       capitaleLibero: money(available),
-      // Senza gli obiettivi: nel riepilogo dell'hero quelli sono già una
-      // riga a sé, e sommarli qui li mostrerebbe sottratti due volte.
-      impegniFinoA: protectedAmount === null || allocated === null ? null
-        : money(protectedAmount - allocated),
+      impegniFinoA: money(impegniRicorrentiCents),
+      riservaFinoA: money(reserveFromLiquidity),
       budgetGiornaliero: money(monthlyDailyLimit),
       stato: monthlyDailyLimit === null ? 'non_stimabile' : shortfall > 0 ? 'scoperto' : 'in_rotta',
       mancanti: shortfall > 0 ? money(shortfall) : null,
@@ -162,6 +174,11 @@ function buildHorizonData({
     ...esito,
     capitaleLibero: money(esito.capitaleLibero),
     impegniFinoA: money(esito.impegniFinoA),
+    // La riserva prudenziale è un concetto del ciclo mensile (Regola 20,
+    // liquidita.service.js): in modalità data non entra nel capitale
+    // (commento sopra su `baseCents`), quindi qui non c'è una quota da
+    // mostrare — la forma del campo resta la stessa delle due modalità.
+    riservaFinoA: null,
     budgetGiornaliero: money(esito.budgetGiornaliero),
     mancanti: money(esito.mancanti),
     // Informazione, non capitale: il fondo è un conto nascosto e resta
@@ -324,6 +341,7 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
     available, allocated, protectedAmount, shortfall,
     liquidity, horizonCommitments, actualDailySpend,
     emergencyFundBalance, fondoAssente, monthlyDailyLimit,
+    recurringCommitments, additionalCommitments, reserveFromLiquidity,
   });
 
   const paceDelta = dailyLimitCents === null || actualDailySpend === null ? null : actualDailySpend - dailyLimitCents;

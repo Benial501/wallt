@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import WCard from '@/components/common/WCard.vue';
 import OrizzonteSelector from '@/components/piano-smart/OrizzonteSelector.vue';
 import { GLOSSARIO } from '@/content/glossario';
-import { formattaEuro } from '@/utils/pianoSmart';
+import { formattaEuro, importoInCentesimi, centesimiInImporto } from '@/utils/pianoSmart';
 
 /**
  * L'hero della situazione: UN numero in cima, tre di supporto, tutto il resto
@@ -41,6 +41,19 @@ const margine = computed(() => {
   if (raw === null || raw === undefined) return null;
   const valore = Number(raw);
   return Number.isFinite(valore) ? valore : null;
+});
+
+// La divisione onesta per il pannello "Come è calcolato": capitale libero ÷
+// giorni, SENZA il tetto della spesa media. Prima qui si mostrava
+// `h.budgetGiornaliero` (già con il tetto applicato) accanto a "÷ N giorni",
+// una divisione che il numero non verificava — 4.000 ÷ 19 non fa 29,56
+// quando il tetto è quello a decidere il numero finale (difetto 6 della
+// review finale). Il tetto, quando si applica, ha ora una riga propria.
+const divisioneCapitaleGiorni = computed(() => {
+  const capitale = importoInCentesimi(h.value.capitaleLibero);
+  const giorni = Number(h.value.giorni);
+  if (capitale === null || !Number.isInteger(giorni) || giorni <= 0) return null;
+  return centesimiInImporto(Math.floor(Math.max(capitale, 0) / giorni));
 });
 </script>
 
@@ -117,10 +130,20 @@ const margine = computed(() => {
         <dt>Liquidità dei conti</dt><dd>{{ formattaEuro(corrente.liquidity) }}</dd>
         <dt>− obiettivi accantonati</dt><dd>{{ formattaEuro(corrente.allocatedToGoals) }}</dd>
         <dt>− {{ GLOSSARIO.impegni_orizzonte.etichetta.toLowerCase() }} ({{ dataLunga(h.dataFine) }})</dt><dd>{{ formattaEuro(h.impegniFinoA) }}</dd>
+        <template v-if="h.riservaFinoA !== null && h.riservaFinoA !== undefined">
+          <dt>− {{ GLOSSARIO.riserva_orizzonte.etichetta.toLowerCase() }}</dt><dd>{{ formattaEuro(h.riservaFinoA) }}</dd>
+        </template>
         <dt>= capitale libero</dt><dd>{{ formattaEuro(h.capitaleLibero) }}</dd>
-        <dt>÷ {{ h.giorni }} giorni</dt><dd>{{ formattaEuro(h.budgetGiornaliero) }}/giorno</dd>
+        <dt>÷ {{ h.giorni }} giorni</dt><dd>{{ formattaEuro(divisioneCapitaleGiorni) }}/giorno</dd>
       </dl>
       <p>{{ GLOSSARIO.capitale_libero.descrizione }}</p>
+      <!-- Il risultato della divisione sopra non è sempre il numero in cima:
+           con entrate irregolari il limite non supera mai il ritmo medio
+           storico, e quando questo tetto lega è lui a decidere, non la
+           divisione. -->
+      <p v-if="corrente.dailyLimitBasis === 'spesa_media'">
+        In realtà limitato dal ritmo medio osservato: {{ formattaEuro(h.budgetGiornaliero) }}/giorno.
+      </p>
       <p v-if="h.tipo === 'data'">
         Il fondo di emergenza non è compreso nel capitale: resta da parte.
       </p>

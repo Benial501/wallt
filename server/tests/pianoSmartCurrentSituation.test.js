@@ -185,6 +185,42 @@ describe('horizon', () => {
     expect(situazione.horizon.budgetGiornaliero).toBe(situazione.current.dailyLimit);
   });
 
+  // Difetto 5 della review finale: `impegniFinoA` serializzava
+  // `protectedAmount - allocated`, che contiene anche la riserva
+  // prudenziale. L'etichetta "Impegni fino al termine" (ricorrenze + spese
+  // programmate, Coding Rule 18) mostrava così un numero più alto delle
+  // sole ricorrenze. La riserva ha ora una riga propria (`riservaFinoA`), e
+  // la somma dei quattro numeri torna a coincidere col capitale libero.
+  test('impegniFinoA non contiene più la riserva prudenziale, che ha una riga propria', () => {
+    const contesto = contestoBase({
+      income: {
+        currentMonth: 1200, monthlyAverage: 1200, recurringMonthlyAverage: 0, stability: 'irregolare',
+      },
+      expenses: { currentMonth: 300, variableCurrentMonth: 300, monthlyAverage: 400, averageMonths: 3 },
+    });
+    const situazione = buildCurrentSituation({ context: contesto, now: new Date('2026-10-12T12:00:00Z') });
+    expect(situazione.current.incomeMode).toBe('irregolare');
+    // Le ricorrenze del contesto base sono 100 (recurring.items): non 500.
+    expect(situazione.horizon.impegniFinoA).toBe('100.00');
+    expect(situazione.horizon.riservaFinoA).toBe('400.00');
+    const liquidita = Number(situazione.current.liquidity);
+    const obiettivi = Number(situazione.current.allocatedToGoals);
+    const impegni = Number(situazione.horizon.impegniFinoA);
+    const riserva = Number(situazione.horizon.riservaFinoA);
+    expect(Number(situazione.horizon.capitaleLibero)).toBeCloseTo(liquidita - obiettivi - impegni - riserva, 2);
+  });
+
+  test('in modalita data la riserva prudenziale non esiste: resta null', () => {
+    const situazione = buildCurrentSituation({
+      context: contestoBase({
+        preferences: { orizzonteTipo: 'data', orizzonteData: '2027-02-28' },
+        recurringHorizon: { through: '2027-02-28', items: [], totalOutflow: 0 },
+      }),
+      now: new Date('2026-10-12T12:00:00Z'),
+    });
+    expect(situazione.horizon.riservaFinoA).toBeNull();
+  });
+
   test('in modalita data il budget non e limitato dalla spesa media storica', () => {
     const contesto = contestoBase({
       preferences: { orizzonteTipo: 'data', orizzonteData: '2027-02-28' },

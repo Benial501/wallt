@@ -143,8 +143,8 @@ const CONCETTI = [
     id: 'capitale_libero',
     etichetta: 'Capitale libero',
     descrizione:
-      'I soldi dei conti che puoi davvero distribuire sui giorni: i conti attivi non nascosti, meno quanto hai già accantonato sugli obiettivi e meno gli impegni fino al termine scelto. Il fondo di emergenza non è compreso.',
-    formula: 'conti spendibili − obiettivi accantonati − impegni fino al termine',
+      'I soldi dei conti che puoi davvero distribuire sui giorni: i conti attivi non nascosti, meno quanto hai già accantonato sugli obiettivi, meno gli impegni fino al termine scelto e, nel ciclo mensile con entrate irregolari, meno la riserva prudenziale ancora da coprire. Il fondo di emergenza non è compreso.',
+    formula: 'conti spendibili − obiettivi accantonati − impegni fino al termine − riserva prudenziale',
     origine: 'GET /piano-smart-v2/current-situation → horizon.capitaleLibero',
     topic: 'orizzonte-di-spesa',
   },
@@ -152,9 +152,18 @@ const CONCETTI = [
     id: 'impegni_orizzonte',
     etichetta: 'Impegni fino al termine',
     descrizione:
-      'Le uscite che sai già di dover sostenere entro il termine scelto: ricorrenze e spese programmate. Vengono messe da parte prima di calcolare quanto puoi spendere al giorno, così una bolletta non azzera il budget il giorno in cui scade.',
+      'Le uscite che sai già di dover sostenere entro il termine scelto: ricorrenze e spese programmate. Vengono messe da parte prima di calcolare quanto puoi spendere al giorno, così una bolletta non azzera il budget il giorno in cui scade. Non comprende la riserva prudenziale, che ha una riga propria.',
     formula: 'ricorrenze + spese programmate con scadenza entro il termine',
     origine: 'GET /piano-smart-v2/current-situation → horizon.impegniFinoA',
+    topic: 'orizzonte-di-spesa',
+  },
+  {
+    id: 'riserva_orizzonte',
+    etichetta: 'Riserva prudenziale',
+    descrizione:
+      'Quanto lasci da parte, oltre agli impegni già previsti, per i mesi di spese essenziali che hai scelto come cuscinetto. Si applica solo nel ciclo mensile, con entrate irregolari, e non supera mai quanto ti manca per raggiungere la soglia scelta.',
+    formula: 'spese essenziali mensili × mesi di riserva scelti − fondo di emergenza già disponibile',
+    origine: 'GET /piano-smart-v2/current-situation → horizon.riservaFinoA',
     topic: 'orizzonte-di-spesa',
   },
   {
