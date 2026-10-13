@@ -141,7 +141,7 @@ const eseguiSuggerimento = (suggestion) => {
   if (type === 'open-emergency-fund') router.push('/fondo-emergenza');
   if (type === 'create-plan') {
     const focus = suggestion.action.mode === 'emergency-fund' ? 'emergency-fund' : undefined;
-    router.push({ path: '/funzionalita/piano-smart', query: focus ? { focus } : undefined });
+    router.push({ path: '/funzionalita/piano-smart/nuovo', query: focus ? { focus } : undefined });
   }
 };
 

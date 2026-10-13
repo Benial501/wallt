@@ -32,7 +32,8 @@ test('La tua situazione distingue le tre aree di monitoraggio, senza il tab Pian
   assert.match(source, /\>Prossimi 30 giorni<\/button>/);
   assert.match(source, /\>Analisi<\/button>/);
   // Il tab Piani è sparito da qui: il wizard vive sulla rotta separata
-  // /funzionalita/piano-smart (PianoSmartView.vue).
+  // /funzionalita/piano-smart/nuovo (PianoSmartView.vue). La vecchia URL
+  // /funzionalita/piano-smart ora redirige qui (voce 8 della review finale).
   assert.doesNotMatch(source, /\>Piani<\/button>/);
 });
 

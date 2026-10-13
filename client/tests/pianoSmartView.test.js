@@ -36,7 +36,7 @@ test('Piano Smart (il wizard) resta sulla sua rotta e salva lo scenario V2 selez
 test('il suggerimento "crea un piano" passa il focus con una query che il wizard legge', async () => {
   const situazione = await readFile(new URL('../src/views/SituazioneView.vue', import.meta.url), 'utf8');
   const wizard = await readFile(new URL('../src/views/PianoSmartView.vue', import.meta.url), 'utf8');
-  assert.match(situazione, /router\.push\(\{\s*path:\s*'\/funzionalita\/piano-smart',\s*query:\s*focus\s*\?\s*\{\s*focus\s*\}\s*:\s*undefined\s*\}\)/);
+  assert.match(situazione, /router\.push\(\{\s*path:\s*'\/funzionalita\/piano-smart\/nuovo',\s*query:\s*focus\s*\?\s*\{\s*focus\s*\}\s*:\s*undefined\s*\}\)/);
   assert.match(situazione, /const focus = suggestion\.action\.mode === 'emergency-fund' \? 'emergency-fund' : undefined/);
   assert.match(wizard, /onMounted\(\(\) => \{[\s\S]*?route\.query\.focus === 'emergency-fund'[\s\S]*?\}\);/);
   assert.match(wizard, /pianoFocus\.value = 'emergency-fund'/);

@@ -207,11 +207,18 @@ al 10 marzo» — invece di «impatto: moderato, 20–45% dello spendibile».
 
 - **`views/SituazioneView.vue`** — rotta `funzionalita/situazione`, menu
   «La tua situazione»: oggi, prossimi 30 giorni, analisi.
-- **`views/PianoSmartView.vue`** — rotta invariata, menu «Piano Smart»:
-  solo wizard e piani salvati.
+- **`views/PianoSmartView.vue`** — rotta nuova, `funzionalita/piano-smart/nuovo`,
+  menu «Piano Smart»: solo wizard e piani salvati.
 
-La vecchia rotta resta valida e chi arriva senza il wizard aperto viene
-rediretto alla situazione: link e bookmark non si rompono (Coding Rule 14).
+> Nota (review finale, voce 8): la prima implementazione aveva lasciato il
+> wizard sulla vecchia rotta `funzionalita/piano-smart` senza far
+> redirigere nessuno — un segnalibro su quell'indirizzo continuava a
+> cercare il monitoraggio e trovava il wizard. La decisione finale è
+> l'opposta di quella scritta sopra: è il **wizard** a spostarsi su una
+> rotta nuova, e `funzionalita/piano-smart` diventa un redirect verso la
+> situazione — chi aveva un segnalibro su quell'indirizzo cercava il
+> monitoraggio, non la creazione di un piano (Coding Rule 14: link e
+> bookmark non si rompono, continuano solo a portare altrove).
 
 ## File toccati
 

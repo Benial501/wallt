@@ -116,7 +116,7 @@ const navItems = computed(() => {
     { path: '/conti', icon: NAV_ICON_MAP.conti, label: 'I miei conti' },
     { path: '/movimenti', icon: NAV_ICON_MAP.movimenti, label: 'Movimenti' },
     { path: '/funzionalita/situazione', icon: NAV_ICON_MAP.pianoSmart, label: 'La tua situazione' },
-    { path: '/funzionalita/piano-smart', icon: NAV_ICON_MAP.pianoSmart, label: 'Piano Smart' },
+    { path: '/funzionalita/piano-smart/nuovo', icon: NAV_ICON_MAP.pianoSmart, label: 'Piano Smart' },
   ];
   items.push(...resolveFunctionalityItems('sidebar'));
   return items;

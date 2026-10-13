@@ -43,7 +43,7 @@ export const FUNCTIONALITY_ITEMS = Object.freeze([
   // da Aiuto (difetto 9 della review finale).
   {
     id: 'piano-smart', label: 'Piano Smart', description: 'Crea un nuovo piano', icon: 'pianoSmart',
-    route: '/funzionalita/piano-smart', placements: ['sheet'], order: { sheet: 60 }, active: true,
+    route: '/funzionalita/piano-smart/nuovo', placements: ['sheet'], order: { sheet: 60 }, active: true,
   },
 ]);
 
