@@ -199,6 +199,34 @@ describe('horizon', () => {
     expect(situazione.current.dailyLimitBasis).toBe('orizzonte_data');
   });
 
+  // Voce 10 della review finale: è l'unica asserzione che avrebbe impedito i
+  // due difetti Critici. Con entrate irregolari il tetto della spesa media
+  // (29,56/giorno) è diverso dal budget dell'orizzonte (22,38/giorno): prima
+  // della correzione `current.dailyLimit` restava il calcolo mensile — il
+  // tetto — anche quando `horizon.budgetGiornaliero` mostrava già il numero
+  // giusto in cima alla pagina, e margine/ritmo derivavano dal numero sbagliato.
+  test('in modalita data current.dailyLimit e current.dailyMargin derivano dal budget dell orizzonte, non dal tetto mensile', () => {
+    const contesto = contestoBase({
+      income: {
+        currentMonth: 1000, monthlyAverage: 1000, recurringMonthlyAverage: 0, stability: 'irregolare',
+      },
+      expenses: { currentMonth: 900, variableCurrentMonth: 900, monthlyAverage: 900, averageMonths: 3 },
+      liquidity: { ordinary: 5000, allocated: 0, allocatable: 5000, commitments: 300 },
+      preferences: { orizzonteTipo: 'data', orizzonteData: '2027-04-30' },
+      recurringHorizon: { through: '2027-04-30', items: [], totalOutflow: 500 },
+    });
+    const situazione = buildCurrentSituation({ context: contesto, now: new Date('2026-10-12T12:00:00Z') });
+    // Il tetto mensile che il difetto mostrava al posto del budget giusto.
+    expect(situazione.current.averageDailyExpenses).toBe('29.56');
+    expect(situazione.horizon.budgetGiornaliero).toBe('22.38');
+    expect(situazione.current.dailyLimit).toBe(situazione.horizon.budgetGiornaliero);
+    expect(situazione.current.dailyLimit).not.toBe(situazione.current.averageDailyExpenses);
+    const budget = Number(situazione.horizon.budgetGiornaliero);
+    const ritmo = Number(situazione.current.actualDailySpend);
+    expect(Number(situazione.current.dailyMargin)).toBeCloseTo(budget - ritmo, 2);
+    expect(Number(situazione.current.paceDelta)).toBeCloseTo(ritmo - budget, 2);
+  });
+
   test('senza orizzonte proiettato la modalita data non stima', () => {
     const situazione = buildCurrentSituation({
       context: contestoBase({
@@ -292,6 +320,32 @@ describe('Piano Smart: simulazione acquisto', () => {
     const esito = simulatePurchase(situazioneOrizzonte, '300.00');
     expect(esito.giorniAutonomiaPersi).toBeGreaterThan(0);
     expect(esito.dataRaggiungibileAfter < situazioneOrizzonte.horizon.dataRaggiungibile).toBe(true);
+  });
+
+  // Difetto 2 della review finale: il tetto della spesa media veniva
+  // riapplicato al valore "dopo" solo controllando la stringa
+  // `dailyLimitBasis === 'spesa_media'`, che in modalità data vale sempre
+  // `orizzonte_data`. Il confronto prima/dopo deve usare il budget
+  // dell'orizzonte (capitale libero − importo, diviso i giorni), non il
+  // margine mensile: un acquisto non può MAI alzare il limite indicativo.
+  test('un acquisto non alza mai il limite indicativo in modalita data', () => {
+    const contesto = contestoBase({
+      income: {
+        currentMonth: 1000, monthlyAverage: 1000, recurringMonthlyAverage: 0, stability: 'irregolare',
+      },
+      expenses: { currentMonth: 900, variableCurrentMonth: 900, monthlyAverage: 900, averageMonths: 3 },
+      liquidity: { ordinary: 5000, allocated: 0, allocatable: 5000, commitments: 300 },
+      preferences: { orizzonteTipo: 'data', orizzonteData: '2027-04-30' },
+      recurringHorizon: { through: '2027-04-30', items: [], totalOutflow: 500 },
+    });
+    const situazione = buildCurrentSituation({ context: contesto, now: new Date('2026-10-12T12:00:00Z') });
+    const prima = Number(situazione.horizon.budgetGiornaliero);
+    const esito = simulatePurchase(situazione, '100.00');
+    expect(Number(esito.dailyLimitBefore)).toBe(prima);
+    expect(Number(esito.dailyLimitAfter)).toBeLessThan(prima);
+    const capitaleLiberoCents = Math.round(Number(situazione.horizon.capitaleLibero) * 100);
+    const attesoCents = Math.floor(Math.max(capitaleLiberoCents - 10000, 0) / situazione.horizon.giorni);
+    expect(Math.round(Number(esito.dailyLimitAfter) * 100)).toBe(attesoCents);
   });
 
   test('senza ritmo osservato non inventa giorni persi', () => {

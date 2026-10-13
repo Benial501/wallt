@@ -38,16 +38,37 @@ function simulatePurchase(situation, rawAmount) {
   const shortfall = cents(situation.current?.shortfall);
   const dailyLimit = cents(situation.current?.dailyLimit);
   const averageDailyExpenses = cents(situation.current?.averageDailyExpenses);
-  const dailyLimitBasis = situation.current?.dailyLimitBasis;
+  const incomeMode = situation.current?.incomeMode;
   const forecast = cents(situation.forecast?.endOfMonthAvailable);
   const remainingDays = Number(situation.current?.remainingDays);
   if (available === null || shortfall === null || !Number.isInteger(remainingDays) || remainingDays <= 0) return null;
 
   const availableAfter = available - shortfall - amount;
-  const marginLimitAfter = Math.floor(Math.max(availableAfter, 0) / remainingDays);
-  const dailyLimitAfter = marginLimitAfter === null ? null
-    : dailyLimitBasis === 'spesa_media' && averageDailyExpenses !== null
+  // Il tetto della spesa media è una proprietà di un reddito irregolare, non
+  // di una stringa che descrive il limite ATTUALE: se oggi il tetto non lega
+  // (margine già più basso della media) non vuol dire che non si debba
+  // applicare dopo la spesa, quando il margine è sceso ancora. Guardare
+  // `dailyLimitBasis === 'spesa_media'` legava la domanda "si applica il
+  // tetto?" al valore di oggi — difetto 2 della review finale: un acquisto
+  // poteva far SALIRE il limite indicativo invece di scenderlo.
+  const capSpesaMediaSiApplica = incomeMode === 'irregolare' && averageDailyExpenses !== null;
+  // In modalità orizzonte-a-data il tetto della spesa media non si applica
+  // affatto (Regola 21, vedi `buildHorizonData`), e il confronto prima/dopo
+  // va fatto sul budget dell'orizzonte — non sul margine mensile, che misura
+  // una domanda diversa (quanto resta a fine mese, non quanto resta fino alla
+  // data scelta).
+  const horizonTipo = situation.horizon?.tipo;
+  let dailyLimitAfter;
+  if (horizonTipo === 'data') {
+    const capitaleLibero = cents(situation.horizon?.capitaleLibero);
+    const giorniOrizzonte = Number(situation.horizon?.giorni);
+    dailyLimitAfter = capitaleLibero === null || !Number.isInteger(giorniOrizzonte) || giorniOrizzonte <= 0
+      ? null : Math.floor(Math.max(capitaleLibero - amount, 0) / giorniOrizzonte);
+  } else {
+    const marginLimitAfter = Math.floor(Math.max(availableAfter, 0) / remainingDays);
+    dailyLimitAfter = capSpesaMediaSiApplica
       ? Math.min(marginLimitAfter, averageDailyExpenses) : marginLimitAfter;
+  }
   const forecastAfter = forecast === null ? null : forecast - amount;
   const status = availableAfter < 0 || (forecastAfter !== null && forecastAfter < 0) ? 'rischio'
     : dailyLimitAfter === null || forecastAfter === null ? 'non_stimabile'
@@ -83,6 +104,80 @@ function simulatePurchase(situation, rawAmount) {
     dataRaggiungibileAfter,
     writesFinancialData: false,
   };
+}
+
+/**
+ * Costruisce `horizon` e il limite giornaliero effettivo da mostrare
+ * (`dailyLimitCents`). In modalità mensile serializza ciò che il calcolo del
+ * ciclo di sempre ha già prodotto (nessun ricalcolo); in modalità data è
+ * `calcolaOrizzonte` l'unica fonte del budget, e `dailyLimitCents` DEVE
+ * essere quel budget — non il margine mensile — perché tutto ciò che ne
+ * deriva (margine, ritmo, insight, simulatore, riga in Analisi) racconti lo
+ * stesso numero scritto in cima alla pagina (difetto 1 della review finale).
+ */
+function buildHorizonData({
+  orizzonteTipo, context, referenceDate, monthEnd, remainingDays,
+  available, allocated, protectedAmount, shortfall,
+  liquidity, horizonCommitments, actualDailySpend,
+  emergencyFundBalance, fondoAssente, monthlyDailyLimit,
+}) {
+  if (orizzonteTipo === 'mensile') {
+    const horizon = {
+      tipo: 'mensile',
+      dataFine: monthEnd,
+      giorni: remainingDays,
+      capitaleLibero: money(available),
+      // Senza gli obiettivi: nel riepilogo dell'hero quelli sono già una
+      // riga a sé, e sommarli qui li mostrerebbe sottratti due volte.
+      impegniFinoA: protectedAmount === null || allocated === null ? null
+        : money(protectedAmount - allocated),
+      budgetGiornaliero: money(monthlyDailyLimit),
+      stato: monthlyDailyLimit === null ? 'non_stimabile' : shortfall > 0 ? 'scoperto' : 'in_rotta',
+      mancanti: shortfall > 0 ? money(shortfall) : null,
+      dataRaggiungibile: null,
+      fondoDisponibile: null,
+      fondoGiorniAggiuntivi: null,
+    };
+    return { horizon, dailyLimitCents: monthlyDailyLimit };
+  }
+
+  const esito = calcolaOrizzonte({
+    tipo: 'data',
+    dataFine: context.preferences.orizzonteData,
+    referenceDate,
+    // La base NON è `liquidity.allocatable`: quel campo sottrae già
+    // `impegni_pertinenti` (liquidita.service.js:211), e sottrarre poi
+    // `impegniFinoA` conterebbe due volte le ricorrenze del periodo
+    // corrente. Qui serve il capitale lordo spendibile: saldo ordinario
+    // (conti visibili meno i conti speciali, quindi scommesse escluse e
+    // fondo di emergenza escluso perché nascosto — Regola 22) meno la
+    // liquidità già allocata sugli obiettivi. Gli impegni li sottrae
+    // `calcolaOrizzonte`, una volta sola, sull'orizzonte scelto.
+    baseCents: liquidity === null || allocated === null ? null
+      : cents(context.liquidity.ordinary) - allocated,
+    impegniFinoACents: horizonCommitments ? cents(horizonCommitments.totalOutflow) : null,
+    ritmoGiornalieroCents: actualDailySpend,
+  });
+  const horizon = {
+    ...esito,
+    capitaleLibero: money(esito.capitaleLibero),
+    impegniFinoA: money(esito.impegniFinoA),
+    budgetGiornaliero: money(esito.budgetGiornaliero),
+    mancanti: money(esito.mancanti),
+    // Informazione, non capitale: il fondo è un conto nascosto e resta
+    // fuori da `baseCents` (Regola 22). Qui diciamo soltanto quanti giorni
+    // in più coprirebbe al ritmo attuale, perché chi non arriva alla data
+    // scelta deve poterlo sapere senza che l'app decida per lui. Controlli
+    // espliciti su null/assente: `||`/`&&` tratterebbero un fondo esistente
+    // a saldo zero come un fondo assente, perdendo una distinzione che il
+    // dominio fa (`emergencyFund.status`).
+    fondoDisponibile: fondoAssente || emergencyFundBalance === null
+      ? null : money(emergencyFundBalance),
+    fondoGiorniAggiuntivi: fondoAssente || emergencyFundBalance === null
+      || actualDailySpend === null || actualDailySpend <= 0
+      ? null : Math.floor(emergencyFundBalance / actualDailySpend),
+  };
+  return { horizon, dailyLimitCents: esito.budgetGiornaliero };
 }
 
 function buildCurrentSituation({ context, now = new Date(), changes = null }) {
@@ -121,6 +216,11 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
     ? monthlyExpenseBasis * reserveMonths : incomeMode === 'ricorrente' ? 0 : null;
   const emergencyFundBalance = context.emergencyFund?.status === 'assente'
     ? 0 : cents(context.emergencyFund?.current);
+  // Issato qui (prima viveva accanto alle suggestions, più sotto): la
+  // modalità orizzonte-a-data lo usa per `fondoDisponibile`/
+  // `fondoGiorniAggiuntivi` dentro `buildHorizonData`, chiamata prima che
+  // le suggestions esistano.
+  const fondoAssente = context.emergencyFund?.status === 'assente';
   const reserveFromLiquidity = incomeMode === 'ricorrente' ? 0
     : reserveTarget === null || emergencyFundBalance === null ? null
       : Math.max(reserveTarget - emergencyFundBalance, 0);
@@ -154,7 +254,12 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
   const marginDailyLimit = available === null ? null : Math.floor(available / remainingDays);
   const averageDailyExpenses = incomeMode === 'irregolare' && monthlyExpenses !== null
     ? Math.floor(monthlyExpenses / 30.4375) : null;
-  const dailyLimit = marginDailyLimit === null ? null
+  // Limite "nudo" del ciclo mensile: serve solo al ramo `mensile` di
+  // `buildHorizonData`. Il valore davvero mostrato (`dailyLimitCents`, più
+  // sotto) in modalità data è quello dell'orizzonte, non questo — difetto 1
+  // della review finale (`current.dailyLimit` restava il calcolo mensile
+  // anche quando in cima alla pagina compariva `horizon.budgetGiornaliero`).
+  const monthlyDailyLimit = marginDailyLimit === null ? null
     : incomeMode === 'irregolare' && averageDailyExpenses !== null
       ? Math.min(marginDailyLimit, averageDailyExpenses) : marginDailyLimit;
   const currentExpenses = cents(context.expenses?.currentMonth);
@@ -200,7 +305,28 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
   const projectedRemainingSpend = canEstimate ? Math.round(variableExpenses * remainingDays / observedDays) : null;
   const forecast = netAvailable === null || projectedRemainingSpend === null
     ? null : netAvailable - projectedRemainingSpend;
-  const paceDelta = dailyLimit === null || actualDailySpend === null ? null : actualDailySpend - dailyLimit;
+
+  // L'orizzonte. In modalità mensile NON si ricalcola nulla: si serializza il
+  // ciclo che questo service ha già misurato, così la pagina può leggere un
+  // campo solo in entrambe le modalità senza che i numeri storici cambino.
+  // In modalità data il tetto `min(..., spesa_media)` non si applica: la
+  // domanda non è quanto si spende di solito, ma quanto si può spendere al
+  // giorno perché il capitale arrivi alla data. `dailyLimitCents` è il
+  // limite EFFETTIVO mostrato in cima alla pagina: in modalità mensile
+  // coincide con `monthlyDailyLimit`, in modalità data è il budget
+  // dell'orizzonte — da qui derivano margine, ritmo e tutto il resto
+  // (difetto 1 della review finale).
+  const orizzonteTipo = context.preferences?.orizzonteTipo === 'data'
+    && context.preferences?.orizzonteData ? 'data' : 'mensile';
+  const horizonCommitments = context.recurring?.horizon;
+  const { horizon, dailyLimitCents } = buildHorizonData({
+    orizzonteTipo, context, referenceDate, monthEnd, remainingDays,
+    available, allocated, protectedAmount, shortfall,
+    liquidity, horizonCommitments, actualDailySpend,
+    emergencyFundBalance, fondoAssente, monthlyDailyLimit,
+  });
+
+  const paceDelta = dailyLimitCents === null || actualDailySpend === null ? null : actualDailySpend - dailyLimitCents;
   const paceStatus = paceDelta === null ? 'non_stimabile' : paceDelta <= 0 ? 'sotto_controllo' : 'sopra_il_ritmo';
   const warnings = [];
 
@@ -220,7 +346,7 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
   }
 
   const suggestions = [];
-  if (available !== null && dailyLimit === 0) {
+  if (available !== null && dailyLimitCents === 0) {
     suggestions.push(buildSuggestion({
       key: 'protect-commitments', priority: 1, title: 'Proteggi le spese già previste',
       reason: 'Il margine libero è esaurito dopo gli impegni rilevati.',
@@ -236,7 +362,6 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
       action: { type: 'open-analysis' },
     }));
   }
-  const fondoAssente = context.emergencyFund?.status === 'assente';
   const fondoDaCompletare = !fondoAssente
     && (cents(context.emergencyFund?.missingAmount) ?? 0) > 0;
   if (fondoAssente || (fondoDaCompletare && available > 0)) {
@@ -270,10 +395,10 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
     }));
   }
 
-  if (actualDailySpend !== null && dailyLimit !== null && actualDailySpend > dailyLimit) {
+  if (actualDailySpend !== null && dailyLimitCents !== null && actualDailySpend > dailyLimitCents) {
     suggestions.unshift(buildSuggestion({
       key: 'above-daily-pace', priority: 0, title: 'Il ritmo di spesa è sopra il limite',
-      reason: `Stai spendendo circa ${money(actualDailySpend)} al giorno contro ${money(dailyLimit)} disponibili.`,
+      reason: `Stai spendendo circa ${money(actualDailySpend)} al giorno contro ${money(dailyLimitCents)} disponibili.`,
       effect: 'Ridurre le prossime spese protegge il margine di fine mese.',
       action: { type: 'open-analysis' },
     }));
@@ -313,73 +438,8 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
     ])),
     monthlyCategoryHistory: context.expenses?.monthlyCategoryHistory || [],
     referenceDate,
-    weeklyMarginCents: dailyLimit === null ? null : dailyLimit * 7,
+    weeklyMarginCents: dailyLimitCents === null ? null : dailyLimitCents * 7,
   });
-
-  // L'orizzonte. In modalità mensile NON si ricalcola nulla: si serializza il
-  // ciclo che questo service ha già misurato, così la pagina può leggere un
-  // campo solo in entrambe le modalità senza che i numeri storici cambino.
-  // In modalità data il tetto `min(..., spesa_media)` non si applica: la
-  // domanda non è quanto si spende di solito, ma quanto si può spendere al
-  // giorno perché il capitale arrivi alla data.
-  const orizzonteTipo = context.preferences?.orizzonteTipo === 'data'
-    && context.preferences?.orizzonteData ? 'data' : 'mensile';
-  const horizonCommitments = context.recurring?.horizon;
-  const horizon = orizzonteTipo === 'mensile'
-    ? {
-      tipo: 'mensile',
-      dataFine: monthEnd,
-      giorni: remainingDays,
-      capitaleLibero: money(available),
-      // Senza gli obiettivi: nel riepilogo dell'hero quelli sono già una
-      // riga a sé, e sommarli qui li mostrerebbe sottratti due volte.
-      impegniFinoA: protectedAmount === null || allocated === null ? null
-        : money(protectedAmount - allocated),
-      budgetGiornaliero: money(dailyLimit),
-      stato: dailyLimit === null ? 'non_stimabile' : shortfall > 0 ? 'scoperto' : 'in_rotta',
-      mancanti: shortfall > 0 ? money(shortfall) : null,
-      dataRaggiungibile: null,
-      fondoDisponibile: null,
-      fondoGiorniAggiuntivi: null,
-    }
-    : (() => {
-      const esito = calcolaOrizzonte({
-        tipo: 'data',
-        dataFine: context.preferences.orizzonteData,
-        referenceDate,
-        // La base NON è `liquidity.allocatable`: quel campo sottrae già
-        // `impegni_pertinenti` (liquidita.service.js:211), e sottrarre poi
-        // `impegniFinoA` conterebbe due volte le ricorrenze del periodo
-        // corrente. Qui serve il capitale lordo spendibile: saldo ordinario
-        // (conti visibili meno i conti speciali, quindi scommesse escluse e
-        // fondo di emergenza escluso perché nascosto — Regola 22) meno la
-        // liquidità già allocata sugli obiettivi. Gli impegni li sottrae
-        // `calcolaOrizzonte`, una volta sola, sull'orizzonte scelto.
-        baseCents: liquidity === null || allocated === null ? null
-          : cents(context.liquidity.ordinary) - allocated,
-        impegniFinoACents: horizonCommitments ? cents(horizonCommitments.totalOutflow) : null,
-        ritmoGiornalieroCents: actualDailySpend,
-      });
-      return {
-        ...esito,
-        capitaleLibero: money(esito.capitaleLibero),
-        impegniFinoA: money(esito.impegniFinoA),
-        budgetGiornaliero: money(esito.budgetGiornaliero),
-        mancanti: money(esito.mancanti),
-        // Informazione, non capitale: il fondo è un conto nascosto e resta
-        // fuori da `baseCents` (Regola 22). Qui diciamo soltanto quanti
-        // giorni in più coprirebbe al ritmo attuale, perché chi non arriva
-        // alla data scelta deve poterlo sapere senza che l'app decida per lui.
-        // Controlli espliciti su null/assente: `||`/`&&` tratterebbero un
-        // fondo esistente a saldo zero come un fondo assente, perdendo una
-        // distinzione che il dominio fa (`emergencyFund.status`).
-        fondoDisponibile: fondoAssente || emergencyFundBalance === null
-          ? null : money(emergencyFundBalance),
-        fondoGiorniAggiuntivi: fondoAssente || emergencyFundBalance === null
-          || actualDailySpend === null || actualDailySpend <= 0
-          ? null : Math.floor(emergencyFundBalance / actualDailySpend),
-      };
-    })();
 
   return {
     horizon,
@@ -392,7 +452,7 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
       additionalCommitments: money(additionalCommitments),
       shortfall: money(shortfall),
       availableToSpend: money(available),
-      dailyLimit: money(dailyLimit),
+      dailyLimit: money(dailyLimitCents),
       incomeMode,
       reserveMonths: incomeMode === 'irregolare' ? reserveMonths : null,
       reserveTarget: money(reserveTarget),
@@ -405,8 +465,8 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
           && marginDailyLimit !== null && averageDailyExpenses < marginDailyLimit
           ? 'spesa_media' : 'margine_mese',
       actualDailySpend: money(actualDailySpend),
-      dailyMargin: dailyLimit === null || actualDailySpend === null
-        ? null : signedMoney(dailyLimit - actualDailySpend),
+      dailyMargin: dailyLimitCents === null || actualDailySpend === null
+        ? null : signedMoney(dailyLimitCents - actualDailySpend),
       paceDelta: signedMoney(paceDelta),
       paceStatus,
       remainingDays,
@@ -425,7 +485,7 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
       scenarios: forecast === null ? null : {
         prudente: signedMoney(netAvailable - Math.round(projectedRemainingSpend * 1.2)),
         attuale: signedMoney(forecast),
-        limite: signedMoney(Math.max(available - (dailyLimit * remainingDays), 0)),
+        limite: signedMoney(Math.max(available - (dailyLimitCents * remainingDays), 0)),
       },
     },
     insights: insights.sort((a, b) => a.priority - b.priority).slice(0, 3),
