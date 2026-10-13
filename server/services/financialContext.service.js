@@ -389,7 +389,14 @@ async function getFinancialContext(userId, options = {}) {
     riepilogoInvestimenti(userId),
     riepilogoRicorrenti(userId, referenceDate),
     riepilogoFondoSicurezza(userId, referenceDate),
-    ProfiloUtente.findOne({ where: { user_id: userId }, attributes: ['mesi_riserva_piano_smart'] }),
+    // I tre campi che `preferences` (più sotto) legge davvero da `profilo`.
+    // Prima la query selezionava solo `mesi_riserva_piano_smart`: l'orizzonte
+    // a data arrivava sempre `undefined`, `preferences` ripiegava sui default
+    // (`mensile`, `null`) e l'intera modalità a data era irraggiungibile —
+    // l'utente salvava la data, il database la teneva, e nessuna lettura la
+    // vedeva mai. Nessun test unitario poteva accorgersene: costruiscono il
+    // contesto a mano, con `preferences` già popolato.
+    ProfiloUtente.findOne({ where: { user_id: userId }, attributes: ['mesi_riserva_piano_smart', 'orizzonte_tipo', 'orizzonte_data'] }),
     ScheduledPayment.findAll({
       where: { user_id: userId, tipo: 'uscita', stato: 'in_attesa', piano_id: null },
       attributes: ['id', 'conto_id', 'importo', 'categoria', 'descrizione', 'data_scadenza', 'stato', 'tipo', 'piano_id'],

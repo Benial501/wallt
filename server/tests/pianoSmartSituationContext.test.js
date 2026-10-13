@@ -1,5 +1,6 @@
 const { createApp, registerUser, Conto, Movimento, request, authHeader } = require('./setup');
 const { getFinancialContext } = require('../services/financialContext.service');
+const { buildCurrentSituation } = require('../services/pianoSmartV2/currentSituation.service');
 const app = createApp({ enableRateLimit: false });
 let userId; let conto; let token;
 beforeEach(async () => {
@@ -82,4 +83,47 @@ test('riepilogo autenticato, isolato e senza scritture', async () => {
   expect(foreign.body.current.liquidity).toBe('0.00');
   expect(await Movimento.count()).toBe(before);
   expect(Number((await conto.reload()).saldo)).toBe(1000);
+});
+
+// Difetto Critico trovato dalla verifica end-to-end nel browser (non
+// raggiungibile da nessun test che costruisce il contesto a mano): la
+// query di `getFinancialContext` su `ProfiloUtente` selezionava solo
+// `mesi_riserva_piano_smart`. `orizzonte_tipo` e `orizzonte_data`
+// arrivavano sempre `undefined`, `preferences` ripiegava sui default
+// (`mensile`, `null`) e l'intera modalità a data era irraggiungibile:
+// l'utente salvava la data (la PUT funziona, la validazione funziona), il
+// database la teneva, e nessuna lettura la vedeva mai. Queste prove
+// partono davvero dal database, come il difetto richiede per essere visto.
+test('orizzonte a data: preferences arriva dal database, non dal default', async () => {
+  const putRes = await request(app)
+    .put('/api/profilo')
+    .set(authHeader(token))
+    .send({ orizzonte_tipo: 'data', orizzonte_data: '2027-04-30' });
+  expect(putRes.status).toBe(200);
+
+  const ctx = await getFinancialContext(userId);
+  expect(ctx.preferences.orizzonteTipo).toBe('data');
+  expect(ctx.preferences.orizzonteData).toBe('2027-04-30');
+  expect(typeof ctx.preferences.orizzonteData).toBe('string');
+});
+
+test('la catena arriva fino a buildCurrentSituation: horizon.tipo e "data", non "mensile"', async () => {
+  await request(app)
+    .put('/api/profilo')
+    .set(authHeader(token))
+    .send({ orizzonte_tipo: 'data', orizzonte_data: '2027-04-30' });
+
+  const ctx = await getFinancialContext(userId);
+  const situazione = buildCurrentSituation({ context: ctx });
+  // Il sintomo misurato dal vivo: GET /api/piano-smart/v2/current-situation
+  // rispondeva `horizon.tipo: 'mensile'`, `dataFine` di fine mese,
+  // nonostante il database dicesse `data`/`2027-04-30`.
+  expect(situazione.horizon.tipo).toBe('data');
+  expect(situazione.horizon.dataFine).toBe('2027-04-30');
+});
+
+test('senza un orizzonte a data scelto, preferences resta sul default mensile', async () => {
+  const ctx = await getFinancialContext(userId);
+  expect(ctx.preferences.orizzonteTipo).toBe('mensile');
+  expect(ctx.preferences.orizzonteData).toBeNull();
 });
