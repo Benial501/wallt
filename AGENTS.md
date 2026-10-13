@@ -247,9 +247,15 @@ completi e CV popolazione con soglia `<= 0.25`; sotto soglia è
 non sono impegni futuri; debiti e ricorrenti restano insiemi separati e non
 riconciliati nello schema attuale.
 
-I test usano esclusivamente `TEST_DATABASE_URL`/`DB_NAME_TEST=wallt_test`.
-Le migrazioni di test sono applicate dal setup Jest al database locale; non si
-eseguono migrazioni di sviluppo personale o produzione durante i test.
+I test usano esclusivamente un database locale dedicato, il cui nome è
+derivato dalla radice del checkout (`wallt_test_<hash>`, deciso in
+`server/tests/databaseDiTest.js`): ogni worktree ha il proprio, così un
+`TRUNCATE` o una migrazione di un'altra sessione non può far fallire una suite
+che non c'entra. `DB_NAME_TEST`/`TEST_DATABASE_URL` passati nell'ambiente del
+processo vincono (la CI resta su `wallt_test`); gli stessi valori in `.env` no,
+perché sono identici in tutti i checkout. Le migrazioni di test sono applicate
+dal setup Jest al database locale; non si eseguono migrazioni di sviluppo
+personale o produzione durante i test.
 
 Vedi `docs/PROJECT_STATUS.md` sezione Roadmap per priorità P0–P3.
 
