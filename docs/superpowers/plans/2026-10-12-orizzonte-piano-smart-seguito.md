@@ -84,3 +84,47 @@ re-review del giro di correzione.
 questo lavoro, riprodotti identici sul commit di partenza: la POST che crea una
 spesa programmata non restituisce `movimento`, e il test a riga 243 vi accede.
 Non è una regressione dell'orizzonte di spesa e non va nascosto in questo merge.
+
+## Rilievi emersi dalla verifica nel browser (13 ottobre)
+
+La verifica a schermo ha trovato **tre difetti Critici**, tutti corretti
+(`c89b876`, `733e433`, `424b152`). Erano tutti e tre nelle **giunture** fra i
+pezzi — database → contesto, contesto → rotta, motore → serializzazione — che
+i test unitari non attraversano, perché costruiscono ogni pezzo a mano.
+
+Questi invece sono i rilievi **minori** emersi nello stesso giro, non corretti:
+
+- Il simulatore chiede «Vuoi sapere come cambierebbe **il tuo mese**?» anche in
+  modalità data, dove l'orizzonte può essere di 200 giorni.
+- «Quota del margine usata: **basso**» — concordanza sbagliata (*bassa*), e
+  ormai ridondante accanto alla frase sui giorni di autonomia.
+- Il suggerimento «Stai spendendo circa **31.92** al giorno contro **20.47**
+  disponibili» usa il **punto** invece della virgola: è testo generato dal
+  server, mentre tutti gli altri numeri della pagina sono formattati in
+  italiano.
+- «Metti da parte **€255,00**» mette il simbolo prima, dove altrove è
+  «255,00 €».
+- Nello stato `scaduto` la riga di contesto dice ancora «per arrivare al 12
+  ottobre · 0 giorni» accanto a «la data è passata»: si potrebbe sopprimere.
+- La previsione di fine mese dice «Quanto potrebbe restare dello
+  **spendibile**», un'etichetta che la specifica voleva ritirare.
+- Con capitale negativo, «Ritmo attuale … **31,92 € sopra il budget**» è
+  aritmeticamente giusto (il budget è zero) ma suona strano.
+
+## Un comportamento da non "correggere" per errore
+
+La validazione **rifiuta** la data di oggi quando l'utente la imposta (400: «la
+data deve essere nel futuro»), mentre il motore gestisce correttamente il caso
+`giorni = 1`. Non è una contraddizione: non si può **scegliere** oggi — un
+orizzonte che scade stasera non è una pianificazione — ma la data scelta
+**arriva**, e quel giorno la pagina funziona. Verificato a schermo: stato
+`in_rotta`, un giorno, tutto il capitale spendibile.
+
+Chi in futuro allineasse la validazione al motore «per coerenza» permetterebbe
+di scegliere un orizzonte privo di senso.
+
+## Nota sulle rotte
+
+Il prefisso reale delle rotte della seconda versione è `/api/piano-smart/v2`
+(`server/app.js:156`), non `/api/piano-smart-v2` come scritto nella specifica,
+nei brief e in parte del contratto. Da allineare nella documentazione.
