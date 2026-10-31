@@ -86,6 +86,7 @@ const TABLES = [
   'obiettivo_contributi',
   'budget_categorie',
   'debiti',
+  'abbonamenti',
   'movimenti',
   'investimenti',
   'piattaforme_scommesse',

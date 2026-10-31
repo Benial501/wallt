@@ -29,6 +29,7 @@ const Notifica = require('./Notifica');
 const PreferenzeNotifiche = require('./PreferenzeNotifiche');
 const PushSubscription = require('./PushSubscription');
 const Debito = require('./Debito');
+const Abbonamento = require('./Abbonamento');
 const PianoSmart = require('./PianoSmart');
 const PianoSmartAllocazione = require('./PianoSmartAllocazione');
 const PianoSmartAzione = require('./PianoSmartAzione');
@@ -106,6 +107,8 @@ PreferenzeNotifiche.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 User.hasMany(PushSubscription, { foreignKey: 'user_id', as: 'pushSubscriptions' });
 PushSubscription.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
+User.hasMany(Abbonamento, { foreignKey: 'user_id', as: 'abbonamenti', onDelete: 'CASCADE' });
+Abbonamento.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 User.hasMany(Debito, { foreignKey: 'user_id', as: 'debiti' });
 Debito.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 Debito.belongsTo(Conto, { foreignKey: 'conto_id', as: 'conto' });
@@ -201,6 +204,7 @@ module.exports = {
   PreferenzeNotifiche,
   PushSubscription,
   Debito,
+  Abbonamento,
   PianoSmart,
   PianoSmartAllocazione,
   PianoSmartAzione,

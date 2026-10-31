@@ -2,7 +2,7 @@ const logger = require('../utils/logger');
 const bcrypt = require('bcrypt');
 const {
   User, ProfiloUtente, Conto, Movimento, BudgetMensile, BudgetCategoria,
-  Obiettivo, ObiettivoContributo, Debito, PiattaformaScommesse, MovimentoScommesse,
+  Obiettivo, ObiettivoContributo, Debito, Abbonamento, PiattaformaScommesse, MovimentoScommesse,
   Investimento, MovimentoInvestimento, CategorieRegola, RegolaPersonaleMerchant,
   Notifica, PreferenzeNotifiche, CategoriaPersonale,
   PianoSmart, PianoSmartAllocazione,
@@ -193,6 +193,7 @@ const esportaDati = async (req, res) => {
       budget,
       obiettivi,
       debiti,
+      abbonamenti,
       investimenti,
       movimentiInvestimento,
       piattaformeScommesse,
@@ -223,6 +224,10 @@ const esportaDati = async (req, res) => {
         order: [['createdAt', 'DESC']],
       })),
       safeExportQuery('debiti', () => Debito.findAll({
+        where: { user_id: userId },
+        order: [['createdAt', 'DESC']],
+      })),
+      safeExportQuery('abbonamenti', () => Abbonamento.findAll({
         where: { user_id: userId },
         order: [['createdAt', 'DESC']],
       })),
@@ -289,6 +294,7 @@ const esportaDati = async (req, res) => {
       budget,
       obiettivi,
       debiti,
+      abbonamenti,
       portafoglio_investimenti: {
         investimenti,
         movimenti_investimento: movimentiInvestimento,
