@@ -66,8 +66,8 @@ describe('identificaServizio', () => {
 
 describe('descriviMovimento', () => {
   it('nelle categorie degli abbonamenti basta la categoria', () => {
-    expect(descriviMovimento({ categoria: 'abbonamenti', descrizione: 'Palestra FitActive' })).toMatchObject({
-      servizio_id: null, nome: 'Palestra Fitactive', chiave: 'palestra fitactive',
+    expect(descriviMovimento({ categoria: 'abbonamenti', descrizione: 'Palestra Bodylab' })).toMatchObject({
+      servizio_id: null, nome: 'Palestra Bodylab', chiave: 'palestra bodylab',
     });
   });
 
@@ -86,6 +86,30 @@ describe('descriviMovimento', () => {
     expect(descriviMovimento({ categoria: 'shopping_online', descrizione: 'AMAZON MUSIC' }).servizio_id).toBe('amazon-music');
     expect(descriviMovimento({ categoria: 'videogiochi', descrizione: 'PLAYSTATION STORE' })).toBeNull();
     expect(descriviMovimento({ categoria: 'videogiochi', descrizione: 'NETFLIX' })).toBeNull();
+  });
+
+  it('riconosce telefonia, palestre e consegne nelle loro categorie', () => {
+    expect(descriviMovimento({ categoria: 'telefono', descrizione: 'VODAFONE ITALIA SPA' }).servizio_id).toBe('vodafone');
+    expect(descriviMovimento({ categoria: 'internet', descrizione: 'FASTWEB SPA' }).servizio_id).toBe('fastweb');
+    expect(descriviMovimento({ categoria: 'palestra', descrizione: 'MCFIT MILANO' }).servizio_id).toBe('mcfit');
+    expect(descriviMovimento({ categoria: 'delivery', descrizione: 'GLOVO PRIME' }).servizio_id).toBe('glovo-prime');
+    expect(descriviMovimento({ categoria: 'videogiochi', descrizione: 'EA PLAY' }).servizio_id).toBe('ea-play');
+  });
+
+  it('una consegna o una ricarica qualunque non diventano un abbonamento', () => {
+    expect(descriviMovimento({ categoria: 'delivery', descrizione: 'GLOVO ORDINE 123' })).toBeNull();
+    expect(descriviMovimento({ categoria: 'telefono', descrizione: 'RICARICA BAR SPORT' })).toBeNull();
+    expect(descriviMovimento({ categoria: 'taxi', descrizione: 'UBER TRIP' })).toBeNull();
+    // Il casello è un pedaggio, non il canone.
+    expect(descriviMovimento({ categoria: 'pedaggi', descrizione: 'TELEPASS' })).toBeNull();
+  });
+
+  it('non confonde servizi dal nome simile', () => {
+    expect(identificaServizio('TIMVISION').id).toBe('timvision');
+    expect(identificaServizio('TIM SPA').id).toBe('tim');
+    expect(identificaServizio('GITHUB COPILOT').id).toBe('copilot');
+    expect(identificaServizio('GITHUB INC').id).toBe('github');
+    expect(identificaServizio('APPLE ONE').id).toBe('apple-one');
   });
 
   it('senza descrizione usa il nome della categoria', () => {

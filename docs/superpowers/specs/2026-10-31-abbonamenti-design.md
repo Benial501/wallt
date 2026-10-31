@@ -82,8 +82,10 @@ confermato; il filtro sulle categorie è una scelta di progetto):
 - Categoria assente, `da_verificare` o `altro_uscita`: conta solo se la descrizione
   contiene il nome di un servizio dell'elenco.
 - Le categorie dove la cascata manda un servizio noto, solo con il nome del servizio
-  nella descrizione: `videogiochi` per PlayStation Plus, Xbox Game Pass e Nintendo
-  Switch Online, `shopping_online` per i servizi Amazon, `libri` per Audible.
+  nella descrizione: `videogiochi` per i servizi di gioco, `shopping_online` per quelli
+  Amazon, `libri` per Audible, `telefono` e `internet` per gli operatori, `palestra` e
+  `sport` per le palestre, `delivery` per gli abbonamenti alle consegne. Il nome deve
+  essere quello dell'abbonamento: un ordine su Glovo non è «Glovo Prime».
 - Qualunque altra categoria: non conta mai, anche con il nome nella descrizione.
   «Bonifico a Claude Rossi» categorizzato come `trasferimento_denaro` non è Claude.
 - Non contano i movimenti nati da un pagamento programmato o da un piano a rate, né
@@ -245,18 +247,31 @@ i collegamenti esistenti non si rompono.
 
 ## Le icone (confermato)
 
-Circa 35 servizi, con i loghi veri:
+Circa 110 servizi, con il logo vero dove la raccolta lo ha (76) e una sigla negli altri casi:
 
 - **Video**: Netflix, Prime Video, Disney+, NOW, Sky, DAZN, Apple TV+, Paramount+,
-  YouTube Premium, Crunchyroll
-- **Musica**: Spotify, Apple Music, Amazon Music, YouTube Music, Tidal, Deezer
+  YouTube Premium, Crunchyroll, HBO Max, discovery+, TIMVISION, Mediaset Infinity,
+  MUBI, Rakuten TV, Twitch
+- **Musica**: Spotify, Apple Music, Amazon Music, YouTube Music, Tidal, Deezer,
+  SoundCloud, Qobuz
 - **Intelligenza artificiale**: ChatGPT, Claude, Gemini, Perplexity, Copilot,
-  Midjourney
+  Midjourney, Grok, Mistral, Cursor, ElevenLabs, Suno
 - **Cloud e software**: iCloud+, Google One, Dropbox, Microsoft 365, Adobe, Canva,
-  Notion, NordVPN
-- **Giochi**: PlayStation Plus, Xbox Game Pass, Nintendo Switch Online
-- **Altro**: Amazon Prime, Audible, Kindle Unlimited, e le icone generiche per
-  palestra, telefono, giornali e «altro» (da `lucide-vue-next`, già presente)
+  Notion, NordVPN, GitHub, Apple One, Google Workspace, Proton, ExpressVPN, Surfshark,
+  1Password, Bitwarden, LastPass, Dashlane, Figma, Slack, Zoom, Grammarly, Evernote,
+  Todoist, CapCut, Norton, McAfee
+- **Giochi**: PlayStation Plus, Xbox Game Pass, Nintendo Switch Online, EA Play,
+  Ubisoft+, GeForce NOW, Apple Arcade, Google Play Pass
+- **App e benessere**: Duolingo, Strava, Headspace, Calm, MyFitnessPal, Tinder, Bumble,
+  LinkedIn Premium, X Premium, Telegram Premium, Uber One, Deliveroo Plus, Glovo Prime,
+  McFIT, FitActive, Virgin Active
+- **Giornali e notizie**: Corriere della Sera, la Repubblica, Il Sole 24 Ore, La Gazzetta
+  dello Sport, The New York Times, Medium, Substack
+- **Telefono e internet**: TIM, Vodafone, WindTre, iliad, Fastweb, ho. Mobile, Kena
+  Mobile, Very Mobile, CoopVoce, PosteMobile, Starlink
+- **Altro**: Amazon Prime, Audible, Kindle Unlimited, Revolut Premium, Telepass, e le
+  icone generiche per palestra, telefono, giornali e «altro» (da `lucide-vue-next`, già
+  presente)
 
 I disegni si copiano dalla raccolta Simple Icons (licenza CC0) dentro un file del
 client, **senza aggiungere dipendenze** (Coding Rule 5). Un servizio il cui logo non

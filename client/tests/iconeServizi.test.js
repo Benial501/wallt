@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CATALOGO_SERVIZI, ICONE_GENERICHE } from '../src/utils/abbonamenti.js';
+import { CATALOGO_SERVIZI, GRUPPI_SERVIZI, ICONE_GENERICHE } from '../src/utils/abbonamenti.js';
 import { ICONE_SERVIZI } from '../src/components/abbonamenti/iconeServizi.js';
 import { loadModule, renderSfc } from './helpers/renderVue.js';
 
@@ -15,6 +15,16 @@ test('ogni servizio in elenco ha un\'icona', () => {
     assert.match(icona.testo, ESADECIMALE, `colore del disegno di ${id}`);
     assert.ok(icona.path || icona.sigla, `${id} non ha né disegno né sigla`);
     if (icona.path) assert.match(icona.path, TRACCIATO_SVG, `tracciato di ${id}`);
+  });
+});
+
+test('l\'elenco copre i servizi che molte persone hanno, gruppo per gruppo', () => {
+  assert.ok(CATALOGO_SERVIZI.length >= 90, `solo ${CATALOGO_SERVIZI.length} servizi`);
+  GRUPPI_SERVIZI.forEach(({ id }) => {
+    assert.ok(CATALOGO_SERVIZI.some((voce) => voce.gruppo === id), `gruppo vuoto: ${id}`);
+  });
+  ['Telefono e internet', 'Giornali e notizie', 'App e benessere'].forEach((etichetta) => {
+    assert.ok(GRUPPI_SERVIZI.some((gruppo) => gruppo.etichetta === etichetta), `manca ${etichetta}`);
   });
 });
 
