@@ -58,7 +58,7 @@ Architettura: **SPA Vue 3** (`client/`) + **API REST Node.js/Express** (`server/
 ### Database
 - **PostgreSQL Supabase** con Sequelize ORM
 - Runtime Vercel sul Transaction Pooler (porta 6543); migrazioni sul Session Pooler (porta 5432)
-- Migrazioni via `sequelize-cli` (52 file in `server/migrations/`)
+- Migrazioni via `sequelize-cli` (61 file in `server/migrations/`)
 - Auto-migrate all'avvio in `server.js`
 
 ### Authentication
@@ -113,7 +113,7 @@ wallt/
 │   ├── controllers/        # 25 controller
 │   ├── middleware/         # auth, validation, rateLimit, stepUp, featureAccess, errorHandler
 │   ├── models/             # 34 modelli Sequelize + index.js (associazioni)
-│   ├── migrations/         # 52 migrazioni
+│   ├── migrations/         # 61 migrazioni
 │   ├── routes/             # 19 route modules
 │   ├── services/           # Business logic (import, merchant, email, reset, sync, cron, notifiche, pianoSmart)
 │   ├── tests/              # Jest (auth, security, gdpr, profilo, import, categorization, isolation, googleStepUp, financialConsistency, ricorrenti, excelParser, validateEnv)
@@ -206,6 +206,15 @@ Express API (/api/*)
     - **La conferma di un prelievo superiore al saldo registrato risponde 422**, non lo accetta. Il prelievo è avvenuto davvero — la banca lo ha visto — ma il saldo in WALLT non lo giustifica: accettarlo produrrebbe un saldo di gioco negativo, che non esiste, e azzerarlo falserebbe un dato. Meglio dire che il saldo della piattaforma va aggiornato prima.
     - **Una notifica per giornata**, non per riga (`dedupe_key` sul giorno locale dell'utente): con il tetto di una notifica `normale` al giorno (Regola 14) una per riga resterebbe invisibile tranne la prima. L'avviso parte dopo il commit della sincronizzazione e **non può lanciare**: un avviso mancato non deve far risultare fallita una sincronizzazione che ha scritto i movimenti correttamente — stesso principio dell'hook sul budget. Il testo push resta generico, senza importi (Regola 17).
 
+28. **Abbonamenti: un quadro da leggere, non denaro che si muove**. La scheda Abbonamenti di Programmate mostra quali servizi risultano attivi e quanto costano al mese e all'anno. **Nessuna scrittura su conti o movimenti**: gli abbonamenti non sono impegni e non entrano in saldo effettivo, liquidità, patrimonio, budget o Piano Smart, perché un addebito vero pesa già attraverso il suo movimento o la sua programmazione. Contarli anche qui sottrarrebbe due volte lo stesso euro. `services/abbonamenti.service.js` è il punto sorgente unico (Regola 20). `services/abbonamentiRilevamento.js` è puro: riceve movimenti, programmazioni e righe e restituisce cosa creare e cosa aggiornare.
+    - **La lettura sta dentro `GET /api/abbonamenti`, ed è idempotente.** Un solo punto d'ingresso invece di agganciarsi a movimenti, import, Bank Sync e cron. Il vincolo `UNIQUE(user_id, chiave, ordine)` e `bulkCreate({ ignoreDuplicates: true })` tengono due letture simultanee su una riga sola (Coding Rule 22). Se la lettura fallisce si registra l'errore e l'elenco risponde con ciò che è salvato.
+    - **Cosa conta come addebito**: uscite non ricorrenti degli ultimi 3 mesi in categoria `abbonamenti`, `streaming`, `musica` o `abbonamenti_digitali`; oppure senza categoria, `da_verificare` o `altro_uscita` con il nome di un servizio dell'elenco; oppure nelle `categorie_ammesse` di quel servizio, dove la cascata lo manda altrove (`videogiochi`, `shopping_online`, `libri`). Su ogni altra categoria il nome non basta: «Bonifico a Claude Rossi» come `trasferimento_denaro` non è Claude. Restano fuori i movimenti di pagamenti programmati e rate (`ScheduledPayment.movimento_id`) e le occorrenze di programmazioni non mensili o annuali: sono pagamenti singoli.
+    - **Un solo addebito non dice ogni quanto si paga.** La riga nasce mensile con `da_verificare`, e due addebiti a 25-35 giorni tolgono l'avviso. Senza quell'avviso un annuale da 50 € peserebbe quasi 600 € sul totale, in silenzio.
+    - **Vince il dato più recente**: un addebito cambia il costo solo se è più recente del precedente e di `modificato_utente_il`. Due importi diversi nello stesso mese sono due righe sulla stessa chiave. Su una chiave con più righe un importo diverso aggiorna la riga più vicina entro il 25%, altrimenti non cambia nulla: un acquisto singolo non deve sovrascrivere un abbonamento.
+    - **Annullare, escludere, finire.** Un addebito con data successiva all'annullamento riporta la riga fra gli attivi con `riattivato_da_addebito`: qualcuno sta ancora addebitando. «Non è un abbonamento» (`escluso`) impedisce righe nuove su quella chiave senza toccare le altre: togliere un acquisto su `APPLE.COM/BILL` non deve togliere iCloud. La fine di un abbonamento a tempo **si legge dalla data**, come la scadenza di un entitlement (Regola 23): `stato_effettivo: 'finito'` non è mai scritto.
+    - **Il legame con la programmazione ha due versi.** Annullare un abbonamento non ferma la programmazione, e il modulo lo dice. Sospendere, terminare o eliminare la programmazione annulla l'abbonamento legato: qui l'assenza di addebiti è una scelta dichiarata, non un dubbio. Per riconoscere l'eliminazione `movimento_ricorrente_id` non ha chiave esterna, perché un `SET NULL` cancellerebbe proprio quel segnale. `ricorrente_occorrenze_rimanenti` si legge una volta sola, alla nascita della riga: rileggerla farebbe calare «In totale» ogni mese.
+    - **I conti** stanno in `utils/abbonamentiCosti.js`, in centesimi interi, duplicati in `client/src/utils/abbonamenti.js` per il riquadro del modulo. Il vocabolario sta in `constants/abbonamenti.js`, senza `require`. Entrambi sono sorvegliati da `client/tests/abbonamentiContratto.test.js`, che gira nel job "Frontend (build)" della CI (stesso vincolo della Regola 22). I loghi vengono da Simple Icons (CC0), copiati in `components/abbonamenti/iconeServizi.js` senza dipendenze: restano marchi dei proprietari e servono solo a indicare il servizio. Vedi `docs/superpowers/specs/2026-10-31-abbonamenti-design.md`.
+
 ## Authentication
 
 - **Registrazione**: email/password + consenso privacy/termini obbligatorio. Crea `User` + `ProfiloUtente`.
@@ -220,13 +229,13 @@ Express API (/api/*)
 
 ## Database
 
-14 tabelle principali + 2 tabelle regole (categorie, merchant) + `categorie_personali`, `categorie_default_nascoste`, le due di Piano Smart (`piani_smart`, `piani_smart_allocazioni`) e le sei di WALLT Premium (`app_config`, `user_entitlements`, `subscriptions`, `audit_logs`, `bank_connections`, `premium_access_requests`). Vedi `docs/DATABASE.md`.
+14 tabelle principali + 2 tabelle regole (categorie, merchant) + `categorie_personali`, `categorie_default_nascoste`, le due di Piano Smart (`piani_smart`, `piani_smart_allocazioni`), `abbonamenti` e le sei di WALLT Premium (`app_config`, `user_entitlements`, `subscriptions`, `audit_logs`, `bank_connections`, `premium_access_requests`). Vedi `docs/DATABASE.md`.
 
 Entità core: `users` → `conti` → `movimenti`. Entità satellite: budget, obiettivi, scommesse, investimenti, regole categorizzazione.
 
 ## API
 
-168 endpoint REST sotto `/api/*` (167 dichiarazioni `router.<metodo>` in `server/routes/` più `GET /api/health`, dichiarata in `app.js`; incluse le 3 rotte `/api/fondo-emergenza`, le 7 di `/api/categorie`, le 3 di `/api/scommesse/da-confermare`, le due dello step-up Google, le 6 di Piano Smart e le 29 di WALLT Premium: 1 `/api/piano`, 12 `/api/bank-sync` — le due nuove sono `GET`/`POST /riconciliazione` —, 3 `/api/premium`, 12 `/api/admin`, 1 `GET /api/cron/bank-sync`). Vedi `docs/API.md` per inventario completo e `docs/piano-smart-api-contract.md` per il contratto di Piano Smart.
+174 endpoint REST sotto `/api/*` (173 dichiarazioni `router.<metodo>` in `server/routes/` più `GET /api/health`, dichiarata in `app.js`; incluse le 6 di `/api/abbonamenti`, le 3 rotte `/api/fondo-emergenza`, le 7 di `/api/categorie`, le 3 di `/api/scommesse/da-confermare`, le due dello step-up Google, le 6 di Piano Smart e le 29 di WALLT Premium: 1 `/api/piano`, 12 `/api/bank-sync` — le due nuove sono `GET`/`POST /riconciliazione` —, 3 `/api/premium`, 12 `/api/admin`, 1 `GET /api/cron/bank-sync`). Vedi `docs/API.md` per inventario completo e `docs/piano-smart-api-contract.md` per il contratto di Piano Smart.
 
 Comunicazione: Axios con `baseURL = VITE_API_URL` normalizzato da `client/src/config/api.js` (default `http://localhost:3000/api`), header `Authorization: Bearer <token>`.
 
@@ -285,6 +294,7 @@ Configurazione DB: `server/config/database.js` accetta `DATABASE_URL` **oppure**
 | **Area amministrativa** | Concede diritti e scollega banche altrui. `requireAdmin` su tutto il router, ruolo letto dal database a ogni richiesta, ogni azione auditata con la distinzione soggetto/attore | `middleware/admin.middleware.js`, `controllers/admin.controller.js` |
 | **Richieste Premium** | Una richiesta non autorizza nulla: approvarla concede l'entitlement, ed è quella scrittura a valere. Tre proprietà da non erodere: l'approvazione non consuma posti `beta_25`, il rifiuto non tocca gli entitlement, la UNIQUE sta nel database e non nel servizio | `services/premiumRequests.service.js`, `controllers/premium.controller.js`, `controllers/admin.controller.js` |
 | **Scommesse su conto collegato** | La stessa operazione arriva da due fonti (Regola 27). Tre invarianti: la sincronizzazione adotta la riga già segnata invece di duplicarla e l'adozione sta prima del `DuplicateChecker`; `origine` resta `manuale` sulla riga adottata, altrimenti "elimina i dati importati" cancella un movimento scritto dall'utente; confermare un'operazione bancaria non tocca il saldo del conto collegato, che la banca ha già riportato | `services/riconciliazioneScommesse.service.js`, `services/bankSync/syncEngine.service.js`, `controllers/scommesse.controller.js` |
+| **Abbonamenti** | Legge i movimenti a ogni apertura e non deve mai scriverli (Regola 28). Tre invarianti: nessun effetto su saldi e saldo effettivo; rileggere non crea doppioni, garantito da una UNIQUE e non dalla sola logica; un addebito non sovrascrive una scelta dell'utente più recente | `services/abbonamenti.service.js`, `services/abbonamentiRilevamento.js`, `utils/abbonamentiCosti.js` |
 | **Fondo di emergenza** | È un conto nascosto, non un obiettivo (Regola 22): affiancargli un `Obiettivo` farebbe uscire lo stesso euro due volte dal saldo effettivo. I vincoli (uno per utente, `nascosto` non disattivabile, niente entrate/uscite dirette) stanno nel server, non nella UI | `services/fondoEmergenza.service.js`, `controllers/fondoEmergenza.controller.js`, `controllers/movimenti.controller.js`, `controllers/conti.controller.js` |
 
 ## Known Issues

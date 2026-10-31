@@ -266,7 +266,7 @@ const TOPICS = [
     summary: 'Su computer sono nella barra laterale; su mobile nel menu Funzionalità.',
     paragraphs: [
       'Su schermi ampi le sezioni di WALLT sono raccolte nella barra laterale. Su mobile le destinazioni principali restano in basso e il pulsante “Funzionalità” apre l\'elenco completo.',
-      'Le due navigazioni mostrano le stesse sezioni disponibili per il tuo profilo, comprese Programmate, Notifiche e Impostazioni.',
+      'Le due navigazioni mostrano le stesse sezioni disponibili per il tuo profilo, comprese Programmate / Abbonamenti, Notifiche e Impostazioni.',
     ],
     link: { label: 'Resta in Aiuto', to: '/aiuto' },
   },

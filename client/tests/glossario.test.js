@@ -44,3 +44,8 @@ test('getConcetto restituisce null per un id sconosciuto', () => {
   assert.equal(getConcetto(undefined), null);
   assert.equal(etichetta('non_esiste'), '');
 });
+
+test('i totali degli abbonamenti hanno una voce di glossario', () => {
+  assert.equal(etichetta('abbonamenti_al_mese'), 'Al mese');
+  assert.equal(etichetta('abbonamenti_all_anno'), 'All’anno');
+});

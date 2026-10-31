@@ -19,7 +19,7 @@ export const FUNCTIONALITY_ITEMS = Object.freeze([
     route: '/obiettivi', placements: ['sidebar', 'sheet'], order: { sidebar: 40, sheet: 10 }, active: true,
   },
   {
-    id: 'ricorrenti', label: 'Programmate', description: 'Spese, entrate e rate future', icon: 'ricorrenti',
+    id: 'ricorrenti', label: 'Programmate / Abbonamenti', description: 'Spese, rate e abbonamenti', icon: 'ricorrenti',
     route: '/ricorrenti', placements: ['sidebar', 'sheet'], order: { sidebar: 50, sheet: 30 }, active: true,
   },
   {
