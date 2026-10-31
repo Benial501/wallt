@@ -10,6 +10,9 @@ const {
 const { FEATURE_KEYS, FEATURE_RICHIEDIBILI, RICHIESTA_STATI } = require('../constants/entitlements');
 const { CHIAVI: CHIAVI_CONFIG } = require('../constants/appConfig');
 const {
+  CATALOGO_SERVIZI, DURATA_MESI_MAX, ICONE_GENERICHE, PERIODI_MESI,
+} = require('../constants/abbonamenti');
+const {
   DESTINAZIONE_NUOVO, GIORNI_STORICO_MANUALE_MASSIMO,
 } = require('../constants/bankSync');
 const { isImportoValido, toCents } = require('../services/pianoSmart/money');
@@ -1143,6 +1146,51 @@ const validateUpdateDebito = [
 
 const validateDeleteDebito = validateIdParam;
 
+const IDS_SERVIZI = CATALOGO_SERVIZI.map((voce) => voce.id);
+
+const campiAbbonamento = [
+  body('nome')
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('Nome obbligatorio'),
+  body('costo')
+    .isDecimal({ decimal_digits: '0,2' })
+    .withMessage('Costo non valido')
+    .bail()
+    .custom((value) => Number(value) > 0 && Number(value) <= 9999999999.99)
+    .withMessage('Costo non valido'),
+  body('periodo_mesi')
+    .isIn(PERIODI_MESI)
+    .withMessage('Periodo non valido')
+    .toInt(),
+  body('durata_mesi')
+    .optional({ values: 'null' })
+    .isInt({ min: 1, max: DURATA_MESI_MAX })
+    .withMessage('Durata non valida')
+    .toInt(),
+  body('data_inizio')
+    .custom((value, { req }) => req.body.durata_mesi == null || Boolean(value))
+    .withMessage('Serve la data di inizio'),
+  // Una catena a sé: `optional` varrebbe per tutta la catena e salterebbe anche
+  // il controllo qui sopra proprio quando la data manca.
+  body('data_inizio')
+    .optional({ values: 'null' })
+    .isISO8601({ strict: true })
+    .withMessage('Data di inizio non valida'),
+  body('servizio_id')
+    .optional({ values: 'null' })
+    .isIn(IDS_SERVIZI)
+    .withMessage('Servizio non valido'),
+  body('icona')
+    .optional({ values: 'null' })
+    .isIn([...IDS_SERVIZI, ...ICONE_GENERICHE])
+    .withMessage('Icona non valida'),
+];
+
+const validateAbbonamento = [...campiAbbonamento, validate];
+const validateUpdateAbbonamento = [idParam, ...campiAbbonamento, validate];
+
 // --- Scommesse ---
 
 const validatePiattaformaScommesse = [
@@ -1960,6 +2008,8 @@ module.exports = {
   validateDebito,
   validateUpdateDebito,
   validateDeleteDebito,
+  validateAbbonamento,
+  validateUpdateAbbonamento,
   validatePiattaformaScommesse,
   validateUpdatePiattaformaScommesse,
   validateDeletePiattaformaScommesse,

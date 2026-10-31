@@ -16,6 +16,7 @@ const importazioniRoutes = require('./routes/importazioni.routes');
 const notificheRoutes = require('./routes/notifiche.routes');
 const cronRoutes = require('./routes/cron.routes');
 const debitiRoutes = require('./routes/debiti.routes');
+const abbonamentiRoutes = require('./routes/abbonamenti.routes');
 const pianoSmartRoutes = require('./routes/pianoSmart.routes');
 const pianoSmartV2Routes = require('./routes/pianoSmartV2.routes');
 const fondoEmergenzaRoutes = require('./routes/fondoEmergenza.routes');
@@ -139,6 +140,7 @@ const createApp = (options = {}) => {
   app.use('/api/categorie', require('./routes/categorie.routes'));
   app.use('/api/investimenti', investimentiRoutes);
   app.use('/api/debiti', debitiRoutes);
+  app.use('/api/abbonamenti', abbonamentiRoutes);
   app.use('/api/fondo-emergenza', fondoEmergenzaRoutes);
   // WALLT Premium: il piano commerciale e i permessi dell'utente (sola
   // lettura: nessuna rotta permette a un utente di cambiarsi il piano).
