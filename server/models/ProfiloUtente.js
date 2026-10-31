@@ -33,6 +33,18 @@ const ProfiloUtente = sequelize.define('ProfiloUtente', {
     allowNull: false,
     defaultValue: 1,
   },
+  // L'orizzonte entro cui il capitale deve bastare. `mensile` è il ciclo
+  // storico; con `data` il termine è fisso e `orizzonte_data` lo contiene.
+  // `mesi_riserva_piano_smart` vale solo in modalità mensile.
+  orizzonte_tipo: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'mensile',
+  },
+  orizzonte_data: {
+    type: DataTypes.DATEONLY,
+    allowNull: true,
+  },
   situazione_abitativa: {
     type: DataTypes.STRING(100),
     allowNull: true,

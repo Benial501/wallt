@@ -115,7 +115,8 @@ const navItems = computed(() => {
     { path: '/dashboard', icon: NAV_ICON_MAP.dashboard, label: 'Dashboard' },
     { path: '/conti', icon: NAV_ICON_MAP.conti, label: 'I miei conti' },
     { path: '/movimenti', icon: NAV_ICON_MAP.movimenti, label: 'Movimenti' },
-    { path: '/funzionalita/piano-smart', icon: NAV_ICON_MAP.pianoSmart, label: 'Piano Smart' },
+    { path: '/funzionalita/situazione', icon: NAV_ICON_MAP.pianoSmart, label: 'La tua situazione' },
+    { path: '/funzionalita/piano-smart/nuovo', icon: NAV_ICON_MAP.pianoSmart, label: 'Piano Smart' },
   ];
   items.push(...resolveFunctionalityItems('sidebar'));
   return items;
@@ -132,7 +133,7 @@ const isDashboard = computed(() => route.path === '/dashboard');
 const mobileNav = computed(() => [
   { path: '/dashboard', icon: Home, label: 'Home' },
   { path: '/movimenti', icon: ArrowLeftRight, label: 'Transazioni' },
-  { path: '/funzionalita/piano-smart', icon: NAV_ICON_MAP.pianoSmart, label: 'Piano Smart' },
+  { path: '/funzionalita/situazione', icon: NAV_ICON_MAP.pianoSmart, label: 'Situazione' },
   { path: '/analisi', icon: NAV_ICON_MAP.analisi, label: 'Analisi' },
   { path: 'altro', icon: LayoutGrid, label: 'Altro' },
 ]);

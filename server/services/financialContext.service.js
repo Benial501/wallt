@@ -43,7 +43,7 @@ const FATTORE_MENSILE = { mensile: 1, settimanale: 52 / 12, annuale: 1 / 12 };
  * delle sole ricorrenti attive (le sospese/terminate non generano movimenti
  * e non contano come impegno futuro — CLAUDE.md, Regola ricorrenti §12).
  */
-async function riepilogoRicorrenti(userId, referenceDate = new Date()) {
+async function riepilogoRicorrenti(userId, referenceDate = new Date(), orizzonteFine = null) {
   const ricorrenti = await Movimento.findAll({
     where: { user_id: userId, ricorrente: true },
     attributes: ['id', 'descrizione', 'data', 'stato_ricorrenza', 'ricorrente_frequenza', 'ricorrente_data', 'ricorrente_giorno', 'ricorrente_mese', 'tipo', 'importo'],
@@ -54,6 +54,22 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date()) {
   const oggi = getRomeDateParts(referenceDate);
   const termine = fineMese(oggi.date);
   const termineFlussi = sommaGiorni(oggi.date, 30);
+  // Finestra lunga, richiesta solo dall'orizzonte a data. È separata dalle
+  // altre due di proposito: `cashFlowItems` (30 giorni) e `items` (fine mese)
+  // alimentano radar, insight e motore V1, e allungarle cambierebbe numeri
+  // che nessuno ha chiesto di cambiare.
+  // `>=`, non `>`: il termine può essere oggi stesso (ultimo giorno
+  // dell'orizzonte, un solo giorno da distribuire — la spec lo elenca
+  // esplicitamente come caso da far funzionare). Con `>` quel caso perdeva
+  // la proiezione delle ricorrenze e `calcolaOrizzonte` finiva per dire
+  // "non stimabile" su dati che in realtà c'erano tutti (difetto 4 della
+  // review finale). Una data già passata resta `null` qui: non c'è una
+  // finestra `[oggi, passato]` da proiettare, ed è `calcolaOrizzonte` stesso
+  // (confrontando `dataFine` con `referenceDate`) a riconoscere quel caso
+  // come `scaduto`, non come dati mancanti.
+  const termineOrizzonte = orizzonteFine && orizzonteFine >= oggi.date ? orizzonteFine : null;
+  const orizzonteEmesse = new Set();
+  const orizzonteItems = [];
   const addebiti = ricorrenti.length ? await Movimento.findAll({
     where: { user_id: userId, ricorrenza_origine_id: { [Op.in]: ricorrenti.map((r) => r.id) } },
     attributes: ['ricorrenza_origine_id', 'ricorrenza_periodo'],
@@ -113,6 +129,23 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date()) {
         });
       }
     }
+    if (termineOrizzonte && stato === 'attiva' && r.tipo === 'uscita') {
+      for (let date = oggi.date; date <= termineOrizzonte; date = sommaGiorni(date, 1)) {
+        const giorno = getRomeDateParts(new Date(`${date}T12:00:00Z`));
+        const { dovuto, periodo } = valutaOccorrenza(r, giorno);
+        const occurrenceKey = `${r.id}:${periodo}`;
+        // Stessa deduplica per periodo delle altre due finestre: senza di
+        // essa una mensile risulterebbe dovuta ogni giorno fino alla data.
+        if (!dovuto || eseguiti.has(occurrenceKey) || orizzonteEmesse.has(occurrenceKey)) continue;
+        orizzonteEmesse.add(occurrenceKey);
+        orizzonteItems.push({
+          occurrenceKey,
+          dueDate: date,
+          amount: toNumber(r.importo),
+          description: r.descrizione,
+        });
+      }
+    }
   });
 
   // calcolaLiquidita include già nello spendibile tutte le uscite programmate
@@ -136,6 +169,24 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date()) {
     reserved: payment.tipo === 'uscita',
   }));
 
+  if (termineOrizzonte) {
+    const programmateOrizzonte = await ScheduledPayment.findAll({
+      where: {
+        user_id: userId,
+        stato: 'in_attesa',
+        tipo: 'uscita',
+        data_scadenza: { [Op.between]: [oggi.date, termineOrizzonte] },
+      },
+      attributes: ['id', 'descrizione', 'importo', 'data_scadenza'],
+    });
+    programmateOrizzonte.forEach((payment) => orizzonteItems.push({
+      occurrenceKey: `programmata:${payment.id}`,
+      dueDate: payment.data_scadenza,
+      amount: toNumber(payment.importo),
+      description: payment.descrizione,
+    }));
+  }
+
   const riepilogo = {
     active: conteggi.attiva,
     paused: conteggi.sospesa,
@@ -143,6 +194,12 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date()) {
     commitments: round2(commitments),
     cashFlowItems: cashFlowItems.sort((a, b) => a.dueDate.localeCompare(b.dueDate)
       || a.occurrenceKey.localeCompare(b.occurrenceKey)),
+    horizon: termineOrizzonte ? {
+      through: termineOrizzonte,
+      items: orizzonteItems.sort((a, b) => a.dueDate.localeCompare(b.dueDate)
+        || a.occurrenceKey.localeCompare(b.occurrenceKey)),
+      totalOutflow: round2(orizzonteItems.reduce((sum, item) => sum + item.amount, 0)),
+    } : null,
   };
   if (items.length) riepilogo.items = items.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   return riepilogo;
@@ -332,7 +389,14 @@ async function getFinancialContext(userId, options = {}) {
     riepilogoInvestimenti(userId),
     riepilogoRicorrenti(userId, referenceDate),
     riepilogoFondoSicurezza(userId, referenceDate),
-    ProfiloUtente.findOne({ where: { user_id: userId }, attributes: ['mesi_riserva_piano_smart'] }),
+    // I tre campi che `preferences` (più sotto) legge davvero da `profilo`.
+    // Prima la query selezionava solo `mesi_riserva_piano_smart`: l'orizzonte
+    // a data arrivava sempre `undefined`, `preferences` ripiegava sui default
+    // (`mensile`, `null`) e l'intera modalità a data era irraggiungibile —
+    // l'utente salvava la data, il database la teneva, e nessuna lettura la
+    // vedeva mai. Nessun test unitario poteva accorgersene: costruiscono il
+    // contesto a mano, con `preferences` già popolato.
+    ProfiloUtente.findOne({ where: { user_id: userId }, attributes: ['mesi_riserva_piano_smart', 'orizzonte_tipo', 'orizzonte_data'] }),
     ScheduledPayment.findAll({
       where: { user_id: userId, tipo: 'uscita', stato: 'in_attesa', piano_id: null },
       attributes: ['id', 'conto_id', 'importo', 'categoria', 'descrizione', 'data_scadenza', 'stato', 'tipo', 'piano_id'],
@@ -520,6 +584,8 @@ async function getFinancialContext(userId, options = {}) {
 
     preferences: {
       mesiRiservaPianoSmart: Number(profilo?.mesi_riserva_piano_smart) || 1,
+      orizzonteTipo: profilo?.orizzonte_tipo || 'mensile',
+      orizzonteData: profilo?.orizzonte_data ? String(profilo.orizzonte_data) : null,
     },
 
     goals: obiettivi,

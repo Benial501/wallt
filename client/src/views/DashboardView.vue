@@ -50,7 +50,7 @@ const purposeDestinations = {
   risparmiare: { label: 'Segui i tuoi obiettivi', route: 'obiettivi' },
   patrimonio: { label: 'Vedi i tuoi conti', route: 'conti' },
   abbonamenti: { label: 'Controlla le spese programmate', route: 'ricorrenti' },
-  debiti: { label: 'Rivedi gli impegni', route: 'piano-smart' },
+  debiti: { label: 'Rivedi gli impegni', route: 'situazione' },
 };
 const purposeLinks = computed(() => guidedPurposes.value.map(id => purposeDestinations[id]).filter(Boolean));
 

@@ -21,7 +21,9 @@ Le scadenze non entrano nei movimenti, nelle medie o nelle analisi finché l'ute
 
 ## Simulazione di una spesa
 
-`POST /api/piano-smart/v2/simulate-purchase` accetta `{ "amount": "125.50" }` e restituisce importo, valori iniziali e valori dopo l'acquisto per spendibile, limite giornaliero indicativo e previsione. Il calcolo avviene nel backend in centesimi interi. La risposta include `writesFinancialData: false`; l'endpoint non crea movimenti e non aggiorna saldi o obiettivi. Importi non positivi, malformati o con più di due decimali sono rifiutati. Un campo non stimabile resta `null`.
+`POST /api/piano-smart/v2/simulate-purchase` accetta `{ "amount": "125.50" }` e restituisce importo, valori iniziali e valori dopo l'acquisto per spendibile, limite giornaliero indicativo e previsione. Il calcolo avviene nel backend in centesimi interi. La risposta include `writesFinancialData: false`; l'endpoint non crea movimenti e non aggiorna saldi o obiettivi. Importi non positivi, malformati o con più di due decimali sono rifiutati. Un campo non stimabile resta `null`. Un importo non valido risponde `400`; se l'importo è valido ma la situazione finanziaria non è calcolabile (dati insufficienti o inconsistenti) risponde `422`, senza attribuire la causa all'importo inserito.
+
+In modalità orizzonte a data (`horizon.tipo === 'data'`) la risposta include anche `giorniAutonomiaPersi` (giorni di copertura persi al ritmo giornaliero osservato, `amount ÷ ritmo` troncato) e `dataRaggiungibileAfter` (la data raggiungibile, `horizon.dataRaggiungibile`, spostata indietro di quei giorni). Entrambi restano `null` senza un ritmo giornaliero osservato positivo: senza quel dato non c'è una base su cui misurare l'autonomia persa.
 
 Il riepilogo usa il giorno civile Europe/Rome e l’orizzonte da oggi (incluso)
 a fine mese. Non scrive dati finanziari.
@@ -102,6 +104,38 @@ a fine mese. Non scrive dati finanziari.
   `prudente` applica +20% alla spesa non ricorrente residua, `attuale` usa il
   ritmo osservato, `limite` usa il limite giornaliero; sono ipotesi deterministiche,
   non intervalli probabilistici. La pagina privilegia una sola stima spiegata.
+- `horizon`: l'orizzonte di spesa scelto dall'utente (`preferences.orizzonteTipo`),
+  calcolato da `orizzonte.service.js` e serializzato qui. In modalità `mensile`
+  (il default di ogni profilo) **non è un ricalcolo**: è la serializzazione dei
+  valori che questo stesso servizio ha già prodotto per il ciclo del mese
+  (`dataFine` = fine mese, `giorni` = `current.remainingDays`,
+  `budgetGiornaliero` = `current.dailyLimit`), così i numeri storici restano
+  identici a prima dell'introduzione del campo. In modalità `data`
+  (`preferences.orizzonteData` impostata) è il calcolo puro dell'orizzonte sul
+  capitale lordo spendibile (saldo ordinario meno liquidità allocata sugli
+  obiettivi — non `liquidity.allocatable`, che sottrarrebbe gli impegni due
+  volte) meno gli impegni ricorrenti proiettati fino alla data
+  (`recurring.horizon`, assente finché il controller non lo richiede);
+  `current.dailyLimitBasis` vale allora `orizzonte_data` e il tetto della spesa
+  media storica non si applica. `stato` vale `in_rotta` (il capitale copre il
+  termine al ritmo attuale), `in_ritardo` (il capitale basta — non è
+  `scoperto` — ma al ritmo attuale si esaurirebbe prima del termine scelto:
+  `dataRaggiungibile < dataFine`), `scoperto`, `scaduto` (la data scelta è
+  già passata: non un dato mancante, una scelta da rifare) o `non_stimabile`
+  (quest'ultimo anche quando manca la proiezione lunga, inclusa la data
+  scelta uguale a oggi se la proiezione non è ancora disponibile). `scaduto`,
+  `in_ritardo` e `in_rotta` sono mutuamente esclusivi: il client mostra un
+  unico messaggio di stato, mai due insieme.
+  `fondoDisponibile` e `fondoGiorniAggiuntivi` sono presenti in entrambe le
+  modalità, con la stessa forma del contratto, ma **valgono** solo in
+  modalità `data`: informano quanti giorni in più coprirebbe il fondo di
+  emergenza al ritmo attuale, senza farlo entrare nel capitale (il fondo è un
+  conto nascosto, Regola 22). In modalità `mensile` restano sempre `null`.
+  In modalità `data` sono `null` quando il saldo del fondo non è noto o il
+  fondo è assente (`emergencyFund.status === 'assente'`); con un fondo
+  esistente a saldo zero `fondoDisponibile` vale `'0.00'` e
+  `fondoGiorniAggiuntivi` vale `0`, non `null` — un saldo zero non è la stessa
+  cosa di un fondo assente.
 
 Il simulatore frontend sottrae una spesa **aggiuntiva** dai risultati del server,
 senza registrare movimenti. Mostra prima/dopo e conserva valori negativi.

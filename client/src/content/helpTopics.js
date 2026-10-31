@@ -269,16 +269,27 @@ const TOPICS = [
   {
     id: 'piano-smart',
     title: 'Piano Smart',
-    summary: 'Leggi il margine di oggi, confronta periodi, simula una spesa e organizza una somma.',
+    summary: 'Due pagine distinte: il monitoraggio continuo e la creazione di un piano quando arriva una somma.',
     paragraphs: [
-      'La sezione Oggi riassume liquidità dei conti considerati, somme protette, margine spendibile, limite giornaliero indicativo, ritmo delle spese, previsione di fine mese, ricorrenze future conosciute, suggerimenti e simulatore di acquisto. Se le entrate non sono stabili puoi scegliere da uno a sei mesi di spese da proteggere; il valore iniziale è un mese. Il limite usa la spesa media osservata e resta non stimabile finché non ci sono mesi completi di spese.',
-      'Analisi confronta movimenti registrati in periodi equivalenti e mostra medie per categoria, andamento del mese, patrimonio netto, debiti, fondo di sicurezza e obiettivi. I confronti descrivono i movimenti disponibili oggi: WALLT non ricostruisce saldi storici e non può verificare la completezza delle registrazioni manuali.',
-      'Piani raccoglie la creazione, gli scenari, i piani salvati e il relativo dettaglio. Le spese obbligatorie confermate vengono sottratte dalla somma ricevuta per ottenere il capitale distribuibile. Le categorie V1 sono necessità, sicurezza, obiettivi, futuro e libertà; V2 aggiunge scenari, proiezioni e azioni preparatorie.',
+      'Piano Smart vive su due pagine separate. "La tua situazione" risponde a "come sto, quanto posso spendere" ed è quella a cui torni ogni giorno. "Piano Smart" (questa pagina) risponde a "è arrivata una somma, come la divido" e si apre solo quando serve.',
+      'In "La tua situazione": il tab Oggi riassume liquidità dei conti considerati, somme protette, margine spendibile, limite giornaliero indicativo, ritmo delle spese, suggerimenti e simulatore di acquisto. Se le entrate non sono stabili puoi scegliere da uno a sei mesi di spese da proteggere, oppure un orizzonte a data entro cui il capitale deve bastare invece del ciclo mensile. Il tab Prossimi 30 giorni mostra le uscite ricorrenti in arrivo. Il tab Analisi confronta movimenti registrati in periodi equivalenti e mostra medie per categoria, andamento del mese, patrimonio netto, debiti, fondo di sicurezza e obiettivi: i confronti descrivono i movimenti disponibili oggi, perché WALLT non ricostruisce saldi storici e non può verificare la completezza delle registrazioni manuali.',
+      'In "Piano Smart": la creazione di un piano, gli scenari, i piani salvati e il relativo dettaglio. Le spese obbligatorie confermate vengono sottratte dalla somma ricevuta per ottenere il capitale distribuibile. Le categorie V1 sono necessità, sicurezza, obiettivi, futuro e libertà; V2 aggiunge scenari, proiezioni e azioni preparatorie.',
       'Un dato assente o non stimabile resta esplicito e non viene trasformato in zero. Una stima usa una base temporale dichiarata e non garantisce il risultato futuro.',
       'La simulazione di una spesa è solo un confronto: non crea movimenti, non modifica saldi o obiettivi e non esegue pagamenti. Le azioni V2 sono promemoria: aggiornarne lo stato non esegue operazioni finanziarie.',
       'WALLT non collega automaticamente i conti bancari, non sposta denaro e non è un consulente finanziario automatico. Le entrate, uscite o rate future non registrate come ricorrenze possono non essere considerate.',
     ],
     link: { label: 'Apri la guida completa e interattiva', to: '/aiuto?argomento=piano-smart' },
+  },
+  {
+    id: 'orizzonte-di-spesa',
+    title: 'L\'orizzonte di spesa',
+    summary: 'Il ciclo mensile di sempre, oppure una data entro cui il capitale deve bastare.',
+    paragraphs: [
+      'Di default Piano Smart lavora sul ciclo mensile: il budget giornaliero che puoi spendere oggi riparte con ogni mese. Puoi invece scegliere una data: da quel momento il capitale libero deve bastare fino a quel giorno, e il budget si ricalcola ogni giorno su quello che resta davvero.',
+      'Il capitale libero non comprende il fondo di emergenza: resta una riserva separata, e se gli impegni fino al termine superano il capitale disponibile Piano Smart lo segnala invece di proporre un budget che non si potrebbe sostenere.',
+    ],
+    link: { label: 'Apri la tua situazione', to: '/funzionalita/situazione' },
+    related: ['piano-smart'],
   },
 ];
 
@@ -324,7 +335,7 @@ export const HELP_SECTIONS = [
     id: 'strumenti',
     title: 'Home, budget, obiettivi e analisi',
     description: 'Come leggere i riepiloghi e cosa fanno davvero i pulsanti.',
-    topics: ['patrimonio-come-si-calcola', 'saldo-effettivo-come-si-calcola', 'dashboard-riepilogo', 'budget-come-funziona', 'obiettivi-contributi', 'analisi-come-funziona', 'piano-smart'],
+    topics: ['patrimonio-come-si-calcola', 'saldo-effettivo-come-si-calcola', 'dashboard-riepilogo', 'budget-come-funziona', 'obiettivi-contributi', 'analisi-come-funziona', 'piano-smart', 'orizzonte-di-spesa'],
   },
   {
     id: 'notifiche',
