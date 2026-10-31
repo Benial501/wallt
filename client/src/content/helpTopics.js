@@ -98,6 +98,20 @@ const TOPICS = [
     related: ['movimento-ricorrenza'],
   },
   {
+    id: 'abbonamenti-gestione',
+    title: 'Abbonamenti',
+    summary: 'Quanto spendi in abbonamenti, a colpo d’occhio. Questa pagina legge soltanto: i tuoi conti non cambiano.',
+    paragraphs: [
+      'Nella scheda Abbonamenti trovi i servizi che risultano attivi, con il costo e quanto ti costano in un anno. In fondo c’è la somma di quanto spendi al mese e all’anno. Aggiungere, modificare o annullare un abbonamento non sposta denaro e non cambia il saldo effettivo: i pagamenti veri restano i movimenti e le programmazioni.',
+      'WALLT legge le transazioni degli ultimi tre mesi: se trova un servizio come Netflix o Spotify, o un movimento in una categoria di abbonamenti, lo aggiunge da solo. Da un solo addebito non può sapere se paghi ogni mese o ogni anno, quindi lo segna come mensile con la scritta «Controlla la durata»: toccalo e correggi, altrimenti un annuale peserebbe troppo sul totale. Se il prezzo cambia, il costo si aggiorna al nuovo addebito.',
+      'Per un abbonamento a tempo vedi il totale del periodo e quanto costerebbe in un anno intero. Nel totale annuale conta solo ciò che paghi davvero, e alla fine del periodo l’abbonamento esce da solo dagli attivi.',
+      'Annullare qui non disdice il servizio: va fatto presso chi te lo fornisce. Se dopo l’annullamento arriva un altro addebito, l’abbonamento torna fra gli attivi con un avviso, perché qualcuno ti sta ancora addebitando. Se invece WALLT ha scambiato un acquisto singolo per un abbonamento, scegli «Non è un abbonamento» e non verrà più aggiunto. Da «Mostra annullati» puoi sempre ripristinarlo.',
+      'Un abbonamento può essere legato a una programmazione, che scala il conto a ogni scadenza. Annullarlo qui non la ferma: per farlo, sospendi la programmazione dalla scheda Programmate. Se sospendi o termini la programmazione, l’abbonamento passa fra gli annullati.',
+    ],
+    link: { label: 'Vai agli abbonamenti', to: '/ricorrenti?scheda=abbonamenti' },
+    related: ['ricorrenti-gestione'],
+  },
+  {
     id: 'movimenti-pagina',
     title: 'La pagina Movimenti',
     summary: 'Filtri per periodo, tipo, categoria e conto: quello che vedi dipende dai filtri attivi.',
@@ -317,7 +331,7 @@ export const HELP_SECTIONS = [
     id: 'movimenti',
     title: 'Movimenti e trasferimenti',
     description: 'Registrare entrate e uscite, spostare soldi tra i tuoi conti.',
-    topics: ['movimento-registrare', 'movimento-ricorrenza', 'ricorrenti-gestione', 'trasferimenti', 'movimenti-pagina', 'filtrare-i-movimenti'],
+    topics: ['movimento-registrare', 'movimento-ricorrenza', 'ricorrenti-gestione', 'abbonamenti-gestione', 'trasferimenti', 'movimenti-pagina', 'filtrare-i-movimenti'],
   },
   {
     id: 'categorie',

@@ -167,6 +167,24 @@ const CONCETTI = [
     topic: 'orizzonte-di-spesa',
   },
   {
+    id: 'abbonamenti_al_mese',
+    etichetta: 'Al mese',
+    descrizione:
+      'Quanto pesano in un mese gli abbonamenti attivi. Un abbonamento annuale conta per un dodicesimo, uno trimestrale per un terzo.',
+    formula: 'somma del costo annuo di ogni abbonamento attivo ÷ 12',
+    origine: 'GET /abbonamenti → totali.al_mese',
+    topic: 'abbonamenti-gestione',
+  },
+  {
+    id: 'abbonamenti_all_anno',
+    etichetta: 'All’anno',
+    descrizione:
+      'Quanto pagherai in un anno per gli abbonamenti attivi. Di quelli a tempo conta solo ciò che paghi davvero, fino a dodici mesi.',
+    formula: 'somma del costo annuo di quelli senza scadenza + pagamenti dei primi 12 mesi di quelli a tempo',
+    origine: 'GET /abbonamenti → totali.all_anno',
+    topic: 'abbonamenti-gestione',
+  },
+  {
     id: 'ritmo_attuale',
     etichetta: 'Ritmo attuale',
     descrizione:

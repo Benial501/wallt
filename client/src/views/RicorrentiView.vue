@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, ref, computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useMovimentiStore } from '@/stores/movimenti.store';
 import { useToastStore } from '@/stores/toast.store';
 import { useAuthStore } from '@/stores/auth.store';
@@ -17,7 +18,16 @@ import { useContiStore } from '@/stores/conti.store';
 import ScheduledPaymentItem from '@/components/programmate/ScheduledPaymentItem.vue';
 import ScheduledPaymentForm from '@/components/programmate/ScheduledPaymentForm.vue';
 import MovimentoForm from '@/components/movimenti/MovimentoForm.vue';
+import AbbonamentiSezione from '@/components/abbonamenti/AbbonamentiSezione.vue';
+import { decidiAsse } from '@/components/movimenti/swipeGesture';
 
+// Oltre questa distanza un gesto laterale è una richiesta di cambiare scheda.
+const SOGLIA_CAMBIO_SCHEDA = 60;
+const SCHEDA_ABBONAMENTI = 'abbonamenti';
+const SCHEDA_PROGRAMMATE = 'programmate';
+
+const route = useRoute();
+const router = useRouter();
 const movimentiStore = useMovimentiStore();
 const toastStore = useToastStore();
 const authStore = useAuthStore();
@@ -40,6 +50,36 @@ const statoCombinato = computed(() => {
   if (isLoading) return 'caricamento';
   return numeroElementi.value ? 'pronto' : 'vuoto';
 });
+
+// La scheda aperta sta nell'indirizzo: un collegamento o il tasto indietro
+// riportano dove si era, e l'aiuto può puntare direttamente agli abbonamenti.
+const scheda = computed(() => (route.query.scheda === SCHEDA_ABBONAMENTI ? SCHEDA_ABBONAMENTI : SCHEDA_PROGRAMMATE));
+const argomentoAiuto = computed(() => (scheda.value === SCHEDA_ABBONAMENTI ? 'abbonamenti-gestione' : 'ricorrenti-gestione'));
+const spiegazione = computed(() => (scheda.value === SCHEDA_ABBONAMENTI
+  ? 'Quanto spendi in abbonamenti, a colpo d’occhio. Questa pagina legge soltanto: i tuoi conti non cambiano.'
+  : 'Gestisci pagamenti futuri, rate e movimenti che si ripetono.'));
+
+const vaiA = (nuova) => {
+  if (nuova === scheda.value) return;
+  const { scheda: _scheda, ...query } = route.query;
+  router.replace({ query: nuova === SCHEDA_ABBONAMENTI ? { ...query, scheda: nuova } : query });
+};
+
+let inizioGesto = null;
+const iniziaGesto = (event) => {
+  const [dito] = event.changedTouches;
+  inizioGesto = { x: dito.clientX, y: dito.clientY };
+};
+const chiudiGesto = (event) => {
+  if (!inizioGesto) return;
+  const [dito] = event.changedTouches;
+  const dx = dito.clientX - inizioGesto.x;
+  const dy = dito.clientY - inizioGesto.y;
+  inizioGesto = null;
+  if (decidiAsse(dx, dy) !== 'x' || Math.abs(dx) < SOGLIA_CAMBIO_SCHEDA) return;
+  vaiA(dx < 0 ? SCHEDA_ABBONAMENTI : SCHEDA_PROGRAMMATE);
+};
+
 const pagamentoCaricamento = (payment) => pagamentoInCorso.value === payment.id
   || (payment.piano && pagamentoInCorso.value === `piano-${payment.piano.id}`);
 
@@ -142,26 +182,48 @@ const cambiaStato = async (movimento, stato) => {
 </script>
 
 <template>
-  <div class="ricorrenti-view animate-fade-in">
+  <div class="ricorrenti-view animate-fade-in" @touchstart.passive="iniziaGesto" @touchend.passive="chiudiGesto">
     <header class="ricorrenti-view__header">
       <div>
         <div class="ricorrenti-view__title-row">
-          <h1>Spese/entrate programmate</h1>
-          <HelpTrigger topic="ricorrenti-gestione" />
+          <h1>Programmate / Abbonamenti</h1>
+          <HelpTrigger :topic="argomentoAiuto" />
         </div>
-        <p>Gestisci pagamenti futuri, rate e movimenti che si ripetono.</p>
+        <p>{{ spiegazione }}</p>
       </div>
-      <WButton
-        v-if="numeroElementi"
-        class="ricorrenti-view__nuova"
-        variant="primary"
-        size="sm"
-        aria-label="Crea una nuova programmazione"
-        @click="showNuovaProgrammata = true"
-      >+ Nuova</WButton>
+      <template v-if="scheda === SCHEDA_PROGRAMMATE">
+        <WButton
+          v-if="numeroElementi"
+          class="ricorrenti-view__nuova"
+          variant="primary"
+          size="sm"
+          aria-label="Crea una nuova programmazione"
+          @click="showNuovaProgrammata = true"
+        >+ Nuova</WButton>
+      </template>
     </header>
 
+    <div class="ricorrenti-view__schede" role="tablist" aria-label="Programmate e abbonamenti">
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="scheda === SCHEDA_PROGRAMMATE"
+        :class="{ selezionata: scheda === SCHEDA_PROGRAMMATE }"
+        @click="vaiA(SCHEDA_PROGRAMMATE)"
+      >Programmate</button>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="scheda === SCHEDA_ABBONAMENTI"
+        :class="{ selezionata: scheda === SCHEDA_ABBONAMENTI }"
+        @click="vaiA(SCHEDA_ABBONAMENTI)"
+      >Abbonamenti</button>
+    </div>
+
+    <AbbonamentiSezione v-if="scheda === SCHEDA_ABBONAMENTI" @vai-programmate="vaiA(SCHEDA_PROGRAMMATE)" />
+
     <DataState
+      v-else
       :stato="statoCombinato"
       :last-updated="movimentiStore.risorsaRicorrenti.lastUpdated || scheduledStore.lastUpdated || null"
       messaggio-errore="Non è stato possibile caricare le spese e le entrate programmate."
@@ -247,7 +309,45 @@ const cambiaStato = async (movimento, stato) => {
 </template>
 
 <style scoped>
-.ricorrenti-view { display: flex; flex-direction: column; gap: 1.25rem; }
+.ricorrenti-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  /* Il browser gestisce lo scorrimento verticale e lo zoom; solo il gesto
+     laterale arriva a noi, per cambiare scheda. */
+  touch-action: pan-y pinch-zoom;
+}
+.ricorrenti-view__schede {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--glass-secondary-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-secondary-bg);
+}
+.ricorrenti-view__schede button {
+  min-height: 40px;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 550;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) {
+  .ricorrenti-view__schede button:hover:not(.selezionata) { color: var(--text-primary); }
+}
+.ricorrenti-view__schede button:focus-visible { outline: none; box-shadow: var(--focus-ring-tight); }
+.ricorrenti-view__schede .selezionata {
+  background: var(--glass-interactive-bg-active);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-xs);
+}
 .ricorrenti-view__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
 .ricorrenti-view__nuova { white-space: nowrap; }
 .ricorrenti-view__title-row { display: flex; align-items: center; gap: 0.5rem; }
