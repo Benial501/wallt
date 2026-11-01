@@ -365,3 +365,26 @@ Priorità immediate:
 7. Run available validation: `cd server && npm test` (richiede PostgreSQL); `npm run test:unit` esegue solo le suite che non toccano il database.
 8. Review the diff.
 9. Report what changed and any remaining risks.
+
+## graphify
+
+Il progetto ha un grafo del codice in `graphify-out/graph.json`, con i nodi più collegati, le comunità e le relazioni fra i file. Lo strumento si installa con `uv tool install graphifyy`: dove manca, gli hook in `.claude/settings.json` e `.codex/hooks.json` non fanno nulla.
+
+Regole:
+- Quando `graphify-out/graph.json` esiste, esegui `graphify query "<domanda>"` prima del primo grep, della prima ricerca o della prima lettura di un sorgente per una domanda sul codice, e scrivi questa regola nel prompt di ogni subagente che esplora il codice. Leggi i file grezzi solo per le righe che il grafo o una lettura precedente hanno già individuato. Usa `graphify path "<A>" "<B>"` per le relazioni e `graphify explain "<concetto>"` per un singolo concetto: restituiscono un sottografo mirato, di solito molto più piccolo di `GRAPH_REPORT.md` o dell'output di grep.
+- Se `graphify-out/wiki/index.md` esiste, usalo per orientarti invece di sfogliare i sorgenti.
+- Leggi `graphify-out/GRAPH_REPORT.md` solo per una revisione generale dell'architettura, o quando query, path ed explain non bastano.
+- Dopo aver modificato il codice, esegui `graphify update .` per tenere aggiornato il grafo (solo AST, nessun costo API).
+- `graphify-out/graph.json` viene riscritto per intero a ogni generazione, quindi un diff grande in una pull request è previsto. Non segnalarlo come rumore e non proporre di saltare la rigenerazione o i suoi hook.
+
+Nel repository sta solo `graph.json`: report, HTML, manifest e cache si rigenerano in locale con `graphify update .` e sono ignorati da git.
+
+Due rami che cambiano il grafo si uniscono con un merge driver, da registrare una volta per ogni clone (i worktree lo condividono):
+
+```bash
+PY="$(sed -n '1s/^#!//p' "$(command -v graphify)")"
+git config merge.graphify.name "graphify graph.json union merge"
+git config merge.graphify.driver "\"$PY\" -m graphify merge-driver %O %A %B"
+```
+
+GitHub non esegue i merge driver: due PR aperte che cambiano entrambe il grafo risultano in conflitto. Si risolve unendo `main` nel ramo in locale, dove il driver fa da solo. Se il driver manca o rifiuta il file: `rm graphify-out/graph.json && graphify update . && git add graphify-out/graph.json`.
