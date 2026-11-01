@@ -6,12 +6,7 @@
 const {
   request, createApp, registerUser, authHeader, Conto, Movimento,
 } = require('./setup');
-
-const meseScorso = () => {
-  const d = new Date();
-  d.setMonth(d.getMonth() - 1);
-  return `${d.toISOString().slice(0, 7)}-01`;
-};
+const { primoGiornoMeseScorso, fermaOrologio } = require('./helpers/date');
 
 describe('Fondo di emergenza', () => {
   let app;
@@ -27,7 +22,7 @@ describe('Fondo di emergenza', () => {
     .post('/api/movimenti').set(authHeader(token))
     .send({ conto_id: contoId, tipo: 'uscita', importo, categoria, data });
 
-  beforeEach(async () => {
+  const preparaUtente = async () => {
     app = createApp({ enableRateLimit: false });
     const { res } = await registerUser(app);
     token = res.body.token;
@@ -35,7 +30,9 @@ describe('Fondo di emergenza', () => {
     const contoRes = await request(app).post('/api/conti').set(authHeader(token))
       .send({ nome: 'Conto', tipo: 'banca', saldo_iniziale: 5000 });
     contoId = contoRes.body.conto.id;
-  });
+  };
+
+  beforeEach(preparaUtente);
 
   describe('creazione', () => {
     it('senza fondo risponde 200 con esiste:false, non 404: la home deve sapere che non c\'è', async () => {
@@ -90,7 +87,7 @@ describe('Fondo di emergenza', () => {
 
   describe('soglia', () => {
     it('PATCH cambia i mesi e la soglia in euro si ricalcola', async () => {
-      await uscita(900, 'affitto', meseScorso());
+      await uscita(900, 'affitto', primoGiornoMeseScorso());
       await creaFondo({ mesi_target: 3 });
 
       const tre = await leggiFondo();
@@ -218,7 +215,7 @@ describe('Fondo di emergenza', () => {
     });
 
     it('con storico ma nessuna spesa essenziale: non_calcolabile', async () => {
-      await uscita(100, 'svago', meseScorso());
+      await uscita(100, 'svago', primoGiornoMeseScorso());
       await creaFondo({ mesi_target: 3 });
       const res = await leggiFondo();
       expect(res.body.copertura.stato).toBe('non_calcolabile');
@@ -226,7 +223,7 @@ describe('Fondo di emergenza', () => {
     });
 
     it('con spese essenziali calcola mesi coperti, soglia e quanto manca', async () => {
-      await uscita(900, 'affitto', meseScorso());
+      await uscita(900, 'affitto', primoGiornoMeseScorso());
       const fondo = await creaFondo({ mesi_target: 3 });
       await request(app).post('/api/conti/trasferimento').set(authHeader(token))
         .send({
@@ -245,7 +242,7 @@ describe('Fondo di emergenza', () => {
     });
 
     it('superata la soglia, mancante è zero e non negativo', async () => {
-      await uscita(300, 'affitto', meseScorso());
+      await uscita(300, 'affitto', primoGiornoMeseScorso());
       const fondo = await creaFondo({ mesi_target: 3 });
       await request(app).post('/api/conti/trasferimento').set(authHeader(token))
         .send({
@@ -258,6 +255,32 @@ describe('Fondo di emergenza', () => {
       const res = await leggiFondo();
       expect(res.body.soglia_euro).toBe(900);
       expect(res.body.mancante).toBe(0);
+    });
+  });
+
+  describe('a fine mese', () => {
+    afterEach(() => jest.useRealTimers());
+
+    // La spesa del mese scorso deve cadere nel mese civile precedente qualunque
+    // sia il giorno: nel mese in corso le medie la escludono e la soglia diventa
+    // null, due mesi indietro la media si dimezza.
+    it.each([
+      ['31 ottobre, settembre ha 30 giorni', '2026-10-31T10:00:00Z'],
+      ['31 marzo, febbraio è più corto', '2027-03-31T10:00:00Z'],
+      ['31 gennaio, il mese scorso è nell\'anno prima', '2027-01-31T10:00:00Z'],
+      ['1° dicembre a Roma, in UTC ancora 30 novembre', '2026-11-30T23:30:00Z'],
+    ])('la soglia si calcola il %s', async (_caso, istante) => {
+      fermaOrologio(istante);
+      // L'utente nasce a orologio fermo: un token emesso con l'ora reale sarebbe
+      // già scaduto per una data fissata più di sette giorni avanti.
+      await preparaUtente();
+
+      await uscita(900, 'affitto', primoGiornoMeseScorso());
+      await creaFondo({ mesi_target: 3 });
+
+      const res = await leggiFondo();
+      expect(res.body.copertura.spese_essenziali_mensili).toBe(900);
+      expect(res.body.soglia_euro).toBe(2700);
     });
   });
 
