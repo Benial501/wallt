@@ -654,6 +654,44 @@ Passività dell'utente (prestiti, mutui, finanziamenti, ecc.), usate per calcola
 
 ---
 
+## Abbonamenti
+
+Un quadro da leggere: nessuna di queste rotte scrive su conti o movimenti (CLAUDE.md Regola 28). Importi in euro, calcolati in centesimi interi.
+
+### GET /api/abbonamenti
+- **Azione**: rilegge i movimenti degli ultimi 3 mesi e le programmazioni, aggiorna le righe in modo idempotente e restituisce l'elenco. Se la rilettura fallisce risponde comunque con ciò che è salvato
+- **Risposta**: `{ attivi[], non_attivi[], totali: { al_mese, all_anno, se_tutti_12_mesi } }`. `se_tutti_12_mesi` è `null` senza abbonamenti a tempo. Ogni voce ha `stato_effettivo` (`attivo`, `annullato`, `finito`, `escluso`), `data_fine` e `costi: { al_mese, in_un_anno, in_totale, peso_annuo }`
+- **File**: `abbonamenti.controller.js` → `services/abbonamenti.service.js`
+
+### POST /api/abbonamenti
+- **Body**: `{ nome, costo, periodo_mesi, servizio_id?, icona?, durata_mesi?, data_inizio? }`
+- **Validazione**: `validateAbbonamento`. `periodo_mesi` in 1, 3, 6, 12; `durata_mesi` da 1 a 120 e con `data_inizio` obbligatoria; `servizio_id` e `icona` dall'elenco
+- **Note**: `user_id`, `origine`, `stato`, `chiave`, `ordine` e `ultimo_addebito_*` nel corpo sono ignorati
+- **Risposta**: 201 `{ abbonamento }`
+
+### PUT /api/abbonamenti/:id
+- **Body e validazione**: come `POST` (`validateUpdateAbbonamento`)
+- **Azione**: toglie «Controlla la durata» e la segnalazione dell'addebito dopo la chiusura. Non cambia la chiave delle righe trovate nei movimenti
+- **Risposta**: `{ abbonamento }`
+- **Errori**: 404 (di un altro utente), 409 (non è attivo)
+
+### PATCH /api/abbonamenti/:id/annulla
+- **Azione**: lo toglie da elenco e totali. Non ferma una programmazione legata e non disdice il servizio
+- **Risposta**: `{ abbonamento }`
+- **Errori**: 404, 409 (non è attivo)
+
+### PATCH /api/abbonamenti/:id/escludi
+- **Azione**: «Non è un abbonamento». La sua chiave non crea più righe nuove
+- **Risposta**: `{ abbonamento }`
+- **Errori**: 404, 422 (scritto a mano)
+
+### PATCH /api/abbonamenti/:id/ripristina
+- **Azione**: lo riporta fra gli attivi. Se era finito, toglie la scadenza e chiede di controllare la durata
+- **Risposta**: `{ abbonamento }`
+- **Errori**: 404
+
+---
+
 ## Scommesse
 
 > Tutte le route: `authMiddleware` + `blockScommesseAccess`

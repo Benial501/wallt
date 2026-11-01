@@ -19,6 +19,7 @@ const {
   PianoSmart,
   PaymentPlan,
   ScheduledPayment,
+  Abbonamento,
 } = require('../models');
 
 const isOAuthProvider = (authProvider) => !!authProvider && authProvider !== 'local';
@@ -40,6 +41,17 @@ const deleteAllTransactions = async (userId, transaction) => {
   // dedupe_key impedirebbe di riemettere lo stesso avviso se l'utente
   // ricostruisce i dati nello stesso periodo.
   await Notifica.destroy({ where: { user_id: userId }, transaction });
+  // Un abbonamento trovato nelle transazioni e mai toccato deriva da movimenti
+  // che non esistono più. Quello scritto o corretto dall'utente resta, come
+  // budget e obiettivi, ma perde i riferimenti a quei movimenti.
+  await Abbonamento.destroy({
+    where: { user_id: userId, origine: 'rilevato', modificato_utente_il: null },
+    transaction,
+  });
+  await Abbonamento.update(
+    { ultimo_addebito_data: null, ultimo_addebito_importo: null, movimento_ricorrente_id: null },
+    { where: { user_id: userId }, transaction },
+  );
 };
 
 /**
@@ -47,6 +59,7 @@ const deleteAllTransactions = async (userId, transaction) => {
  * Non elimina: account, credenziali, preferenze utente, profilo/onboarding.
  */
 const deleteAllUserData = async (userId, transaction) => {
+  await Abbonamento.destroy({ where: { user_id: userId }, transaction });
   await ScheduledPayment.destroy({ where: { user_id: userId }, transaction });
   await PaymentPlan.destroy({ where: { user_id: userId }, transaction });
   await MovimentoScommesse.destroy({ where: { user_id: userId }, transaction });

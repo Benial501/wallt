@@ -18,6 +18,7 @@ import { useScheduledPaymentsStore } from '@/stores/scheduledPayments.store';
 import { usePianoStore } from '@/stores/piano.store';
 import { useBankSyncStore } from '@/stores/bankSync.store';
 import { useAdminStore } from '@/stores/admin.store';
+import { useAbbonamentiStore } from '@/stores/abbonamenti.store';
 
 /**
  * Pulisce tutti gli store Pinia e i dati temporanei di sessione.
@@ -68,6 +69,9 @@ export function resetPiniaStores() {
     useBankSyncStore,
     // L'area di amministrazione tiene in memoria email di altri utenti.
     useAdminStore,
+    // Dice quali servizi paga l'utente e quanto: non deve restare in memoria
+    // per chi entra dopo sulla stessa scheda.
+    useAbbonamentiStore,
   ].forEach((useStore) => {
     try { useStore().reset(); } catch { /* ignore */ }
   });

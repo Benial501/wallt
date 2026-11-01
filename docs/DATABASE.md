@@ -460,6 +460,30 @@ percentuale non esiste (0/0), e scrivere `0.00` dichiarerebbe un dato che non c'
 utente, storico conservato. Vedi CLAUDE.md Regola 24 per il perché di
 `da_riconciliare` e di `import_da`.
 
+### Abbonamento (`abbonamenti`)
+
+Gli abbonamenti mostrati in Programmate / Abbonamenti. Nessun effetto sui saldi:
+vedi CLAUDE.md Regola 28.
+
+| Campo | Tipo | Note |
+|---|---|---|
+| `user_id` | INTEGER | `ON DELETE CASCADE` |
+| `servizio_id`, `icona` | STRING(60) NULL | Voce di `constants/abbonamenti.js`; `icona` può anche essere un'icona generica |
+| `chiave`, `ordine` | STRING(120), SMALLINT | Identità del servizio. `ordine` distingue due abbonamenti sullo stesso addebito |
+| `nome` | STRING(100) | |
+| `costo`, `periodo_mesi` | DECIMAL(12,2), SMALLINT | Si paga `costo` ogni `periodo_mesi`. CHECK: 1, 3, 6, 12 |
+| `durata_mesi`, `data_inizio` | SMALLINT NULL, DATEONLY NULL | `null` = finché non lo annullo. La fine si legge dalla data, nessuna colonna la scrive |
+| `stato` | STRING(12) | CHECK: `attivo`, `annullato`, `escluso` |
+| `origine` | STRING(12) | CHECK: `manuale`, `rilevato` |
+| `da_verificare` | BOOLEAN | «Controlla la durata» |
+| `riattivato_da_addebito`, `annullato_il` | BOOLEAN, DATEONLY NULL | Addebito arrivato dopo la chiusura |
+| `ultimo_addebito_data`, `ultimo_addebito_importo` | DATEONLY NULL, DECIMAL(12,2) NULL | Dall'ultimo movimento letto |
+| `modificato_utente_il` | DATE NULL | Decide se vince l'utente o l'addebito più recente |
+| `movimento_ricorrente_id` | INTEGER NULL | Programmazione legata. Senza chiave esterna: serve a capire che è stata eliminata |
+
+`UNIQUE(user_id, chiave, ordine)`: due letture simultanee non creano due righe
+per lo stesso rilevamento.
+
 ## Relazioni testuali
 
 ```
@@ -533,6 +557,7 @@ CategorieRegola (globali, user_id = NULL) — nessuna FK
 | `20260927000037-create-pagamenti-programmati.js` | Piani a rate e scadenze programmate |
 | `20260928000038-programmate-entrate-ricorrenti.js` | Scadenze per entrate ricorrenti e stato `in_ritardo` |
 | `20260928000039-add-limite-occorrenze-ricorrenti.js` | Numero di scadenze mensili rimanenti |
+| `20261031000053-create-abbonamenti.js` | Tabella abbonamenti, con RLS e privilegi revocati |
 
 ## Query importanti
 

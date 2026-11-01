@@ -28,6 +28,8 @@ test('la voce Ricorrenti alimenta sidebar e bottom sheet', () => {
     const item = getFunctionalityItems(context, placement)
       .find((candidate) => candidate.id === 'ricorrenti');
     assert.equal(item?.route, '/ricorrenti');
+    assert.equal(item?.label, 'Programmate / Abbonamenti');
+    assert.match(item?.description, /abbonamenti/);
   }
 });
 

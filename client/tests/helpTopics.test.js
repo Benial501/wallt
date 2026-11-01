@@ -75,6 +75,7 @@ test('la guida copre le nuove superfici realmente disponibili', () => {
   const attesi = [
     ['funzionalita-navigazione', '/aiuto'],
     ['ricorrenti-gestione', '/ricorrenti'],
+    ['abbonamenti-gestione', '/ricorrenti?scheda=abbonamenti'],
     ['notifiche-aggiornamento', '/notifiche'],
   ];
 

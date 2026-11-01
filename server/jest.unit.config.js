@@ -12,6 +12,8 @@ module.exports = {
   testEnvironment: 'node',
   setupFiles: ['<rootDir>/tests/env.unit.js'],
   testMatch: [
+    '<rootDir>/tests/abbonamentiCosti.test.js',
+    '<rootDir>/tests/abbonamentiRilevamento.test.js',
     '<rootDir>/tests/validateEnv.test.js',
     '<rootDir>/tests/databaseConfig.test.js',
     '<rootDir>/tests/migrations.postgres.test.js',
