@@ -4,6 +4,7 @@
 const {
   request, createApp, registerUser, authHeader,
 } = require('./setup');
+const { primoGiornoMeseScorso } = require('./helpers/date');
 const { list } = require('../services/categorie.service');
 const { ESSENZIALITA_VALUES, CATEGORIE_DEFAULT } = require('../constants/categorie');
 
@@ -212,9 +213,7 @@ describe('Personalizzazione essenzialità delle categorie predefinite (per utent
   it('la personalizzazione si propaga al fondo di sicurezza (svago riclassificato entra tra le essenziali)', async () => {
     const contoRes = await request(app).post('/api/conti').set(authHeader(tokenA)).send({ nome: 'C', tipo: 'banca', saldo_iniziale: 10000 });
     const contoId = contoRes.body.conto.id;
-    const meseScorso = new Date();
-    meseScorso.setMonth(meseScorso.getMonth() - 1);
-    const data = `${meseScorso.toISOString().slice(0, 7)}-01`;
+    const data = primoGiornoMeseScorso();
 
     await request(app)
       .put('/api/categorie/default/svago/essenzialita')
