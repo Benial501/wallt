@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { createMemoryHistory, createRouter } from 'vue-router';
+import { loadModule } from './helpers/renderVue.js';
+import { tabSituazione } from '../src/utils/situazioneTab.js';
 
 /**
  * La tua situazione: il cruscotto di monitoraggio spostato da
@@ -26,15 +29,54 @@ test('La tua situazione espone timeline accessibile, radar e obiettivi dalla sit
   assert.match(goals, /estimateReason/);
 });
 
-test('La tua situazione distingue le tre aree di monitoraggio, senza il tab Piani', async () => {
-  const source = await readFile(new URL('../src/views/SituazioneView.vue', import.meta.url), 'utf8');
+test('La tua situazione distingue le aree di monitoraggio, senza il tab Piani', async () => {
+  const source = await readFile(new URL('../src/components/piano-smart/SituazioneHeader.vue', import.meta.url), 'utf8');
   assert.match(source, /\>Oggi<\/button>/);
   assert.match(source, /\>Prossimi 30 giorni<\/button>/);
   assert.match(source, /\>Analisi<\/button>/);
+  assert.match(source, /\>Programmate \/ Abbonamenti<\/button>/);
   // Il tab Piani è sparito da qui: il wizard vive sulla rotta separata
   // /funzionalita/piano-smart/nuovo (PianoSmartView.vue). La vecchia URL
   // /funzionalita/piano-smart ora redirige qui (voce 8 della review finale).
   assert.doesNotMatch(source, /\>Piani<\/button>/);
+});
+
+test('Programmate / Abbonamenti è una pagina dentro La tua situazione, con le stesse schede', async () => {
+  const { routes } = await loadModule('/src/router/routes.js');
+  const router = createRouter({ history: createMemoryHistory(), routes });
+
+  assert.equal(router.resolve('/funzionalita/situazione/programmate').name, 'ricorrenti');
+
+  const vista = await readFile(new URL('../src/views/RicorrentiView.vue', import.meta.url), 'utf8');
+  const cruscotto = await readFile(new URL('../src/views/SituazioneView.vue', import.meta.url), 'utf8');
+  assert.match(vista, /<SituazioneHeader \/>/);
+  assert.match(cruscotto, /<SituazioneHeader \/>/);
+});
+
+test('il vecchio indirizzo delle programmate porta alla pagina nuova e conserva la scheda', async () => {
+  const { routes } = await loadModule('/src/router/routes.js');
+  const router = createRouter({ history: createMemoryHistory(), routes });
+
+  await router.push('/ricorrenti?scheda=abbonamenti');
+  assert.equal(router.currentRoute.value.name, 'ricorrenti');
+  assert.equal(router.currentRoute.value.path, '/funzionalita/situazione/programmate');
+  assert.equal(router.currentRoute.value.query.scheda, 'abbonamenti');
+});
+
+test('le schede del cruscotto si leggono dall\'indirizzo, e un valore sconosciuto apre Oggi', () => {
+  assert.equal(tabSituazione({}), 'today');
+  assert.equal(tabSituazione({ tab: 'upcoming' }), 'upcoming');
+  assert.equal(tabSituazione({ tab: 'analysis' }), 'analysis');
+  assert.equal(tabSituazione({ tab: 'inventata' }), 'today');
+  assert.equal(tabSituazione(undefined), 'today');
+});
+
+test('il gesto per cambiare scheda non blocca lo scorrimento delle schede della situazione', async () => {
+  const vista = await readFile(new URL('../src/views/RicorrentiView.vue', import.meta.url), 'utf8');
+  const template = vista.slice(vista.indexOf('<template>'));
+  // `touch-action: pan-y` vale anche per i figli: con le schede dentro quel
+  // contenitore, su un telefono non scorrerebbero più.
+  assert.ok(template.indexOf('<SituazioneHeader') < template.indexOf('@touchstart.passive'));
 });
 
 test('il riquadro Accantona compare soltanto nei prossimi 30 giorni, non in Analisi', async () => {

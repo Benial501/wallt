@@ -11,6 +11,7 @@ import AppDialog from '@/components/common/AppDialog.vue';
 import RicorrenteForm from '@/components/ricorrenti/RicorrenteForm.vue';
 import RicorrenteItem from '@/components/ricorrenti/RicorrenteItem.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
+import SituazioneHeader from '@/components/piano-smart/SituazioneHeader.vue';
 import { AlertTriangle, Repeat2 } from '@/utils/appIcons';
 import api from '@/utils/axios';
 import { useScheduledPaymentsStore } from '@/stores/scheduledPayments.store';
@@ -182,133 +183,138 @@ const cambiaStato = async (movimento, stato) => {
 </script>
 
 <template>
-  <div class="ricorrenti-view animate-fade-in" @touchstart.passive="iniziaGesto" @touchend.passive="chiudiGesto">
-    <header class="ricorrenti-view__header">
-      <div>
-        <div class="ricorrenti-view__title-row">
-          <h1>Programmate / Abbonamenti</h1>
-          <HelpTrigger :topic="argomentoAiuto" />
-        </div>
-        <p>{{ spiegazione }}</p>
-      </div>
-      <template v-if="scheda === SCHEDA_PROGRAMMATE">
-        <WButton
-          v-if="numeroElementi"
-          class="ricorrenti-view__nuova"
-          variant="primary"
-          size="sm"
-          aria-label="Crea una nuova programmazione"
-          @click="showNuovaProgrammata = true"
-        >+ Nuova</WButton>
-      </template>
-    </header>
+  <div class="ricorrenti-pagina">
+    <SituazioneHeader />
 
-    <div class="ricorrenti-view__schede" role="tablist" aria-label="Programmate e abbonamenti">
-      <button
-        type="button"
-        role="tab"
-        :aria-selected="scheda === SCHEDA_PROGRAMMATE"
-        :class="{ selezionata: scheda === SCHEDA_PROGRAMMATE }"
-        @click="vaiA(SCHEDA_PROGRAMMATE)"
-      >Programmate</button>
-      <button
-        type="button"
-        role="tab"
-        :aria-selected="scheda === SCHEDA_ABBONAMENTI"
-        :class="{ selezionata: scheda === SCHEDA_ABBONAMENTI }"
-        @click="vaiA(SCHEDA_ABBONAMENTI)"
-      >Abbonamenti</button>
+    <div class="ricorrenti-view animate-fade-in" @touchstart.passive="iniziaGesto" @touchend.passive="chiudiGesto">
+      <header class="ricorrenti-view__header">
+        <div>
+          <div class="ricorrenti-view__title-row">
+            <h2 class="ricorrenti-view__titolo">Programmate / Abbonamenti</h2>
+            <HelpTrigger :topic="argomentoAiuto" />
+          </div>
+          <p>{{ spiegazione }}</p>
+        </div>
+        <template v-if="scheda === SCHEDA_PROGRAMMATE">
+          <WButton
+            v-if="numeroElementi"
+            class="ricorrenti-view__nuova"
+            variant="primary"
+            size="sm"
+            aria-label="Crea una nuova programmazione"
+            @click="showNuovaProgrammata = true"
+          >+ Nuova</WButton>
+        </template>
+      </header>
+
+      <div class="ricorrenti-view__schede" role="tablist" aria-label="Programmate e abbonamenti">
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="scheda === SCHEDA_PROGRAMMATE"
+          :class="{ selezionata: scheda === SCHEDA_PROGRAMMATE }"
+          @click="vaiA(SCHEDA_PROGRAMMATE)"
+        >Programmate</button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="scheda === SCHEDA_ABBONAMENTI"
+          :class="{ selezionata: scheda === SCHEDA_ABBONAMENTI }"
+          @click="vaiA(SCHEDA_ABBONAMENTI)"
+        >Abbonamenti</button>
+      </div>
+
+      <AbbonamentiSezione v-if="scheda === SCHEDA_ABBONAMENTI" @vai-programmate="vaiA(SCHEDA_PROGRAMMATE)" />
+
+      <DataState
+        v-else
+        :stato="statoCombinato"
+        :last-updated="movimentiStore.risorsaRicorrenti.lastUpdated || scheduledStore.lastUpdated || null"
+        messaggio-errore="Non è stato possibile caricare le spese e le entrate programmate."
+        skeleton-type="card"
+        :skeleton-lines="4"
+        @riprova="caricaPagina"
+      >
+        <template #vuoto>
+          <WCard class="ricorrenti-view__vuoto">
+            <span class="ricorrenti-view__vuoto-icon"><Repeat2 :size="30" aria-hidden="true" /></span>
+            <h2>Nessuna spesa o entrata programmata</h2>
+            <p>Puoi aggiungere un pagamento futuro, un acquisto a rate o un movimento periodico.</p>
+            <WButton variant="primary" size="md" @click="showNuovaProgrammata = true">+ Nuova programmazione</WButton>
+          </WCard>
+        </template>
+
+        <div class="ricorrenti-view__lista">
+          <section v-if="scheduledStore.payments.length" class="ricorrenti-view__gruppo">
+            <h2>Scadenze da gestire</h2>
+            <ScheduledPaymentItem
+              v-for="payment in scheduledStore.payments"
+              :key="`payment-${payment.id}`"
+              :payment="payment"
+              :valuta="authStore.user?.valuta || 'EUR'"
+              :loading="pagamentoCaricamento(payment)"
+              :busy="Boolean(pagamentoInCorso)"
+              @confirm="segnaPagata"
+              @late="segnaEntrataInRitardo"
+              @cancel="annullaProgrammato"
+              @edit="modificaProgrammato"
+            />
+          </section>
+          <section v-if="movimentiStore.ricorrenti.length" class="ricorrenti-view__gruppo">
+            <h2>Movimenti periodici</h2>
+            <RicorrenteItem
+              v-for="movimento in movimentiStore.ricorrenti"
+              :key="movimento.id"
+              :movimento="movimento"
+              :valuta="authStore.user?.valuta || 'EUR'"
+              @modifica="modifica"
+              @elimina="chiediEliminazione"
+              @cambia-stato="cambiaStato"
+            />
+          </section>
+        </div>
+      </DataState>
+
+      <RicorrenteForm
+        :open="Boolean(movimentoInModifica)"
+        :movimento="movimentoInModifica"
+        @close="chiudiForm"
+        @saved="dopoSalvataggio"
+      />
+
+      <ScheduledPaymentForm
+        :open="Boolean(pagamentoInModifica)"
+        :payment="pagamentoInModifica"
+        @close="chiudiFormProgrammato"
+        @saved="dopoModificaProgrammato"
+      />
+
+      <MovimentoForm
+        :open="showNuovaProgrammata"
+        tipo="uscita"
+        modalita-programmate
+        @close="showNuovaProgrammata = false"
+        @saved="dopoSalvataggioProgrammata"
+      />
+
+      <AppDialog :open="Boolean(movimentoDaEliminare)" title="Elimina programmazione" @close="chiudiEliminazione">
+        <div class="ricorrenti-view__dialog">
+          <div class="ricorrenti-view__avviso">
+            <AlertTriangle :size="20" aria-hidden="true" />
+            <p>Elimini questa programmazione e il movimento che la contiene. L’operazione non è reversibile.</p>
+          </div>
+          <div class="ricorrenti-view__dialog-actions">
+            <WButton variant="secondary" size="lg" :disabled="eliminazioneInCorso" @click="chiudiEliminazione">Annulla</WButton>
+            <WButton variant="danger" size="lg" :loading="eliminazioneInCorso" @click="confermaEliminazione">Elimina</WButton>
+          </div>
+        </div>
+      </AppDialog>
     </div>
-
-    <AbbonamentiSezione v-if="scheda === SCHEDA_ABBONAMENTI" @vai-programmate="vaiA(SCHEDA_PROGRAMMATE)" />
-
-    <DataState
-      v-else
-      :stato="statoCombinato"
-      :last-updated="movimentiStore.risorsaRicorrenti.lastUpdated || scheduledStore.lastUpdated || null"
-      messaggio-errore="Non è stato possibile caricare le spese e le entrate programmate."
-      skeleton-type="card"
-      :skeleton-lines="4"
-      @riprova="caricaPagina"
-    >
-      <template #vuoto>
-        <WCard class="ricorrenti-view__vuoto">
-          <span class="ricorrenti-view__vuoto-icon"><Repeat2 :size="30" aria-hidden="true" /></span>
-          <h2>Nessuna spesa o entrata programmata</h2>
-          <p>Puoi aggiungere un pagamento futuro, un acquisto a rate o un movimento periodico.</p>
-          <WButton variant="primary" size="md" @click="showNuovaProgrammata = true">+ Nuova programmazione</WButton>
-        </WCard>
-      </template>
-
-      <div class="ricorrenti-view__lista">
-        <section v-if="scheduledStore.payments.length" class="ricorrenti-view__gruppo">
-          <h2>Scadenze da gestire</h2>
-          <ScheduledPaymentItem
-            v-for="payment in scheduledStore.payments"
-            :key="`payment-${payment.id}`"
-            :payment="payment"
-            :valuta="authStore.user?.valuta || 'EUR'"
-            :loading="pagamentoCaricamento(payment)"
-            :busy="Boolean(pagamentoInCorso)"
-            @confirm="segnaPagata"
-            @late="segnaEntrataInRitardo"
-            @cancel="annullaProgrammato"
-            @edit="modificaProgrammato"
-          />
-        </section>
-        <section v-if="movimentiStore.ricorrenti.length" class="ricorrenti-view__gruppo">
-          <h2>Movimenti periodici</h2>
-          <RicorrenteItem
-            v-for="movimento in movimentiStore.ricorrenti"
-            :key="movimento.id"
-            :movimento="movimento"
-            :valuta="authStore.user?.valuta || 'EUR'"
-            @modifica="modifica"
-            @elimina="chiediEliminazione"
-            @cambia-stato="cambiaStato"
-          />
-        </section>
-      </div>
-    </DataState>
-
-    <RicorrenteForm
-      :open="Boolean(movimentoInModifica)"
-      :movimento="movimentoInModifica"
-      @close="chiudiForm"
-      @saved="dopoSalvataggio"
-    />
-
-    <ScheduledPaymentForm
-      :open="Boolean(pagamentoInModifica)"
-      :payment="pagamentoInModifica"
-      @close="chiudiFormProgrammato"
-      @saved="dopoModificaProgrammato"
-    />
-
-    <MovimentoForm
-      :open="showNuovaProgrammata"
-      tipo="uscita"
-      modalita-programmate
-      @close="showNuovaProgrammata = false"
-      @saved="dopoSalvataggioProgrammata"
-    />
-
-    <AppDialog :open="Boolean(movimentoDaEliminare)" title="Elimina programmazione" @close="chiudiEliminazione">
-      <div class="ricorrenti-view__dialog">
-        <div class="ricorrenti-view__avviso">
-          <AlertTriangle :size="20" aria-hidden="true" />
-          <p>Elimini questa programmazione e il movimento che la contiene. L’operazione non è reversibile.</p>
-        </div>
-        <div class="ricorrenti-view__dialog-actions">
-          <WButton variant="secondary" size="lg" :disabled="eliminazioneInCorso" @click="chiudiEliminazione">Annulla</WButton>
-          <WButton variant="danger" size="lg" :loading="eliminazioneInCorso" @click="confermaEliminazione">Elimina</WButton>
-        </div>
-      </div>
-    </AppDialog>
   </div>
 </template>
 
 <style scoped>
+.ricorrenti-pagina { max-width: 820px; margin: 0 auto; padding-bottom: 2rem; }
 .ricorrenti-view {
   display: flex;
   flex-direction: column;
@@ -351,7 +357,8 @@ const cambiaStato = async (movimento, stato) => {
 .ricorrenti-view__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
 .ricorrenti-view__nuova { white-space: nowrap; }
 .ricorrenti-view__title-row { display: flex; align-items: center; gap: 0.5rem; }
-.ricorrenti-view__title-row h1 { margin: 0; color: var(--text-primary); font-size: 1.5rem; font-weight: 700; }
+/* La scheda aperta, subito sopra, dice già il nome della pagina. */
+.ricorrenti-view__titolo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 .ricorrenti-view__header p { margin: 0.35rem 0 0; color: var(--text-muted); font-size: var(--text-xs); line-height: 1.5; }
 .ricorrenti-view__lista { display: flex; flex-direction: column; gap: 0.875rem; }
 .ricorrenti-view__azioni { display: flex; flex-wrap: wrap; gap: 0.5rem; }

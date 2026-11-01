@@ -169,7 +169,7 @@ test('lo store legge da creaRisorsa e il logout lo azzera', () => {
 
 test('la vista ha le due schede, il titolo nuovo e la scheda nell\'indirizzo', () => {
   const vista = leggi('views/RicorrentiView.vue');
-  assert.match(vista, /<h1>Programmate \/ Abbonamenti<\/h1>/);
+  assert.match(vista, /<h2[^>]*>Programmate \/ Abbonamenti<\/h2>/);
   assert.match(vista, /role="tablist"/);
   assert.match(vista, /role="tab"/);
   assert.match(vista, /AbbonamentiSezione/);

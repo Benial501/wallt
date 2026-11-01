@@ -208,7 +208,7 @@ const regolaRicorrenti = async ({ userId, preferenze, adesso }) => {
       dedupeKey: `spesa-programmata:${payment.id}:5-giorni`,
       titolo: 'Pagamento tra cinque giorni',
       messaggio: `Hai una spesa programmata${descrizione ? `: ${descrizione}` : ''} il ${formattaData(payment.data_scadenza, preferenze.timezone)}.`,
-      link: '/ricorrenti',
+      link: '/funzionalita/situazione/programmate',
       priorita: PRIORITA.URGENTE,
       metadata: { pagamento_id: payment.id, data_scadenza: payment.data_scadenza },
     }));
@@ -236,7 +236,7 @@ const regolaRicorrenti = async ({ userId, preferenze, adesso }) => {
       dedupeKey: `ricorrente:${movimento.id}:${periodo}:5-giorni`,
       titolo: 'Pagamento tra cinque giorni',
       messaggio: `Hai un pagamento programmato${descrizione ? `: ${descrizione}` : ''} il ${formattaData(dataPromemoriaSpese, preferenze.timezone)}.`,
-      link: '/ricorrenti',
+      link: '/funzionalita/situazione/programmate',
       priorita: PRIORITA.URGENTE,
       metadata: { movimento_id: movimento.id, periodo, data_scadenza: dataPromemoriaSpese },
     }));
@@ -260,7 +260,7 @@ const regolaRicorrenti = async ({ userId, preferenze, adesso }) => {
       dedupeKey: `entrata-programmata:${payment.id}:scadenza`,
       titolo: 'Conferma l’entrata prevista',
       messaggio: `È prevista un'entrata${descrizione ? `: ${descrizione}` : ''}. Segnala se è arrivata o se è in ritardo.`,
-      link: '/ricorrenti',
+      link: '/funzionalita/situazione/programmate',
       priorita: PRIORITA.URGENTE,
       metadata: { pagamento_id: payment.id, data_scadenza: payment.data_scadenza, richiede_conferma: true },
     }));

@@ -88,7 +88,7 @@ const quando = (spesa) => {
             Registra una spesa ricorrente o programma una spesa occasionale: comparirà
             qui e verrà scalata dal saldo effettivo prima ancora di essere addebitata.
           </p>
-          <button type="button" class="prossime-spese__cta-btn" @click="router.push('/ricorrenti')">
+          <button type="button" class="prossime-spese__cta-btn" @click="router.push({ name: 'ricorrenti' })">
             Aggiungi una spesa
           </button>
         </div>
@@ -115,7 +115,7 @@ const quando = (spesa) => {
         </ul>
         <p v-if="restanti > 0" class="prossime-spese__altre">{{ etichettaRestanti }}</p>
       </div>
-      <button type="button" class="prossime-spese__link-btn" @click="router.push('/ricorrenti')">
+      <button type="button" class="prossime-spese__link-btn" @click="router.push({ name: 'ricorrenti' })">
         Vedi tutte →
       </button>
     </DataState>

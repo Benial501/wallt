@@ -19,10 +19,6 @@ export const FUNCTIONALITY_ITEMS = Object.freeze([
     route: '/obiettivi', placements: ['sidebar', 'sheet'], order: { sidebar: 40, sheet: 10 }, active: true,
   },
   {
-    id: 'ricorrenti', label: 'Programmate / Abbonamenti', description: 'Spese, rate e abbonamenti', icon: 'ricorrenti',
-    route: '/ricorrenti', placements: ['sidebar', 'sheet'], order: { sidebar: 50, sheet: 30 }, active: true,
-  },
-  {
     id: 'scommesse', label: 'Scommesse', description: 'Piattaforme e movimenti', icon: 'scommesse',
     route: '/scommesse', placements: ['sidebar', 'sheet'], order: { sidebar: 20, sheet: 40 },
     featureFlag: 'mostraScommesse', restriction: 'canAccessScommesseFeature', active: true,

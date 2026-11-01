@@ -89,12 +89,12 @@ const TOPICS = [
     title: 'Spese/entrate programmate',
     summary: 'Gestisci pagamenti futuri, rate e regole ricorrenti.',
     paragraphs: [
-      'La sezione Programmate raccoglie pagamenti futuri in attesa, rate e movimenti periodici. Per le rate puoi inserire il costo, l’anticipo, il numero dei pagamenti e il tasso annuo: WALLT mostra le rate e gli interessi stimati.',
+      'Programmate / Abbonamenti è una scheda di La tua situazione: raccoglie pagamenti futuri in attesa, rate e movimenti periodici. Per le rate puoi inserire il costo, l’anticipo, il numero dei pagamenti e il tasso annuo: WALLT mostra le rate e gli interessi stimati.',
       'Quando paghi una scadenza o ricevi un’entrata, scegli la conferma corrispondente: solo allora WALLT crea il movimento e aggiorna il saldo. Se un’entrata non arriva, puoi segnarla in ritardo; resta visibile nella sezione senza altri avvisi. Annullando una rata viene annullato il piano intero; gli importi già pagati restano nello storico.',
       'Puoi modificare i dati della ricorrenza, sospenderla o terminarla. Una ricorrenza sospesa o terminata non viene più addebitata e smette di pesare sul saldo effettivo: sospendila per fermarla senza perderne lo storico, e riprendila quando ti servirà di nuovo. Riprendendola non arrivano arretrati.',
       'Se il giorno scelto non esiste in un mese, la prossima esecuzione cade nell\'ultimo giorno disponibile di quel mese.',
     ],
-    link: { label: 'Vai alle programmate', to: '/ricorrenti' },
+    link: { label: 'Vai alle programmate', to: '/funzionalita/situazione/programmate' },
     related: ['movimento-ricorrenza'],
   },
   {
@@ -108,7 +108,7 @@ const TOPICS = [
       'Annullare qui non disdice il servizio: va fatto presso chi te lo fornisce. Se dopo l’annullamento arriva un altro addebito, l’abbonamento torna fra gli attivi con un avviso, perché qualcuno ti sta ancora addebitando. Se invece WALLT ha scambiato un acquisto singolo per un abbonamento, scegli «Non è un abbonamento» e non verrà più aggiunto. Da «Mostra annullati» puoi sempre ripristinarlo.',
       'Un abbonamento può essere legato a una programmazione, che scala il conto a ogni scadenza. Annullarlo qui non la ferma: per farlo, sospendi la programmazione dalla scheda Programmate. Se sospendi o termini la programmazione, l’abbonamento passa fra gli annullati.',
     ],
-    link: { label: 'Vai agli abbonamenti', to: '/ricorrenti?scheda=abbonamenti' },
+    link: { label: 'Vai agli abbonamenti', to: '/funzionalita/situazione/programmate?scheda=abbonamenti' },
     related: ['ricorrenti-gestione'],
   },
   {
@@ -266,7 +266,7 @@ const TOPICS = [
     summary: 'Su computer sono nella barra laterale; su mobile nel menu Funzionalità.',
     paragraphs: [
       'Su schermi ampi le sezioni di WALLT sono raccolte nella barra laterale. Su mobile le destinazioni principali restano in basso e il pulsante “Funzionalità” apre l\'elenco completo.',
-      'Le due navigazioni mostrano le stesse sezioni disponibili per il tuo profilo, comprese Programmate / Abbonamenti, Notifiche e Impostazioni.',
+      'Le due navigazioni mostrano le stesse sezioni disponibili per il tuo profilo, comprese Notifiche e Impostazioni. Programmate / Abbonamenti si apre dalle schede di La tua situazione.',
     ],
     link: { label: 'Resta in Aiuto', to: '/aiuto' },
   },
@@ -286,7 +286,7 @@ const TOPICS = [
     summary: 'Due pagine distinte: il monitoraggio continuo e la creazione di un piano quando arriva una somma.',
     paragraphs: [
       'Piano Smart vive su due pagine separate. "La tua situazione" risponde a "come sto, quanto posso spendere" ed è quella a cui torni ogni giorno. "Piano Smart" (questa pagina) risponde a "è arrivata una somma, come la divido" e si apre solo quando serve.',
-      'In "La tua situazione": il tab Oggi riassume liquidità dei conti considerati, somme protette, margine spendibile, limite giornaliero indicativo, ritmo delle spese, suggerimenti e simulatore di acquisto. Se le entrate non sono stabili puoi scegliere da uno a sei mesi di spese da proteggere, oppure un orizzonte a data entro cui il capitale deve bastare invece del ciclo mensile. Il tab Prossimi 30 giorni mostra le uscite ricorrenti in arrivo. Il tab Analisi confronta movimenti registrati in periodi equivalenti e mostra medie per categoria, andamento del mese, patrimonio netto, debiti, fondo di sicurezza e obiettivi: i confronti descrivono i movimenti disponibili oggi, perché WALLT non ricostruisce saldi storici e non può verificare la completezza delle registrazioni manuali.',
+      'In "La tua situazione": il tab Oggi riassume liquidità dei conti considerati, somme protette, margine spendibile, limite giornaliero indicativo, ritmo delle spese, suggerimenti e simulatore di acquisto. Se le entrate non sono stabili puoi scegliere da uno a sei mesi di spese da proteggere, oppure un orizzonte a data entro cui il capitale deve bastare invece del ciclo mensile. Il tab Prossimi 30 giorni mostra le uscite ricorrenti in arrivo. Il tab Programmate / Abbonamenti raccoglie scadenze, rate e abbonamenti. Il tab Analisi confronta movimenti registrati in periodi equivalenti e mostra medie per categoria, andamento del mese, patrimonio netto, debiti, fondo di sicurezza e obiettivi: i confronti descrivono i movimenti disponibili oggi, perché WALLT non ricostruisce saldi storici e non può verificare la completezza delle registrazioni manuali.',
       'In "Piano Smart": la creazione di un piano, gli scenari, i piani salvati e il relativo dettaglio. Le spese obbligatorie confermate vengono sottratte dalla somma ricevuta per ottenere il capitale distribuibile. Le categorie V1 sono necessità, sicurezza, obiettivi, futuro e libertà; V2 aggiunge scenari, proiezioni e azioni preparatorie.',
       'Un dato assente o non stimabile resta esplicito e non viene trasformato in zero. Una stima usa una base temporale dichiarata e non garantisce il risultato futuro.',
       'La simulazione di una spesa è solo un confronto: non crea movimenti, non modifica saldi o obiettivi e non esegue pagamenti. Le azioni V2 sono promemoria: aggiornarne lo stato non esegue operazioni finanziarie.',

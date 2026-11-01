@@ -18,19 +18,9 @@ test('ogni funzione attiva ha metadati completi e un id univoco', () => {
   });
 });
 
-test('la voce Ricorrenti alimenta sidebar e bottom sheet', () => {
-  const context = {
-    canAccessScommesseFeature: true,
-    canAccessInvestimentiFeature: true,
-  };
-
-  for (const placement of ['sidebar', 'sheet']) {
-    const item = getFunctionalityItems(context, placement)
-      .find((candidate) => candidate.id === 'ricorrenti');
-    assert.equal(item?.route, '/ricorrenti');
-    assert.equal(item?.label, 'Programmate / Abbonamenti');
-    assert.match(item?.description, /abbonamenti/);
-  }
+test('Programmate / Abbonamenti non sta fra le funzioni: si apre da La tua situazione', () => {
+  assert.equal(FUNCTIONALITY_ITEMS.some((item) => item.id === 'ricorrenti'), false);
+  assert.equal(FUNCTIONALITY_ITEMS.some((item) => /programmate|abbonamenti/i.test(item.label)), false);
 });
 
 test('le restrizioni filtrano scommesse e investimenti dalla stessa fonte', () => {

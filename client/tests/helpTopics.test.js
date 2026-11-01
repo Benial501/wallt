@@ -74,8 +74,8 @@ test('getHelpTopic ignora id sconosciuti', () => {
 test('la guida copre le nuove superfici realmente disponibili', () => {
   const attesi = [
     ['funzionalita-navigazione', '/aiuto'],
-    ['ricorrenti-gestione', '/ricorrenti'],
-    ['abbonamenti-gestione', '/ricorrenti?scheda=abbonamenti'],
+    ['ricorrenti-gestione', '/funzionalita/situazione/programmate'],
+    ['abbonamenti-gestione', '/funzionalita/situazione/programmate?scheda=abbonamenti'],
     ['notifiche-aggiornamento', '/notifiche'],
   ];
 

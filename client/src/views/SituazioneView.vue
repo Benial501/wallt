@@ -1,23 +1,24 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
-import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import PianoSmartChangeTimeline from '@/components/piano-smart/PianoSmartChangeTimeline.vue';
 import PianoSmartCashFlowRadar from '@/components/piano-smart/PianoSmartCashFlowRadar.vue';
 import PianoSmartGoalsSummary from '@/components/piano-smart/PianoSmartGoalsSummary.vue';
 import PianoSmartExpenseFunding from '@/components/piano-smart/PianoSmartExpenseFunding.vue';
 import PianoSmartGuide from '@/components/piano-smart/PianoSmartGuide.vue';
 import SituazioneHero from '@/components/piano-smart/SituazioneHero.vue';
+import SituazioneHeader from '@/components/piano-smart/SituazioneHeader.vue';
 import { usePianoSmartStore } from '@/stores/pianoSmart.store';
 import { useScheduledPaymentsStore } from '@/stores/scheduledPayments.store';
 import { useProfiloStore } from '@/stores/profilo.store';
 import { useToastStore } from '@/stores/toast.store';
 import { purchaseAmountCents } from '@/utils/pianoSmartSimulation';
 import { formattaEuro } from '@/utils/pianoSmart';
+import { tabSituazione } from '@/utils/situazioneTab';
 import { GLOSSARIO } from '@/content/glossario';
 
 /**
@@ -33,6 +34,7 @@ import { GLOSSARIO } from '@/content/glossario';
 const store = usePianoSmartStore();
 const scheduledPaymentsStore = useScheduledPaymentsStore();
 const profiloStore = useProfiloStore();
+const route = useRoute();
 const router = useRouter();
 const toast = useToastStore();
 const {
@@ -40,7 +42,7 @@ const {
   purchaseSimulation, purchaseSimulationState,
 } = storeToRefs(store);
 
-const tab = ref('today');
+const tab = computed(() => tabSituazione(route.query));
 const guidaSpiegazioneAperta = ref(false);
 const sezioneGuidaPiano = ref('cos-e');
 const simulatoreImporto = ref('');
@@ -152,32 +154,7 @@ onMounted(() => {
 
 <template>
   <div class="piano-view">
-    <header class="page-header">
-      <div>
-        <div class="page-title-row">
-          <h1 class="page-title">La tua situazione</h1>
-          <HelpTrigger topic="piano-smart" />
-        </div>
-        <p class="page-sub">
-          Capisci cosa sta succedendo ai tuoi soldi e decidi meglio come muoverti.
-        </p>
-      </div>
-    </header>
-
-    <div class="tabs" role="group" aria-label="Aree della tua situazione">
-      <button
-        type="button" :aria-pressed="tab === 'today'"
-        :class="{ active: tab === 'today' }" @click="tab = 'today'"
-      >Oggi</button>
-      <button
-        type="button" :aria-pressed="tab === 'upcoming'"
-        :class="{ active: tab === 'upcoming' }" @click="tab = 'upcoming'"
-      >Prossimi 30 giorni</button>
-      <button
-        type="button" :aria-pressed="tab === 'analysis'"
-        :class="{ active: tab === 'analysis' }" @click="tab = 'analysis'"
-      >Analisi</button>
-    </div>
+    <SituazioneHeader />
 
     <div v-if="currentSituationState === 'loading'" class="loading">Sto leggendo la tua situazione…</div>
     <div v-else-if="currentSituationState === 'error'" class="error" role="alert">{{ currentSituationError?.message || 'Non riesco a recuperare la situazione.' }}</div>
@@ -408,15 +385,9 @@ onMounted(() => {
 <style scoped>
 .piano-view { max-width: 820px; margin: 0 auto; padding-bottom: 2rem; }
 
-.page-header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1.25rem; }
-.page-title-row { display: flex; align-items: center; gap: .5rem; }
-.page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
-.page-sub, .muted { color: var(--text-secondary); line-height: 1.55; font-size: var(--text-sm); }
+.muted { color: var(--text-secondary); line-height: 1.55; font-size: var(--text-sm); }
 .hint { color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.5; margin: 0; }
 
-.tabs { display: flex; gap: .4rem; overflow-x: auto; border-bottom: 1px solid var(--divider); margin-bottom: 1.25rem; scrollbar-width: thin; }
-.tabs button { flex: 0 0 auto; white-space: nowrap; border: 0; background: none; padding: .75rem 1rem; min-height: 44px; color: var(--text-muted); font: inherit; cursor: pointer; border-bottom: 2px solid transparent; }
-.tabs button.active { color: var(--accent-text); border-color: var(--accent-green); font-weight: 700; }
 .context-help { min-height: 36px; padding: .25rem .45rem; border: 0; background: transparent; color: var(--accent-text); font: inherit; font-size: var(--text-xs); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .context-help:focus-visible { outline: 2px solid var(--accent-green); outline-offset: 2px; border-radius: var(--radius-sm); }
 .analysis-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin: .75rem 0; }
@@ -498,7 +469,6 @@ h2 { color: var(--text-primary); font-size: 1.1rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 
 @media (max-width: 600px) {
-  .page-header { display: block; }
   .situation-grid { grid-template-columns: 1fr; }
 }
 </style>

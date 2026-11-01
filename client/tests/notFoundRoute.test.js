@@ -15,7 +15,7 @@ test('le route conosciute continuano a risolvere prima della catch-all', async (
   const router = createRouter({ history: createMemoryHistory(), routes });
 
   assert.equal(router.resolve('/dashboard').name, 'dashboard');
-  assert.equal(router.resolve('/ricorrenti').name, 'ricorrenti');
+  assert.equal(router.resolve('/funzionalita/situazione/programmate').name, 'ricorrenti');
   assert.equal(router.resolve('/notifiche').name, 'notifiche');
 });
 

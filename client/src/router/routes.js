@@ -122,11 +122,6 @@ export const routes = [
         component: () => import('@/views/FondoEmergenzaView.vue'),
       },
       {
-        path: 'ricorrenti',
-        name: 'ricorrenti',
-        component: () => import('@/views/RicorrentiView.vue'),
-      },
-      {
         path: 'notifiche',
         name: 'notifiche',
         component: () => import('@/views/NotificheView.vue'),
@@ -150,6 +145,17 @@ export const routes = [
         path: 'funzionalita/situazione',
         name: 'situazione',
         component: () => import('@/views/SituazioneView.vue'),
+      },
+      {
+        path: 'funzionalita/situazione/programmate',
+        name: 'ricorrenti',
+        component: () => import('@/views/RicorrentiView.vue'),
+      },
+      {
+        // Il vecchio indirizzo resta valido: lo usano segnalibri e notifiche già
+        // consegnate. La query porta con sé la scheda Abbonamenti.
+        path: 'ricorrenti',
+        redirect: { name: 'ricorrenti' },
       },
       {
         // Il wizard si è spostato qui dall'ottobre 2026 (voce 8 della
