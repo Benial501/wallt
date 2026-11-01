@@ -88,6 +88,12 @@ confermato; il filtro sulle categorie è una scelta di progetto):
   essere quello dell'abbonamento: un ordine su Glovo non è «Glovo Prime».
 - Qualunque altra categoria: non conta mai, anche con il nome nella descrizione.
   «Bonifico a Claude Rossi» categorizzato come `trasferimento_denaro` non è Claude.
+- Con il solo nome del servizio non contano le descrizioni che parlano di altro:
+  ricarica, top up, store, negozio, rata, sim, iscrizione, attivazione, kit, consegna,
+  gift card. Vale tranne che nelle categorie degli abbonamenti, dove la scelta è dell'utente.
+- Le occorrenze del cron seguono la loro programmazione: la scritta «(automatico)» non
+  cambia il servizio, e una programmazione già fermata non fa nascere un abbonamento.
+  Rinominarla non duplica la scheda, perché la riga legata resta la sua identità.
 - Non contano i movimenti nati da un pagamento programmato o da un piano a rate, né
   le occorrenze di programmazioni diverse da `mensile` e `annuale`: sono pagamenti
   singoli, non abbonamenti.
@@ -120,6 +126,7 @@ descrizione normalizzata con `MerchantNormalizer`. Senza descrizione è
 | Primo addebito di un servizio che non ha righe | Nuovo abbonamento attivo, costo uguale all'addebito, mensile, avviso «Controlla la durata» |
 | Due addebiti a circa un mese di distanza (scelta di progetto) | Come sopra, ma senza avviso: il periodo è dimostrato |
 | Addebito con prezzo diverso, più recente dell'ultimo addebito e dell'ultima modifica dell'utente | Si aggiorna il costo, senza doppione. Vince il dato più recente |
+| Addebito oltre il 25% dal costo (scelta di progetto, dopo la revisione) | Il costo non cambia e compare «Controlla il costo: ultimo addebito X». Due addebiti uguali di fila aggiornano il costo, se l'utente non ha mai toccato la riga |
 | Due importi diversi per lo stesso servizio nello stesso mese (scelta di progetto: es. due addebiti Apple) | Due abbonamenti distinti. Ogni addebito va alla riga con lo stesso costo. Altrimenti va a quella col costo più vicino, se la differenza non supera il 25%: oltre, l'addebito non cambia nulla |
 | Abbonamento annullato e addebito con data successiva all'annullamento | Torna attivo, con la scritta «Annullato il X, ma addebitato di nuovo il Y» |
 | Abbonamento a tempo finito e addebito successivo alla fine (scelta di progetto) | Torna attivo senza scadenza, con «Controlla la durata» |

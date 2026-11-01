@@ -31,6 +31,7 @@ const nessuno = computed(() => gruppi.value.length === 0 && generiche.value.leng
       type="search"
       placeholder="Cerca Netflix, Spotify, ChatGPT…"
       aria-label="Cerca un servizio"
+      @keydown.enter.prevent
     />
     <div class="servizio-picker__griglie">
       <section v-for="gruppo in gruppi" :key="gruppo.id" class="servizio-picker__gruppo">

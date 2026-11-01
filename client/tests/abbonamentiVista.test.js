@@ -70,6 +70,22 @@ test('la scheda avvisa quando la durata è da controllare', async () => {
   assert.ok(html.includes('Controlla la durata'));
 });
 
+test('la scheda dice quale importo non torna, invece di parlare solo di durata', async () => {
+  const html = await renderSfc(CARD, {
+    abbonamento: abbonamento({ da_verificare: true, ultimo_addebito_data: '2026-10-12', ultimo_addebito_importo: 799 }),
+  });
+  assert.ok(html.includes('Controlla il costo'));
+  assert.ok(html.includes('799,00'));
+  assert.ok(!html.includes('Controlla la durata'));
+});
+
+test('con l\'importo in linea la scheda continua a chiedere la durata', async () => {
+  const html = await renderSfc(CARD, {
+    abbonamento: abbonamento({ da_verificare: true, ultimo_addebito_data: '2026-10-12', ultimo_addebito_importo: 13.99 }),
+  });
+  assert.ok(html.includes('Controlla la durata'));
+});
+
 test('la scheda racconta un addebito arrivato dopo la chiusura', async () => {
   const html = await renderSfc(CARD, {
     abbonamento: abbonamento({ riattivato_da_addebito: true, annullato_il: '2026-10-01', ultimo_addebito_data: '2026-10-12' }),
@@ -111,6 +127,20 @@ test('un abbonamento trovato nelle transazioni mostra l\'addebito e si può escl
     }),
   });
   ['Trovato nelle tue transazioni', '18,00', 'Non è un abbonamento', 'durata'].forEach((testo) => assert.ok(html.includes(testo), testo));
+});
+
+test('il modulo segnala un addebito lontano dal costo', async () => {
+  const html = await renderSfc(FORM, {
+    abbonamento: abbonamento({
+      origine: 'rilevato', da_verificare: true, ultimo_addebito_data: '2026-10-12', ultimo_addebito_importo: 799,
+    }),
+  });
+  assert.ok(html.includes('Controlla che costo e durata siano giusti'));
+});
+
+test('Invio nella ricerca dei servizi non salva il modulo', () => {
+  // Salvando toglierebbe «Controlla la durata» senza che nessuno l'abbia controllata.
+  assert.match(leggi('components/abbonamenti/ServizioPicker.vue'), /@keydown\.enter\.prevent/);
 });
 
 test('il modulo avvisa quando l\'abbonamento è legato a una programmazione', async () => {

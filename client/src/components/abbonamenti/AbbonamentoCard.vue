@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import WCard from '@/components/common/WCard.vue';
 import ServizioIcona from './ServizioIcona.vue';
 import { formatData, formatValuta } from '@/utils/formatters';
-import { descriviDurata } from '@/utils/abbonamenti';
+import { addebitoLontanoDalCosto, descriviDurata } from '@/utils/abbonamenti';
 import { GLOSSARIO } from '@/content/glossario';
 import { AlertTriangle } from '@/utils/appIcons';
 
@@ -35,7 +35,10 @@ const avviso = computed(() => {
   if (riattivato && chiuso && addebito) {
     return `Chiuso il ${formatData(chiuso, 'medio')}, ma addebitato di nuovo il ${formatData(addebito, 'medio')}`;
   }
-  return daVerificare ? 'Controlla la durata' : '';
+  if (!daVerificare) return '';
+  return addebitoLontanoDalCosto(props.abbonamento)
+    ? `Controlla il costo: ultimo addebito ${soldi(props.abbonamento.ultimo_addebito_importo)}`
+    : 'Controlla la durata';
 });
 
 const etichettaAccessibile = computed(() => [

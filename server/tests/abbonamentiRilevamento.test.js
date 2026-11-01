@@ -112,6 +112,65 @@ describe('descriviMovimento', () => {
     expect(identificaServizio('APPLE ONE').id).toBe('apple-one');
   });
 
+  it('ricariche, negozi e rate degli operatori non sono abbonamenti', () => {
+    [
+      ['telefono', 'RICARICA TIM'],
+      ['telefono', 'RICARICA VODAFONE 20 EUR'],
+      ['telefono', 'VODAFONE STORE MILANO'],
+      ['telefono', 'RICARICA ILIAD'],
+      ['telefono', 'TIM STORE ROMA ACQUISTO IPHONE'],
+      ['telefono', 'RATA SMARTPHONE WINDTRE'],
+      ['telefono', 'HO. MOBILE ATTIVAZIONE SIM'],
+      ['internet', 'STARLINK KIT'],
+      ['palestra', 'MCFIT ISCRIZIONE ANNUALE'],
+      ['commissioni_bancarie', 'REVOLUT METAL CONSEGNA CARTA'],
+      [null, 'RICARICA VODAFONE'],
+    ].forEach(([categoria, descrizione]) => {
+      expect(descriviMovimento({ categoria, descrizione })).toBeNull();
+    });
+  });
+
+  it('un bonifico a una persona di nome Tim non è l\'abbonamento TIM', () => {
+    expect(descriviMovimento({ categoria: 'telefono', descrizione: 'To Tim Rossi' })).toBeNull();
+    expect(descriviMovimento({ categoria: 'telefono', descrizione: 'Bonifico a Tim Rossi' })).toBeNull();
+    expect(identificaServizio('TIM').id).toBe('tim');
+    expect(identificaServizio('TELECOM ITALIA SPA').id).toBe('tim');
+  });
+
+  it('gli operatori e le palestre si riconoscono anche dove li manda il dizionario', () => {
+    expect(descriviMovimento({ categoria: 'bollette', descrizione: 'VODAFONE ITALIA' }).servizio_id).toBe('vodafone');
+    expect(descriviMovimento({ categoria: 'svago', descrizione: 'MCFIT' }).servizio_id).toBe('mcfit');
+    expect(descriviMovimento({ categoria: 'bollette', descrizione: 'ENEL ENERGIA' })).toBeNull();
+    expect(descriviMovimento({ categoria: 'svago', descrizione: 'NETFLIX' })).toBeNull();
+  });
+
+  it('un nome comune non basta a fare un abbonamento', () => {
+    ['HOTEL MISTRAL', 'ZOOM TORINO BIOPARCO', 'NORTON MOTO', 'BAR ROMA SUNO', 'SKY BAR ROMA', 'CURSOR MOUSE SHOP', 'GEMINI RISTORANTE'].forEach((descrizione) => {
+      expect(descriviMovimento({ categoria: 'altro_uscita', descrizione })).toBeNull();
+    });
+    expect(identificaServizio('ZOOM.US 888').id).toBe('zoom');
+    expect(identificaServizio('MISTRAL AI').id).toBe('mistral');
+    expect(identificaServizio('SKY ITALIA').id).toBe('sky');
+    expect(identificaServizio('GEMINI').id).toBe('gemini');
+  });
+
+  it('Telepass è un abbonamento solo col canone, non al casello', () => {
+    expect(descriviMovimento({ categoria: null, descrizione: 'TELEPASS' })).toBeNull();
+    expect(descriviMovimento({ categoria: 'pedaggi', descrizione: 'TELEPASS' })).toBeNull();
+    expect(descriviMovimento({ categoria: 'pedaggi', descrizione: 'CANONE TELEPASS' }).servizio_id).toBe('telepass');
+  });
+
+  it('la scritta del cron non cambia il servizio', () => {
+    expect(descriviMovimento({ categoria: 'abbonamenti', descrizione: 'Palestra Fit (automatico)' })).toMatchObject({
+      chiave: 'palestra fit', nome: 'Palestra Fit',
+    });
+    expect(identificaServizio('NOW (automatico)').id).toBe('now');
+  });
+
+  it('una scelta esplicita della categoria abbonamenti vince sulle parole escluse', () => {
+    expect(descriviMovimento({ categoria: 'abbonamenti', descrizione: 'RICARICA VODAFONE' }).servizio_id).toBe('vodafone');
+  });
+
   it('senza descrizione usa il nome della categoria', () => {
     expect(descriviMovimento({ categoria: 'abbonamenti', descrizione: '' })).toMatchObject({
       nome: 'Abbonamenti', chiave: 'categoria:abbonamenti',
@@ -163,6 +222,12 @@ describe('pianifica', () => {
       expect(crea[0].da_verificare).toBe(false);
     });
 
+    it('due importi molto diversi a un mese di distanza non dimostrano il periodo', () => {
+      const { crea } = piano({ movimenti: [addebito('2026-09-12', '2.99'), addebito('2026-10-12', '59.99')] });
+      expect(crea).toHaveLength(1);
+      expect(crea[0]).toMatchObject({ costo: '59.99', da_verificare: true });
+    });
+
     it('due addebiti troppo vicini non dimostrano nulla', () => {
       const { crea } = piano({ movimenti: [addebito('2026-10-01'), addebito('2026-10-12')] });
       expect(crea).toHaveLength(1);
@@ -199,6 +264,52 @@ describe('pianifica', () => {
         id: 1,
         campi: { costo: '15.49', ultimo_addebito_data: '2026-10-12', ultimo_addebito_importo: '15.49' },
       }]);
+    });
+
+    it('un importo molto diverso non cambia il costo: chiede di controllare', () => {
+      const { crea, aggiorna } = piano({
+        movimenti: [addebito('2026-09-12', '14.99'), addebito('2026-10-12', '799.00')],
+        righe: [riga({ costo: '14.99', ultimo_addebito_data: '2026-09-12', ultimo_addebito_importo: '14.99' })],
+      });
+      expect(crea).toEqual([]);
+      expect(aggiorna).toEqual([{
+        id: 1,
+        campi: { da_verificare: true, ultimo_addebito_data: '2026-10-12', ultimo_addebito_importo: '799.00' },
+      }]);
+    });
+
+    it('due addebiti uguali confermano un prezzo molto diverso su una riga mai toccata', () => {
+      const { aggiorna } = piano({
+        movimenti: [addebito('2026-09-12', '17.99'), addebito('2026-10-12', '17.99')],
+        righe: [riga({ costo: '7.99', ultimo_addebito_data: '2026-08-12', ultimo_addebito_importo: '7.99' })],
+      });
+      expect(aggiorna).toEqual([{
+        id: 1,
+        campi: { costo: '17.99', ultimo_addebito_data: '2026-10-12', ultimo_addebito_importo: '17.99' },
+      }]);
+    });
+
+    it('un annuale corretto dall\'utente non crolla per un addebito diverso', () => {
+      const corretta = riga({
+        costo: '49.90', periodo_mesi: 12, modificato_utente_il: '2026-01-01', ultimo_addebito_data: '2026-08-12', ultimo_addebito_importo: '49.90',
+      });
+      const { aggiorna } = piano({ movimenti: [addebito('2026-09-12', '4.99'), addebito('2026-10-12', '4.99')], righe: [corretta] });
+      expect(aggiorna).toEqual([{
+        id: 1,
+        campi: { da_verificare: true, ultimo_addebito_data: '2026-10-12', ultimo_addebito_importo: '4.99' },
+      }]);
+    });
+
+    it('il secondo addebito non toglie l\'avviso se l\'importo resta lontano dal costo', () => {
+      const daControllare = riga({
+        costo: '14.99', da_verificare: true, ultimo_addebito_data: '2026-09-12', ultimo_addebito_importo: '799.00',
+      });
+      const { aggiorna } = piano({
+        movimenti: [addebito('2026-09-12', '799.00'), addebito('2026-10-12', '500.00')],
+        righe: [daControllare],
+      });
+      expect(aggiorna[0].campi.da_verificare).toBeUndefined();
+      expect(aggiorna[0].campi.costo).toBeUndefined();
     });
 
     it('un addebito precedente alla modifica dell\'utente non cambia il costo', () => {
@@ -355,6 +466,52 @@ describe('pianifica', () => {
         regole: [regola({ ricorrente_frequenza: 'una_tantum', stato_ricorrenza: 'terminata' })],
       });
       expect(crea).toEqual([]);
+    });
+
+    it('le occorrenze del cron non creano una seconda scheda', () => {
+      const palestra = regola({ descrizione: 'Palestra Fit', categoria: 'abbonamenti', importo: '20.00' });
+      const occorrenza = (data) => addebito(data, '20.00', {
+        categoria: 'abbonamenti', descrizione: 'Palestra Fit (automatico)', ricorrenza_origine_id: 50,
+      });
+      const { crea } = piano({ movimenti: [occorrenza('2026-09-01'), occorrenza('2026-10-01')], regole: [palestra] });
+      expect(crea).toHaveLength(1);
+      expect(crea[0]).toMatchObject({
+        chiave: 'palestra fit', nome: 'Palestra Fit', movimento_ricorrente_id: 50, da_verificare: false, ultimo_addebito_data: '2026-10-01',
+      });
+    });
+
+    it('le occorrenze di un servizio riconosciuto solo dal nome esatto restano sue', () => {
+      const now = regola({ descrizione: 'NOW', categoria: 'streaming', importo: '9.99' });
+      const { crea } = piano({
+        movimenti: [addebito('2026-10-01', '9.99', { descrizione: 'NOW (automatico)', ricorrenza_origine_id: 50 })],
+        regole: [now],
+      });
+      expect(crea).toHaveLength(1);
+      expect(crea[0].servizio_id).toBe('now');
+    });
+
+    it.each(['sospesa', 'terminata'])('le occorrenze di una programmazione già %s non creano una riga attiva', (stato_ricorrenza) => {
+      const { crea } = piano({
+        movimenti: [addebito('2026-09-01', '13.99', { ricorrenza_origine_id: 50 }), addebito('2026-10-01', '13.99', { ricorrenza_origine_id: 50 })],
+        regole: [regola({ stato_ricorrenza })],
+      });
+      expect(crea).toEqual([]);
+    });
+
+    it('rinominare una programmazione non duplica l\'abbonamento', () => {
+      const legata = riga({
+        id: 7, chiave: 'palestra fit', costo: '20.00', movimento_ricorrente_id: 50, ultimo_addebito_data: '2026-09-01', ultimo_addebito_importo: '20.00',
+      });
+      const rinominata = regola({ descrizione: 'Palestra in centro', categoria: 'abbonamenti', importo: '20.00' });
+      expect(piano({ movimenti: [], righe: [legata], regole: [rinominata] })).toEqual({ crea: [], aggiorna: [] });
+
+      const { crea, aggiorna } = piano({
+        movimenti: [addebito('2026-10-01', '20.00', { categoria: 'abbonamenti', descrizione: 'Palestra in centro (automatico)', ricorrenza_origine_id: 50 })],
+        righe: [legata],
+        regole: [rinominata],
+      });
+      expect(crea).toEqual([]);
+      expect(aggiorna).toEqual([{ id: 7, campi: { ultimo_addebito_data: '2026-10-01' } }]);
     });
 
     it('lega una riga esistente alla programmazione', () => {

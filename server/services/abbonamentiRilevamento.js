@@ -15,6 +15,8 @@ const {
   GIORNI_ADDEBITO_MENSILE_MAX,
   GIORNI_ADDEBITO_MENSILE_MIN,
   ORIGINI,
+  PAROLE_NON_ABBONAMENTO,
+  SCARTO_MASSIMO_RINCARO,
   STATI,
 } = require('../constants/abbonamenti');
 const { aCentesimi } = require('../utils/abbonamentiCosti');
@@ -23,9 +25,12 @@ const normalizer = new MerchantNormalizer();
 
 const PERIODO_DA_FREQUENZA = Object.freeze({ mensile: 1, annuale: 12 });
 
-// Oltre questa differenza un importo diverso su un servizio con più righe è un
-// altro acquisto, non un rincaro: non deve sovrascrivere il costo di una riga.
-const SCARTO_MASSIMO_RINCARO = 0.25;
+const entroScarto = (costo, importo) => Math.abs(costo - importo) <= costo * SCARTO_MASSIMO_RINCARO;
+
+// Il cron scrive le occorrenze come «Palestra Fit (automatico)»: è lo stesso servizio.
+const senzaSuffissoCron = (descrizione) => String(descrizione ?? '').replace(/\s*\(automatico\)\s*$/i, '');
+
+const testoDi = (descrizione) => senzaSuffissoCron(descrizione).toLowerCase().replace(/\s+/g, ' ').trim();
 
 const MS_GIORNO = 86400000;
 
@@ -41,11 +46,11 @@ const contieneAlias = (testo, alias) => {
 };
 
 const identificaServizio = (descrizione) => {
-  const testo = String(descrizione ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const testo = testoDi(descrizione);
   if (!testo) return null;
   // Il nome esatto prima di tutto: «now» è un servizio solo quando è tutta la
   // descrizione, non quando compare in una frase.
-  return CATALOGO_SERVIZI.find((voce) => voce.nome.toLowerCase() === testo)
+  return CATALOGO_SERVIZI.find((voce) => voce.nome_esatto !== false && voce.nome.toLowerCase() === testo)
     || CATALOGO_SERVIZI.find((voce) => voce.alias.some((alias) => contieneAlias(testo, alias)))
     || null;
 };
@@ -53,20 +58,27 @@ const identificaServizio = (descrizione) => {
 const inMaiuscole = (testo) => testo.replace(/(^|\s)(\S)/g, (_, spazio, lettera) => spazio + lettera.toUpperCase());
 
 /** Chiave che identifica un abbonamento fuori catalogo a partire dal suo nome. */
-const chiaveDaTesto = (testo) => normalizer.normalize(testo).cleaned.slice(0, 120);
+const chiaveDaTesto = (testo) => normalizer.normalize(senzaSuffissoCron(testo)).cleaned.slice(0, 120);
+
+const haParolaEsclusa = (descrizione) => {
+  const testo = testoDi(descrizione);
+  return PAROLE_NON_ABBONAMENTO.some((parola) => contieneAlias(testo, parola));
+};
 
 const descriviMovimento = ({ categoria, descrizione }) => {
   const servizio = identificaServizio(descrizione);
   const categoriaAbbonamento = CATEGORIE_ABBONAMENTO.includes(categoria);
 
   if (servizio) {
-    const ammessa = categoriaAbbonamento
-      || !categoria
-      || CATEGORIE_DA_DESCRIZIONE.includes(categoria)
-      || servizio.categorie_ammesse?.includes(categoria);
-    return ammessa
-      ? { chiave: servizio.id, servizio_id: servizio.id, nome: servizio.nome, icona: servizio.id }
-      : null;
+    if (!categoriaAbbonamento) {
+      const ammessa = !categoria
+        || CATEGORIE_DA_DESCRIZIONE.includes(categoria)
+        || servizio.categorie_ammesse?.includes(categoria);
+      if (!ammessa || haParolaEsclusa(descrizione)) return null;
+    }
+    return {
+      chiave: servizio.id, servizio_id: servizio.id, nome: servizio.nome, icona: servizio.id,
+    };
   }
   if (!categoriaAbbonamento) return null;
 
@@ -104,11 +116,16 @@ const regolaAttiva = (regola) => (
   (regola.stato_ricorrenza || 'attiva') === 'attiva' && Boolean(PERIODO_DA_FREQUENZA[regola.ricorrente_frequenza])
 );
 
+// Due importi molto diversi a un mese di distanza non dimostrano nulla: possono
+// essere due acquisti qualunque.
 const mensileDimostrato = (addebiti) => addebiti.some((addebito, i) => {
-  if (i === 0) return false;
+  if (i === 0 || !entroScarto(addebiti[i - 1].centesimi, addebito.centesimi)) return false;
   const giorni = (Date.parse(addebito.data) - Date.parse(addebiti[i - 1].data)) / MS_GIORNO;
   return giorni >= GIORNI_ADDEBITO_MENSILE_MIN && giorni <= GIORNI_ADDEBITO_MENSILE_MAX;
 });
+
+const ultimiDueUguali = (addebiti) => addebiti.length >= 2
+  && addebiti[addebiti.length - 1].centesimi === addebiti[addebiti.length - 2].centesimi;
 
 /**
  * Il numero di flussi è il massimo di importi distinti in uno stesso mese. Due
@@ -149,9 +166,9 @@ const rigaConCosto = (importo, righe, occupate) => ORDINE_STATI
 const rigaVicina = (importo, righe, occupate) => {
   const libere = righe.filter((r) => r.stato !== STATI.ESCLUSO && !occupate.has(r));
   if (righe.length === 1 && libere.length === 1) return libere[0];
-  const entroScarto = libere.filter((r) => Math.abs(r.centesimi - importo) <= r.centesimi * SCARTO_MASSIMO_RINCARO);
-  if (!entroScarto.length) return null;
-  return entroScarto.reduce((migliore, r) => (
+  const vicine = libere.filter((r) => entroScarto(r.centesimi, importo));
+  if (!vicine.length) return null;
+  return vicine.reduce((migliore, r) => (
     Math.abs(r.centesimi - importo) < Math.abs(migliore.centesimi - importo) ? r : migliore
   ));
 };
@@ -178,7 +195,14 @@ const applicaAddebiti = (riga, flusso, oggi) => {
   if (!riga.ultimo_addebito_data || ultimo.data > riga.ultimo_addebito_data) {
     riga.ultimo_addebito_data = ultimo.data;
     riga.ultimo_addebito_importo = euro(ultimo.centesimi);
-    if (!riga.modificataIl || ultimo.data > riga.modificataIl) riga.centesimi = ultimo.centesimi;
+    if (!riga.modificataIl || ultimo.data > riga.modificataIl) {
+      // Un importo molto diverso non cambia il costo da solo: un acquisto da 799 €
+      // farebbe 9.588 € all'anno senza che nessuno lo veda. Due addebiti uguali
+      // confermano invece il prezzo nuovo, se l'utente non ha mai toccato la riga.
+      const confermato = !riga.modificataIl && ultimiDueUguali(flusso.addebiti);
+      if (entroScarto(riga.centesimi, ultimo.centesimi) || confermato) riga.centesimi = ultimo.centesimi;
+      else riga.da_verificare = true;
+    }
   }
 
   if (
@@ -187,6 +211,7 @@ const applicaAddebiti = (riga, flusso, oggi) => {
     && !riga.modificataIl
     && !riga.riattivato_da_addebito
     && riga.periodo_mesi === 1
+    && entroScarto(riga.centesimi, ultimo.centesimi)
     && mensileDimostrato(flusso.addebiti)
   ) riga.da_verificare = false;
 };
@@ -323,6 +348,17 @@ const pianifica = ({
     }
   });
 
+  // Una riga già legata a una programmazione resta la sua identità anche se la
+  // programmazione cambia nome, altrimenti rinominarla duplicherebbe l'abbonamento.
+  const descriviRegola = (regola) => {
+    const legata = lavoro.find((riga) => riga.movimento_ricorrente_id === regola.id);
+    return legata
+      ? {
+        chiave: legata.chiave, servizio_id: legata.servizio_id, nome: legata.nome, icona: legata.icona,
+      }
+      : descriviMovimento(regola);
+  };
+
   const perChiave = new Map();
   const voce = (descrizione) => {
     if (!perChiave.has(descrizione.chiave)) perChiave.set(descrizione.chiave, { descrizione, addebiti: [], regole: [] });
@@ -333,14 +369,15 @@ const pianifica = ({
     const centesimi = aCentesimi(movimento.importo);
     if (!(centesimi > 0)) return;
     const origine = regolePerId.get(movimento.ricorrenza_origine_id);
-    // L'occorrenza di una spesa una tantum è un pagamento singolo.
-    if (origine && !PERIODO_DA_FREQUENZA[origine.ricorrente_frequenza]) return;
-    const descrizione = descriviMovimento(movimento);
+    // L'occorrenza di una spesa una tantum è un pagamento singolo, e quella di una
+    // programmazione fermata non deve far nascere un abbonamento attivo.
+    if (origine && !regolaAttiva(origine)) return;
+    const descrizione = origine ? descriviRegola(origine) : descriviMovimento(movimento);
     if (descrizione) voce(descrizione).addebiti.push({ data: movimento.data, centesimi });
   });
 
   regole.filter(regolaAttiva).forEach((regola) => {
-    const descrizione = descriviMovimento(regola);
+    const descrizione = descriviRegola(regola);
     if (descrizione) voce(descrizione).regole.push(regola);
   });
 

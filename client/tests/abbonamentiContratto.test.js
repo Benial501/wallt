@@ -12,13 +12,14 @@ import { readFileSync } from 'node:fs';
 import serverVocabolario from '../../server/constants/abbonamenti.js';
 import serverCosti from '../../server/utils/abbonamentiCosti.js';
 import {
-  CATALOGO_SERVIZI, GRUPPI_SERVIZI, ICONE_GENERICHE, PERIODI_MESI, DURATA_MESI_MAX, STATI, ORIGINI,
+  CATALOGO_SERVIZI, GRUPPI_SERVIZI, ICONE_GENERICHE, PERIODI_MESI, DURATA_MESI_MAX, SCARTO_MASSIMO_RINCARO, STATI, ORIGINI,
   calcolaCosti, etichettaPeriodo, descriviDurata,
 } from '../src/utils/abbonamenti.js';
 
 test('periodi, durata massima, stati e origini coincidono', () => {
   assert.deepEqual([...PERIODI_MESI], [...serverVocabolario.PERIODI_MESI]);
   assert.equal(DURATA_MESI_MAX, serverVocabolario.DURATA_MESI_MAX);
+  assert.equal(SCARTO_MASSIMO_RINCARO, serverVocabolario.SCARTO_MASSIMO_RINCARO);
   assert.deepEqual({ ...STATI }, { ...serverVocabolario.STATI });
   assert.deepEqual({ ...ORIGINI }, { ...serverVocabolario.ORIGINI });
 });

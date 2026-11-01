@@ -199,6 +199,18 @@ describe('API abbonamenti', () => {
       expect(body.attivi[0].movimento_ricorrente_id).toBeTruthy();
     });
 
+    it('programmazione e occorrenze del cron contano una volta sola nei totali', async () => {
+      const regola = await movimento({
+        ricorrente: true, ricorrente_frequenza: 'mensile', ricorrente_giorno: 1, importo: '20.00', categoria: 'abbonamenti', descrizione: 'Palestra Fit',
+      });
+      await movimento({
+        importo: '20.00', categoria: 'abbonamenti', descrizione: 'Palestra Fit (automatico)', ricorrenza_origine_id: regola.id,
+      });
+      const { body } = await leggi();
+      expect(body.attivi.map((a) => a.nome)).toEqual(['Palestra Fit']);
+      expect(body.totali).toEqual({ al_mese: 20, all_anno: 240, se_tutti_12_mesi: null });
+    });
+
     it('se la lettura delle transazioni fallisce, l\'elenco risponde con ciò che è salvato', async () => {
       await crea(payload());
       const guasto = jest.spyOn(Movimento, 'findAll').mockRejectedValueOnce(new Error('guasto'));

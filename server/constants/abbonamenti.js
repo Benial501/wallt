@@ -22,6 +22,18 @@ const PERIODI_MESI = Object.freeze([1, 3, 6, 12]);
 const DURATA_MESI_MAX = 120;
 const MESI_FINESTRA_LETTURA = 3;
 
+// Oltre questa differenza un importo diverso è un altro acquisto o un errore, non
+// un rincaro: non deve cambiare il costo di una riga senza che qualcuno lo veda.
+const SCARTO_MASSIMO_RINCARO = 0.25;
+
+// Con una di queste parole un nome noto non basta: «Ricarica Vodafone» e «TIM Store»
+// parlano di un operatore, ma non sono l'abbonamento. Non valgono se l'utente ha
+// scelto lui una categoria di abbonamenti.
+const PAROLE_NON_ABBONAMENTO = Object.freeze([
+  'ricarica', 'ricariche', 'top up', 'topup', 'store', 'negozio', 'rata', 'rate', 'sim',
+  'iscrizione', 'attivazione', 'kit', 'consegna', 'gift card',
+]);
+
 // Due addebiti a questa distanza dimostrano che il periodo è davvero mensile.
 const GIORNI_ADDEBITO_MENSILE_MIN = 25;
 const GIORNI_ADDEBITO_MENSILE_MAX = 35;
@@ -39,13 +51,14 @@ const ICONE_GENERICHE = Object.freeze(['palestra', 'telefono', 'giornali', 'altr
 // altrove: «Xbox Game Pass» finisce in videogiochi e «Amazon Music» in
 // shopping_online. Gli alias sono abbastanza specifici da non catturare un gioco
 // o un acquisto qualunque («PlayStation Store» non è «PlayStation Plus», e un
-// ordine su Glovo non è «Glovo Prime»).
+// ordine su Glovo non è «Glovo Prime»). `nome_esatto: false` serve dove il nome da
+// solo non basta: «Telepass» al casello è un pedaggio, non il canone.
 const CATALOGO_SERVIZI = Object.freeze([
   { id: 'netflix', nome: 'Netflix', gruppo: 'video', alias: ['netflix'] },
   { id: 'prime-video', nome: 'Prime Video', gruppo: 'video', alias: ['prime video', 'primevideo'], categorie_ammesse: ['shopping_online'] },
   { id: 'disney-plus', nome: 'Disney+', gruppo: 'video', alias: ['disney+', 'disney plus', 'disneyplus'] },
   { id: 'now', nome: 'NOW', gruppo: 'video', alias: ['now tv', 'nowtv', 'now.tv', 'now entertainment'] },
-  { id: 'sky', nome: 'Sky', gruppo: 'video', alias: ['sky italia', 'skyitalia', 'sky tv', 'sky'] },
+  { id: 'sky', nome: 'Sky', gruppo: 'video', alias: ['sky italia', 'skyitalia', 'sky tv', 'sky wifi', 'sky glass'] },
   { id: 'dazn', nome: 'DAZN', gruppo: 'video', alias: ['dazn'] },
   { id: 'apple-tv', nome: 'Apple TV+', gruppo: 'video', alias: ['apple tv', 'appletv'] },
   { id: 'paramount-plus', nome: 'Paramount+', gruppo: 'video', alias: ['paramount+', 'paramount plus', 'paramountplus'] },
@@ -68,15 +81,15 @@ const CATALOGO_SERVIZI = Object.freeze([
   { id: 'qobuz', nome: 'Qobuz', gruppo: 'musica', alias: ['qobuz'] },
   { id: 'chatgpt', nome: 'ChatGPT', gruppo: 'ia', alias: ['chatgpt', 'chat gpt', 'openai', 'open ai'] },
   { id: 'claude', nome: 'Claude', gruppo: 'ia', alias: ['claude', 'anthropic'] },
-  { id: 'gemini', nome: 'Gemini', gruppo: 'ia', alias: ['google gemini', 'gemini'] },
+  { id: 'gemini', nome: 'Gemini', gruppo: 'ia', alias: ['google gemini', 'gemini advanced'] },
   { id: 'perplexity', nome: 'Perplexity', gruppo: 'ia', alias: ['perplexity'] },
   { id: 'copilot', nome: 'Copilot', gruppo: 'ia', alias: ['github copilot', 'copilot'] },
   { id: 'midjourney', nome: 'Midjourney', gruppo: 'ia', alias: ['midjourney'] },
   { id: 'grok', nome: 'Grok', gruppo: 'ia', alias: ['grok', 'x.ai'] },
-  { id: 'mistral', nome: 'Mistral', gruppo: 'ia', alias: ['mistral ai', 'mistral'] },
-  { id: 'cursor', nome: 'Cursor', gruppo: 'ia', alias: ['cursor ai', 'cursor.com', 'cursor'] },
+  { id: 'mistral', nome: 'Mistral', gruppo: 'ia', alias: ['mistral ai', 'mistral.ai'] },
+  { id: 'cursor', nome: 'Cursor', gruppo: 'ia', alias: ['cursor ai', 'cursor.com', 'cursor.sh'] },
   { id: 'elevenlabs', nome: 'ElevenLabs', gruppo: 'ia', alias: ['elevenlabs', 'eleven labs'] },
-  { id: 'suno', nome: 'Suno', gruppo: 'ia', alias: ['suno'] },
+  { id: 'suno', nome: 'Suno', gruppo: 'ia', alias: ['suno ai', 'suno.com'] },
   { id: 'icloud', nome: 'iCloud+', gruppo: 'cloud', alias: ['icloud'] },
   { id: 'google-one', nome: 'Google One', gruppo: 'cloud', alias: ['google one', 'googleone'] },
   { id: 'dropbox', nome: 'Dropbox', gruppo: 'cloud', alias: ['dropbox'] },
@@ -97,12 +110,12 @@ const CATALOGO_SERVIZI = Object.freeze([
   { id: 'dashlane', nome: 'Dashlane', gruppo: 'cloud', alias: ['dashlane'] },
   { id: 'figma', nome: 'Figma', gruppo: 'cloud', alias: ['figma'] },
   { id: 'slack', nome: 'Slack', gruppo: 'cloud', alias: ['slack'] },
-  { id: 'zoom', nome: 'Zoom', gruppo: 'cloud', alias: ['zoom.us', 'zoom video', 'zoom'] },
+  { id: 'zoom', nome: 'Zoom', gruppo: 'cloud', alias: ['zoom.us', 'zoom video', 'zoom communications'] },
   { id: 'grammarly', nome: 'Grammarly', gruppo: 'cloud', alias: ['grammarly'] },
   { id: 'evernote', nome: 'Evernote', gruppo: 'cloud', alias: ['evernote'] },
   { id: 'todoist', nome: 'Todoist', gruppo: 'cloud', alias: ['todoist'] },
   { id: 'capcut', nome: 'CapCut', gruppo: 'cloud', alias: ['capcut'] },
-  { id: 'norton', nome: 'Norton', gruppo: 'cloud', alias: ['norton'] },
+  { id: 'norton', nome: 'Norton', gruppo: 'cloud', alias: ['norton 360', 'norton antivirus', 'norton security', 'nortonlifelock'] },
   { id: 'mcafee', nome: 'McAfee', gruppo: 'cloud', alias: ['mcafee'] },
   { id: 'playstation-plus', nome: 'PlayStation Plus', gruppo: 'giochi', alias: ['playstation plus', 'ps plus', 'psplus'], categorie_ammesse: ['videogiochi'] },
   { id: 'xbox-game-pass', nome: 'Xbox Game Pass', gruppo: 'giochi', alias: ['xbox game pass', 'game pass', 'gamepass'], categorie_ammesse: ['videogiochi'] },
@@ -125,9 +138,9 @@ const CATALOGO_SERVIZI = Object.freeze([
   { id: 'uber-one', nome: 'Uber One', gruppo: 'app', alias: ['uber one'], categorie_ammesse: ['taxi'] },
   { id: 'deliveroo-plus', nome: 'Deliveroo Plus', gruppo: 'app', alias: ['deliveroo plus'], categorie_ammesse: ['delivery'] },
   { id: 'glovo-prime', nome: 'Glovo Prime', gruppo: 'app', alias: ['glovo prime'], categorie_ammesse: ['delivery'] },
-  { id: 'mcfit', nome: 'McFIT', gruppo: 'app', alias: ['mcfit'], categorie_ammesse: ['palestra', 'sport'] },
-  { id: 'fitactive', nome: 'FitActive', gruppo: 'app', alias: ['fitactive', 'fit active'], categorie_ammesse: ['palestra', 'sport'] },
-  { id: 'virgin-active', nome: 'Virgin Active', gruppo: 'app', alias: ['virgin active'], categorie_ammesse: ['palestra', 'sport'] },
+  { id: 'mcfit', nome: 'McFIT', gruppo: 'app', alias: ['mcfit'], categorie_ammesse: ['palestra', 'sport', 'svago'] },
+  { id: 'fitactive', nome: 'FitActive', gruppo: 'app', alias: ['fitactive', 'fit active'], categorie_ammesse: ['palestra', 'sport', 'svago'] },
+  { id: 'virgin-active', nome: 'Virgin Active', gruppo: 'app', alias: ['virgin active'], categorie_ammesse: ['palestra', 'sport', 'svago'] },
   { id: 'corriere', nome: 'Corriere della Sera', gruppo: 'notizie', alias: ['corriere della sera', 'corriere.it'] },
   { id: 'repubblica', nome: 'la Repubblica', gruppo: 'notizie', alias: ['la repubblica', 'repubblica.it'] },
   { id: 'sole-24-ore', nome: 'Il Sole 24 Ore', gruppo: 'notizie', alias: ['il sole 24 ore', 'sole 24 ore', 'ilsole24ore', 'sole24ore'] },
@@ -135,23 +148,23 @@ const CATALOGO_SERVIZI = Object.freeze([
   { id: 'new-york-times', nome: 'The New York Times', gruppo: 'notizie', alias: ['new york times', 'nytimes'] },
   { id: 'medium', nome: 'Medium', gruppo: 'notizie', alias: ['medium.com'] },
   { id: 'substack', nome: 'Substack', gruppo: 'notizie', alias: ['substack'] },
-  { id: 'tim', nome: 'TIM', gruppo: 'telefonia', alias: ['tim spa', 'telecom italia', 'tim'], categorie_ammesse: ['telefono', 'internet'] },
-  { id: 'vodafone', nome: 'Vodafone', gruppo: 'telefonia', alias: ['vodafone'], categorie_ammesse: ['telefono', 'internet'] },
-  { id: 'windtre', nome: 'WindTre', gruppo: 'telefonia', alias: ['windtre', 'wind tre', 'wind3'], categorie_ammesse: ['telefono', 'internet'] },
-  { id: 'iliad', nome: 'iliad', gruppo: 'telefonia', alias: ['iliad'], categorie_ammesse: ['telefono', 'internet'] },
-  { id: 'fastweb', nome: 'Fastweb', gruppo: 'telefonia', alias: ['fastweb'], categorie_ammesse: ['telefono', 'internet'] },
-  { id: 'ho-mobile', nome: 'ho. Mobile', gruppo: 'telefonia', alias: ['ho mobile', 'ho. mobile', 'ho.mobile'], categorie_ammesse: ['telefono', 'internet'] },
-  { id: 'kena', nome: 'Kena Mobile', gruppo: 'telefonia', alias: ['kena mobile'], categorie_ammesse: ['telefono', 'internet'] },
-  { id: 'very-mobile', nome: 'Very Mobile', gruppo: 'telefonia', alias: ['very mobile'], categorie_ammesse: ['telefono', 'internet'] },
-  { id: 'coopvoce', nome: 'CoopVoce', gruppo: 'telefonia', alias: ['coopvoce', 'coop voce'], categorie_ammesse: ['telefono', 'internet'] },
-  { id: 'postemobile', nome: 'PosteMobile', gruppo: 'telefonia', alias: ['postemobile', 'poste mobile'], categorie_ammesse: ['telefono', 'internet'] },
-  { id: 'starlink', nome: 'Starlink', gruppo: 'telefonia', alias: ['starlink'], categorie_ammesse: ['telefono', 'internet'] },
+  { id: 'tim', nome: 'TIM', gruppo: 'telefonia', alias: ['tim spa', 'tim s.p.a', 'telecom italia'], categorie_ammesse: ['telefono', 'internet', 'bollette'] },
+  { id: 'vodafone', nome: 'Vodafone', gruppo: 'telefonia', alias: ['vodafone'], categorie_ammesse: ['telefono', 'internet', 'bollette'] },
+  { id: 'windtre', nome: 'WindTre', gruppo: 'telefonia', alias: ['windtre', 'wind tre', 'wind3'], categorie_ammesse: ['telefono', 'internet', 'bollette'] },
+  { id: 'iliad', nome: 'iliad', gruppo: 'telefonia', alias: ['iliad'], categorie_ammesse: ['telefono', 'internet', 'bollette'] },
+  { id: 'fastweb', nome: 'Fastweb', gruppo: 'telefonia', alias: ['fastweb'], categorie_ammesse: ['telefono', 'internet', 'bollette'] },
+  { id: 'ho-mobile', nome: 'ho. Mobile', gruppo: 'telefonia', alias: ['ho mobile', 'ho. mobile', 'ho.mobile'], categorie_ammesse: ['telefono', 'internet', 'bollette'] },
+  { id: 'kena', nome: 'Kena Mobile', gruppo: 'telefonia', alias: ['kena mobile'], categorie_ammesse: ['telefono', 'internet', 'bollette'] },
+  { id: 'very-mobile', nome: 'Very Mobile', gruppo: 'telefonia', alias: ['very mobile'], categorie_ammesse: ['telefono', 'internet', 'bollette'] },
+  { id: 'coopvoce', nome: 'CoopVoce', gruppo: 'telefonia', alias: ['coopvoce', 'coop voce'], categorie_ammesse: ['telefono', 'internet', 'bollette'] },
+  { id: 'postemobile', nome: 'PosteMobile', gruppo: 'telefonia', alias: ['postemobile', 'poste mobile'], categorie_ammesse: ['telefono', 'internet', 'bollette'] },
+  { id: 'starlink', nome: 'Starlink', gruppo: 'telefonia', alias: ['starlink'], categorie_ammesse: ['telefono', 'internet', 'bollette'] },
   // «amazon» da solo non è un alias: è quasi sempre un acquisto, non un abbonamento.
   { id: 'amazon-prime', nome: 'Amazon Prime', gruppo: 'altro', alias: ['amazon prime', 'amzn prime'], categorie_ammesse: ['shopping_online'] },
   { id: 'audible', nome: 'Audible', gruppo: 'altro', alias: ['audible'], categorie_ammesse: ['libri'] },
   { id: 'kindle-unlimited', nome: 'Kindle Unlimited', gruppo: 'altro', alias: ['kindle unlimited'], categorie_ammesse: ['shopping_online'] },
   { id: 'revolut-premium', nome: 'Revolut Premium', gruppo: 'altro', alias: ['revolut premium', 'revolut metal', 'revolut plus', 'revolut ultra'], categorie_ammesse: ['commissioni_bancarie'] },
-  { id: 'telepass', nome: 'Telepass', gruppo: 'altro', alias: ['canone telepass', 'telepass canone'] },
+  { id: 'telepass', nome: 'Telepass', gruppo: 'altro', alias: ['canone telepass', 'telepass canone'], categorie_ammesse: ['pedaggi'], nome_esatto: false },
 ]);
 
 module.exports = {
@@ -160,6 +173,8 @@ module.exports = {
   PERIODI_MESI,
   DURATA_MESI_MAX,
   MESI_FINESTRA_LETTURA,
+  SCARTO_MASSIMO_RINCARO,
+  PAROLE_NON_ABBONAMENTO,
   GIORNI_ADDEBITO_MENSILE_MIN,
   GIORNI_ADDEBITO_MENSILE_MAX,
   STATI,

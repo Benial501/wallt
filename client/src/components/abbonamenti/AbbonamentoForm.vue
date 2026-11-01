@@ -6,7 +6,7 @@ import ServizioIcona from './ServizioIcona.vue';
 import ServizioPicker from './ServizioPicker.vue';
 import { formatData, formatValuta } from '@/utils/formatters';
 import {
-  DURATA_MESI_MAX, ORIGINI, PERIODI_MESI, calcolaCosti,
+  DURATA_MESI_MAX, ORIGINI, PERIODI_MESI, addebitoLontanoDalCosto, calcolaCosti,
 } from '@/utils/abbonamenti';
 
 // Il contenuto del modulo, senza finestra né chiamate: riceve l'abbonamento e
@@ -94,7 +94,7 @@ const salva = () => {
       <p>
         <strong>Trovato nelle tue transazioni</strong>
         Ultimo addebito {{ formatData(a.ultimo_addebito_data, 'medio') }}, {{ formatValuta(a.ultimo_addebito_importo, valuta) }}.
-        <template v-if="a.da_verificare">Controlla che la durata sia giusta.</template>
+        <template v-if="a.da_verificare">{{ addebitoLontanoDalCosto(a) ? 'Controlla che costo e durata siano giusti.' : 'Controlla che la durata sia giusta.' }}</template>
       </p>
     </div>
 

@@ -9,6 +9,7 @@
 
 export const PERIODI_MESI = Object.freeze([1, 3, 6, 12]);
 export const DURATA_MESI_MAX = 120;
+export const SCARTO_MASSIMO_RINCARO = 0.25;
 
 export const STATI = Object.freeze({ ATTIVO: 'attivo', ANNULLATO: 'annullato', ESCLUSO: 'escluso' });
 export const ORIGINI = Object.freeze({ MANUALE: 'manuale', RILEVATO: 'rilevato' });
@@ -157,6 +158,13 @@ export const calcolaCosti = ({ costo, periodo_mesi: periodo, durata_mesi: durata
     in_totale: pagamenti === null ? null : centesimi * pagamenti,
     peso_annuo: pagamenti === null ? inUnAnno : centesimi * Math.min(pagamenti, 12 / periodo),
   };
+};
+
+/** L'ultimo addebito è troppo lontano dal costo perché WALLT lo abbia applicato da sola. */
+export const addebitoLontanoDalCosto = ({ costo, ultimo_addebito_importo: importo }) => {
+  if (importo == null) return false;
+  const centesimi = aCentesimi(costo);
+  return Math.abs(centesimi - aCentesimi(importo)) > centesimi * SCARTO_MASSIMO_RINCARO;
 };
 
 const formattaMesi = (mesi) => (mesi === 1 ? '1 mese' : `${mesi} mesi`);
