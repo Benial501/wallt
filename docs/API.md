@@ -661,6 +661,7 @@ Un quadro da leggere: nessuna di queste rotte scrive su conti o movimenti (CLAUD
 ### GET /api/abbonamenti
 - **Azione**: rilegge i movimenti degli ultimi 3 mesi e le programmazioni, aggiorna le righe in modo idempotente e restituisce l'elenco. Se la rilettura fallisce risponde comunque con ciò che è salvato
 - **Risposta**: `{ attivi[], non_attivi[], totali: { al_mese, all_anno, se_tutti_12_mesi } }`. `se_tutti_12_mesi` è `null` senza abbonamenti a tempo. Ogni voce ha `stato_effettivo` (`attivo`, `annullato`, `finito`, `escluso`), `data_fine` e `costi: { al_mese, in_un_anno, in_totale, peso_annuo }`
+- **Doppioni**: un servizio è un abbonamento solo, a qualunque cifra. La lettura riunisce le righe rilevate di troppo, senza toccare movimenti, righe scritte a mano, annullate o escluse. Eccezioni: voci cumulative (Apple, Google) e addebiti senza descrizione
 - **File**: `abbonamenti.controller.js` → `services/abbonamenti.service.js`
 
 ### POST /api/abbonamenti

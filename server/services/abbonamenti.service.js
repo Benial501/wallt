@@ -10,7 +10,7 @@ const logger = require('../utils/logger');
 const { AppError } = require('../utils/AppError');
 const { giornoLocale, FUSO_DEFAULT } = require('./notifiche/notificheTime');
 const {
-  aggiungiMesi, chiaveDaTesto, dataFine, pianifica,
+  aggiungiMesi, chiaveDaTesto, dataFine, pianifica, righeDoppie,
 } = require('./abbonamentiRilevamento');
 const { MESI_FINESTRA_LETTURA, ORIGINI, STATI } = require('../constants/abbonamenti');
 const { calcolaCosti, calcolaTotali } = require('../utils/abbonamentiCosti');
@@ -58,10 +58,19 @@ const sincronizzaDaiMovimenti = async (userId, oggi) => {
   // singolo, non l'addebito di un abbonamento.
   const daPagamenti = new Set(pagamenti.map((p) => p.movimento_id));
 
+  const righeLette = righe.map((r) => ({ ...r, modificato_utente_il: giornoDi(r.modificato_utente_il) }));
+
+  // Prima di leggere gli addebiti: una riga di troppo non deve riceverne. Si cancella
+  // solo ciò che è stato dedotto dai movimenti, e nessun movimento viene toccato.
+  const doppie = righeDoppie(righeLette);
+  if (doppie.length) {
+    await Abbonamento.destroy({ where: { id: doppie.map((r) => r.id), user_id: userId } });
+  }
+
   const { crea, aggiorna } = pianifica({
     movimenti: addebiti.filter((m) => !daPagamenti.has(m.id)),
     regole: regole.map((r) => ({ ...r, updatedAt: giornoDi(r.updatedAt) })),
-    righe: righe.map((r) => ({ ...r, modificato_utente_il: giornoDi(r.modificato_utente_il) })),
+    righe: righeLette.filter((r) => !doppie.includes(r)),
     oggi,
   });
 

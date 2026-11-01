@@ -18,6 +18,11 @@ const CATEGORIE_ABBONAMENTO = Object.freeze(['abbonamenti', 'streaming', 'musica
 // Claude Rossi» classificato come trasferimento non è l'abbonamento a Claude.
 const CATEGORIE_DA_DESCRIZIONE = Object.freeze(['da_verificare', 'altro_uscita']);
 
+// Una voce sola di queste, sull'estratto conto, può raccogliere più abbonamenti:
+// APPLE.COM/BILL può essere iCloud e Apple TV insieme. Solo qui due importi nello
+// stesso mese sono due abbonamenti: ogni altro servizio è uno solo, a qualunque cifra.
+const ADDEBITI_CUMULATIVI = Object.freeze(['apple', 'itunes', 'google']);
+
 const PERIODI_MESI = Object.freeze([1, 3, 6, 12]);
 const DURATA_MESI_MAX = 120;
 const MESI_FINESTRA_LETTURA = 3;
@@ -170,6 +175,7 @@ const CATALOGO_SERVIZI = Object.freeze([
 module.exports = {
   CATEGORIE_ABBONAMENTO,
   CATEGORIE_DA_DESCRIZIONE,
+  ADDEBITI_CUMULATIVI,
   PERIODI_MESI,
   DURATA_MESI_MAX,
   MESI_FINESTRA_LETTURA,

@@ -211,6 +211,63 @@ describe('API abbonamenti', () => {
       expect(body.totali).toEqual({ al_mese: 20, all_anno: 240, se_tutti_12_mesi: null });
     });
 
+    it('lo stesso servizio pagato con cifre diverse è un abbonamento solo, anche nei totali', async () => {
+      const claude = (data, importo) => movimento({
+        data, importo, categoria: 'abbonamenti_digitali', descrizione: 'ANTHROPIC PBC',
+      });
+      const giorno = oggi();
+      await claude(`${giorno.slice(0, 7)}-01`, '21.96');
+      await claude(giorno, '109.80');
+      await claude(aggiungiMesi(giorno, -1), '21.96');
+
+      const { body } = await leggi();
+      expect(body.attivi.map((a) => a.nome)).toEqual(['Claude']);
+      expect(await Abbonamento.count({ where: { user_id: userId } })).toBe(1);
+    });
+
+    it('le righe doppie già salvate si riuniscono alla lettura', async () => {
+      const giorno = oggi();
+      const salva = (ordine, costo, data) => Abbonamento.create({
+        user_id: userId,
+        servizio_id: 'claude',
+        chiave: 'claude',
+        ordine,
+        nome: 'Claude',
+        icona: 'claude',
+        costo,
+        periodo_mesi: 1,
+        stato: 'attivo',
+        origine: 'rilevato',
+        ultimo_addebito_data: data,
+        ultimo_addebito_importo: costo,
+      });
+      await salva(0, '21.96', aggiungiMesi(giorno, -1));
+      const recente = await salva(1, '109.80', giorno);
+
+      const { body } = await leggi();
+      expect(body.attivi.map((a) => a.id)).toEqual([recente.id]);
+      expect(body.totali.al_mese).toBe(109.8);
+      expect(await Abbonamento.count({ where: { user_id: userId } })).toBe(1);
+
+      const dopo = await leggi();
+      expect(dopo.body.attivi.map((a) => a.id)).toEqual([recente.id]);
+    });
+
+    it('riunire le righe doppie non tocca quelle di un altro utente', async () => {
+      const altro = await registerUser(app);
+      const riga = (user_id, ordine) => Abbonamento.create({
+        user_id, chiave: 'claude', ordine, nome: 'Claude', costo: '21.96', periodo_mesi: 1, stato: 'attivo', origine: 'rilevato',
+      });
+      await riga(altro.res.body.user.id, 0);
+      await riga(altro.res.body.user.id, 1);
+      await riga(userId, 0);
+      await riga(userId, 1);
+
+      await leggi();
+      expect(await Abbonamento.count({ where: { user_id: userId } })).toBe(1);
+      expect(await Abbonamento.count({ where: { user_id: altro.res.body.user.id } })).toBe(2);
+    });
+
     it('se la lettura delle transazioni fallisce, l\'elenco risponde con ciò che è salvato', async () => {
       await crea(payload());
       const guasto = jest.spyOn(Movimento, 'findAll').mockRejectedValueOnce(new Error('guasto'));

@@ -482,7 +482,9 @@ vedi CLAUDE.md Regola 28.
 | `movimento_ricorrente_id` | INTEGER NULL | Programmazione legata. Senza chiave esterna: serve a capire che è stata eliminata |
 
 `UNIQUE(user_id, chiave, ordine)`: due letture simultanee non creano due righe
-per lo stesso rilevamento.
+per lo stesso rilevamento. Più righe sulla stessa chiave restano possibili solo per
+le voci cumulative (Apple, Google), gli addebiti senza descrizione e le righe scritte
+a mano: ogni altro servizio è un abbonamento solo (`CLAUDE.md`, Regola 28).
 
 ## Relazioni testuali
 

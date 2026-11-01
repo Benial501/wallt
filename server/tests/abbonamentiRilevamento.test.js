@@ -1,5 +1,5 @@
 const {
-  identificaServizio, descriviMovimento, aggiungiMesi, pianifica,
+  identificaServizio, descriviMovimento, aggiungiMesi, pianifica, righeDoppie,
 } = require('../services/abbonamentiRilevamento');
 
 const OGGI = '2026-10-31';
@@ -382,6 +382,190 @@ describe('pianifica', () => {
       const inCorso = aTempo({ data_inizio: '2026-09-15', ultimo_addebito_data: null, ultimo_addebito_importo: null });
       const { aggiorna } = piano({ movimenti: [addebito('2026-10-12')], righe: [inCorso] });
       expect(aggiorna[0].campi).toEqual({ ultimo_addebito_data: '2026-10-12', ultimo_addebito_importo: '13.99' });
+    });
+  });
+
+  describe('un servizio è un abbonamento solo', () => {
+    const claude = (data, importo) => addebito(data, importo, { categoria: 'abbonamenti_digitali', descrizione: 'ANTHROPIC PBC' });
+
+    it('due importi diversi nello stesso mese non fanno due abbonamenti', () => {
+      const { crea } = piano({ movimenti: [claude('2026-10-02', '21.96'), claude('2026-10-28', '109.80')] });
+      expect(crea).toHaveLength(1);
+      expect(crea[0]).toMatchObject({ chiave: 'claude', nome: 'Claude', costo: '109.80', da_verificare: true });
+    });
+
+    it('un mese di più e quello dopo di meno restano una riga sola', () => {
+      const { crea } = piano({ movimenti: [claude('2026-09-02', '109.80'), claude('2026-10-02', '21.96')] });
+      expect(crea).toHaveLength(1);
+      expect(crea[0].costo).toBe('21.96');
+    });
+
+    it('con una riga già presente nessun importo ne crea un\'altra', () => {
+      const presente = riga({
+        chiave: 'claude', costo: '21.96', ultimo_addebito_data: '2026-09-02', ultimo_addebito_importo: '21.96',
+      });
+      const { crea, aggiorna } = piano({ movimenti: [claude('2026-10-02', '21.96'), claude('2026-10-20', '109.80')], righe: [presente] });
+      expect(crea).toEqual([]);
+      expect(aggiorna).toEqual([{
+        id: 1,
+        campi: { da_verificare: true, ultimo_addebito_data: '2026-10-20', ultimo_addebito_importo: '109.80' },
+      }]);
+    });
+
+    it('vale anche per un abbonamento fuori elenco', () => {
+      const palestra = (data, importo) => addebito(data, importo, { categoria: 'abbonamenti', descrizione: 'Palestra Bodylab' });
+      expect(piano({ movimenti: [palestra('2026-10-02', '20.00'), palestra('2026-10-20', '45.00')] }).crea).toHaveLength(1);
+    });
+
+    it('la programmazione e l\'addebito di un altro importo sono lo stesso abbonamento', () => {
+      const { crea } = piano({
+        movimenti: [claude('2026-10-02', '21.96'), claude('2026-10-20', '109.80')],
+        regole: [regola({ descrizione: 'Claude', categoria: 'abbonamenti_digitali', importo: '21.96' })],
+      });
+      expect(crea).toHaveLength(1);
+      expect(crea[0].movimento_ricorrente_id).toBe(50);
+    });
+
+    it('due programmazioni dello stesso servizio restano una riga, e rileggere non cambia nulla', () => {
+      const regole = [
+        regola({ id: 50, descrizione: 'Claude', importo: '21.96' }),
+        regola({ id: 51, descrizione: 'Anthropic', importo: '109.80' }),
+      ];
+      const { crea } = piano({ movimenti: [], regole });
+      expect(crea).toHaveLength(1);
+      const righe = [{ ...riga(), ...crea[0], id: 1 }];
+      expect(piano({ movimenti: [], regole, righe })).toEqual({ crea: [], aggiorna: [] });
+      expect(piano({ movimenti: [], regole: [...regole].reverse(), righe })).toEqual({ crea: [], aggiorna: [] });
+    });
+
+    it('«Anthropic» scritto a mano riceve gli addebiti di Claude', () => {
+      const scritta = riga({
+        chiave: 'anthropic', nome: 'Anthropic', servizio_id: null, origine: 'manuale', costo: '21.96', modificato_utente_il: '2026-09-01',
+      });
+      const { crea, aggiorna } = piano({ movimenti: [claude('2026-10-02', '21.96')], righe: [scritta] });
+      expect(crea).toEqual([]);
+      expect(aggiorna).toEqual([{ id: 1, campi: { ultimo_addebito_data: '2026-10-02', ultimo_addebito_importo: '21.96' } }]);
+    });
+
+    it('una riga rinominata continua a ricevere i suoi addebiti', () => {
+      const rinominata = riga({
+        chiave: 'palestra bodylab', nome: 'Netflix', servizio_id: 'netflix', modificato_utente_il: '2026-09-01', costo: '20.00',
+      });
+      const { crea } = piano({
+        movimenti: [addebito('2026-10-02', '20.00', { categoria: 'abbonamenti', descrizione: 'Palestra Bodylab' })],
+        righe: [rinominata],
+      });
+      expect(crea).toEqual([]);
+    });
+
+    it('un addebito non riapre la riga annullata se il servizio è già attivo', () => {
+      const attiva = riga({ id: 1, chiave: 'claude', costo: '109.80', ordine: 0 });
+      const annullata = riga({
+        id: 2, chiave: 'claude', costo: '21.96', ordine: 1, stato: 'annullato', annullato_il: '2026-09-01',
+      });
+      const { crea, aggiorna } = piano({ movimenti: [claude('2026-10-02', '21.96')], righe: [attiva, annullata] });
+      expect(crea).toEqual([]);
+      expect(aggiorna.map((a) => a.id)).toEqual([1]);
+    });
+
+    it('un addebito non si perde su una riga esclusa se il servizio è già attivo', () => {
+      const attiva = riga({ id: 1, chiave: 'claude', costo: '109.80', ordine: 0 });
+      const esclusa = riga({
+        id: 2, chiave: 'claude', costo: '21.96', ordine: 1, stato: 'escluso',
+      });
+      const { aggiorna } = piano({ movimenti: [claude('2026-10-02', '21.96')], righe: [attiva, esclusa] });
+      expect(aggiorna.map((a) => a.id)).toEqual([1]);
+    });
+
+    it('due abbonamenti scritti a mano restano due, e un importo lontano non crea il terzo', () => {
+      const scritte = [
+        riga({ id: 1, origine: 'manuale', costo: '13.99', ordine: 0, modificato_utente_il: '2026-09-01' }),
+        riga({ id: 2, origine: 'manuale', costo: '7.99', ordine: 1, modificato_utente_il: '2026-09-01' }),
+      ];
+      expect(piano({ movimenti: [addebito('2026-10-02', '99.00')], righe: scritte })).toEqual({ crea: [], aggiorna: [] });
+    });
+
+    it.each(['APPLE.COM/BILL', 'ITUNES.COM/BILL', 'GOOGLE PLAY'])('%s può nascondere più abbonamenti', (descrizione) => {
+      const voce = (data, importo) => addebito(data, importo, { categoria: 'abbonamenti_digitali', descrizione });
+      expect(piano({ movimenti: [voce('2026-10-02', '0.99'), voce('2026-10-05', '10.99')] }).crea).toHaveLength(2);
+    });
+
+    it('un servizio Apple del catalogo è uno solo, a qualunque cifra', () => {
+      const voce = (data, importo) => addebito(data, importo, { categoria: 'streaming', descrizione: 'APPLE TV' });
+      expect(piano({ movimenti: [voce('2026-10-02', '4.99'), voce('2026-10-05', '9.99')] }).crea).toHaveLength(1);
+    });
+
+    it('senza descrizione non si può dire che sia lo stesso servizio', () => {
+      const voce = (data, importo) => addebito(data, importo, { categoria: 'abbonamenti', descrizione: '' });
+      expect(piano({ movimenti: [voce('2026-10-02', '5.00'), voce('2026-10-05', '30.00')] }).crea).toHaveLength(2);
+    });
+  });
+
+  describe('righeDoppie', () => {
+    const rilevata = (id, altro = {}) => riga({ id, chiave: 'claude', nome: 'Claude', ordine: id, ...altro });
+    const idDoppie = (righe) => righeDoppie(righe).map((r) => r.id);
+
+    it('tiene la riga con l\'addebito più recente', () => {
+      expect(idDoppie([
+        rilevata(1, { costo: '21.96', ultimo_addebito_data: '2026-10-02' }),
+        rilevata(2, { costo: '109.80', ultimo_addebito_data: '2026-10-28' }),
+      ])).toEqual([1]);
+    });
+
+    it('a parità tiene la prima', () => {
+      expect(idDoppie([rilevata(1), rilevata(2)])).toEqual([2]);
+    });
+
+    it('vince la riga che l\'utente ha toccato per ultimo', () => {
+      expect(idDoppie([
+        rilevata(1, { modificato_utente_il: '2026-10-01', ultimo_addebito_data: '2026-10-28' }),
+        rilevata(2, { modificato_utente_il: '2026-10-20', ultimo_addebito_data: '2026-10-02' }),
+        rilevata(3, { ultimo_addebito_data: '2026-10-29' }),
+      ])).toEqual([1, 3]);
+    });
+
+    it('accanto a una riga scritta a mano la riga rilevata è di troppo', () => {
+      expect(idDoppie([
+        riga({ id: 1, chiave: 'anthropic', nome: 'Anthropic', origine: 'manuale' }),
+        rilevata(2),
+      ])).toEqual([2]);
+    });
+
+    it('«Apple TV» scritto a mano è lo stesso servizio, non una voce cumulativa', () => {
+      expect(idDoppie([
+        riga({ id: 1, chiave: 'apple tv', nome: 'Apple TV', origine: 'manuale' }),
+        riga({ id: 2, chiave: 'apple-tv', nome: 'Apple TV+' }),
+      ])).toEqual([2]);
+    });
+
+    it('due servizi Apple diversi restano due', () => {
+      expect(idDoppie([
+        riga({ id: 1, chiave: 'apple-tv', nome: 'Apple TV+' }),
+        riga({ id: 2, chiave: 'apple-music', nome: 'Apple Music' }),
+      ])).toEqual([]);
+    });
+
+    it('non cancella mai una riga scritta a mano', () => {
+      expect(idDoppie([
+        riga({ id: 1, origine: 'manuale', ordine: 0 }),
+        riga({ id: 2, origine: 'manuale', ordine: 1 }),
+      ])).toEqual([]);
+    });
+
+    it('non tocca annullate ed escluse, né servizi diversi', () => {
+      expect(idDoppie([
+        rilevata(1),
+        rilevata(2, { stato: 'annullato', annullato_il: '2026-09-01' }),
+        rilevata(3, { stato: 'escluso' }),
+        riga({ id: 4, chiave: 'netflix', nome: 'Netflix', ordine: 0 }),
+      ])).toEqual([]);
+    });
+
+    it('sugli addebiti cumulativi più righe sono normali', () => {
+      const chiave = 'apple com bill';
+      expect(idDoppie([riga({ id: 1, chiave, ordine: 0 }), riga({ id: 2, chiave, ordine: 1 })])).toEqual([]);
+      const generica = 'categoria:abbonamenti';
+      expect(idDoppie([riga({ id: 3, chiave: generica, ordine: 0 }), riga({ id: 4, chiave: generica, ordine: 1 })])).toEqual([]);
     });
   });
 

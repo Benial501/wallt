@@ -9,6 +9,7 @@
 const MerchantNormalizer = require('./merchant/MerchantNormalizer');
 const { CATEGORIA_USCITA_DISPLAY } = require('../constants/categorie');
 const {
+  ADDEBITI_CUMULATIVI,
   CATALOGO_SERVIZI,
   CATEGORIE_ABBONAMENTO,
   CATEGORIE_DA_DESCRIZIONE,
@@ -63,6 +64,27 @@ const chiaveDaTesto = (testo) => normalizer.normalize(senzaSuffissoCron(testo)).
 const haParolaEsclusa = (descrizione) => {
   const testo = testoDi(descrizione);
   return PAROLE_NON_ABBONAMENTO.some((parola) => contieneAlias(testo, parola));
+};
+
+const nelCatalogo = (chiave) => CATALOGO_SERVIZI.some((voce) => voce.id === chiave);
+
+// Senza descrizione (`categoria:`) non si può dire che due addebiti siano lo stesso
+// servizio. «Apple Music» è un servizio del catalogo, non un addebito cumulativo,
+// anche quando è scritto a mano e la sua chiave è il testo.
+const chiaveCumulativa = (chiave) => chiave.startsWith('categoria:')
+  || (
+    !nelCatalogo(chiave)
+    && !identificaServizio(chiave)
+    && ADDEBITI_CUMULATIVI.some((alias) => contieneAlias(chiave, alias))
+  );
+
+/**
+ * Il servizio di una riga, che può avere una chiave diversa da quella dei movimenti:
+ * «Anthropic» scritto a mano e «Claude» trovato negli addebiti sono lo stesso abbonamento.
+ */
+const chiaveServizio = ({ chiave, nome, servizio_id: servizioId }) => {
+  if (nelCatalogo(chiave) || chiaveCumulativa(chiave)) return chiave;
+  return servizioId || identificaServizio(nome)?.id || identificaServizio(chiave)?.id || chiave;
 };
 
 const descriviMovimento = ({ categoria, descrizione }) => {
@@ -128,9 +150,9 @@ const ultimiDueUguali = (addebiti) => addebiti.length >= 2
   && addebiti[addebiti.length - 1].centesimi === addebiti[addebiti.length - 2].centesimi;
 
 /**
- * Il numero di flussi è il massimo di importi distinti in uno stesso mese. Due
- * importi in mesi diversi sono un rincaro, due nello stesso mese sono due
- * abbonamenti sullo stesso addebito, come spesso accade con Apple.
+ * Solo per gli addebiti cumulativi. Il numero di flussi è il massimo di importi
+ * distinti in uno stesso mese: due importi in mesi diversi sono un rincaro, due nello
+ * stesso mese sono due abbonamenti sulla stessa voce, come spesso accade con Apple.
  */
 const costruisciFlussi = (addebiti) => {
   const perMese = new Map();
@@ -171,6 +193,15 @@ const rigaVicina = (importo, righe, occupate) => {
   return vicine.reduce((migliore, r) => (
     Math.abs(r.centesimi - importo) < Math.abs(migliore.centesimi - importo) ? r : migliore
   ));
+};
+
+/**
+ * Un servizio è un abbonamento solo: se è già attivo l'addebito è suo a qualunque
+ * importo, e non riapre una riga annullata né si perde su una esclusa con lo stesso costo.
+ */
+const righeDelServizio = (righe) => {
+  const attive = righe.filter((r) => r.stato === STATI.ATTIVO);
+  return attive.length ? attive : righe.filter((r) => r.stato !== STATI.ESCLUSO);
 };
 
 const applicaAddebiti = (riga, flusso, oggi) => {
@@ -260,10 +291,12 @@ const nuovaRiga = (descrizione, righe, centesimi) => ({
 
 const pianificaChiave = ({ descrizione, addebiti, regole }, righe, oggi) => {
   const haEsclusa = () => righe.some((r) => r.stato === STATI.ESCLUSO);
+  const cumulativa = chiaveCumulativa(descrizione.chiave);
+  const candidate = () => (cumulativa ? righe : righeDelServizio(righe));
 
   if (addebiti.length) {
     addebiti.sort((a, b) => a.data.localeCompare(b.data));
-    const flussi = costruisciFlussi(addebiti);
+    const flussi = cumulativa ? costruisciFlussi(addebiti) : [{ addebiti }];
     const occupate = new Set();
     const assegna = (flusso, riga) => {
       occupate.add(riga);
@@ -273,13 +306,13 @@ const pianificaChiave = ({ descrizione, addebiti, regole }, righe, oggi) => {
     // Prima gli importi identici: altrimenti un altro importo potrebbe
     // prendersi la riga che spetta a questo.
     const restanti = flussi.filter((flusso) => {
-      const riga = rigaConCosto(ultimoDi(flusso).centesimi, righe, occupate);
+      const riga = rigaConCosto(ultimoDi(flusso).centesimi, candidate(), occupate);
       if (riga) assegna(flusso, riga);
       return !riga;
     });
     restanti.forEach((flusso) => {
       const { centesimi } = ultimoDi(flusso);
-      const riga = rigaVicina(centesimi, righe, occupate);
+      const riga = rigaVicina(centesimi, candidate(), occupate);
       if (riga) {
         assegna(flusso, riga);
       } else if (!haEsclusa() && (righe.length === 0 || flussi.length > 1)) {
@@ -291,13 +324,16 @@ const pianificaChiave = ({ descrizione, addebiti, regole }, righe, oggi) => {
   }
 
   const occupateDaRegole = new Set();
-  regole.forEach((regola) => {
+  const legata = (regola) => righe.some((r) => r.movimento_ricorrente_id === regola.id);
+  // Prima quella già legata: se due programmazioni si contendono l'unica riga del
+  // servizio, il legame non deve cambiare a ogni lettura.
+  [...regole].sort((a, b) => legata(b) - legata(a)).forEach((regola) => {
     const importo = aCentesimi(regola.importo);
     let riga = righe.find((r) => r.movimento_ricorrente_id === regola.id)
-      || rigaConCosto(importo, righe, occupateDaRegole)
-      || rigaVicina(importo, righe, occupateDaRegole);
+      || rigaConCosto(importo, candidate(), occupateDaRegole)
+      || rigaVicina(importo, candidate(), occupateDaRegole);
     if (!riga) {
-      if (haEsclusa()) return;
+      if (haEsclusa() || (!cumulativa && righe.length)) return;
       riga = nuovaRiga(descrizione, righe, importo);
       righe.push(riga);
     }
@@ -359,10 +395,14 @@ const pianifica = ({
       : descriviMovimento(regola);
   };
 
+  // Una riga rinominata continua a ricevere gli addebiti della sua chiave.
+  const chiaviRighe = new Map(lavoro.map((riga) => [riga.chiave, chiaveServizio(riga)]));
+
   const perChiave = new Map();
   const voce = (descrizione) => {
-    if (!perChiave.has(descrizione.chiave)) perChiave.set(descrizione.chiave, { descrizione, addebiti: [], regole: [] });
-    return perChiave.get(descrizione.chiave);
+    const chiave = chiaviRighe.get(descrizione.chiave) ?? descrizione.chiave;
+    if (!perChiave.has(chiave)) perChiave.set(chiave, { descrizione, addebiti: [], regole: [] });
+    return perChiave.get(chiave);
   };
 
   movimenti.forEach((movimento) => {
@@ -382,7 +422,7 @@ const pianifica = ({
   });
 
   perChiave.forEach((dati, chiave) => {
-    const righeChiave = lavoro.filter((riga) => riga.chiave === chiave);
+    const righeChiave = lavoro.filter((riga) => chiaveServizio(riga) === chiave);
     const prima = righeChiave.length;
     pianificaChiave(dati, righeChiave, oggi);
     lavoro.push(...righeChiave.slice(prima));
@@ -400,6 +440,34 @@ const pianifica = ({
   return { crea, aggiorna };
 };
 
+const piuAutorevole = (a, b) => (
+  String(b.modificato_utente_il ?? '').localeCompare(String(a.modificato_utente_il ?? ''))
+  || String(b.ultimo_addebito_data ?? '').localeCompare(String(a.ultimo_addebito_data ?? ''))
+  || a.ordine - b.ordine
+);
+
+/**
+ * Le righe di troppo su uno stesso servizio attivo. Resta quella che l'utente ha
+ * toccato per ultimo, poi quella con l'addebito più recente, che è anche il costo che
+ * la lettura successiva confermerebbe. Una riga scritta a mano non si cancella mai:
+ * due Netflix dichiarati dall'utente restano due, e accanto a loro una riga trovata
+ * nei movimenti è di troppo. Annullate ed escluse sono scelte dell'utente, e nei totali
+ * non pesano.
+ */
+const righeDoppie = (righe) => {
+  const perServizio = new Map();
+  righe
+    .filter((riga) => riga.stato === STATI.ATTIVO && !chiaveCumulativa(riga.chiave))
+    .forEach((riga) => {
+      const chiave = chiaveServizio(riga);
+      perServizio.set(chiave, [...(perServizio.get(chiave) || []), riga]);
+    });
+  return [...perServizio.values()].flatMap((gruppo) => {
+    const rilevate = gruppo.filter((riga) => riga.origine === ORIGINI.RILEVATO).sort(piuAutorevole);
+    return rilevate.length === gruppo.length ? rilevate.slice(1) : rilevate;
+  });
+};
+
 module.exports = {
   identificaServizio,
   descriviMovimento,
@@ -407,4 +475,5 @@ module.exports = {
   aggiungiMesi,
   dataFine,
   pianifica,
+  righeDoppie,
 };
