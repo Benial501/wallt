@@ -225,12 +225,14 @@ describe('Fondo di emergenza', () => {
     it('con spese essenziali calcola mesi coperti, soglia e quanto manca', async () => {
       await uscita(900, 'affitto', primoGiornoMeseScorso());
       const fondo = await creaFondo({ mesi_target: 3 });
+      // Anche un trasferimento segna l'inizio dello storico: con una data fissa,
+      // col passare dei mesi la media si allargherebbe a mesi senza spese.
       await request(app).post('/api/conti/trasferimento').set(authHeader(token))
         .send({
           conto_origine_id: contoId,
           conto_destinazione_id: fondo.body.conto.id,
           importo: 1800,
-          data: '2026-09-20',
+          data: primoGiornoMeseScorso(),
         });
 
       const res = await leggiFondo();
@@ -249,7 +251,7 @@ describe('Fondo di emergenza', () => {
           conto_origine_id: contoId,
           conto_destinazione_id: fondo.body.conto.id,
           importo: 2000,
-          data: '2026-09-20',
+          data: primoGiornoMeseScorso(),
         });
 
       const res = await leggiFondo();
