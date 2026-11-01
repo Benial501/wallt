@@ -215,7 +215,7 @@ Tutti i limiter con fallback IP (`apiLimiter`, `authLimiter`) usano l'helper uff
 ## Input Validation
 
 - `express-validator` centralizzato in `validation.middleware.js`.
-- `.escape()` su stringhe (descrizioni, note, categorie) — mitigazione XSS stored.
+- `neutralizzaTag` sul testo libero (descrizioni, note, nome del profilo): `<` e `>` diventano `&lt;` e `&gt;`, il resto si salva com'è. Mitigazione XSS stored. `.escape()` resta solo sugli identificativi di categoria.
 - Validazione su tutti gli endpoint mutanti.
 - **Gap**: GET endpoints con query params non validati da middleware (parsing difensivo nei controller).
 
@@ -239,9 +239,9 @@ Tutti i limiter con fallback IP (`apiLimiter`, `authLimiter`) usano l'helper uff
 
 ## XSS
 
-- `.escape()` su input stringa via express-validator.
-- Test in `security.test.js` (script tag in descrizione → escaped).
-- Frontend Vue con binding automatico (no `v-html` trovato nelle view principali).
+- `neutralizzaTag` sul testo libero, via express-validator. Fino al novembre 2026 era `.escape()`, che codificava anche `/`, `'` e `&` senza che nessuno li decodificasse: i testi già salvati li ha riparati la migrazione `20261101000054-decodifica-testi-salvati`.
+- Test in `security.test.js` (script tag in descrizione → neutralizzato) e `testiCodificati.test.js`.
+- Frontend Vue con binding automatico (nessun `v-html` in `client/src`): è questo a impedire l'XSS, anche sui campi che non passano da `neutralizzaTag`, come i nomi di conti e obiettivi.
 - CSP disabilitato (vedi sopra).
 
 ---

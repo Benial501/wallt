@@ -26,6 +26,13 @@ const {
   body, param, query, validationResult,
 } = require('express-validator');
 
+// Il testo libero si salva com'è: `.escape()` scriveva «APPLE.COM&#x2F;BILL» al posto di
+// «APPLE.COM/BILL» e nessuno lo decodificava. Vue non interpreta mai il testo come HTML;
+// `<` e `>` restano neutralizzati perché un tag non possa entrare nel database.
+const neutralizzaTag = (valore) => (
+  typeof valore === 'string' ? valore.replace(/</g, '&lt;').replace(/>/g, '&gt;') : valore
+);
+
 const validate = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -300,7 +307,7 @@ const validateMovimento = [
     .optional({ values: 'null' })
     .isString()
     .trim()
-    .escape()
+    .customSanitizer(neutralizzaTag)
     .isLength({ max: 500 })
     .withMessage('Descrizione troppo lunga'),
   body('ricorrente')
@@ -378,7 +385,7 @@ const validateUpdateMovimento = [
     .optional({ values: 'null' })
     .isString()
     .trim()
-    .escape()
+    .customSanitizer(neutralizzaTag)
     .isLength({ max: 500 })
     .withMessage('Descrizione troppo lunga'),
   body('categoria_id')
@@ -618,7 +625,7 @@ const validateImportConferma = [
     .optional({ values: 'null' })
     .isString()
     .trim()
-    .escape()
+    .customSanitizer(neutralizzaTag)
     .isLength({ max: 500 })
     .withMessage('Descrizione transazione troppo lunga'),
   body('transactions.*.importo')
@@ -668,7 +675,7 @@ const validateUpdateProfilo = [
     .optional({ values: 'null' })
     .isString()
     .trim()
-    .escape()
+    .customSanitizer(neutralizzaTag)
     .isLength({ min: 2, max: 100 })
     .withMessage('Nome non valido'),
   body('email')
@@ -915,7 +922,7 @@ const validateContributo = [
     .optional({ values: 'null' })
     .isString()
     .trim()
-    .escape()
+    .customSanitizer(neutralizzaTag)
     .isLength({ max: 255 })
     .withMessage('Nota troppo lunga'),
   validate,
@@ -933,7 +940,7 @@ const validateInvestimento = [
     .withMessage('Tipo non valido'),
   body('liquidabilita').optional().isIn(LIQUIDABILITA).withMessage('Liquidabilità non valida'),
   body('giorni_disponibilita').optional({ values: 'null' }).isInt({ min: 0 }).withMessage('Giorni disponibilità non validi'),
-  body('condizioni_disponibilita').optional({ values: 'null' }).isString().trim().escape().isLength({ max: 255 }).withMessage('Condizioni disponibilità non valide'),
+  body('condizioni_disponibilita').optional({ values: 'null' }).isString().trim().customSanitizer(neutralizzaTag).isLength({ max: 255 }).withMessage('Condizioni disponibilità non valide'),
   body('data_apertura').optional({ values: 'null' }).isISO8601({ strict: true }).withMessage('Data apertura non valida'),
   body('saldo_iniziale')
     .optional({ values: 'null' })
@@ -949,7 +956,7 @@ const validateInvestimento = [
     .optional({ values: 'null' })
     .isString()
     .trim()
-    .escape()
+    .customSanitizer(neutralizzaTag)
     .isLength({ max: 255 })
     .withMessage('Note troppo lunghe'),
   validate,
@@ -969,7 +976,7 @@ const validateUpdateInvestimento = [
     .withMessage('Tipo non valido'),
   body('liquidabilita').optional().isIn(LIQUIDABILITA).withMessage('Liquidabilità non valida'),
   body('giorni_disponibilita').optional({ values: 'null' }).isInt({ min: 0 }).withMessage('Giorni disponibilità non validi'),
-  body('condizioni_disponibilita').optional({ values: 'null' }).isString().trim().escape().isLength({ max: 255 }).withMessage('Condizioni disponibilità non valide'),
+  body('condizioni_disponibilita').optional({ values: 'null' }).isString().trim().customSanitizer(neutralizzaTag).isLength({ max: 255 }).withMessage('Condizioni disponibilità non valide'),
   body('data_apertura').optional({ values: 'null' }).isISO8601({ strict: true }).withMessage('Data apertura non valida'),
   body('colore')
     .optional({ values: 'null' })
@@ -981,7 +988,7 @@ const validateUpdateInvestimento = [
     .optional({ values: 'null' })
     .isString()
     .trim()
-    .escape()
+    .customSanitizer(neutralizzaTag)
     .isLength({ max: 255 })
     .withMessage('Note troppo lunghe'),
   validate,
@@ -1008,7 +1015,7 @@ const validateMovimentoInvestimento = [
     .optional({ values: 'null' })
     .isString()
     .trim()
-    .escape()
+    .customSanitizer(neutralizzaTag)
     .isLength({ max: 255 })
     .withMessage('Nota troppo lunga'),
   body('saldo_dopo')
@@ -1257,7 +1264,7 @@ const validateMovimentoScommesse = [
     .optional({ values: 'null' })
     .isString()
     .trim()
-    .escape()
+    .customSanitizer(neutralizzaTag)
     .isLength({ max: 255 })
     .withMessage('Nota troppo lunga'),
   body('conto_collegato_id')
