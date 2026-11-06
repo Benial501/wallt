@@ -7,12 +7,19 @@ import StatoRiga from '@/components/situazione/StatoRiga.vue';
 import { usePianoSmartStore } from '@/stores/pianoSmart.store';
 import { purchaseAmountCents } from '@/utils/pianoSmartSimulation';
 import { formattaEuro } from '@/utils/pianoSmart';
-import { statoOggi, rispostaSimulazione } from '@/utils/situazioneSemplice';
+import {
+  statoOggi, rispostaSimulazione, composizioneSpendibile, entrateInArrivo, ritmoSpesa,
+} from '@/utils/situazioneSemplice';
 
 /**
- * Oggi, in forma semplice: un numero («quanto posso spendere»), una frase su
- * come sta andando, cosa resta da pagare e una domanda sola per il
- * simulatore. Nessun calcolo: i valori arrivano da `current-situation`.
+ * Oggi, in forma semplice ma a 360 gradi: quanto puoi spendere, come ci si
+ * arriva (conti − spese da coprire − obiettivi), cosa sta per entrare, come
+ * stai andando e una domanda sola per il simulatore. Nessun calcolo: i
+ * valori arrivano da `current-situation`.
+ *
+ * Le entrate future restano FUORI dal numero, di proposito: se una pensione
+ * o un pagamento ritarda, chi ha speso contando su quei soldi resta scoperto.
+ * La pagina le mostra e dice perché non le conta.
  */
 const props = defineProps({
   situazione: { type: Object, required: true },
@@ -30,8 +37,10 @@ const dataBreve = (iso) => new Intl.DateTimeFormat('it-IT', { weekday: 'short', 
 
 const spendibile = computed(() => h.value.capitaleLibero ?? props.situazione.current?.availableToSpend ?? null);
 const stato = computed(() => statoOggi(props.situazione, { euro: formattaEuro, data: dataLunga }));
-const daPagare = computed(() => (props.situazione.upcoming?.items ?? []).slice(0, 4));
-const altriDaPagare = computed(() => Math.max((props.situazione.upcoming?.items ?? []).length - daPagare.value.length, 0));
+const daPagare = computed(() => props.situazione.upcoming?.items ?? []);
+const composizione = computed(() => composizioneSpendibile(props.situazione));
+const entrate = computed(() => entrateInArrivo(props.situazione));
+const ritmo = computed(() => ritmoSpesa(props.situazione, { euro: formattaEuro }));
 const consiglio = computed(() => props.situazione.suggestions?.[0] ?? null);
 
 const importo = ref('');
@@ -65,9 +74,72 @@ const verifica = async () => {
              `dailyLimitBasis`). -->
         <template v-if="h.tipo !== 'data'">fino al {{ dataLunga(h.dataFine) }}. </template>Per arrivarci senza problemi, spendi al massimo <strong>{{ formattaEuro(h.budgetGiornaliero) }} al giorno</strong>.
       </p>
-      <p class="spiega">Abbiamo già tolto le spese che devi ancora pagare e i soldi messi da parte per i tuoi obiettivi.</p>
     </div>
     <StatoRiga v-if="spendibile !== null || stato.tono !== 'neutro'" :tono="stato.tono" :testo="stato.testo" />
+    <p v-if="ritmo" class="testo testo--tenue">{{ ritmo.testo }}</p>
+  </WCard>
+
+  <WCard class="blocco">
+    <h2>Come arriviamo a questo numero</h2>
+    <dl v-if="composizione && spendibile !== null" class="conto">
+      <div class="conto__riga"><dt>Sui tuoi conti hai</dt><dd>{{ formattaEuro(composizione.conti) }}</dd></div>
+      <div class="conto__riga">
+        <dt>
+          Spese da pagare entro il {{ dataLunga(h.dataFine) }}
+          <ul v-if="daPagare.length" class="conto__voci">
+            <li v-for="item in daPagare" :key="item.occurrenceKey">{{ item.description || 'Spesa fissa' }}, {{ dataBreve(item.dueDate) }}: {{ formattaEuro(item.amount) }}</li>
+          </ul>
+        </dt>
+        <dd>− {{ formattaEuro(composizione.impegni) }}</dd>
+      </div>
+      <div v-if="composizione.obiettivi" class="conto__riga"><dt>Soldi messi da parte per i tuoi obiettivi</dt><dd>− {{ formattaEuro(composizione.obiettivi) }}</dd></div>
+      <div v-if="composizione.riserva" class="conto__riga">
+        <dt>
+          Riserva per i mesi senza entrate
+          <p class="conto__nota">
+            Le tue entrate non arrivano sempre uguali, quindi teniamo da parte
+            {{ situazione.current?.reserveMonths === 1 ? 'un mese' : `${situazione.current?.reserveMonths} mesi` }} di spese.
+            Puoi cambiarlo in «Vedi i dettagli».
+          </p>
+        </dt>
+        <dd>− {{ formattaEuro(composizione.riserva) }}</dd>
+      </div>
+      <div v-if="composizione.altro" class="conto__riga"><dt>Altro già tenuto da parte</dt><dd>− {{ formattaEuro(composizione.altro) }}</dd></div>
+      <div class="conto__riga conto__riga--totale"><dt>Puoi spendere</dt><dd>{{ formattaEuro(composizione.risultato) }}</dd></div>
+    </dl>
+    <template v-else>
+      <ul v-if="daPagare.length" class="righe">
+        <li v-for="item in daPagare" :key="item.occurrenceKey">
+          <span>{{ item.description || 'Spesa fissa' }} <small>· {{ dataBreve(item.dueDate) }}</small></span>
+          <strong>{{ formattaEuro(item.amount) }}</strong>
+        </li>
+      </ul>
+      <p v-else class="testo testo--tenue">Niente da pagare fino a fine mese.</p>
+    </template>
+    <p v-if="composizione && spendibile !== null && Number(composizione.risultato) === 0 && Number(h.mancanti) > 0" class="testo">
+      Le spese da coprire superano i soldi che hai di {{ formattaEuro(h.mancanti) }}: per ora non c’è nulla da spendere liberamente.
+    </p>
+  </WCard>
+
+  <WCard class="blocco">
+    <h2>Soldi in arrivo</h2>
+    <template v-if="entrate.entro.length || entrate.dopo.length">
+      <ul class="righe">
+        <li v-for="item in [...entrate.entro, ...entrate.dopo]" :key="item.occurrenceKey">
+          <span>{{ item.description || 'Entrata' }} <small>· {{ dataBreve(item.dueDate) }}</small></span>
+          <strong class="positivo">+{{ formattaEuro(item.amount) }}</strong>
+        </li>
+      </ul>
+      <p class="testo">
+        <strong>Non li contiamo</strong> in «Puoi spendere» finché non arrivano sul conto. Se un pagamento ritarda o non arriva, il numero in alto resta giusto e non rischi di spendere soldi che non hai.
+        Quando l’entrata arriva, il numero sale da solo.
+      </p>
+    </template>
+    <p v-else class="testo testo--tenue">
+      Non hai entrate previste nei prossimi 30 giorni. Se hai uno stipendio o una pensione, aggiungili fra le
+      <RouterLink to="/funzionalita/situazione/programmate">spese e entrate programmate</RouterLink>:
+      così vedi quando arrivano.
+    </p>
   </WCard>
 
   <WCard v-if="consiglio && stato.tono !== 'bene'" class="blocco">
@@ -75,18 +147,6 @@ const verifica = async () => {
     <p class="testo">{{ consiglio.reason }}</p>
     <p class="testo testo--tenue">{{ consiglio.effect }}</p>
     <WButton v-if="consiglio.action" variant="secondary" @click="emit('suggerimento', consiglio)">{{ consiglio.title }}</WButton>
-  </WCard>
-
-  <WCard class="blocco">
-    <h2>Cosa devi ancora pagare questo mese</h2>
-    <ul v-if="daPagare.length" class="righe">
-      <li v-for="item in daPagare" :key="item.occurrenceKey">
-        <span>{{ item.description || 'Spesa fissa' }} <small>· {{ dataBreve(item.dueDate) }}</small></span>
-        <strong>{{ formattaEuro(item.amount) }}</strong>
-      </li>
-    </ul>
-    <p v-if="altriDaPagare" class="testo testo--tenue">E altre {{ altriDaPagare }}: le trovi in «Prossimi 30 giorni».</p>
-    <p v-if="!daPagare.length" class="testo testo--tenue">Niente da pagare fino a fine mese.</p>
   </WCard>
 
   <WCard class="blocco">
@@ -125,5 +185,15 @@ h2 { margin: 0; color: var(--text-primary); font-size: 1.2rem; }
 .righe strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .domanda { display: flex; gap: .6rem; }
 .domanda input { flex: 1; min-width: 0; min-height: 48px; padding: .7rem .9rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-elevated); color: var(--text-primary); font: inherit; font-size: var(--text-lg); }
+.conto { display: grid; gap: 0; margin: 0; font-size: var(--text-base); }
+.conto__riga { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: .7rem 0; border-bottom: 1px solid var(--divider); }
+.conto__riga dt { margin: 0; color: var(--text-primary); }
+.conto__riga dd { margin: 0; color: var(--text-primary); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.conto__riga--totale { border-bottom: 0; border-top: 2px solid var(--text-secondary); }
+.conto__riga--totale dt, .conto__riga--totale dd { font-weight: 700; font-size: var(--text-lg); }
+.conto__voci { margin: .35rem 0 0; padding-left: 1.1rem; color: var(--text-secondary); font-size: var(--text-sm); line-height: 1.6; }
+.conto__nota { margin: .35rem 0 0; color: var(--text-secondary); font-size: var(--text-sm); line-height: 1.55; }
+.positivo { color: var(--positive); }
+.testo a { color: var(--accent-text); }
 .errore { margin: 0; color: var(--negative); font-size: var(--text-sm); }
 </style>

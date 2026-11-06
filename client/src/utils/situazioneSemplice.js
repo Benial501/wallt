@@ -151,3 +151,54 @@ export function vociPrincipali(frequentExpenses, quante = 3) {
     resto: resto.length ? { voci: resto.length, totale: centesimiInImporto(restoCentesimi) } : null,
   };
 }
+
+/**
+ * Come nasce «Puoi spendere ancora», riga per riga. Le righe sono le stesse
+ * del pannello «Come è calcolato» dell'hero e arrivano tutte dal server
+ * (`current.liquidity`, `current.allocatedToGoals`, `horizon.impegniFinoA`,
+ * `horizon.riservaFinoA`). Se la loro differenza non coincide con
+ * `capitaleLibero` (per esempio per denaro su conti nascosti), lo scarto
+ * compare come riga a sé: il riepilogo deve sempre tornare a occhio.
+ */
+export function composizioneSpendibile(situazione) {
+  const h = situazione?.horizon ?? {};
+  const c = situazione?.current ?? {};
+  const conti = importoInCentesimi(c.liquidity);
+  const risultato = importoInCentesimi(h.capitaleLibero);
+  if (conti === null || risultato === null) return null;
+  const obiettivi = importoInCentesimi(c.allocatedToGoals) ?? 0;
+  const impegni = importoInCentesimi(h.impegniFinoA) ?? 0;
+  const riserva = importoInCentesimi(h.riservaFinoA) ?? 0;
+  const scarto = conti - obiettivi - impegni - riserva - risultato;
+  return {
+    conti: centesimiInImporto(conti),
+    obiettivi: obiettivi ? centesimiInImporto(obiettivi) : null,
+    impegni: centesimiInImporto(impegni),
+    riserva: riserva ? centesimiInImporto(riserva) : null,
+    altro: scarto > 0 ? centesimiInImporto(scarto) : null,
+    risultato: centesimiInImporto(risultato),
+  };
+}
+
+/**
+ * Le entrate previste nei prossimi 30 giorni, divise fra quelle che cadono
+ * entro la fine del periodo («entro») e quelle dopo. Non entrano mai in
+ * «Puoi spendere ancora»: servono a dire all'utente cosa sta arrivando.
+ */
+export function entrateInArrivo(situazione) {
+  const fine = situazione?.horizon?.dataFine ?? situazione?.upcoming?.through ?? null;
+  const entrate = (situazione?.cashFlowTimeline ?? []).filter((item) => item.direction === 'entrata');
+  return {
+    entro: entrate.filter((item) => !fine || item.dueDate <= fine),
+    dopo: entrate.filter((item) => fine && item.dueDate > fine),
+  };
+}
+
+/** Il ritmo di spesa a parole: quanto spendi al giorno contro il massimo. */
+export function ritmoSpesa(situazione, { euro }) {
+  const ritmo = numero(situazione?.current?.actualDailySpend);
+  const limite = numero(situazione?.horizon?.budgetGiornaliero);
+  if (ritmo === null || limite === null) return null;
+  if (ritmo <= limite) return { tono: 'bene', testo: `Questo mese spendi in media ${euro(ritmo)} al giorno: meno del massimo di ${euro(limite)}.` };
+  return { tono: 'attenzione', testo: `Questo mese spendi in media ${euro(ritmo)} al giorno: più del massimo di ${euro(limite)}. Rallenta un po’ per arrivare a fine mese.` };
+}
