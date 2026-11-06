@@ -7,11 +7,14 @@ import ServizioIcona from '@/components/abbonamenti/ServizioIcona.vue';
 import { useAbbonamentiStore } from '@/stores/abbonamenti.store';
 import { useValuta } from '@/composables/useValuta';
 
+const ETICHETTE_PERIODO = { 1: 'al mese', 3: 'ogni 3 mesi', 6: 'ogni 6 mesi', 12: 'all’anno' };
+
 /**
  * Gli abbonamenti attivi nel carosello della home, subito dopo "Prossime spese".
- * Non ricalcola niente: il costo mensile e il prossimo rinnovo arrivano già
- * fatti dal server (CLAUDE.md Regola 28). Stesso stile delle altre slide:
- * occhiello, righe separate da un filo, link in fondo.
+ * Ognuno mostra il costo del suo periodo così come si paga (annuale all'anno,
+ * mensile al mese), non una media mensile. Il prossimo rinnovo arriva dal server
+ * (CLAUDE.md Regola 28). Stesso stile delle altre slide: occhiello, righe
+ * separate da un filo, link in fondo.
  */
 const router = useRouter();
 const store = useAbbonamentiStore();
@@ -46,6 +49,10 @@ const quando = (abbonamento) => {
   return `Si rinnova il ${dayjs(data).format('D MMM')}`;
 };
 
+const conteggio = computed(() => (
+  abbonamenti.value.length === 1 ? '1 abbonamento attivo' : `${abbonamenti.value.length} abbonamenti attivi`
+));
+
 const vaiAbbonamenti = () => router.push({ name: 'ricorrenti', query: { scheda: 'abbonamenti' } });
 </script>
 
@@ -74,7 +81,7 @@ const vaiAbbonamenti = () => router.push({ name: 'ricorrenti', query: { scheda: 
       </template>
 
       <p class="abbonamenti-home__subtitle">
-        {{ formatValuta(store.totali?.al_mese ?? 0) }} al mese in totale
+        {{ conteggio }}
       </p>
       <div class="abbonamenti-home__scroll" tabindex="0" role="region" aria-label="Abbonamenti attivi">
         <ul class="abbonamenti-home__list">
@@ -85,8 +92,8 @@ const vaiAbbonamenti = () => router.push({ name: 'ricorrenti', query: { scheda: 
               <span class="abbonamenti-home__meta">{{ quando(abbonamento) }}</span>
             </span>
             <span class="abbonamenti-home__amount-wrap">
-              <span class="abbonamenti-home__amount tabular-nums">{{ formatValuta(abbonamento.costi.al_mese) }}</span>
-              <span class="abbonamenti-home__per">al mese</span>
+              <span class="abbonamenti-home__amount tabular-nums">{{ formatValuta(abbonamento.costo) }}</span>
+              <span class="abbonamenti-home__per">{{ ETICHETTE_PERIODO[abbonamento.periodo_mesi] || `ogni ${abbonamento.periodo_mesi} mesi` }}</span>
             </span>
           </li>
         </ul>
@@ -126,8 +133,12 @@ const vaiAbbonamenti = () => router.push({ name: 'ricorrenti', query: { scheda: 
 }
 
 .abbonamenti-home__scroll {
+  /* Il carosello prende l'altezza della slide più alta: senza un tetto, con
+     molti abbonamenti la lista allungava tutta la panoramica. Circa tre righe
+     e mezza, quante ne mostra "Prossime spese": il resto si scorre qui dentro. */
   flex: 1;
   min-height: 0;
+  max-height: 12.5rem;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   margin-bottom: 0.75rem;
