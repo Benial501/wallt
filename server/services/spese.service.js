@@ -231,7 +231,10 @@ async function aggregaMedieSpeseFrequenti(userId, riferimento = new Date(), prim
   const [movimenti, categorie] = await Promise.all([
     Movimento.findAll({
       where: { user_id: userId, tipo: 'uscita', data: { [Op.between]: [da, a] } },
-      attributes: ['data', 'categoria', 'importo', 'ricorrente'],
+      // `tipo` serve anche se il where filtra già le uscite:
+      // `calcolaMediePerCategoria` scarta ogni riga senza `tipo: 'uscita'`, e
+      // senza questa colonna le medie risultavano sempre vuote.
+      attributes: ['data', 'tipo', 'categoria', 'importo', 'ricorrente'],
     }),
     listCategories(userId, { includeArchived: true }),
   ]);

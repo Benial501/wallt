@@ -87,12 +87,17 @@ test('il riquadro Accantona compare soltanto nei prossimi 30 giorni, non in Anal
   assert.ok(upcomingStart >= 0 && funding > upcomingStart && funding < radar);
 });
 
-test('il simulatore "Prima di spendere" sta subito dopo l’hero, non dopo la previsione di fine mese', () => {
-  // Spec Fase 6: l'unico riposizionamento previsto rispetto al vecchio file.
-  return readFile(new URL('../src/views/SituazioneView.vue', import.meta.url), 'utf8').then((source) => {
-    const hero = source.indexOf('<SituazioneHero');
-    const simulatore = source.indexOf('id="simulatore-title"');
-    const previsione = source.indexOf('Previsione fine mese');
-    assert.ok(hero >= 0 && simulatore > hero && simulatore < previsione, 'il simulatore deve stare fra l’hero e la previsione di fine mese');
-  });
+test('ogni scheda si apre sulla versione semplice e tiene il cruscotto completo nei dettagli', async () => {
+  const source = await readFile(new URL('../src/views/SituazioneView.vue', import.meta.url), 'utf8');
+  for (const [scheda, componente] of [['today', '<SituazioneOggi'], ['upcoming', '<SituazioneProssimi'], ['analysis', '<SituazioneAnalisi']]) {
+    const inizio = source.indexOf(`<template v-if="tab === '${scheda}'">`);
+    const semplice = source.indexOf(componente, inizio);
+    const dettagli = source.indexOf('<DettagliSituazione>', inizio);
+    assert.ok(inizio >= 0 && semplice > inizio && dettagli > semplice, `${scheda}: prima la versione semplice, poi i dettagli`);
+  }
+  // L'orizzonte si sceglie ancora: l'hero completo vive nei dettagli di Oggi.
+  const oggi = source.indexOf(`<template v-if="tab === 'today'">`);
+  assert.ok(source.indexOf('<SituazioneHero', oggi) > source.indexOf('<DettagliSituazione>', oggi));
+  // Chi non ha ancora movimenti vede la pagina d'avvio, non numeri vuoti.
+  assert.match(source, /<SituazioneInizio v-if="vuota"/);
 });
