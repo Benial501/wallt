@@ -26,7 +26,10 @@ describe('aggregaMedieSpeseFrequenti', () => {
     expect(Movimento.findAll).toHaveBeenCalledTimes(1);
     expect(Movimento.findAll.mock.calls[0][0]).toMatchObject({
       where: { user_id: 'user-1', tipo: 'uscita' },
-      attributes: ['data', 'categoria', 'importo', 'ricorrente'],
+      // `tipo` deve essere letto: il mock lo restituisce comunque, ed è così
+      // che una query senza quella colonna (medie sempre vuote in produzione)
+      // passava questo test.
+      attributes: expect.arrayContaining(['data', 'tipo', 'categoria', 'importo', 'ricorrente']),
     });
     expect(result.weekly.items[0]).toMatchObject({
       category: 'cibo_spesa', name: 'Alimentari', average: 8.33,
