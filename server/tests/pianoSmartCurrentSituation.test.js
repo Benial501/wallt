@@ -36,6 +36,44 @@ describe('Piano Smart: situazione corrente', () => {
     const result = build({ emergencyFund: { missingAmount: 2000 } });
     expect(result.current).toMatchObject({ liquidity: '800.00', protectedAmount: '300.00', allocatedToGoals: '200.00', commitments: '100.00', availableToSpend: '500.00', dailyLimit: '83.33', dailyMargin: '71.33', remainingDays: 6 });
   });
+  test('elenca una per una le voci degli impegni, e la loro somma è quella sottratta', () => {
+    // Il caso segnalato: una rata da 36 € compariva come «− 72 €». Erano due
+    // rate vere — una scaduta e non segnata come pagata, una entro 30 giorni
+    // ma oltre la fine del mese — e la pagina non lo diceva.
+    const result = build({
+      liquidity: {
+        ordinary: 800, allocated: 0, allocatable: 728, commitments: 72,
+        commitmentItems: [
+          { pagamento_programmato_id: 5, descrizione: 'Rata telefono', importo: 36, data: '2026-09-05', tipo: 'programmata_manuale' },
+          { pagamento_programmato_id: 6, descrizione: 'Rata telefono', importo: 36, data: '2026-10-05', tipo: 'programmata_manuale' },
+        ],
+      },
+      recurring: { items: [] },
+    });
+    const items = result.current.commitmentItems;
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({ description: 'Rata telefono', amount: '36.00', overdue: true, afterPeriodEnd: false, kind: 'pagamento_programmato' });
+    expect(items[1]).toMatchObject({ overdue: false, afterPeriodEnd: true });
+    const somma = items.reduce((tot, item) => tot + Math.round(Number(item.amount) * 100), 0);
+    expect(somma).toBe(Math.round(Number(result.horizon.impegniFinoA) * 100));
+  });
+  test('aggiunge alle voci le occorrenze ricorrenti non ancora protette e data quelle protette', () => {
+    const result = build({
+      liquidity: {
+        ordinary: 800, allocated: 200, allocatable: 500, commitments: 100,
+        commitmentItems: [{ movimento_id: 1, descrizione: 'Affitto', importo: 100, tipo: 'ricorrente' }],
+      },
+      recurring: { items: [
+        { id: 1, occurrenceKey: '1:2026-09', dueDate: '2026-09-27', amount: 100, reserved: true },
+        { id: 2, occurrenceKey: '2:2026-W40', description: 'Palestra', dueDate: '2026-09-28', amount: 40, reserved: false },
+      ] },
+    });
+    expect(result.current.commitmentItems.map((item) => [item.description, item.date, item.amount])).toEqual([
+      ['Affitto', '2026-09-27', '100.00'],
+      ['Palestra', '2026-09-28', '40.00'],
+    ]);
+    expect(result.horizon.impegniFinoA).toBe('140.00');
+  });
   test('non sottrae due volte gli impegni già protetti', () => {
     expect(build().upcoming).toMatchObject({ total: '100.00', afterTotal: '500.00' });
   });

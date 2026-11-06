@@ -576,6 +576,9 @@ async function getFinancialContext(userId, options = {}) {
       specialAccounts: liquidita.saldo_conti_speciali,
       allocated: liquidita.liquidita_allocata,
       commitments: liquidita.impegni_pertinenti,
+      // Le singole voci di `commitments`, così come le sottrae il servizio
+      // di liquidità: chi le mostra non deve ricostruirle (Regola 20).
+      commitmentItems: liquidita.impegni || [],
       free: liquidita.liquidita_libera,
       allocatable: liquidita.liquidita_allocabile,
     },
