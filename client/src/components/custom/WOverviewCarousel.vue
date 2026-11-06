@@ -10,6 +10,7 @@ import DataState from '@/components/common/DataState.vue';
 import AndamentoPatrimonio from '@/components/analisi/AndamentoPatrimonio.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import ProssimeSpese from '@/components/dashboard/ProssimeSpese.vue';
+import AbbonamentiHome from '@/components/dashboard/AbbonamentiHome.vue';
 import FondoEmergenzaCard from '@/components/dashboard/FondoEmergenzaCard.vue';
 import { etichetta } from '@/content/glossario';
 import { useNumberCounter } from '@/composables/useNumberCounter';
@@ -97,7 +98,7 @@ const slides = computed(() => {
   // Il fondo si trova accanto ai conti e resta nel carosello della home.
   const list = ['saldo', 'conti'];
   if (!props.fondoEmergenzaNascosto) list.push('fondo-emergenza');
-  list.push('prossime-spese', 'budget', 'uscite-oggi', 'entrate-oggi', 'obiettivi');
+  list.push('prossime-spese', 'abbonamenti', 'budget', 'uscite-oggi', 'entrate-oggi', 'obiettivi');
   if (props.mostraScommesse && props.scommesseAttivo) list.push('scommesse');
   if (props.mostraInvestimenti && props.investimentiAttivo) list.push('investimenti');
   // Sempre per ultima: è una scorciatoia operativa, non un dato finanziario,
@@ -111,6 +112,7 @@ const etichetteSlide = {
   conti: 'I miei conti',
   'fondo-emergenza': 'Fondo di emergenza',
   'prossime-spese': 'Prossime spese',
+  abbonamenti: 'Abbonamenti',
   budget: 'Budget',
   'uscite-oggi': 'Uscite di oggi',
   'entrate-oggi': 'Entrate di oggi',
@@ -414,6 +416,11 @@ defineExpose({
             :last-updated="lastUpdatedRicorrenti"
             @riprova="emit('riprova-ricorrenti')"
           />
+        </div>
+
+        <!-- Abbonamenti: subito dopo le prossime spese -->
+        <div v-if="slides.includes('abbonamenti')" class="w-overview__slide w-full shrink-0 snap-center">
+          <AbbonamentiHome />
         </div>
 
         <!-- Budget -->
