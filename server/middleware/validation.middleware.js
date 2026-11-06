@@ -1193,6 +1193,21 @@ const campiAbbonamento = [
     .optional({ values: 'null' })
     .isIn([...IDS_SERVIZI, ...ICONE_GENERICHE])
     .withMessage('Icona non valida'),
+  body('giorno_rinnovo')
+    .optional({ values: 'null' })
+    .isInt({ min: 1, max: 31 })
+    .withMessage('Giorno del rinnovo non valido')
+    .toInt(),
+  body('conto_id')
+    .optional({ values: 'null' })
+    .isInt({ min: 1 })
+    .withMessage('Conto non valido')
+    .toInt(),
+  body('addebito_automatico')
+    .optional()
+    .isBoolean({ strict: true })
+    .withMessage('Scelta dell\'addebito non valida')
+    .toBoolean(),
 ];
 
 const validateAbbonamento = [...campiAbbonamento, validate];

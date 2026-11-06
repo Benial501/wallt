@@ -23,6 +23,10 @@ const Abbonamento = sequelize.define('Abbonamento', {
   ultimo_addebito_importo: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
   modificato_utente_il: { type: DataTypes.DATE, allowNull: true },
   movimento_ricorrente_id: { type: DataTypes.INTEGER, allowNull: true },
+  giorno_rinnovo: { type: DataTypes.SMALLINT, allowNull: true },
+  conto_id: { type: DataTypes.INTEGER, allowNull: true },
+  // Vero solo se la programmazione l'ha creata l'abbonamento stesso.
+  addebito_automatico: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
 }, {
   tableName: 'abbonamenti',
 });
