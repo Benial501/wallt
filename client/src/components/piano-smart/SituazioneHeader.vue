@@ -2,6 +2,9 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
+import SituazioneVideoGuida from '@/components/piano-smart/SituazioneVideoGuida.vue';
+import { useAuthStore } from '@/stores/auth.store';
+import { CirclePlay } from 'lucide-vue-next';
 import { tabSituazione } from '@/utils/situazioneTab';
 
 /**
@@ -15,6 +18,24 @@ const PROGRAMMATE = 'programmate';
 const route = useRoute();
 const router = useRouter();
 const schede = ref(null);
+const authStore = useAuthStore();
+
+// Il video si apre da solo la prima volta che la persona entra nella situazione,
+// poi resta disponibile dal pulsante. La chiave è per utente: chi condivide il
+// dispositivo con un nuovo account deve vederlo comunque. Se il browser non
+// conserva nulla (navigazione privata), il peggio è rivederlo.
+const videoAperto = ref(false);
+const chiaveVideo = computed(() => `wallt_video_situazione_visto_${authStore.user?.id ?? 'anonimo'}`);
+const segnaVisto = () => {
+  try { localStorage.setItem(chiaveVideo.value, '1'); } catch { /* storage non disponibile */ }
+};
+const chiudiVideo = () => {
+  videoAperto.value = false;
+  segnaVisto();
+};
+const giaVisto = () => {
+  try { return localStorage.getItem(chiaveVideo.value) === '1'; } catch { return true; }
+};
 
 const inProgrammate = computed(() => route.name === 'ricorrenti');
 const attiva = computed(() => (inProgrammate.value ? PROGRAMMATE : tabSituazione(route.query)));
@@ -32,6 +53,7 @@ const vaiA = (scheda) => {
 
 // Su un telefono le schede scorrono: quella aperta non deve restare fuori vista.
 onMounted(() => {
+  if (!giaVisto()) videoAperto.value = true;
   schede.value?.querySelector('[aria-pressed="true"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
 });
 </script>
@@ -42,6 +64,10 @@ onMounted(() => {
       <div class="page-title-row">
         <h1 class="page-title">La tua situazione</h1>
         <HelpTrigger topic="piano-smart" />
+        <button type="button" class="video-trigger" @click="videoAperto = true">
+          <CirclePlay :size="15" :stroke-width="1.75" aria-hidden="true" />
+          <span>Guarda il video</span>
+        </button>
       </div>
       <p class="page-sub">
         Capisci cosa sta succedendo ai tuoi soldi e decidi meglio come muoverti.
@@ -67,11 +93,20 @@ onMounted(() => {
       :class="{ active: attiva === PROGRAMMATE }" @click="vaiA(PROGRAMMATE)"
     >Programmate / Abbonamenti</button>
   </div>
+
+  <SituazioneVideoGuida :open="videoAperto" @close="chiudiVideo" />
 </template>
 
 <style scoped>
 .page-header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1.25rem; }
 .page-title-row { display: flex; align-items: center; gap: .5rem; }
+.video-trigger {
+  display: inline-flex; align-items: center; gap: .3125rem; padding: .375rem .625rem; min-height: 32px;
+  border-radius: 999px; border: 1px solid var(--border); background: var(--surface-subtle);
+  color: var(--text-secondary); font: inherit; font-size: var(--text-xs); font-weight: 600; cursor: pointer;
+}
+.video-trigger:hover { color: var(--accent-text); background: var(--accent-light); }
+.page-title-row { flex-wrap: wrap; }
 .page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
 .page-sub { color: var(--text-secondary); line-height: 1.55; font-size: var(--text-sm); }
 
