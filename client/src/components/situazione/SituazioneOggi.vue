@@ -9,7 +9,6 @@ import { purchaseAmountCents } from '@/utils/pianoSmartSimulation';
 import { formattaEuro } from '@/utils/pianoSmart';
 import {
   statoOggi, rispostaSimulazione, composizioneSpendibile, entrateInArrivo, ritmoSpesa,
-  spiegazionePrevisione,
 } from '@/utils/situazioneSemplice';
 
 /**
@@ -48,7 +47,6 @@ const vociImpegni = computed(() => (h.value.tipo !== 'data' && props.situazione.
   : daPagare.value.map((item) => ({ key: item.occurrenceKey, description: item.description, amount: item.amount, date: item.dueDate }))));
 const entrate = computed(() => entrateInArrivo(props.situazione));
 const ritmo = computed(() => ritmoSpesa(props.situazione, { euro: formattaEuro }));
-const previsione = computed(() => (spendibile.value === null ? null : spiegazionePrevisione(props.situazione, { euro: formattaEuro })));
 const consiglio = computed(() => props.situazione.suggestions?.[0] ?? null);
 
 const importo = ref('');
@@ -139,28 +137,6 @@ const verifica = async () => {
     <p v-if="composizione && spendibile !== null && Number(composizione.risultato) === 0 && Number(h.mancanti) > 0" class="testo">
       Le spese da coprire superano i soldi che hai di {{ formattaEuro(h.mancanti) }}: per ora non c’è nulla da spendere liberamente.
     </p>
-  </WCard>
-
-  <WCard v-if="previsione" class="blocco">
-    <h2>Come potresti chiudere il mese</h2>
-    <p v-if="previsione.attesa" class="testo testo--tenue">{{ previsione.attesa }}</p>
-    <template v-else>
-      <dl class="conto">
-        <div v-for="riga in previsione.righe" :key="riga.etichetta" class="conto__riga">
-          <dt>{{ riga.etichetta }}</dt><dd><template v-if="riga.segno">{{ riga.segno }} </template>{{ formattaEuro(riga.importo) }}</dd>
-        </div>
-        <div class="conto__riga conto__riga--totale"><dt>A fine mese ti resterebbero circa</dt><dd>{{ formattaEuro(previsione.risultato) }}</dd></div>
-      </dl>
-      <!-- Il ritmo conta solo ciò che si ripete ogni giorno: un affitto o un
-           acquisto grande moltiplicato per i giorni che restano dava
-           previsioni di migliaia di euro sotto zero. Le voci si nominano,
-           perché un numero che cambia senza motivo visibile non si crede. -->
-      <p v-if="previsione.escluse.length" class="testo testo--tenue">
-        Già pagate questo mese e non moltiplicate per i giorni che restano, perché non si ripetono ogni giorno:
-        {{ previsione.escluse.map((e) => e.testo).join('; ') }}.
-      </p>
-      <p class="testo testo--tenue">È una stima: non contiamo le entrate in arrivo, quindi se arrivano a fine mese avrai di più.</p>
-    </template>
   </WCard>
 
   <WCard class="blocco">

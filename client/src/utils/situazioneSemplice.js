@@ -39,12 +39,10 @@ export function passiIniziali(situazione) {
 
 /**
  * Lo stato di Oggi in una frase e un tono (`bene`, `attenzione`, `male`,
- * `neutro`). Lo stato vero lo decide il server (`horizon.stato`); la
- * previsione di fine mese aggiunge solo il «come finirai».
+ * `neutro`). Lo stato lo decide il server (`horizon.stato`).
  */
 export function statoOggi(situazione, { euro, data }) {
   const h = situazione?.horizon ?? {};
-  const fineMese = numero(situazione?.forecast?.endOfMonthAvailable);
   const sopraRitmo = situazione?.current?.paceStatus === 'sopra_il_ritmo';
 
   if (h.stato === 'scaduto') return { tono: 'attenzione', testo: 'La data che avevi scelto è già passata. Scegline una nuova in «Vedi i dettagli».' };
@@ -52,19 +50,10 @@ export function statoOggi(situazione, { euro, data }) {
   if (h.stato === 'in_ritardo') return { tono: 'attenzione', testo: `Se continui a spendere così, i soldi bastano solo fino al ${data(h.dataRaggiungibile)}.` };
   if (h.stato === 'in_rotta') {
     if (h.tipo === 'data') return { tono: 'bene', testo: `Stai andando bene: i soldi ti bastano fino al ${data(h.dataFine)}.` };
-    if (fineMese !== null && fineMese < 0) return { tono: 'male', testo: `Se continui a spendere così, a fine mese mancano circa ${euro(Math.abs(fineMese))}.` };
     if (sopraRitmo) {
-      return {
-        tono: 'attenzione',
-        testo: fineMese === null
-          ? 'Stai spendendo più del solito: rallenta un po’ fino a fine mese.'
-          : `Stai spendendo più del solito. Se continui così, a fine mese ti restano circa ${euro(fineMese)}.`,
-      };
+      return { tono: 'attenzione', testo: 'Stai spendendo più del solito: rallenta un po’ fino a fine mese.' };
     }
-    return {
-      tono: 'bene',
-      testo: fineMese === null ? 'Stai andando bene.' : `Stai andando bene. Se continui così, a fine mese ti restano circa ${euro(fineMese)}.`,
-    };
+    return { tono: 'bene', testo: 'Stai andando bene.' };
   }
   return { tono: 'neutro', testo: 'Segna ancora qualche spesa: dopo pochi giorni WALLT ti dirà come stai andando.' };
 }
@@ -82,23 +71,21 @@ export function rispostaSimulazione(simulazione, { euro }) {
 
 const giorniFra = (da, a) => Math.round((Date.parse(`${a}T12:00:00Z`) - Date.parse(`${da}T12:00:00Z`)) / 86400000);
 
+const TITOLI_SETTIMANE = ['Questa settimana', 'La settimana prossima', 'Fra 2 settimane', 'Fra 3 settimane', 'Fra 4 settimane'];
+
 /**
- * Le scadenze dei prossimi 30 giorni raggruppate come le direbbe una
- * persona: questa settimana, la prossima, più avanti. Un calendario o una
- * data esatta costringono a contare i giorni.
+ * Le scadenze dei prossimi 30 giorni divise in blocchi di 7 giorni da oggi,
+ * come le direbbe una persona («questa settimana», «la prossima»…). Le
+ * settimane vuote restano: la pagina le fa scorrere una accanto all'altra, e
+ * una settimana senza pagamenti è un'informazione anche lei.
  */
 export function gruppiScadenze(items, oggi) {
-  const gruppi = [
-    { chiave: 'settimana', titolo: 'Questa settimana', righe: [] },
-    { chiave: 'prossima', titolo: 'La settimana prossima', righe: [] },
-    { chiave: 'avanti', titolo: 'Più avanti', righe: [] },
-  ];
+  const gruppi = TITOLI_SETTIMANE.map((titolo, indice) => ({ chiave: `settimana-${indice}`, titolo, righe: [] }));
   (items ?? []).forEach((item) => {
     const giorni = oggi && item.dueDate ? giorniFra(oggi, item.dueDate) : 99;
-    const indice = giorni < 7 ? 0 : giorni < 14 ? 1 : 2;
-    gruppi[indice].righe.push(item);
+    gruppi[Math.min(Math.max(Math.floor(giorni / 7), 0), gruppi.length - 1)].righe.push(item);
   });
-  return gruppi.filter((gruppo) => gruppo.righe.length);
+  return gruppi;
 }
 
 /**
@@ -205,50 +192,4 @@ export function ritmoSpesa(situazione, { euro }) {
   if (ritmo === null || limite === null) return null;
   if (ritmo <= limite) return { tono: 'bene', testo: `Questo mese spendi in media ${euro(ritmo)} al giorno: meno del massimo di ${euro(limite)}.` };
   return { tono: 'attenzione', testo: `Questo mese spendi in media ${euro(ritmo)} al giorno: più del massimo di ${euro(limite)}. Rallenta un po’ per arrivare a fine mese.` };
-}
-
-const MOTIVI_FUORI_DAL_RITMO = {
-  pagamento_programmato: 'pagamento programmato',
-  spesa_fissa: 'spesa fissa',
-  versamento: 'versamento: i soldi restano tuoi',
-  una_tantum: 'spesa una tantum',
-};
-
-/**
- * Come nasce «a fine mese ti restano circa…», riga per riga, e cosa resta
- * fuori dal ritmo. Tutti i numeri arrivano da `forecast`: qui si somma solo
- * per ricostruire il punto di partenza (previsione + spesa proiettata), che
- * è esattamente quello da cui il server sottrae, anche quando è negativo.
- * Solo nel ciclo mensile: con una data scelta la previsione di fine mese
- * non è la domanda della pagina.
- */
-export function spiegazionePrevisione(situazione, { euro }) {
-  const f = situazione?.forecast ?? {};
-  if (situazione?.horizon?.tipo === 'data') return null;
-  if (f.quality === 'pochi_giorni') {
-    return {
-      attesa: `Per dirti come potresti chiudere il mese servono almeno ${f.minimumDays} giorni di spese: per ora ne vediamo ${f.observedDays}.`,
-    };
-  }
-  const fine = importoInCentesimi(f.endOfMonthAvailable);
-  const proiettata = importoInCentesimi(f.projectedRemainingSpend);
-  if (fine === null || proiettata === null) return null;
-  // «Punto di partenza», non «Puoi spendere ancora»: è lo spendibile prima
-  // del limite a zero, quindi può essere negativo quando le spese da coprire
-  // superano i soldi, mentre il «Puoi spendere» in alto si ferma a 0 €.
-  const righe = [{ etichetta: 'Punto di partenza: i soldi liberi dopo le spese già previste', importo: centesimiInImporto(fine + proiettata), segno: '' }];
-  if (f.projectionDays > 0) {
-    righe.push({
-      etichetta: `Spese di tutti i giorni: ${euro(f.dailyPace)} al giorno, il tuo ritmo di questo mese, per ${f.projectionDays === 1 ? 'un altro giorno' : `altri ${f.projectionDays} giorni`}`,
-      importo: centesimiInImporto(proiettata),
-      segno: '−',
-    });
-  }
-  return {
-    righe,
-    risultato: f.endOfMonthAvailable,
-    escluse: (f.excluded ?? []).map((item) => ({
-      testo: `${item.description || 'Spesa'}, ${euro(item.amount)} (${MOTIVI_FUORI_DAL_RITMO[item.reason] ?? 'non si ripete'})`,
-    })),
-  };
 }
