@@ -127,6 +127,28 @@ const dataFine = ({ durata_mesi: durata, data_inizio: inizio }) => (
   durata && inizio ? aggiungiMesi(inizio, durata) : null
 );
 
+/**
+ * Il prossimo rinnovo a partire da oggi compreso, o null se non c'è un giorno
+ * scelto o l'abbonamento sarà già finito. I rinnovi cadono ogni `periodo_mesi`
+ * a partire dal mese di riferimento: l'inizio, l'ultimo addebito o la creazione.
+ */
+const prossimoRinnovo = (riga, oggi) => {
+  if (!riga.giorno_rinnovo) return null;
+  const riferimento = riga.data_inizio || riga.ultimo_addebito_data || giornoDi(riga.createdAt) || oggi;
+  const periodo = riga.periodo_mesi || 1;
+  const [anno, mese] = riferimento.split('-').map(Number);
+  const base = `${anno}-${String(mese).padStart(2, '0')}-${String(riga.giorno_rinnovo).padStart(2, '0')}`;
+  // `aggiungiMesi` riporta il 31 all'ultimo giorno dei mesi più corti.
+  let passi = 0;
+  let data = aggiungiMesi(base, 0);
+  while (data < oggi && passi < 1200) {
+    passi += 1;
+    data = aggiungiMesi(base, passi * periodo);
+  }
+  const fine = dataFine(riga);
+  return fine && data >= fine ? null : data;
+};
+
 const giornoDi = (valore) => {
   if (!valore) return null;
   return valore instanceof Date ? valore.toISOString().slice(0, 10) : String(valore).slice(0, 10);
@@ -474,6 +496,7 @@ module.exports = {
   chiaveDaTesto,
   aggiungiMesi,
   dataFine,
+  prossimoRinnovo,
   pianifica,
   righeDoppie,
 };

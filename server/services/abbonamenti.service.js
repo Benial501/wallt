@@ -3,17 +3,28 @@
  * Regola 20). Legge i movimenti e non scrive mai su conti o movimenti: un
  * abbonamento è ciò che WALLT mostra, non denaro che si muove, e per questo non
  * entra in saldo effettivo, liquidità, patrimonio o Piano Smart.
+ *
+ * L'unica eccezione è l'addebito automatico scelto dall'utente: l'abbonamento crea
+ * una programmazione mensile, cioè una REGOLA (`muoveSaldo` falso, Regola 11). Nemmeno
+ * qui si scala nulla all'inserimento: lo fa il cron nel giorno del rinnovo. Su un
+ * conto collegato a una banca non è permesso, perché quell'addebito lo riporta già
+ * la sincronizzazione (Regola 24).
  */
 const { Op, UniqueConstraintError } = require('sequelize');
-const { Abbonamento, Movimento, ScheduledPayment } = require('../models');
+const {
+  sequelize, Abbonamento, Conto, Movimento, ScheduledPayment,
+} = require('../models');
 const logger = require('../utils/logger');
 const { AppError } = require('../utils/AppError');
 const { giornoLocale, FUSO_DEFAULT } = require('./notifiche/notificheTime');
 const {
-  aggiungiMesi, chiaveDaTesto, dataFine, pianifica, righeDoppie,
+  aggiungiMesi, chiaveDaTesto, dataFine, pianifica, prossimoRinnovo, righeDoppie,
 } = require('./abbonamentiRilevamento');
 const { MESI_FINESTRA_LETTURA, ORIGINI, STATI } = require('../constants/abbonamenti');
 const { calcolaCosti, calcolaTotali } = require('../utils/abbonamentiCosti');
+const { contoCollegatoAConnessioneViva } = require('./bankSync/connections.service');
+const { isContoFondo } = require('./fondoEmergenza.service');
+const categorie = require('./categorie.service');
 
 const STATO_FINITO = 'finito';
 const TENTATIVI_ORDINE = 3;
@@ -112,6 +123,10 @@ const presenta = (riga, oggi) => {
     ultimo_addebito_data: riga.ultimo_addebito_data,
     ultimo_addebito_importo: riga.ultimo_addebito_importo === null ? null : Number(riga.ultimo_addebito_importo),
     movimento_ricorrente_id: riga.movimento_ricorrente_id,
+    giorno_rinnovo: riga.giorno_rinnovo ?? null,
+    conto_id: riga.conto_id ?? null,
+    addebito_automatico: Boolean(riga.addebito_automatico),
+    prossimo_rinnovo: riga.stato === STATI.ATTIVO ? prossimoRinnovo(riga, oggi) : null,
     costi: {
       al_mese: inEuro(costi.al_mese),
       in_un_anno: inEuro(costi.in_un_anno),
@@ -183,7 +198,10 @@ const conOrdineLibero = async (userId, chiave, scrivi) => {
 
 const campiModificabili = ({
   nome, servizio_id: servizioId, icona, costo, periodo_mesi: periodoMesi, durata_mesi: durataMesi, data_inizio: dataInizio,
+  giorno_rinnovo: giornoRinnovo, conto_id: contoId,
 }) => ({
+  giorno_rinnovo: giornoRinnovo ?? null,
+  conto_id: contoId ?? null,
   nome,
   servizio_id: servizioId ?? null,
   icona: icona ?? null,
@@ -194,8 +212,76 @@ const campiModificabili = ({
   data_inizio: durataMesi == null ? null : dataInizio,
 });
 
+const CATEGORIA_ADDEBITO = 'abbonamenti';
+
+const verificaConto = async (userId, contoId) => {
+  if (contoId == null) return null;
+  const conto = await Conto.findOne({ where: { id: contoId, user_id: userId, attivo: true } });
+  if (!conto) throw new AppError('Conto non trovato', 404);
+  if (isContoFondo(conto)) {
+    throw new AppError('Il fondo di emergenza non accetta uscite dirette: scegli un altro conto', 422);
+  }
+  return conto;
+};
+
+// Un addebito da WALLT su un conto collegato arriverebbe anche dalla banca: lo
+// stesso euro scalato due volte. Il server lo rifiuta anche se l'interfaccia
+// nasconde l'opzione, così non passa neanche da una chiamata diretta.
+const verificaAddebito = async (userId, campi) => {
+  if (campi.periodo_mesi !== 1) {
+    throw new AppError('L\'addebito automatico è disponibile solo per gli abbonamenti mensili', 422);
+  }
+  if (!campi.conto_id || !campi.giorno_rinnovo) {
+    throw new AppError('Per l\'addebito automatico servono il conto e il giorno del rinnovo', 422);
+  }
+  if (await contoCollegatoAConnessioneViva(campi.conto_id, userId)) {
+    throw new AppError('Questo conto è collegato alla banca: il pagamento arriverà dalla sincronizzazione', 422);
+  }
+};
+
+// La categoria eliminata dall'utente non si riscrive in automatico (Regola 18).
+const categoriaAddebito = async (userId) => {
+  const elenco = await categorie.list(userId);
+  return elenco.some((c) => c.id === CATEGORIA_ADDEBITO && c.tipo === 'uscita') ? CATEGORIA_ADDEBITO : 'da_verificare';
+};
+
+const campiProgrammazione = (campi) => ({
+  conto_id: campi.conto_id,
+  importo: campi.costo,
+  descrizione: campi.nome,
+  ricorrente_giorno: campi.giorno_rinnovo,
+  ricorrente_occorrenze_rimanenti: campi.durata_mesi ?? null,
+});
+
+// Una regola, non un movimento avvenuto: `ricorrente: true` tiene fermo il saldo
+// finché il cron non genera l'occorrenza nel giorno del rinnovo.
+const creaProgrammazione = async (userId, campi, transaction) => Movimento.create({
+  ...campiProgrammazione(campi),
+  user_id: userId,
+  tipo: 'uscita',
+  categoria: await categoriaAddebito(userId),
+  data: oggiLocale(),
+  ricorrente: true,
+  ricorrente_frequenza: 'mensile',
+  stato_ricorrenza: 'attiva',
+}, { transaction });
+
+// Terminata, non eliminata: le occorrenze già addebitate restano. Il legame si
+// toglie, altrimenti la lettura successiva annullerebbe l'abbonamento (Regola 28).
+const terminaProgrammazione = async (userId, riga, transaction) => {
+  await Movimento.update(
+    { stato_ricorrenza: 'terminata' },
+    { where: { id: riga.movimento_ricorrente_id, user_id: userId, ricorrente: true }, transaction },
+  );
+  return { movimento_ricorrente_id: null, addebito_automatico: false };
+};
+
 const crea = async (userId, dati) => {
   const campi = campiModificabili(dati);
+  const addebito = dati.addebito_automatico === true;
+  await verificaConto(userId, campi.conto_id);
+  if (addebito) await verificaAddebito(userId, campi);
+
   const chiave = chiaveManuale(campi);
   const riga = await conOrdineLibero(userId, chiave, (ordine) => Abbonamento.create({
     ...campi,
@@ -206,6 +292,19 @@ const crea = async (userId, dati) => {
     origine: ORIGINI.MANUALE,
     modificato_utente_il: new Date(),
   }));
+
+  if (addebito) {
+    try {
+      await sequelize.transaction(async (transaction) => {
+        const programmazione = await creaProgrammazione(userId, campi, transaction);
+        await riga.update({ movimento_ricorrente_id: programmazione.id, addebito_automatico: true }, { transaction });
+      });
+    } catch (err) {
+      // Meglio nessun abbonamento che uno che dice di addebitarsi e non lo fa.
+      await riga.destroy();
+      throw err;
+    }
+  }
   return presenta(riga.get({ plain: true }), oggiLocale());
 };
 
@@ -214,30 +313,59 @@ const modifica = async (userId, id, dati) => {
   if (riga.stato !== STATI.ATTIVO) throw new AppError('Ripristina l\'abbonamento prima di modificarlo', 409);
 
   const campi = campiModificabili(dati);
-  const salva = (ordine) => riga.update({
-    ...campi,
-    ...(ordine === undefined ? {} : { ordine, chiave: chiaveManuale(campi) }),
-    da_verificare: false,
-    riattivato_da_addebito: false,
-    annullato_il: null,
-    modificato_utente_il: new Date(),
-  });
-
-  // La chiave di una riga trovata nei movimenti non cambia: rinominarla farebbe
-  // ricreare lo stesso servizio alla lettura successiva.
-  const chiave = chiaveManuale(campi);
-  if (riga.origine === ORIGINI.MANUALE && chiave !== riga.chiave) {
-    await conOrdineLibero(userId, chiave, salva);
-  } else {
-    await salva();
+  // Senza il campo nel corpo la scelta già fatta resta com'è.
+  const addebito = dati.addebito_automatico === undefined ? riga.addebito_automatico : dati.addebito_automatico === true;
+  await verificaConto(userId, campi.conto_id);
+  if (addebito) await verificaAddebito(userId, campi);
+  if (addebito && !riga.addebito_automatico && riga.movimento_ricorrente_id) {
+    throw new AppError('È già legato a una programmazione: gestisci l\'addebito da Programmate', 409);
   }
+
+  await sequelize.transaction(async (transaction) => {
+    let legame = {};
+    if (addebito && riga.addebito_automatico) {
+      // Le occorrenze rimanenti non si toccano: riscriverle farebbe ripartire il conto.
+      const { ricorrente_occorrenze_rimanenti: _rimanenti, ...aggiornati } = campiProgrammazione(campi);
+      await Movimento.update(aggiornati, {
+        where: { id: riga.movimento_ricorrente_id, user_id: userId, ricorrente: true }, transaction,
+      });
+    } else if (addebito) {
+      const programmazione = await creaProgrammazione(userId, campi, transaction);
+      legame = { movimento_ricorrente_id: programmazione.id, addebito_automatico: true };
+    } else if (riga.addebito_automatico) {
+      legame = await terminaProgrammazione(userId, riga, transaction);
+    }
+
+    const salva = (ordine) => riga.update({
+      ...campi,
+      ...legame,
+      ...(ordine === undefined ? {} : { ordine, chiave: chiaveManuale(campi) }),
+      da_verificare: false,
+      riattivato_da_addebito: false,
+      annullato_il: null,
+      modificato_utente_il: new Date(),
+    }, { transaction });
+
+    // La chiave di una riga trovata nei movimenti non cambia: rinominarla farebbe
+    // ricreare lo stesso servizio alla lettura successiva.
+    const chiave = chiaveManuale(campi);
+    if (riga.origine === ORIGINI.MANUALE && chiave !== riga.chiave) {
+      await salva(await prossimoOrdine(userId, chiave));
+    } else {
+      await salva();
+    }
+  });
   return presenta(riga.get({ plain: true }), oggiLocale());
 };
 
 const annulla = async (userId, id) => {
   const riga = await trova(userId, id);
   if (riga.stato !== STATI.ATTIVO) throw new AppError('L\'abbonamento non è attivo', 409);
+  // Un addebito creato da qui si ferma insieme all'abbonamento; una programmazione
+  // creata da Programmate resta dell'utente (Regola 28).
+  const legame = riga.addebito_automatico ? await terminaProgrammazione(userId, riga) : {};
   await riga.update({
+    ...legame,
     stato: STATI.ANNULLATO,
     annullato_il: oggiLocale(),
     riattivato_da_addebito: false,

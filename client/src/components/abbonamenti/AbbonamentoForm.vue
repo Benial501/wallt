@@ -14,6 +14,8 @@ import {
 const props = defineProps({
   abbonamento: { type: Object, default: null },
   valuta: { type: String, default: 'EUR' },
+  conti: { type: Array, default: () => [] },
+  contoCollegatoId: { type: Number, default: null },
   occupato: { type: Boolean, default: false },
 });
 
@@ -36,6 +38,24 @@ const form = ref({
   aTempo: a?.durata_mesi != null,
   durata_mesi: a?.durata_mesi ?? 3,
   data_inizio: a?.data_inizio ?? a?.ultimo_addebito_data ?? dayjs().format('YYYY-MM-DD'),
+  giorno_rinnovo: a?.giorno_rinnovo ?? (a?.ultimo_addebito_data ? dayjs(a.ultimo_addebito_data).date() : null),
+  conto_id: a?.conto_id ?? null,
+  addebito_automatico: a?.addebito_automatico ?? false,
+});
+
+// Legato a una programmazione creata da Programmate: l'addebito si gestisce lì.
+const legatoAltrove = Boolean(a?.movimento_ricorrente_id) && !a?.addebito_automatico;
+const contoCollegato = computed(() => (
+  form.value.conto_id != null && form.value.conto_id === props.contoCollegatoId
+));
+// Il cron addebita solo le frequenze mensili, e mai su un conto che la banca già riporta.
+const addebitoPossibile = computed(() => (
+  !legatoAltrove && form.value.periodo_mesi === 1 && form.value.conto_id != null && !contoCollegato.value
+));
+const giornoValido = computed(() => {
+  const g = form.value.giorno_rinnovo;
+  if (g === null || g === '') return !form.value.addebito_automatico;
+  return Number.isInteger(Number(g)) && Number(g) >= 1 && Number(g) <= 31;
 });
 const mostraIcone = ref(!inModifica);
 
@@ -57,7 +77,9 @@ const durataValida = computed(() => {
 });
 
 const costoValido = computed(() => Number(form.value.costo) > 0);
-const puoSalvare = computed(() => form.value.nome.trim().length > 0 && costoValido.value && durataValida.value);
+const puoSalvare = computed(() => (
+  form.value.nome.trim().length > 0 && costoValido.value && durataValida.value && giornoValido.value
+));
 
 // Lo stesso conto che farà il server, mostrato prima del salvataggio.
 const anteprima = computed(() => {
@@ -83,6 +105,11 @@ const salva = () => {
     periodo_mesi: form.value.periodo_mesi,
     durata_mesi: form.value.aTempo ? Number(form.value.durata_mesi) : null,
     data_inizio: form.value.aTempo ? form.value.data_inizio : null,
+    giorno_rinnovo: form.value.giorno_rinnovo ? Number(form.value.giorno_rinnovo) : null,
+    conto_id: form.value.conto_id,
+    // Spento quando non è più possibile (periodo cambiato, conto collegato):
+    // salvare termina la programmazione creata da qui.
+    ...(legatoAltrove ? {} : { addebito_automatico: form.value.addebito_automatico && addebitoPossibile.value }),
   });
 };
 </script>
@@ -155,6 +182,47 @@ const salva = () => {
       </div>
     </div>
 
+    <div class="abbonamento-form__due">
+      <div class="abbonamento-form__campo">
+        <label class="abbonamento-form__etichetta" for="abbonamento-giorno">Giorno del rinnovo</label>
+        <input id="abbonamento-giorno" v-model.number="form.giorno_rinnovo" class="form-input" type="number" min="1" max="31" step="1" inputmode="numeric" placeholder="Es. 15" />
+      </div>
+      <div class="abbonamento-form__campo">
+        <label class="abbonamento-form__etichetta" for="abbonamento-conto">Pagato con</label>
+        <select id="abbonamento-conto" v-model="form.conto_id" class="form-input">
+          <option :value="null">Non indicato</option>
+          <option v-for="conto in conti" :key="conto.id" :value="conto.id">{{ conto.nome }}</option>
+        </select>
+      </div>
+    </div>
+    <p v-if="form.giorno_rinnovo" class="abbonamento-form__nota">Ti avvisiamo 5 giorni prima di ogni rinnovo.</p>
+
+    <div v-if="!legatoAltrove" class="abbonamento-form__campo">
+      <p v-if="contoCollegato" class="abbonamento-form__nota">
+        Questo conto è collegato alla banca: il pagamento arriverà da solo con la sincronizzazione, WALLT non scala nulla.
+      </p>
+      <template v-else>
+        <span id="abbonamento-addebito" class="abbonamento-form__etichetta">Scalare dal conto?</span>
+        <div class="abbonamento-form__segmenti" role="radiogroup" aria-labelledby="abbonamento-addebito">
+          <button type="button" role="radio" :aria-checked="!form.addebito_automatico" :class="{ scelto: !form.addebito_automatico }" @click="form.addebito_automatico = false">No, solo riepilogo</button>
+          <button
+            type="button"
+            role="radio"
+            :aria-checked="form.addebito_automatico"
+            :class="{ scelto: form.addebito_automatico }"
+            :disabled="!addebitoPossibile"
+            @click="form.addebito_automatico = true"
+          >Sì, a ogni rinnovo</button>
+        </div>
+        <p class="abbonamento-form__nota">
+          <template v-if="form.periodo_mesi !== 1">Disponibile solo per gli abbonamenti mensili.</template>
+          <template v-else-if="form.conto_id == null">Scegli il conto con cui lo paghi.</template>
+          <template v-else-if="form.addebito_automatico && addebitoPossibile">Adesso non scaliamo nulla: l’uscita viene registrata il giorno del rinnovo.</template>
+          <template v-else>Spento, il conto non viene toccato: l’abbonamento resta solo nel riepilogo.</template>
+        </p>
+      </template>
+    </div>
+
     <p v-if="anteprima" class="abbonamento-form__anteprima" aria-live="polite">
       <template v-if="anteprima.totale">
         Ti costa {{ anteprima.totale }} in totale
@@ -163,7 +231,7 @@ const salva = () => {
       <template v-else>Ti costa {{ anteprima.anno }} all’anno</template>
     </p>
 
-    <div v-if="a?.movimento_ricorrente_id" class="abbonamento-form__legame">
+    <div v-if="legatoAltrove" class="abbonamento-form__legame">
       <p>È legato a una programmazione: annullarlo o modificarlo qui non ferma l’addebito sul conto. Per fermarlo, sospendi la programmazione.</p>
       <button type="button" class="abbonamento-form__testuale" @click="emit('vai-programmate')">Vai a Programmate</button>
     </div>
@@ -251,6 +319,8 @@ const salva = () => {
   background: var(--surface-subtle);
 }
 .abbonamento-form__legame p { margin: 0; color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.45; }
+.abbonamento-form__nota { margin: 0.375rem 0 0; color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.45; }
+.abbonamento-form__segmenti button:disabled { opacity: 0.5; cursor: default; }
 .abbonamento-form__azioni { display: flex; flex-direction: column; gap: 0.5rem; }
 .abbonamento-form__testuale {
   min-height: 40px;

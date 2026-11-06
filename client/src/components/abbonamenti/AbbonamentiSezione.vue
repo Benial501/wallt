@@ -3,6 +3,9 @@ import { computed, onMounted, ref } from 'vue';
 import { useAbbonamentiStore } from '@/stores/abbonamenti.store';
 import { useToastStore } from '@/stores/toast.store';
 import { useAuthStore } from '@/stores/auth.store';
+import { useContiStore } from '@/stores/conti.store';
+import { useBankSyncStore } from '@/stores/bankSync.store';
+import { isContoFondo } from '@/utils/fondoEmergenza';
 import DataState from '@/components/common/DataState.vue';
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
@@ -19,6 +22,13 @@ const emit = defineEmits(['vai-programmate']);
 const store = useAbbonamentiStore();
 const toastStore = useToastStore();
 const authStore = useAuthStore();
+const contiStore = useContiStore();
+const bankSyncStore = useBankSyncStore();
+
+// Il fondo di emergenza non accetta uscite dirette: non si offre come conto di pagamento.
+const contiPagamento = computed(() => contiStore.contiAttivi.filter((c) => !isContoFondo(c)));
+// Se lo stato della banca non si legge, il server rifiuta comunque l'addebito.
+const contoCollegatoId = computed(() => bankSyncStore.connessione?.conto_id ?? null);
 
 const valuta = computed(() => authStore.user?.valuta || 'EUR');
 const finestraAperta = ref(false);
@@ -33,7 +43,11 @@ const titoloElenco = computed(() => {
   return numero === 1 ? '1 abbonamento attivo' : `${numero} abbonamenti attivi`;
 });
 
-onMounted(store.fetchAbbonamenti);
+onMounted(() => {
+  store.fetchAbbonamenti();
+  if (!contiStore.conti.length) contiStore.fetchConti();
+  bankSyncStore.fetchStato();
+});
 
 const apri = (abbonamento = null) => {
   inModifica.value = abbonamento;
@@ -166,6 +180,8 @@ const statoNonAttivo = (abbonamento) => {
         :key="inModifica?.id ?? 'nuovo'"
         :abbonamento="inModifica"
         :valuta="valuta"
+        :conti="contiPagamento"
+        :conto-collegato-id="contoCollegatoId"
         :occupato="occupato"
         @salva="salva"
         @annulla="annulla"

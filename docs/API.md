@@ -665,19 +665,20 @@ Un quadro da leggere: nessuna di queste rotte scrive su conti o movimenti (CLAUD
 - **File**: `abbonamenti.controller.js` → `services/abbonamenti.service.js`
 
 ### POST /api/abbonamenti
-- **Body**: `{ nome, costo, periodo_mesi, servizio_id?, icona?, durata_mesi?, data_inizio? }`
+- **Body**: `{ nome, costo, periodo_mesi, servizio_id?, icona?, durata_mesi?, data_inizio?, giorno_rinnovo?, conto_id?, addebito_automatico? }`
+- **Addebito automatico**: con `addebito_automatico: true` (richiede `conto_id`, `giorno_rinnovo` e `periodo_mesi: 1`) crea una programmazione mensile legata, senza scalare nulla all'inserimento. 422 se il conto è collegato a una banca, se il periodo non è mensile o mancano conto e giorno; 404 per un conto non dell'utente
 - **Validazione**: `validateAbbonamento`. `periodo_mesi` in 1, 3, 6, 12; `durata_mesi` da 1 a 120 e con `data_inizio` obbligatoria; `servizio_id` e `icona` dall'elenco
 - **Note**: `user_id`, `origine`, `stato`, `chiave`, `ordine` e `ultimo_addebito_*` nel corpo sono ignorati
 - **Risposta**: 201 `{ abbonamento }`
 
 ### PUT /api/abbonamenti/:id
 - **Body e validazione**: come `POST` (`validateUpdateAbbonamento`)
-- **Azione**: toglie «Controlla la durata» e la segnalazione dell'addebito dopo la chiusura. Non cambia la chiave delle righe trovate nei movimenti
+- **Azione**: toglie «Controlla la durata» e la segnalazione dell'addebito dopo la chiusura. Non cambia la chiave delle righe trovate nei movimenti. `addebito_automatico` accende, aggiorna o termina la programmazione creata dall'abbonamento; assente dal corpo, la scelta resta com'è. 409 se l'abbonamento è già legato a una programmazione creata da Programmate
 - **Risposta**: `{ abbonamento }`
 - **Errori**: 404 (di un altro utente), 409 (non è attivo)
 
 ### PATCH /api/abbonamenti/:id/annulla
-- **Azione**: lo toglie da elenco e totali. Non ferma una programmazione legata e non disdice il servizio
+- **Azione**: lo toglie da elenco e totali. Termina la programmazione solo se l'ha creata l'abbonamento (`addebito_automatico`); non ferma quella creata da Programmate e non disdice il servizio
 - **Risposta**: `{ abbonamento }`
 - **Errori**: 404, 409 (non è attivo)
 

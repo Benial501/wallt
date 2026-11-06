@@ -1,6 +1,8 @@
 const cron = require('node-cron');
 const { Op } = require('sequelize');
-const { User, Movimento, Obiettivo, ScheduledPayment } = require('../../models');
+const {
+  User, Movimento, Obiettivo, ScheduledPayment, Abbonamento,
+} = require('../../models');
 const { CATEGORIA_USCITA_DISPLAY } = require('../../constants/categorie');
 const { calcolaStatoBudget } = require('../budgetStato.service');
 const logger = require('../../utils/logger');
@@ -12,6 +14,7 @@ const {
   partiLocali, parseOrario, sommaGiorni, istanteDaOrarioLocale, settimanaIso,
 } = require('./notificheTime');
 const { getRomeDateParts, valutaOccorrenza } = require('../ricorrenti.service');
+const { prossimoRinnovo } = require('../abbonamentiRilevamento');
 
 /**
  * Generatore delle notifiche: contiene le regole di business, una per tipo.
@@ -224,7 +227,17 @@ const regolaRicorrenti = async ({ userId, preferenze, adesso }) => {
       tipo: 'uscita',
     },
   });
+  // La programmazione di un abbonamento con giorno di rinnovo ha già il suo
+  // avviso (regolaAbbonamenti): due notifiche per lo stesso addebito no.
+  const legateAdAbbonamento = new Set((await Abbonamento.findAll({
+    where: {
+      user_id: userId, stato: 'attivo', giorno_rinnovo: { [Op.ne]: null }, movimento_ricorrente_id: { [Op.ne]: null },
+    },
+    attributes: ['movimento_ricorrente_id'],
+    raw: true,
+  })).map((r) => r.movimento_ricorrente_id));
   for (const movimento of ricorrentiUscita) {
+    if (legateAdAbbonamento.has(movimento.id)) continue;
     const { dovuto, periodo } = valutaOccorrenza(movimento, dataPromemoriaParti);
     if (!dovuto || !periodo) continue;
     const descrizione = troncaDescrizione(movimento.descrizione);
@@ -274,6 +287,40 @@ const regolaRicorrenti = async ({ userId, preferenze, adesso }) => {
  * Per ogni obiettivo si notifica solo il traguardo più alto raggiunto e non
  * ancora annunciato: superare 50% e 75% insieme non genera due notifiche.
  */
+/**
+ * Cinque giorni prima del rinnovo di un abbonamento con giorno scelto. Vale anche
+ * per chi paga da un conto collegato: la banca riporta l'addebito, ma solo dopo.
+ * La `dedupe_key` porta la data del rinnovo, così ne parte una per rinnovo.
+ */
+const regolaAbbonamenti = async ({ userId, preferenze, adesso }) => {
+  if (!preferenze.alert_ricorrenti_attivi) return [];
+
+  const locale = partiLocali(adesso, preferenze.timezone);
+  const dataRinnovo = sommaGiorni(locale.data, 5);
+  const righe = await Abbonamento.findAll({
+    where: { user_id: userId, stato: 'attivo', giorno_rinnovo: { [Op.ne]: null } },
+    raw: true,
+  });
+  const esiti = [];
+  for (const riga of righe) {
+    if (prossimoRinnovo(riga, locale.data) !== dataRinnovo) continue;
+    const nome = troncaDescrizione(riga.nome);
+    esiti.push(await creaNotifica({
+      userId,
+      preferenze,
+      adesso,
+      tipo: 'abbonamento_rinnovo',
+      dedupeKey: `abbonamento:${riga.id}:${dataRinnovo}:5-giorni`,
+      titolo: 'Abbonamento in rinnovo',
+      messaggio: `${nome || 'Un abbonamento'} si rinnova il ${formattaData(dataRinnovo, preferenze.timezone)}.`,
+      link: '/funzionalita/situazione/programmate',
+      priorita: PRIORITA.URGENTE,
+      metadata: { abbonamento_id: riga.id, data_rinnovo: dataRinnovo },
+    }));
+  }
+  return esiti;
+};
+
 const regolaObiettivi = async ({ userId, preferenze, adesso }) => {
   if (!preferenze.alert_obiettivi_attivi) return [];
 
@@ -395,6 +442,7 @@ const regolaRiepilogoSettimanale = async ({ userId, preferenze, adesso }) => {
 const REGOLE = [
   { nome: 'budget', esegui: regolaBudget },
   { nome: 'ricorrenti', esegui: regolaRicorrenti },
+  { nome: 'abbonamenti', esegui: regolaAbbonamenti },
   { nome: 'obiettivi', esegui: regolaObiettivi },
   { nome: 'riepilogo_settimanale', esegui: regolaRiepilogoSettimanale },
   { nome: 'promemoria_giornaliero', esegui: regolaPromemoriaGiornaliero },

@@ -149,6 +149,7 @@ export const NOTIFICA_ICON_MAP = {
   budget_80: PieChart,
   budget_superato: AlertTriangle,
   ricorrente_imminente: Calendar,
+  abbonamento_rinnovo: Calendar,
   obiettivo_traguardo: Target,
   obiettivo_raggiunto: Trophy,
   riepilogo_settimanale: BarChart3,
