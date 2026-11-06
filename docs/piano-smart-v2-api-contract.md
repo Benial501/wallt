@@ -53,14 +53,27 @@ a fine mese. Non scrive dati finanziari.
   dichiara quale dei due valori determina il limite.
 - `averageDailyExpenses`: media giornaliera derivata dalla spesa mensile usata
   totale osservata; `null` quando non serve o non è stimabile.
-- `actualDailySpend`: uscite non ricorrenti registrate nel mese fino a oggi,
-  divise per i giorni dall’inizio del mese o dal primo movimento reale,
-  se successivo. Origini ricorrenti e addebiti generati restano fuori dal ritmo.
-- `forecast.endOfMonthAvailable`: margine netto (anche negativo) meno le
-  spese non ricorrenti proiettate sul periodo residuo. Le entrate future e
-  le rate dei debiti non riconciliate con ricorrenze restano escluse.
-  Il giorno corrente, parziale, conta sia nei giorni osservati sia nel
-  budget residuo: una convenzione prudenziale esplicitata nella UI.
+- `actualDailySpend`: il **ritmo** delle spese di tutti i giorni, cioè le
+  uscite del mese fino a oggi divise per i giorni dall’inizio del mese o dal
+  primo movimento reale, se successivo. Restano fuori (`services/ritmoSpesa.js`,
+  soglie in `constants/ritmoSpesa.js`): origini ricorrenti e addebiti generati;
+  i pagamenti programmati confermati come pagati (`ScheduledPayment.movimento_id`);
+  le spese fisse per categoria (affitto, bollette, rate, abbonamenti…); i
+  versamenti sugli investimenti; le singole uscite sopra 10 giorni di spesa
+  variabile media dei mesi completi (minimo 100 €, 250 € senza storico).
+  Sono uscite già avvenute e già fuori dal saldo: restano fuori solo dalla
+  moltiplicazione per i giorni. Prima un affitto da 700 € pagato il 1°
+  diventava, al 6 del mese, circa 2.900 € di spese proiettate.
+- `forecast.endOfMonthAvailable`: margine netto (anche negativo) meno il ritmo
+  moltiplicato per `forecast.projectionDays`, i giorni **dopo** oggi: le spese
+  di oggi sono già nel saldo. Le entrate future e le rate dei debiti non
+  riconciliate con ricorrenze restano escluse. `null` sotto
+  `forecast.minimumDays` (5) giorni osservati, con `quality: 'pochi_giorni'`:
+  in quel caso anche `paceStatus` è `non_stimabile` e non compare il
+  suggerimento sul ritmo, mentre `actualDailySpend` resta esposto.
+- `forecast.dailyPace` e `forecast.excluded` (`{ reason, description, amount, date }`,
+  `reason` fra `pagamento_programmato`, `spesa_fissa`, `versamento`,
+  `una_tantum`): servono alla pagina per spiegare il numero voce per voce.
 - `forecast.observedDays`, `quality` e `status`: qualità descrittiva, senza
   percentuali di precisione inventate. Senza dati di spesa osservabili,
   ritmo e previsione sono `null`, stato `non_stimabile`, nessun insight numerico

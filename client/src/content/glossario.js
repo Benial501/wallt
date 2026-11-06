@@ -188,8 +188,8 @@ const CONCETTI = [
     id: 'ritmo_attuale',
     etichetta: 'Ritmo attuale',
     descrizione:
-      'Quanto stai spendendo in media al giorno in spese libere, cioè escluse le ricorrenze. Confrontato col budget dice se stai sopra o sotto; da solo non è un limite.',
-    formula: 'spese libere del periodo osservato ÷ giorni osservati',
+      'Quanto stai spendendo in media al giorno nelle spese di tutti i giorni: escluse le ricorrenze, i pagamenti programmati, le spese fisse, i versamenti e le singole spese molto più grandi del solito. Confrontato col budget dice se stai sopra o sotto; da solo non è un limite.',
+    formula: 'spese di tutti i giorni del periodo osservato ÷ giorni osservati',
     origine: 'GET /piano-smart-v2/current-situation → current.actualDailySpend',
     topic: 'orizzonte-di-spesa',
   },

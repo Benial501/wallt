@@ -108,7 +108,8 @@ describe('Piano Smart: situazione corrente', () => {
   test('misura il ritmo sui giorni osservati e non proietta le ricorrenti una seconda volta', () => {
     const result = build({ expenses: { currentMonth: 400, variableCurrentMonth: 100 }, dataQuality: { completeMonths: 0, firstMovementDate: '2026-09-21' } });
     expect(result.current.actualDailySpend).toBe('20.00');
-    expect(result.forecast.endOfMonthAvailable).toBe('380.00');
+    // 20 €/giorno per i 5 giorni dopo oggi: oggi è già nel saldo.
+    expect(result.forecast.endOfMonthAvailable).toBe('400.00');
     expect(result.forecast.observedDays).toBe(5);
   });
   test('usa il giorno civile di Roma al cambio mese', () => {
@@ -120,7 +121,7 @@ describe('Piano Smart: situazione corrente', () => {
     const result = build({ liquidity: { ordinary: 100, allocated: 200, commitments: 100, allocatable: -200 } });
     expect(result.current.availableToSpend).toBe('0.00');
     expect(result.current.shortfall).toBe('200.00');
-    expect(result.forecast.endOfMonthAvailable).toBe('-272.00');
+    expect(result.forecast.endOfMonthAvailable).toBe('-260.00');
   });
   test('conta come attivi solo gli obiettivi non completati, col vocabolario degli obiettivi', () => {
     const goals = [
@@ -142,8 +143,8 @@ describe('Piano Smart: situazione corrente', () => {
     expect(result.financialDirection.assets).toBe('-10.00');
   });
   test('serializza una previsione negativa e limita le azioni a tre', () => {
-    const result = build({ expenses: { currentMonth: 2400, variableCurrentMonth: 2400, monthlyAverage: 1500 } });
-    expect(result.forecast.endOfMonthAvailable).toBe('-76.00');
+    const result = build({ expenses: { currentMonth: 3000, variableCurrentMonth: 3000, monthlyAverage: 1500 } });
+    expect(result.forecast.endOfMonthAvailable).toBe('-100.00');
     expect(result.suggestions.length).toBeLessThanOrEqual(3);
     expect(result.suggestions.some((s) => s.key === 'review-spending')).toBe(true);
   });
@@ -482,5 +483,63 @@ describe('Piano Smart: simulazione acquisto', () => {
     const esito = simulatePurchase(situazioneMensile, '300.00');
     expect(esito.giorniAutonomiaPersi).toBeNull();
     expect(esito.dataRaggiungibileAfter).toBeNull();
+  });
+});
+
+describe('Piano Smart: previsione di fine mese', () => {
+  // 2026-09-25, 25 giorni osservati, 6 giorni rimanenti oggi compreso.
+  test('proietta il ritmo solo sui giorni dopo oggi: oggi è già nel saldo', () => {
+    const result = build({ expenses: { currentMonth: 250, variableCurrentMonth: 250 } });
+    expect(result.current.actualDailySpend).toBe('10.00');
+    expect(result.forecast.projectionDays).toBe(5);
+    expect(result.forecast.projectedRemainingSpend).toBe('50.00');
+    expect(result.forecast.endOfMonthAvailable).toBe('450.00');
+  });
+
+  test('l’ultimo giorno del mese non proietta nulla', () => {
+    const result = build({ period: { referenceDate: '2026-09-30' }, expenses: { currentMonth: 300, variableCurrentMonth: 300 } });
+    expect(result.forecast.projectionDays).toBe(0);
+    expect(result.forecast.endOfMonthAvailable).toBe('500.00');
+  });
+
+  test('con meno giorni osservati del minimo non azzarda una previsione', () => {
+    const result = build({
+      period: { referenceDate: '2026-10-02' },
+      expenses: { currentMonth: 50, variableCurrentMonth: 50 },
+    });
+    expect(result.forecast.observedDays).toBe(2);
+    expect(result.forecast.endOfMonthAvailable).toBeNull();
+    expect(result.forecast.quality).toBe('pochi_giorni');
+    expect(result.forecast.minimumDays).toBe(5);
+    expect(result.current.paceStatus).toBe('non_stimabile');
+    expect(result.suggestions.some((s) => s.key === 'above-daily-pace')).toBe(false);
+    expect(result.insights.some((i) => i.key === 'forecast')).toBe(false);
+    // Il ritmo resta un fatto da mostrare, anche se è presto per proiettarlo.
+    expect(result.current.actualDailySpend).toBe('25.00');
+  });
+
+  test('il minimo vale anche per chi ha iniziato a registrare a metà mese', () => {
+    const result = build({ expenses: { currentMonth: 30, variableCurrentMonth: 30 }, dataQuality: { completeMonths: 0, firstMovementDate: '2026-09-23' } });
+    expect(result.forecast.observedDays).toBe(3);
+    expect(result.forecast.endOfMonthAvailable).toBeNull();
+  });
+
+  test('espone le uscite lasciate fuori dal ritmo, perché la pagina possa nominarle', () => {
+    const result = build({
+      expenses: {
+        currentMonth: 1250,
+        variableCurrentMonth: 250,
+        variableExcluded: [
+          { id: 9, motivo: 'pagamento_programmato', descrizione: 'Affitto', categoria: 'casa', importo: 700, data: '2026-09-01' },
+          { id: 10, motivo: 'versamento', descrizione: 'PAC', categoria: 'investimento', importo: 300, data: '2026-09-02' },
+        ],
+      },
+    });
+    expect(result.forecast.endOfMonthAvailable).toBe('450.00');
+    expect(result.forecast.excluded).toEqual([
+      { reason: 'pagamento_programmato', description: 'Affitto', amount: '700.00', date: '2026-09-01' },
+      { reason: 'versamento', description: 'PAC', amount: '300.00', date: '2026-09-02' },
+    ]);
+    expect(result.forecast.dailyPace).toBe('10.00');
   });
 });

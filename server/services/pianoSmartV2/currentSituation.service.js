@@ -1,5 +1,6 @@
 const { fromCents, toCents } = require('../pianoSmart/money');
 const { RISERVA_MESI_MIN, RISERVA_MESI_MAX } = require('../../constants/pianoSmart');
+const { GIORNI_MINIMI_PREVISIONE } = require('../../constants/ritmoSpesa');
 const { oggiLocale, fineMese, inizioMese } = require('../../utils/dateRome');
 const { buildExpenseFundingInsights } = require('./expenseFundingInsights.service');
 const { calcolaOrizzonte } = require('./orizzonte.service');
@@ -372,9 +373,23 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
     ? Number(referenceDate.slice(-2)) - Number(observationStart.slice(-2)) + 1 : 0;
   const canEstimate = observedDays > 0 && variableExpenses !== null && !dataQuality.missingExpenseData;
   const actualDailySpend = canEstimate ? Math.round(variableExpenses / observedDays) : null;
-  const projectedRemainingSpend = canEstimate ? Math.round(variableExpenses * remainingDays / observedDays) : null;
+  // Pochi giorni non sono un ritmo: il ritmo resta un fatto da mostrare, ma
+  // non si proietta e non fa dire «stai spendendo più del solito».
+  const paceIsReliable = canEstimate && observedDays >= GIORNI_MINIMI_PREVISIONE;
+  // Dai giorni DOPO oggi: le spese di oggi sono già uscite dal saldo, e
+  // contare `remainingDays` (che include oggi) metteva in conto un giorno di
+  // spesa in più. Il limite giornaliero invece divide anche per oggi, perché
+  // oggi si può ancora spendere.
+  const projectionDays = remainingDays - 1;
+  const projectedRemainingSpend = paceIsReliable ? Math.round(variableExpenses * projectionDays / observedDays) : null;
   const forecast = netAvailable === null || projectedRemainingSpend === null
     ? null : netAvailable - projectedRemainingSpend;
+  const excludedFromPace = (context.expenses?.variableExcluded || []).map((item) => ({
+    reason: item.motivo,
+    description: item.descrizione || null,
+    amount: money(cents(item.importo)),
+    date: item.data || null,
+  }));
 
   // L'orizzonte. In modalità mensile NON si ricalcola nulla: si serializza il
   // ciclo che questo service ha già misurato, così la pagina può leggere un
@@ -397,7 +412,7 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
     recurringCommitments, additionalCommitments, reserveFromLiquidity,
   });
 
-  const paceDelta = dailyLimitCents === null || actualDailySpend === null ? null : actualDailySpend - dailyLimitCents;
+  const paceDelta = dailyLimitCents === null || !paceIsReliable ? null : actualDailySpend - dailyLimitCents;
   const paceStatus = paceDelta === null ? 'non_stimabile' : paceDelta <= 0 ? 'sotto_controllo' : 'sopra_il_ritmo';
   const warnings = [];
 
@@ -466,7 +481,7 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
     }));
   }
 
-  if (actualDailySpend !== null && dailyLimitCents !== null && actualDailySpend > dailyLimitCents) {
+  if (paceIsReliable && dailyLimitCents !== null && actualDailySpend > dailyLimitCents) {
     suggestions.unshift(buildSuggestion({
       key: 'above-daily-pace', priority: 0, title: 'Il ritmo di spesa è sopra il limite',
       reason: `Stai spendendo circa ${money(actualDailySpend)} al giorno contro ${money(dailyLimitCents)} disponibili.`,
@@ -587,8 +602,13 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
       projectedRemainingSpend: money(projectedRemainingSpend),
       status: forecast === null ? 'non_stimabile' : forecast < 0 ? 'sotto_pressione' : 'stimato',
       observedDays,
-      basis: 'spese_non_ricorrenti_mese_corrente',
-      quality: !canEstimate ? 'dati_insufficienti' : (dataQuality.completeMonths || 0) < 3 ? 'storico_limitato' : 'storico_disponibile',
+      projectionDays,
+      minimumDays: GIORNI_MINIMI_PREVISIONE,
+      dailyPace: money(actualDailySpend),
+      excluded: excludedFromPace,
+      basis: 'spese_quotidiane_mese_corrente',
+      quality: !canEstimate ? 'dati_insufficienti' : !paceIsReliable ? 'pochi_giorni'
+        : (dataQuality.completeMonths || 0) < 3 ? 'storico_limitato' : 'storico_disponibile',
       scenarios: forecast === null ? null : {
         prudente: signedMoney(netAvailable - Math.round(projectedRemainingSpend * 1.2)),
         attuale: signedMoney(forecast),

@@ -202,3 +202,46 @@ export function ritmoSpesa(situazione, { euro }) {
   if (ritmo <= limite) return { tono: 'bene', testo: `Questo mese spendi in media ${euro(ritmo)} al giorno: meno del massimo di ${euro(limite)}.` };
   return { tono: 'attenzione', testo: `Questo mese spendi in media ${euro(ritmo)} al giorno: più del massimo di ${euro(limite)}. Rallenta un po’ per arrivare a fine mese.` };
 }
+
+const MOTIVI_FUORI_DAL_RITMO = {
+  pagamento_programmato: 'pagamento programmato',
+  spesa_fissa: 'spesa fissa',
+  versamento: 'versamento: i soldi restano tuoi',
+  una_tantum: 'spesa una tantum',
+};
+
+/**
+ * Come nasce «a fine mese ti restano circa…», riga per riga, e cosa resta
+ * fuori dal ritmo. Tutti i numeri arrivano da `forecast`: qui si somma solo
+ * per ricostruire il punto di partenza (previsione + spesa proiettata), che
+ * è esattamente quello da cui il server sottrae, anche quando è negativo.
+ * Solo nel ciclo mensile: con una data scelta la previsione di fine mese
+ * non è la domanda della pagina.
+ */
+export function spiegazionePrevisione(situazione, { euro }) {
+  const f = situazione?.forecast ?? {};
+  if (situazione?.horizon?.tipo === 'data') return null;
+  if (f.quality === 'pochi_giorni') {
+    return {
+      attesa: `Per dirti come potresti chiudere il mese servono almeno ${f.minimumDays} giorni di spese: per ora ne vediamo ${f.observedDays}.`,
+    };
+  }
+  const fine = importoInCentesimi(f.endOfMonthAvailable);
+  const proiettata = importoInCentesimi(f.projectedRemainingSpend);
+  if (fine === null || proiettata === null) return null;
+  const righe = [{ etichetta: 'Puoi spendere ancora', importo: centesimiInImporto(fine + proiettata), segno: '' }];
+  if (f.projectionDays > 0) {
+    righe.push({
+      etichetta: `Spese di tutti i giorni: ${euro(f.dailyPace)} al giorno, il tuo ritmo di questo mese, per ${f.projectionDays === 1 ? 'un altro giorno' : `altri ${f.projectionDays} giorni`}`,
+      importo: centesimiInImporto(proiettata),
+      segno: '−',
+    });
+  }
+  return {
+    righe,
+    risultato: f.endOfMonthAvailable,
+    escluse: (f.excluded ?? []).map((item) => ({
+      testo: `${item.description || 'Spesa'}, ${euro(item.amount)} (${MOTIVI_FUORI_DAL_RITMO[item.reason] ?? 'non si ripete'})`,
+    })),
+  };
+}

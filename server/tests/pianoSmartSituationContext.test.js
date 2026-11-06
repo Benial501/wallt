@@ -1,4 +1,5 @@
 const { createApp, registerUser, Conto, Movimento, request, authHeader } = require('./setup');
+const { ScheduledPayment } = require('../models');
 const { getFinancialContext } = require('../services/financialContext.service');
 const { buildCurrentSituation } = require('../services/pianoSmartV2/currentSituation.service');
 const app = createApp({ enableRateLimit: false });
@@ -35,6 +36,31 @@ test('ritmo osservato esclude ricorrenti, addebiti generati e date future', asyn
   const ctx = await getFinancialContext(userId, { referenceDate: new Date('2026-09-25T12:00:00Z') });
   expect(ctx.expenses.variableCurrentMonth).toBe(25);
   expect(ctx.dataQuality.firstMovementDate).toBe('2026-09-01');
+});
+
+test('ritmo osservato esclude programmate pagate, versamenti, spese fisse e acquisti una tantum', async () => {
+  // Il caso segnalato: un affitto pagato il 1° entrava nel ritmo e la
+  // previsione lo moltiplicava per i giorni che restano.
+  await movement({ importo: 25, categoria: 'supermercato' });
+  const affitto = await movement({ importo: 700, categoria: 'casa', descrizione: 'Affitto' });
+  await ScheduledPayment.create({
+    user_id: userId, conto_id: conto.id, tipo: 'uscita', importo: 700, categoria: 'casa',
+    descrizione: 'Affitto', data_scadenza: '2026-09-01', stato: 'pagato', pagato_il: '2026-09-01', movimento_id: affitto.id,
+  });
+  await movement({ importo: 300, categoria: 'investimento', descrizione: 'Versamento PAC' });
+  await movement({ importo: 80, categoria: 'bollette', descrizione: 'Luce' });
+  // Senza mesi completi la soglia è fissa (250 €).
+  await movement({ importo: 400, categoria: 'elettronica', descrizione: 'Telefono nuovo' });
+  const ctx = await getFinancialContext(userId, { referenceDate: new Date('2026-09-25T12:00:00Z') });
+  expect(ctx.expenses.variableCurrentMonth).toBe(25);
+  expect(ctx.expenses.variableExcluded.map((e) => [e.descrizione, e.motivo]).sort()).toEqual([
+    ['Affitto', 'pagamento_programmato'],
+    ['Luce', 'spesa_fissa'],
+    ['Telefono nuovo', 'una_tantum'],
+    ['Versamento PAC', 'versamento'],
+  ]);
+  // Uscite avvenute: escluse dal ritmo, non dal mese.
+  expect(ctx.expenses.currentMonth).toBe(1505);
 });
 
 test('cash flow: include entrate e uscite future entro 30 giorni e conserva gli impegni', async () => {
