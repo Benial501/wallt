@@ -2,13 +2,18 @@
 /**
  * «Vedi i dettagli»: tutto ciò che serve a chi vuole capire come nasce un
  * numero (grafici, medie, calcoli) resta qui, chiuso. La pagina si apre sulle
- * poche cose che chiunque capisce.
+ * poche cose che chiunque capisce. Ogni scheda dà il proprio titolo, perché
+ * ciò che c'è dentro è diverso: un «Vedi i dettagli» uguale per tutte non
+ * diceva cosa si trovava aprendo.
  */
+defineProps({
+  titolo: { type: String, default: 'Vedi i dettagli' },
+});
 </script>
 
 <template>
   <details class="dettagli">
-    <summary>Vedi i dettagli</summary>
+    <summary>{{ titolo }}</summary>
     <div class="dettagli__corpo">
       <slot />
     </div>

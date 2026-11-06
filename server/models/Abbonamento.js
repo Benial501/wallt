@@ -27,6 +27,9 @@ const Abbonamento = sequelize.define('Abbonamento', {
   conto_id: { type: DataTypes.INTEGER, allowNull: true },
   // Vero solo se la programmazione l'ha creata l'abbonamento stesso.
   addebito_automatico: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  // La data del solo rinnovo che l'utente ha deciso di non pagare: esce dagli
+  // impegni senza annullare l'abbonamento, e il rinnovo dopo torna a contare.
+  rinnovo_saltato: { type: DataTypes.DATEONLY, allowNull: true },
 }, {
   tableName: 'abbonamenti',
 });

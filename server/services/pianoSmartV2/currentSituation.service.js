@@ -541,11 +541,13 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
     ...(context.liquidity?.commitmentItems || []).map((item) => {
       const date = item.data || dataRicorrenzaProtetta.get(item.movimento_id) || null;
       return {
-        key: item.pagamento_programmato_id ? `programmato:${item.pagamento_programmato_id}` : `ricorrente:${item.movimento_id}`,
+        key: item.abbonamento_id ? `abbonamento:${item.abbonamento_id}`
+          : item.pagamento_programmato_id ? `programmato:${item.pagamento_programmato_id}` : `ricorrente:${item.movimento_id}`,
         description: item.descrizione || null,
         amount: money(cents(item.importo)),
         date,
-        kind: item.tipo === 'programmata_manuale' ? 'pagamento_programmato'
+        kind: item.tipo === 'abbonamento' ? 'abbonamento'
+          : item.tipo === 'programmata_manuale' ? 'pagamento_programmato'
           : item.tipo === 'programmata' ? 'spesa_programmata' : 'ricorrente',
         overdue: Boolean(date && date < referenceDate),
         afterPeriodEnd: Boolean(date && date > monthEnd),

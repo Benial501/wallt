@@ -35,7 +35,7 @@ const testoPasso = computed(() => {
   <section class="change-card" aria-labelledby="change-title">
     <div class="heading">
       <div>
-        <h2 id="change-title">Cosa è cambiato</h2>
+        <h2 id="change-title">Confronto per periodo</h2>
         <p>Confronta periodi della stessa durata. Il cursore avanza giorno per giorno nel primo mese e settimana per settimana fino a tre mesi.</p>
       </div>
       <strong v-if="point" class="selection-label">{{ point.days }} {{ point.days === 1 ? 'giorno' : 'giorni' }}</strong>

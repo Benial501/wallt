@@ -6,6 +6,8 @@ const {
   annullaAbbonamento,
   escludiAbbonamento,
   ripristinaAbbonamento,
+  saltaRinnovoAbbonamento,
+  riprendiRinnovoAbbonamento,
 } = require('../controllers/abbonamenti.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 const {
@@ -22,5 +24,7 @@ router.put('/:id', authMiddleware, validateUpdateAbbonamento, updateAbbonamento)
 router.patch('/:id/annulla', authMiddleware, validateIdParam, annullaAbbonamento);
 router.patch('/:id/escludi', authMiddleware, validateIdParam, escludiAbbonamento);
 router.patch('/:id/ripristina', authMiddleware, validateIdParam, ripristinaAbbonamento);
+router.patch('/:id/salta-rinnovo', authMiddleware, validateIdParam, saltaRinnovoAbbonamento);
+router.patch('/:id/riprendi-rinnovo', authMiddleware, validateIdParam, riprendiRinnovoAbbonamento);
 
 module.exports = router;

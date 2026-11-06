@@ -104,6 +104,10 @@ const verifica = async () => {
                 Scaduta e non ancora segnata come pagata. Se l’hai già pagata,
                 <RouterLink to="/funzionalita/situazione/programmate">segnala che è pagata</RouterLink>.
               </span>
+              <span v-else-if="item.kind === 'abbonamento'" class="conto__nota-voce">
+                Rinnovo dell’abbonamento. Se questo mese non lo paghi,
+                <RouterLink :to="{ path: '/funzionalita/situazione/programmate', query: { scheda: 'abbonamenti' } }">saltalo</RouterLink>.
+              </span>
               <span v-else-if="item.afterPeriodEnd" class="conto__nota-voce">Scade dopo fine mese, ma entro 30 giorni: la teniamo già da parte.</span>
             </li>
           </ul>
@@ -117,7 +121,7 @@ const verifica = async () => {
           <p class="conto__nota">
             Le tue entrate non arrivano sempre uguali, quindi teniamo da parte
             {{ situazione.current?.reserveMonths === 1 ? 'un mese' : `${situazione.current?.reserveMonths} mesi` }} di spese.
-            Puoi cambiarlo in «Vedi i dettagli».
+            Puoi cambiarlo in «Periodo, calcolo e consigli».
           </p>
         </dt>
         <dd>− {{ formattaEuro(composizione.riserva) }}</dd>

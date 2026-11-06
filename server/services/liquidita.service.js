@@ -1,7 +1,8 @@
 const { Op } = require('sequelize');
 const {
-  Conto, Obiettivo, Movimento, ScheduledPayment, ScheduledPaymentContribution,
+  Conto, Obiettivo, Movimento, ScheduledPayment, ScheduledPaymentContribution, Abbonamento,
 } = require('../models');
+const { rinnoviDaCoprire, GIORNI_ANTICIPO } = require('./abbonamentiImpegni');
 const {
   getRomeDateParts, FREQUENZE_SUPPORTATE, periodoPerRicorrenza, whereRicorrenzaAttiva,
 } = require('./ricorrenti.service');
@@ -209,6 +210,29 @@ async function calcolaLiquidita(userId, { data, transaction } = {}) {
       data: payment.data_scadenza,
     });
   });
+  // Rinnovi di abbonamento non ancora addebitati entro lo stesso orizzonte
+  // delle spese programmate. Chi decide cosa contare è `rinnoviDaCoprire`:
+  // qui si leggono soltanto le righe e gli addebiti recenti su cui decide.
+  const abbonamenti = await Abbonamento.findAll({
+    where: { user_id: userId, stato: 'attivo', giorno_rinnovo: { [Op.ne]: null }, movimento_ricorrente_id: null },
+    transaction,
+  });
+  if (abbonamenti.length) {
+    const daAddebiti = new Date(`${current.date}T00:00:00Z`);
+    daAddebiti.setUTCDate(daAddebiti.getUTCDate() - GIORNI_ANTICIPO);
+    const addebitiRecenti = await Movimento.findAll({
+      where: {
+        user_id: userId, tipo: 'uscita', ricorrente: false,
+        data: { [Op.gte]: daAddebiti.toISOString().slice(0, 10) },
+      },
+      attributes: ['data', 'categoria', 'descrizione'],
+      transaction,
+    });
+    impegni.push(...rinnoviDaCoprire(
+      abbonamenti.map((a) => a.get({ plain: true })), addebitiRecenti.map((m) => m.get({ plain: true })),
+      current.date, limiteProgrammateISO,
+    ));
+  }
   const impegni_pertinenti = round2(impegni.reduce((sum, i) => sum + i.importo, 0));
 
   const liquidita_libera = round2(saldo_conti - liquidita_allocata - impegni_pertinenti);

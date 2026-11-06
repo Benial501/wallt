@@ -45,7 +45,7 @@ export function statoOggi(situazione, { euro, data }) {
   const h = situazione?.horizon ?? {};
   const sopraRitmo = situazione?.current?.paceStatus === 'sopra_il_ritmo';
 
-  if (h.stato === 'scaduto') return { tono: 'attenzione', testo: 'La data che avevi scelto è già passata. Scegline una nuova in «Vedi i dettagli».' };
+  if (h.stato === 'scaduto') return { tono: 'attenzione', testo: 'La data che avevi scelto è già passata. Scegline una nuova in «Periodo, calcolo e consigli».' };
   if (h.stato === 'scoperto') return { tono: 'male', testo: `Le spese già previste superano i soldi che hai: mancano ${euro(h.mancanti)}.` };
   if (h.stato === 'in_ritardo') return { tono: 'attenzione', testo: `Se continui a spendere così, i soldi bastano solo fino al ${data(h.dataRaggiungibile)}.` };
   if (h.stato === 'in_rotta') {
