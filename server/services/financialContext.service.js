@@ -74,7 +74,18 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date(), orizzonte
     where: { user_id: userId, ricorrenza_origine_id: { [Op.in]: ricorrenti.map((r) => r.id) } },
     attributes: ['ricorrenza_origine_id', 'ricorrenza_periodo'],
   }) : [];
-  const eseguiti = new Set(addebiti.map((m) => `${m.ricorrenza_origine_id}:${m.ricorrenza_periodo}`));
+  // Un'entrata ricorrente non diventa un movimento: il cron crea un
+  // pagamento programmato «da confermare» con la stessa coppia (origine,
+  // periodo). Anche quello vale come occorrenza già emessa, altrimenti la
+  // stessa entrata compariva due volte nel calendario: la ricorrenza ancora
+  // «dovuta» e il pagamento che la rappresenta.
+  const occorrenzeProgrammate = ricorrenti.length ? await ScheduledPayment.findAll({
+    where: { user_id: userId, ricorrenza_origine_id: { [Op.in]: ricorrenti.map((r) => r.id) } },
+    attributes: ['ricorrenza_origine_id', 'ricorrenza_periodo'],
+  }) : [];
+  const eseguiti = new Set([...addebiti, ...occorrenzeProgrammate]
+    .filter((m) => m.ricorrenza_origine_id)
+    .map((m) => `${m.ricorrenza_origine_id}:${m.ricorrenza_periodo}`));
   // Un'occorrenza si annuncia una volta sola, il primo giorno in cui è
   // dovuta. Serve perché valutaOccorrenza apre una FINESTRA, non un istante:
   // una mensile è dovuta dal suo giorno in poi (recupero di un cron saltato,
@@ -125,7 +136,15 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date(), orizzonte
         items.push({
           id: r.id, occurrenceKey, description: r.descrizione, amount: toNumber(r.importo),
           dueDate: date, frequency: r.ricorrente_frequenza,
-          reserved: periodo === periodoPerFrequenza(r.ricorrente_frequenza, oggi),
+          // Una spesa programmata (una tantum) è già sottratta da
+          // `calcolaLiquidita` — entro 30 giorni, o già scaduta e non
+          // addebitata — come nel calendario qui sopra. Con
+          // `periodoPerFrequenza`, che per una tantum vale null, risultava
+          // «non protetta» e la situazione corrente la sottraeva una seconda
+          // volta: una rata da 36 € compariva come 72 €, due volte lo stesso
+          // giorno.
+          reserved: r.ricorrente_frequenza === 'una_tantum'
+            || periodo === periodoPerFrequenza(r.ricorrente_frequenza, oggi),
         });
       }
     }
@@ -154,7 +173,13 @@ async function riepilogoRicorrenti(userId, referenceDate = new Date(), orizzonte
     where: {
       user_id: userId,
       stato: 'in_attesa',
-      data_scadenza: { [Op.between]: [oggi.date, termineFlussi] },
+      // Le entrate generate dal cron restano qui anche dopo la loro data
+      // finché non sono confermate: sono l'unica traccia di quell'occorrenza
+      // (la ricorrenza d'origine è già considerata emessa, vedi `eseguiti`).
+      [Op.or]: [
+        { data_scadenza: { [Op.between]: [oggi.date, termineFlussi] } },
+        { tipo: 'entrata', ricorrenza_origine_id: { [Op.ne]: null }, data_scadenza: { [Op.lt]: oggi.date } },
+      ],
     },
     attributes: ['id', 'descrizione', 'importo', 'data_scadenza', 'tipo'],
   });

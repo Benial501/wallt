@@ -97,7 +97,10 @@ describe('proiezione oltre i 30 giorni', () => {
     Movimento.findAll = jest.fn()
       .mockResolvedValueOnce(affitto)
       .mockResolvedValueOnce(ottobreGiaAddebitato);
+    // Tre query in ordine: occorrenze generate dal cron, programmate a 30
+    // giorni, programmate fino all'orizzonte.
     ScheduledPayment.findAll = jest.fn()
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce(programmate);
     try {
@@ -144,5 +147,52 @@ describe('proiezione oltre i 30 giorni', () => {
   test('una data nel passato non attiva la proiezione', async () => {
     const esito = await conMock([], () => riepilogoRicorrenti(42, adesso, '2026-09-01'));
     expect(esito.horizon).toBeNull();
+  });
+});
+
+describe('nessun doppio conteggio fra ricorrenze e pagamenti programmati', () => {
+  test('una spesa programmata una tantum entro fine mese è già protetta, non un impegno aggiuntivo', async () => {
+    // Il caso segnalato: una rata inserita come spesa programmata compariva
+    // due volte lo stesso giorno e pesava il doppio (36 € → 72 €).
+    const originalMovimenti = Movimento.findAll;
+    const originalProgrammate = ScheduledPayment.findAll;
+    Movimento.findAll = jest.fn()
+      .mockResolvedValueOnce([{
+        id: 9, descrizione: 'Rata', data: '2026-09-01', stato_ricorrenza: 'attiva',
+        ricorrente_frequenza: 'una_tantum', ricorrente_data: '2026-09-28', tipo: 'uscita', importo: 36,
+      }])
+      .mockResolvedValueOnce([]);
+    ScheduledPayment.findAll = jest.fn().mockResolvedValue([]);
+    try {
+      const result = await riepilogoRicorrenti(42, new Date('2026-09-25T12:00:00Z'));
+      expect(result.items).toEqual([expect.objectContaining({ id: 9, dueDate: '2026-09-28', reserved: true })]);
+    } finally {
+      Movimento.findAll = originalMovimenti;
+      ScheduledPayment.findAll = originalProgrammate;
+    }
+  });
+
+  test('un’entrata già trasformata dal cron in pagamento da confermare compare una volta sola', async () => {
+    const originalMovimenti = Movimento.findAll;
+    const originalProgrammate = ScheduledPayment.findAll;
+    Movimento.findAll = jest.fn()
+      .mockResolvedValueOnce([{
+        id: 1, descrizione: 'Pensione', data: '2026-09-01', stato_ricorrenza: 'attiva',
+        ricorrente_frequenza: 'mensile', ricorrente_giorno: 1, tipo: 'entrata', importo: 1500,
+      }])
+      .mockResolvedValueOnce([]);
+    const generato = {
+      id: 70, ricorrenza_origine_id: 1, ricorrenza_periodo: '2026-10', descrizione: 'Pensione',
+      importo: 1500, data_scadenza: '2026-10-01', tipo: 'entrata',
+    };
+    ScheduledPayment.findAll = jest.fn().mockResolvedValue([generato]);
+    try {
+      const result = await riepilogoRicorrenti(42, new Date('2026-10-05T12:00:00Z'));
+      const pensioniDiOttobre = result.cashFlowItems.filter((item) => item.dueDate < '2026-11-01');
+      expect(pensioniDiOttobre).toEqual([expect.objectContaining({ id: 70, occurrenceKey: 'programmata:70', direction: 'entrata' })]);
+    } finally {
+      Movimento.findAll = originalMovimenti;
+      ScheduledPayment.findAll = originalProgrammate;
+    }
   });
 });
