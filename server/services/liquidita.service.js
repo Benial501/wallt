@@ -155,6 +155,9 @@ async function calcolaLiquidita(userId, { data, transaction } = {}) {
     .map(({ movimento }) => ({
       movimento_id: movimento.id,
       categoria: movimento.categoria,
+      // Il nome serve a chi mostra gli impegni all'utente: ogni euro tolto
+      // dal saldo effettivo deve poter essere riconosciuto.
+      descrizione: movimento.descrizione,
       importo: round2(toNumber(movimento.importo)),
       giorno: movimento.ricorrente_giorno || 1,
       tipo: movimento.ricorrente_frequenza === 'una_tantum' ? 'programmata' : 'ricorrente',
@@ -198,6 +201,7 @@ async function calcolaLiquidita(userId, { data, transaction } = {}) {
       pagamento_programmato_id: payment.id,
       conto_id: payment.conto_id,
       categoria: payment.categoria,
+      descrizione: payment.descrizione,
       importo: importoProtetto,
       accantonato,
       giorno: Number(payment.data_scadenza.slice(8, 10)),

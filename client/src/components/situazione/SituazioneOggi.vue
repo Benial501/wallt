@@ -39,6 +39,12 @@ const spendibile = computed(() => h.value.capitaleLibero ?? props.situazione.cur
 const stato = computed(() => statoOggi(props.situazione, { euro: formattaEuro, data: dataLunga }));
 const daPagare = computed(() => props.situazione.upcoming?.items ?? []);
 const composizione = computed(() => composizioneSpendibile(props.situazione));
+// Le voci esatte degli impegni esistono solo per il ciclo mensile; con una
+// data scelta dall'utente gli impegni sono quelli fino a quella data, e
+// l'elenco migliore resta quello delle scadenze.
+const vociImpegni = computed(() => (h.value.tipo !== 'data' && props.situazione.current?.commitmentItems
+  ? props.situazione.current.commitmentItems
+  : daPagare.value.map((item) => ({ key: item.occurrenceKey, description: item.description, amount: item.amount, date: item.dueDate }))));
 const entrate = computed(() => entrateInArrivo(props.situazione));
 const ritmo = computed(() => ritmoSpesa(props.situazione, { euro: formattaEuro }));
 const consiglio = computed(() => props.situazione.suggestions?.[0] ?? null);
@@ -85,9 +91,21 @@ const verifica = async () => {
       <div class="conto__riga"><dt>Sui tuoi conti hai</dt><dd>{{ formattaEuro(composizione.conti) }}</dd></div>
       <div class="conto__riga">
         <dt>
-          Spese da pagare entro il {{ dataLunga(h.dataFine) }}
-          <ul v-if="daPagare.length" class="conto__voci">
-            <li v-for="item in daPagare" :key="item.occurrenceKey">{{ item.description || 'Spesa fissa' }}, {{ dataBreve(item.dueDate) }}: {{ formattaEuro(item.amount) }}</li>
+          Spese già previste da coprire
+          <!-- In modalità mensile le voci sono esattamente quelle sottratte
+               (`current.commitmentItems`), comprese le rate scadute e non
+               segnate come pagate e quelle entro 30 giorni ma oltre la fine
+               del mese: senza il loro nome una rata da 36 € compariva come
+               «− 72 €» senza spiegazione. -->
+          <ul v-if="vociImpegni.length" class="conto__voci">
+            <li v-for="item in vociImpegni" :key="item.key">
+              {{ item.description || 'Spesa prevista' }}<template v-if="item.date">, {{ dataBreve(item.date) }}</template>: {{ formattaEuro(item.amount) }}
+              <span v-if="item.overdue" class="conto__avviso">
+                Scaduta e non ancora segnata come pagata. Se l’hai già pagata,
+                <RouterLink to="/funzionalita/situazione/programmate">segnala che è pagata</RouterLink>.
+              </span>
+              <span v-else-if="item.afterPeriodEnd" class="conto__nota-voce">Scade dopo fine mese, ma entro 30 giorni: la teniamo già da parte.</span>
+            </li>
           </ul>
         </dt>
         <dd>− {{ formattaEuro(composizione.impegni) }}</dd>
@@ -193,6 +211,9 @@ h2 { margin: 0; color: var(--text-primary); font-size: 1.2rem; }
 .conto__riga--totale dt, .conto__riga--totale dd { font-weight: 700; font-size: var(--text-lg); }
 .conto__voci { margin: .35rem 0 0; padding-left: 1.1rem; color: var(--text-secondary); font-size: var(--text-sm); line-height: 1.6; }
 .conto__nota { margin: .35rem 0 0; color: var(--text-secondary); font-size: var(--text-sm); line-height: 1.55; }
+.conto__avviso { display: block; color: var(--warning); font-weight: 600; }
+.conto__avviso a { color: inherit; }
+.conto__nota-voce { display: block; }
 .positivo { color: var(--positive); }
 .testo a { color: var(--accent-text); }
 .errore { margin: 0; color: var(--negative); font-size: var(--text-sm); }

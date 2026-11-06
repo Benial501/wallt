@@ -512,9 +512,45 @@ function buildCurrentSituation({ context, now = new Date(), changes = null }) {
     weeklyMarginCents: dailyLimitCents === null ? null : dailyLimitCents * 7,
   });
 
+  // Le voci che compongono gli impegni sottratti dallo spendibile, una per
+  // riga: quelle del servizio di liquidità più le occorrenze ricorrenti
+  // non ancora protette (`additionalCommitments`). Nessun importo nuovo:
+  // la loro somma è esattamente `recurringCommitments + additionalCommitments`.
+  // Data, «scaduta» e «dopo fine mese» servono a spiegare all'utente perché
+  // una rata compare due volte (una non segnata come pagata, una entro 30
+  // giorni ma oltre la fine del mese).
+  const dataRicorrenzaProtetta = new Map(recurringItems
+    .filter((item) => item.reserved !== false)
+    .map((item) => [item.id, item.dueDate]));
+  const commitmentItems = [
+    ...(context.liquidity?.commitmentItems || []).map((item) => {
+      const date = item.data || dataRicorrenzaProtetta.get(item.movimento_id) || null;
+      return {
+        key: item.pagamento_programmato_id ? `programmato:${item.pagamento_programmato_id}` : `ricorrente:${item.movimento_id}`,
+        description: item.descrizione || null,
+        amount: money(cents(item.importo)),
+        date,
+        kind: item.tipo === 'programmata_manuale' ? 'pagamento_programmato'
+          : item.tipo === 'programmata' ? 'spesa_programmata' : 'ricorrente',
+        overdue: Boolean(date && date < referenceDate),
+        afterPeriodEnd: Boolean(date && date > monthEnd),
+      };
+    }),
+    ...recurringItems.filter((item) => item.reserved === false).map((item) => ({
+      key: `occorrenza:${item.occurrenceKey}`,
+      description: item.description || null,
+      amount: money(cents(item.amount)),
+      date: item.dueDate,
+      kind: 'ricorrente',
+      overdue: false,
+      afterPeriodEnd: false,
+    })),
+  ].sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
+
   return {
     horizon,
     current: {
+      commitmentItems,
       liquidity: signedMoney(liquidity),
       expensesThisMonth: money(currentExpenses),
       commitments: money(recurringCommitments),
