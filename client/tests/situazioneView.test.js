@@ -89,12 +89,12 @@ test('ogni scheda si apre sulla versione semplice e tiene il cruscotto completo 
   for (const [scheda, componente] of [['today', '<SituazioneOggi'], ['upcoming', '<SituazioneProssimi'], ['analysis', '<SituazioneAnalisi']]) {
     const inizio = source.indexOf(`<template v-if="tab === '${scheda}'">`);
     const semplice = source.indexOf(componente, inizio);
-    const dettagli = source.indexOf('<DettagliSituazione>', inizio);
+    const dettagli = source.indexOf('<DettagliSituazione titolo=', inizio);
     assert.ok(inizio >= 0 && semplice > inizio && dettagli > semplice, `${scheda}: prima la versione semplice, poi i dettagli`);
   }
   // L'orizzonte si sceglie ancora: l'hero completo vive nei dettagli di Oggi.
   const oggi = source.indexOf(`<template v-if="tab === 'today'">`);
-  assert.ok(source.indexOf('<SituazioneHero', oggi) > source.indexOf('<DettagliSituazione>', oggi));
+  assert.ok(source.indexOf('<SituazioneHero', oggi) > source.indexOf('<DettagliSituazione titolo=', oggi));
   // Chi non ha ancora movimenti vede la pagina d'avvio, non numeri vuoti.
   assert.match(source, /<SituazioneInizio v-if="vuota"/);
 });

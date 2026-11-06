@@ -641,7 +641,25 @@ async function getFinancialContext(userId, options = {}) {
 
     investments: investimenti,
 
-    recurring: ricorrenti,
+    // I rinnovi di abbonamento che la liquidità protegge compaiono anche fra
+    // le scadenze dei prossimi 30 giorni, già segnati come protetti: la lista
+    // e il saldo effettivo devono raccontare le stesse uscite.
+    recurring: {
+      ...ricorrenti,
+      cashFlowItems: [
+        ...(ricorrenti.cashFlowItems || []),
+        ...(liquidita.impegni || []).filter((i) => i.tipo === 'abbonamento').map((i) => ({
+          id: i.abbonamento_id,
+          occurrenceKey: `abbonamento:${i.abbonamento_id}:${i.data}`,
+          description: i.descrizione,
+          amount: i.importo,
+          dueDate: i.data,
+          direction: 'uscita',
+          frequency: 'abbonamento',
+          reserved: true,
+        })),
+      ].sort((x, y) => x.dueDate.localeCompare(y.dueDate) || x.occurrenceKey.localeCompare(y.occurrenceKey)),
+    },
 
     netWorth: {
       assets: patrimonioNetto.patrimonio_totale,

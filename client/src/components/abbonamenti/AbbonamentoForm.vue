@@ -19,7 +19,7 @@ const props = defineProps({
   occupato: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['salva', 'annulla', 'escludi', 'vai-programmate']);
+const emit = defineEmits(['salva', 'annulla', 'salta-rinnovo', 'escludi', 'vai-programmate']);
 
 const ETICHETTE_PERIODO = {
   1: 'Mese', 3: '3 mesi', 6: '6 mesi', 12: 'Anno',
@@ -27,6 +27,7 @@ const ETICHETTE_PERIODO = {
 
 const a = props.abbonamento;
 const inModifica = Boolean(a);
+const dataRinnovo = a?.prossimo_rinnovo ? formatData(a.prossimo_rinnovo, 'medio') : '';
 const trovato = a?.origine === ORIGINI.RILEVATO;
 
 const form = ref({
@@ -240,6 +241,19 @@ const salva = () => {
       <WButton type="submit" variant="primary" size="lg" :loading="occupato" :disabled="!puoSalvare">
         {{ inModifica ? 'Salva modifiche' : 'Salva abbonamento' }}
       </WButton>
+      <!-- Saltare un rinnovo non annulla nulla: toglie solo quel pagamento
+           da «Puoi spendere ancora», per chi questo mese non lo rinnova. Con
+           una programmazione legata decide lei, e si sospende da Programmate. -->
+      <template v-if="inModifica && a.prossimo_rinnovo && !a.movimento_ricorrente_id">
+        <p class="abbonamento-form__rinnovo">
+          {{ a.rinnovo_saltato
+            ? `Il rinnovo del ${dataRinnovo} è saltato: non lo teniamo da parte.`
+            : `Il rinnovo del ${dataRinnovo} lo teniamo da parte in «Puoi spendere ancora».` }}
+        </p>
+        <WButton variant="secondary" size="lg" :disabled="occupato" @click="emit('salta-rinnovo')">
+          {{ a.rinnovo_saltato ? 'Riprendi questo rinnovo' : 'Questo rinnovo non lo pago' }}
+        </WButton>
+      </template>
       <WButton v-if="inModifica" variant="secondary" size="lg" :disabled="occupato" @click="emit('annulla')">Annulla abbonamento</WButton>
       <button v-if="trovato" type="button" class="abbonamento-form__testuale" :disabled="occupato" @click="emit('escludi')">Non è un abbonamento</button>
     </div>
@@ -322,6 +336,7 @@ const salva = () => {
 .abbonamento-form__nota { margin: 0.375rem 0 0; color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.45; }
 .abbonamento-form__segmenti button:disabled { opacity: 0.5; cursor: default; }
 .abbonamento-form__azioni { display: flex; flex-direction: column; gap: 0.5rem; }
+.abbonamento-form__rinnovo { margin: 0; color: var(--text-secondary); font-size: var(--text-sm); line-height: 1.5; }
 .abbonamento-form__testuale {
   min-height: 40px;
   padding: 0.25rem 0.5rem;

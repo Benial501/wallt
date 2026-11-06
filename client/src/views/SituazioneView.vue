@@ -16,6 +16,7 @@ import SituazioneOggi from '@/components/situazione/SituazioneOggi.vue';
 import SituazioneProssimi from '@/components/situazione/SituazioneProssimi.vue';
 import SituazioneAnalisi from '@/components/situazione/SituazioneAnalisi.vue';
 import DettagliSituazione from '@/components/situazione/DettagliSituazione.vue';
+import DettaglioUscite from '@/components/situazione/DettaglioUscite.vue';
 import { usePianoSmartStore } from '@/stores/pianoSmart.store';
 import { useScheduledPaymentsStore } from '@/stores/scheduledPayments.store';
 import { useProfiloStore } from '@/stores/profilo.store';
@@ -80,7 +81,6 @@ const speseFrequenti = computed(() => {
     return differenzaSettimanale || first.name.localeCompare(second.name, 'it');
   });
 });
-const formattaScadenza = (value) => new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`));
 // Con l'anno: l'orizzonte a data arriva fino a 36 mesi, e la data
 // raggiungibile dopo la simulazione può cadere nell'anno successivo.
 const formattaScadenzaConAnno = (value) => (value
@@ -164,9 +164,10 @@ onMounted(() => {
       <template v-if="tab === 'today'">
       <SituazioneOggi v-if="!vuota" :situazione="currentSituation" @suggerimento="eseguiSuggerimento" />
 
-      <DettagliSituazione>
+      <DettagliSituazione titolo="Periodo, calcolo e consigli">
       <SituazioneHero
         :situazione="currentSituation"
+        :con-numero="false"
         :salvataggio-in-corso="salvaMesiRiservaInCorso"
         @cambia-orizzonte="aggiornaOrizzonte"
       />
@@ -229,29 +230,16 @@ onMounted(() => {
         @confirm-payment="confermaSpesaProgrammata"
       />
 
-      <DettagliSituazione>
-      <WCard class="text-card">
-        <h2>Uscite entro fine mese</h2>
-        <p class="muted">Da oggi al {{ formattaScadenza(currentSituation.upcoming.through) }}.</p>
-        <template v-if="currentSituation.upcoming.items.length">
-          <div v-for="item in currentSituation.upcoming.items" :key="item.occurrenceKey" class="upcoming-row">
-            <span><strong>{{ item.description || 'Spesa ricorrente' }}</strong><small>{{ formattaScadenza(item.dueDate) }}</small></span>
-            <strong>{{ formattaEuro(item.amount) }}</strong>
-          </div>
-          <div class="upcoming-total"><span>Totale previsto</span><strong>{{ formattaEuro(currentSituation.upcoming.total) }}</strong></div>
-          <p class="hint">Queste uscite sono già protette. Il margine al netto degli impegni è {{ formattaEuro(currentSituation.upcoming.afterTotal) }}: non le sottraiamo una seconda volta.</p>
-        </template>
-        <p v-else class="muted">Non risultano altre uscite ricorrenti entro fine mese.</p>
-      </WCard>
-
+      <DettagliSituazione titolo="Dettaglio delle uscite">
+      <DettaglioUscite :situazione="currentSituation" />
       </DettagliSituazione>
       </template>
 
       <template v-if="tab === 'analysis'">
       <SituazioneAnalisi v-if="!vuota" :situazione="currentSituation" />
 
-      <DettagliSituazione>
-      <div class="analysis-heading"><h2>Cosa è cambiato?</h2><button type="button" class="context-help" @click="apriGuida('analisi')">Che cosa significa?</button></div>
+      <DettagliSituazione titolo="Approfondisci: periodi, medie e obiettivi">
+      <div class="analysis-heading"><button type="button" class="context-help" @click="apriGuida('analisi')">Che cosa significa?</button></div>
       <PianoSmartChangeTimeline :changes="currentSituation.changes" />
 
       <section class="situation-section" aria-labelledby="analisi-wallt-title">
@@ -268,12 +256,11 @@ onMounted(() => {
         <div class="progress-line"><span>Uscite</span><strong>{{ formattaEuro(currentSituation.monthProgress.expenses) }}</strong></div>
         <div class="progress-track progress-track--expenses"><i :style="{ width: `${currentSituation.monthProgress.expenseShare}%` }" /></div>
         <div class="progress-line"><span>Risparmio medio storico / mese</span><strong>{{ formattaEuro(currentSituation.forecast.monthlySavings) }}</strong></div>
-        <p class="hint">Limite giornaliero: {{ formattaEuro(currentSituation.current.dailyLimit) }} · {{ currentSituation.current.remainingDays }} giorni rimanenti</p>
       </section>
 
       <WCard class="text-card frequent-expenses" aria-labelledby="spese-frequenti-title">
         <div>
-          <h2 id="spese-frequenti-title">Medie delle spese frequenti <button type="button" class="context-help" @click="apriGuida('analisi')">Che cosa significa?</button></h2>
+          <h2 id="spese-frequenti-title">Tutte le categorie, a settimana e al mese <button type="button" class="context-help" @click="apriGuida('analisi')">Che cosa significa?</button></h2>
           <p class="muted">Le uscite registrate, raggruppate per categoria.</p>
         </div>
         <p v-if="speseFrequenti.length" class="frequent-expenses__periods">

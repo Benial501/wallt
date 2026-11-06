@@ -55,7 +55,25 @@ const ripristinaAbbonamento = async (req, res) => {
   }
 };
 
+const saltaRinnovoAbbonamento = async (req, res) => {
+  try {
+    return res.json({ abbonamento: await abbonamenti.saltaRinnovo(req.userId, req.params.id, true) });
+  } catch (error) {
+    return gestisciErrore(res, error, 'Errore saltaRinnovoAbbonamento', 'Errore nel saltare il rinnovo');
+  }
+};
+
+const riprendiRinnovoAbbonamento = async (req, res) => {
+  try {
+    return res.json({ abbonamento: await abbonamenti.saltaRinnovo(req.userId, req.params.id, false) });
+  } catch (error) {
+    return gestisciErrore(res, error, 'Errore riprendiRinnovoAbbonamento', 'Errore nel riprendere il rinnovo');
+  }
+};
+
 module.exports = {
+  saltaRinnovoAbbonamento,
+  riprendiRinnovoAbbonamento,
   getAbbonamenti,
   createAbbonamento,
   updateAbbonamento,

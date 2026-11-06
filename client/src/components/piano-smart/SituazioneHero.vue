@@ -16,6 +16,9 @@ import { formattaEuro, importoInCentesimi, centesimiInImporto } from '@/utils/pi
 const props = defineProps({
   situazione: { type: Object, required: true },
   salvataggioInCorso: { type: Boolean, default: false },
+  // Nei dettagli di Oggi lo spendibile e la data sono già scritti in alto:
+  // ripeterli qui era solo rumore. Restano orizzonte, voci e calcolo.
+  conNumero: { type: Boolean, default: true },
 });
 defineEmits(['cambiaOrizzonte']);
 
@@ -65,9 +68,12 @@ const divisioneCapitaleGiorni = computed(() => {
 
 <template>
   <WCard class="situation-hero">
-    <p class="hero-kicker">{{ GLOSSARIO.budget_giornaliero.etichetta }}</p>
-    <strong class="hero-amount">{{ formattaEuro(h.budgetGiornaliero) }}</strong>
-    <p class="hero-context">{{ contesto }}</p>
+    <template v-if="conNumero">
+      <p class="hero-kicker">{{ GLOSSARIO.budget_giornaliero.etichetta }}</p>
+      <strong class="hero-amount">{{ formattaEuro(h.budgetGiornaliero) }}</strong>
+      <p class="hero-context">{{ contesto }}</p>
+    </template>
+    <h2 v-else class="hero-titolo">Il periodo su cui calcoliamo</h2>
 
     <!-- Una sola catena per lo stato: prima era divisa in due catene
          `v-if` indipendenti (una sul confronto date lato client, una sullo
@@ -76,22 +82,25 @@ const divisioneCapitaleGiorni = computed(() => {
          contemporaneamente (difetto 3 della review finale). Lo stato è
          uno solo, deciso dal server (`horizon.stato`, vocabolario di
          `orizzonte.service.js`). -->
-    <p v-if="h.stato === 'scaduto'" class="shortfall" role="status">
-      La data che hai scelto è passata: scegline una nuova.
-    </p>
-    <p v-else-if="h.stato === 'scoperto'" class="shortfall" role="status">
-      Gli impegni fino al {{ dataLunga(h.dataFine) }} superano il capitale di
-      {{ formattaEuro(h.mancanti) }}.
-    </p>
-    <p v-else-if="h.stato === 'in_ritardo'" class="situation-status situation-status--sopra_il_ritmo" role="status">
-      Al ritmo attuale arrivi al {{ dataLunga(h.dataRaggiungibile) }}.
-    </p>
-    <p v-else-if="h.stato === 'in_rotta'" class="situation-status situation-status--sotto_controllo">
-      {{ h.dataRaggiungibile ? `In rotta: il capitale arriva al ${dataLunga(h.dataRaggiungibile)}.` : 'In rotta.' }}
-    </p>
-    <p v-else class="muted">
-      Serve ancora qualche registrazione per calcolare il budget.
-    </p>
+    <!-- Lo stato lo dice già la versione semplice in alto. -->
+    <template v-if="conNumero">
+      <p v-if="h.stato === 'scaduto'" class="shortfall" role="status">
+        La data che hai scelto è passata: scegline una nuova.
+      </p>
+      <p v-else-if="h.stato === 'scoperto'" class="shortfall" role="status">
+        Gli impegni fino al {{ dataLunga(h.dataFine) }} superano il capitale di
+        {{ formattaEuro(h.mancanti) }}.
+      </p>
+      <p v-else-if="h.stato === 'in_ritardo'" class="situation-status situation-status--sopra_il_ritmo" role="status">
+        Al ritmo attuale arrivi al {{ dataLunga(h.dataRaggiungibile) }}.
+      </p>
+      <p v-else-if="h.stato === 'in_rotta'" class="situation-status situation-status--sotto_controllo">
+        {{ h.dataRaggiungibile ? `In rotta: il capitale arriva al ${dataLunga(h.dataRaggiungibile)}.` : 'In rotta.' }}
+      </p>
+      <p v-else class="muted">
+        Serve ancora qualche registrazione per calcolare il budget.
+      </p>
+    </template>
 
     <!-- Sola lettura e additiva, non un'alternativa allo stato sopra: il
          fondo non è compreso nel capitale, lo diciamo solo a chi non arriva
@@ -161,6 +170,7 @@ const divisioneCapitaleGiorni = computed(() => {
 .situation-hero { display: flex; flex-direction: column; align-items: center; gap: .45rem; margin-bottom: 1rem; text-align: center; }
 .hero-kicker { margin: 0 0 .35rem; color: var(--text-secondary); font-size: var(--text-xs); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .hero-amount { color: var(--text-primary); font-size: 2.9rem; line-height: 1.05; }
+.hero-titolo { align-self: flex-start; margin: 0; color: var(--text-primary); font-size: 1.2rem; }
 .hero-context { margin: -.2rem 0 .25rem; color: var(--text-secondary); font-size: var(--text-sm); }
 
 .shortfall { margin: 0; color: var(--negative); font-weight: 600; }

@@ -39,10 +39,12 @@ export const useAbbonamentiStore = defineStore('abbonamenti', () => {
   const crea = (dati) => dopoScrittura(api.post('/abbonamenti', dati));
   const modifica = (id, dati) => dopoScrittura(api.put(`/abbonamenti/${id}`, dati));
   const annulla = (id) => dopoScrittura(api.patch(`/abbonamenti/${id}/annulla`));
+  // Solo il prossimo rinnovo: esce da «Puoi spendere ancora» senza annullare.
+  const saltaRinnovo = (id, salta) => dopoScrittura(api.patch(`/abbonamenti/${id}/${salta ? 'salta-rinnovo' : 'riprendi-rinnovo'}`));
   const escludi = (id) => dopoScrittura(api.patch(`/abbonamenti/${id}/escludi`));
   const ripristina = (id) => dopoScrittura(api.patch(`/abbonamenti/${id}/ripristina`));
 
   return {
-    attivi, nonAttivi, totali, stato, lastUpdated, fetchAbbonamenti, crea, modifica, annulla, escludi, ripristina, reset,
+    attivi, nonAttivi, totali, stato, lastUpdated, fetchAbbonamenti, crea, modifica, annulla, saltaRinnovo, escludi, ripristina, reset,
   };
 });

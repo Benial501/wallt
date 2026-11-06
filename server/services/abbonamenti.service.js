@@ -127,6 +127,10 @@ const presenta = (riga, oggi) => {
     conto_id: riga.conto_id ?? null,
     addebito_automatico: Boolean(riga.addebito_automatico),
     prossimo_rinnovo: riga.stato === STATI.ATTIVO ? prossimoRinnovo(riga, oggi) : null,
+    // Vero solo per il rinnovo che sta per arrivare: uno saltato in passato
+    // non dice più nulla, e il rinnovo dopo torna a contare da sé.
+    rinnovo_saltato: Boolean(riga.rinnovo_saltato && riga.stato === STATI.ATTIVO
+      && String(riga.rinnovo_saltato).slice(0, 10) === prossimoRinnovo(riga, oggi)),
     costi: {
       al_mese: inEuro(costi.al_mese),
       in_un_anno: inEuro(costi.in_un_anno),
@@ -374,6 +378,25 @@ const annulla = async (userId, id) => {
   return presenta(riga.get({ plain: true }), oggiLocale());
 };
 
+/**
+ * «Questo mese non lo pago»: il prossimo rinnovo esce dagli impegni del saldo
+ * effettivo senza annullare l'abbonamento. Non tocca conti né movimenti
+ * (Regola 28). Con una programmazione legata il rinnovo lo governa lei, e si
+ * sospende da Programmate: saltarlo qui lascerebbe il cron ad addebitarlo.
+ */
+const saltaRinnovo = async (userId, id, salta) => {
+  const riga = await trova(userId, id);
+  if (riga.stato !== STATI.ATTIVO) throw new AppError('L\'abbonamento non è attivo', 409);
+  if (riga.movimento_ricorrente_id) {
+    throw new AppError('Questo abbonamento ha una programmazione: sospendila da Programmate', 409);
+  }
+  const oggi = oggiLocale();
+  const rinnovo = prossimoRinnovo(riga.get({ plain: true }), oggi);
+  if (salta && !rinnovo) throw new AppError('Indica il giorno del rinnovo per poterlo saltare', 422);
+  await riga.update({ rinnovo_saltato: salta ? rinnovo : null, modificato_utente_il: new Date() });
+  return presenta(riga.get({ plain: true }), oggi);
+};
+
 const escludi = async (userId, id) => {
   const riga = await trova(userId, id);
   if (riga.origine !== ORIGINI.RILEVATO) {
@@ -405,5 +428,5 @@ const ripristina = async (userId, id) => {
 };
 
 module.exports = {
-  elenco, crea, modifica, annulla, escludi, ripristina,
+  elenco, crea, modifica, annulla, escludi, ripristina, saltaRinnovo,
 };

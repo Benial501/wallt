@@ -85,6 +85,15 @@ const annulla = () => esegui(
   'Non è stato possibile annullare l’abbonamento',
 );
 
+const saltaRinnovo = () => {
+  const salta = !inModifica.value.rinnovo_saltato;
+  return esegui(
+    () => store.saltaRinnovo(inModifica.value.id, salta),
+    salta ? 'Rinnovo saltato: non lo teniamo più da parte' : 'Rinnovo ripreso: lo teniamo di nuovo da parte',
+    'Non è stato possibile aggiornare il rinnovo',
+  );
+};
+
 const escludi = () => esegui(
   () => store.escludi(inModifica.value.id),
   'Fatto: non verrà più aggiunto da solo',
@@ -185,6 +194,7 @@ const statoNonAttivo = (abbonamento) => {
         :occupato="occupato"
         @salva="salva"
         @annulla="annulla"
+        @salta-rinnovo="saltaRinnovo"
         @escludi="escludi"
         @vai-programmate="vaiProgrammate"
       />

@@ -682,6 +682,14 @@ Un quadro da leggere: nessuna di queste rotte scrive su conti o movimenti (CLAUD
 - **Risposta**: `{ abbonamento }`
 - **Errori**: 404, 409 (non è attivo)
 
+### PATCH /api/abbonamenti/:id/salta-rinnovo
+
+Toglie il prossimo rinnovo dagli impegni del saldo effettivo senza annullare l'abbonamento (`rinnovo_saltato`). 409 se l'abbonamento non è attivo o ha una programmazione legata, 422 senza giorno del rinnovo. Non tocca conti né movimenti.
+
+### PATCH /api/abbonamenti/:id/riprendi-rinnovo
+
+Annulla il salto: il prossimo rinnovo torna a essere tenuto da parte.
+
 ### PATCH /api/abbonamenti/:id/escludi
 - **Azione**: «Non è un abbonamento». La sua chiave non crea più righe nuove
 - **Risposta**: `{ abbonamento }`
