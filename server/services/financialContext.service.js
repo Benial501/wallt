@@ -530,7 +530,8 @@ async function getFinancialContext(userId, options = {}) {
 
     expenses: {
       currentMonth: spese.mese_corrente?.totale ?? 0,
-      variableCurrentMonth: spese.spese_non_ricorrenti_mese_corrente,
+      variableCurrentMonth: spese.ritmo_mese_corrente.totale,
+      variableExcluded: spese.ritmo_mese_corrente.escluse,
       monthlyAverage: monthlyAverageExpenses,
       averageMonths: nMesiMedie,
       // Totale sui soli mesi completi: è il denominatore con cui

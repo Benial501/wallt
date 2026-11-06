@@ -9,7 +9,7 @@
  * ha mai quel tipo (CLAUDE.md Regola 2).
  */
 const { Op } = require('sequelize');
-const { Movimento } = require('../models');
+const { Movimento, ScheduledPayment } = require('../models');
 const { list: listCategories } = require('./categorie.service');
 const { aggregaPerEssenzialita } = require('./essenzialita.service');
 const { ultimiNMesi } = require('./confrontoPeriodi.service');
@@ -17,6 +17,7 @@ const { classificaFinestra } = require('./finestraMesi.service');
 const { finestraGiorni, oggiLocale, FUSO_DEFAULT } = require('../utils/dateRome');
 const { muoveSaldo } = require('./ricorrenti.service');
 const { costruisciPeriodiMedia, calcolaMediePerCategoria } = require('./speseMedie.service');
+const { classificaSpeseDelMese, sogliaUnaTantum, mediaVariabileMensile } = require('./ritmoSpesa');
 
 const round2 = (v) => Math.round(v * 100) / 100;
 const toNumber = (v) => parseFloat(v) || 0;
@@ -127,6 +128,7 @@ async function aggregaSpeseMesi(userId, numMesi, riferimento = new Date(), opzio
       mesi_completi: 0,
       mese_corrente: null,
       spese_non_ricorrenti_mese_corrente: 0,
+      ritmo_mese_corrente: { totale: 0, totaleEscluse: 0, escluse: [] },
       byNecessity: vuoto,
       byNecessityMesiCompleti: vuoto,
     };
@@ -138,7 +140,7 @@ async function aggregaSpeseMesi(userId, numMesi, riferimento = new Date(), opzio
       tipo: 'uscita',
       data: { [Op.between]: [periodi[0].da, periodi[periodi.length - 1].a] },
     },
-    attributes: ['data', 'categoria', 'importo', 'ricorrente', 'ricorrenza_origine_id'],
+    attributes: ['id', 'data', 'categoria', 'descrizione', 'importo', 'ricorrente', 'ricorrenza_origine_id'],
   });
 
   const totaliPerPeriodo = new Map(periodi.map((p) => [p.chiave, {}]));
@@ -189,6 +191,18 @@ async function aggregaSpeseMesi(userId, numMesi, riferimento = new Date(), opzio
     sommaBucket(mesiCompleti.map((m) => m.periodo)), categorieUscita,
   );
 
+  // Le uscite del mese già datate, escluse le ricorrenti (origini e
+  // addebiti): le loro scadenze si stimano a parte.
+  const oggi = oggiLocale(FUSO_DEFAULT, riferimento);
+  const nonRicorrentiDelMese = movimenti.filter((m) => String(m.data).slice(0, 7) === meseCorrente
+    && String(m.data).slice(0, 10) <= oggi && !m.ricorrente && !m.ricorrenza_origine_id);
+  // Una programmata confermata come pagata diventa un movimento qualunque:
+  // solo il legame `movimento_id` dice che era un pagamento singolo.
+  const programmati = nonRicorrentiDelMese.length === 0 ? [] : await ScheduledPayment.findAll({
+    where: { user_id: userId, movimento_id: { [Op.in]: nonRicorrentiDelMese.map((m) => m.id) } },
+    attributes: ['movimento_id'],
+  });
+
   return {
     storico,
     finestra,
@@ -196,13 +210,14 @@ async function aggregaSpeseMesi(userId, numMesi, riferimento = new Date(), opzio
     totale_mesi_completi: totaleCompleti,
     media_mensile,
     mesi_completi: mesiCompleti.length,
-    // Il ritmo del mese considera solo uscite già datate, escluse le
-    // ricorrenti (origini e addebiti): le loro scadenze si stimano a parte.
-    spese_non_ricorrenti_mese_corrente: round2(movimenti
-      .filter((m) => String(m.data).slice(0, 7) === meseCorrente
-        && String(m.data).slice(0, 10) <= oggiLocale(FUSO_DEFAULT, riferimento)
-        && !m.ricorrente && !m.ricorrenza_origine_id)
+    spese_non_ricorrenti_mese_corrente: round2(nonRicorrentiDelMese
       .reduce((sum, m) => sum + toNumber(m.importo), 0)),
+    // Ciò che la previsione di fine mese può moltiplicare per i giorni che
+    // restano: senza spese fisse, versamenti e acquisti una tantum.
+    ritmo_mese_corrente: classificaSpeseDelMese(nonRicorrentiDelMese, {
+      soglia: sogliaUnaTantum(mediaVariabileMensile(mesiCompleti)),
+      movimentiProgrammati: new Set(programmati.map((p) => p.movimento_id)),
+    }),
     mese_corrente: storico.find((m) => m.periodo === meseCorrente) || null,
     byNecessity,
     byNecessityMesiCompleti,

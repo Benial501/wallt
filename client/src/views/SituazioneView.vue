@@ -87,7 +87,7 @@ const formattaScadenza = (value) => new Intl.DateTimeFormat('it-IT', { day: 'num
 const formattaScadenzaConAnno = (value) => (value
   ? new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`))
   : null);
-const qualitaPrevisione = computed(() => ({ dati_insufficienti: 'Previsione non disponibile', storico_limitato: 'Storico ancora limitato', storico_disponibile: 'Storico disponibile' })[currentSituation.value?.forecast.quality]);
+const qualitaPrevisione = computed(() => ({ dati_insufficienti: 'Previsione non disponibile', pochi_giorni: 'Troppo presto nel mese per una stima', storico_limitato: 'Storico ancora limitato', storico_disponibile: 'Storico disponibile' })[currentSituation.value?.forecast.quality]);
 const apriGuida = (sezione) => {
   sezioneGuidaPiano.value = sezione;
   guidaSpiegazioneAperta.value = true;
@@ -208,7 +208,8 @@ onMounted(() => {
         </div>
         <details class="explanation">
           <summary>Come viene calcolata?</summary>
-          <p>Partiamo dalla liquidità dei conti, al netto degli obiettivi accantonati e degli impegni rilevati. Stimiamo le spese non ricorrenti rimanenti usando il ritmo dei giorni osservati di questo mese, oggi incluso.</p>
+          <p>Partiamo dalla liquidità dei conti, al netto degli obiettivi accantonati e degli impegni rilevati. Stimiamo le spese dei giorni dopo oggi con il ritmo dei giorni osservati di questo mese: le spese di oggi sono già uscite dal saldo. Servono almeno {{ currentSituation.forecast.minimumDays }} giorni osservati.</p>
+          <p>Il ritmo conta solo la spesa di tutti i giorni: restano fuori i pagamenti programmati già pagati, le spese fisse (affitto, bollette, rate, abbonamenti), i versamenti sugli investimenti e le singole spese molto più grandi del solito. Sono già uscite dal saldo, ma non si ripetono ogni giorno.</p>
           <p>Le ricorrenze vengono considerate separatamente e una sola volta. Le entrate future, le rate non collegate a ricorrenze e gli eventi non registrati non sono inclusi. La previsione resta una stima, non un saldo garantito.</p>
         </details>
       </WCard>

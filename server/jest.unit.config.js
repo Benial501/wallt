@@ -37,6 +37,7 @@ module.exports = {
     '<rootDir>/tests/pianoSmartRecurringCashFlow.test.js',
     '<rootDir>/tests/aggregaMedieSpeseFrequenti.test.js',
     '<rootDir>/tests/speseMedie.test.js',
+    '<rootDir>/tests/ritmoSpesa.test.js',
     '<rootDir>/tests/enableBankingProvider.test.js',
     '<rootDir>/tests/bankSyncConfig.test.js',
   ],
