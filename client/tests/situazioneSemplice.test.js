@@ -112,3 +112,24 @@ test('la previsione di fine mese si spiega riga per riga', async () => {
   assert.equal(spiegazionePrevisione({ ...situazione, horizon: { tipo: 'data' } }, { euro }), null);
   assert.equal(spiegazionePrevisione({ forecast: { endOfMonthAvailable: null } }, { euro }), null);
 });
+
+test('nei primi giorni del mese la frase sul ritmo tace, come il server', async () => {
+  const { ritmoSpesa } = await import('../src/utils/situazioneSemplice.js');
+  const situazione = {
+    forecast: { quality: 'pochi_giorni' },
+    current: { actualDailySpend: '50.00' },
+    horizon: { budgetGiornaliero: '30.00' },
+  };
+  assert.equal(ritmoSpesa(situazione, { euro: (v) => v }), null);
+  assert.equal(ritmoSpesa({ ...situazione, forecast: { quality: 'storico_disponibile' } }, { euro: (v) => v }).tono, 'attenzione');
+});
+
+test('la previsione parte da un punto di partenza, che può essere negativo', async () => {
+  const { spiegazionePrevisione } = await import('../src/utils/situazioneSemplice.js');
+  const s = spiegazionePrevisione({
+    horizon: { tipo: 'mensile' },
+    forecast: { quality: 'storico_disponibile', endOfMonthAvailable: '-150.00', projectedRemainingSpend: '100.00', projectionDays: 10, dailyPace: '10.00', excluded: [] },
+  }, { euro: (v) => v });
+  assert.match(s.righe[0].etichetta, /^Punto di partenza/);
+  assert.equal(s.righe[0].importo, '-50.00');
+});

@@ -196,6 +196,10 @@ export function entrateInArrivo(situazione) {
 
 /** Il ritmo di spesa a parole: quanto spendi al giorno contro il massimo. */
 export function ritmoSpesa(situazione, { euro }) {
+  // Nei primi giorni del mese il server non giudica il ritmo
+  // (`forecast.quality: 'pochi_giorni'`): una sola spesa da 50 € il 2 del
+  // mese non dice che si spende troppo, e qui non va detto nemmeno.
+  if (situazione?.forecast?.quality === 'pochi_giorni') return null;
   const ritmo = numero(situazione?.current?.actualDailySpend);
   const limite = numero(situazione?.horizon?.budgetGiornaliero);
   if (ritmo === null || limite === null) return null;
@@ -229,7 +233,10 @@ export function spiegazionePrevisione(situazione, { euro }) {
   const fine = importoInCentesimi(f.endOfMonthAvailable);
   const proiettata = importoInCentesimi(f.projectedRemainingSpend);
   if (fine === null || proiettata === null) return null;
-  const righe = [{ etichetta: 'Puoi spendere ancora', importo: centesimiInImporto(fine + proiettata), segno: '' }];
+  // «Punto di partenza», non «Puoi spendere ancora»: è lo spendibile prima
+  // del limite a zero, quindi può essere negativo quando le spese da coprire
+  // superano i soldi, mentre il «Puoi spendere» in alto si ferma a 0 €.
+  const righe = [{ etichetta: 'Punto di partenza: i soldi liberi dopo le spese già previste', importo: centesimiInImporto(fine + proiettata), segno: '' }];
   if (f.projectionDays > 0) {
     righe.push({
       etichetta: `Spese di tutti i giorni: ${euro(f.dailyPace)} al giorno, il tuo ritmo di questo mese, per ${f.projectionDays === 1 ? 'un altro giorno' : `altri ${f.projectionDays} giorni`}`,
