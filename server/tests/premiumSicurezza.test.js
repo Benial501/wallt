@@ -470,10 +470,14 @@ describe('accedere ai token e ai segreti del provider', () => {
     const eventi = await AuditLog.findAll({ raw: true });
     expect(eventi.length).toBeGreaterThan(0);
     const serializzato = JSON.stringify(eventi);
+    // Senza gli orari di scrittura: «42.5» compariva in `createdAt` ogni volta
+    // che un evento cadeva al secondo 42, millisecondi 5xx, e il test falliva
+    // per un orario invece che per un importo.
+    const senzaOrari = JSON.stringify(eventi.map(({ createdAt, updatedAt, ...resto }) => resto));
 
     // Importi del sandbox: nessuno deve comparire.
     for (const importo of ['2345.67', '1850', '42.5', 'ESSELUNGA', 'NETFLIX']) {
-      expect(serializzato).not.toContain(importo);
+      expect(senzaOrari).not.toContain(importo);
     }
     expect(serializzato).not.toMatch(/eyJ[A-Za-z0-9_-]+\./);
   });
