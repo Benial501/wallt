@@ -10,7 +10,7 @@ import { confrontoTrentaGiorni, vociPrincipali } from '@/utils/situazioneSemplic
 /**
  * Analisi, in forma semplice: «come sto andando?». Quanto hai speso questo
  * mese, se più o meno di prima, in cosa spendi di più e quanto ti copre il
- * fondo di emergenza. Medie, timeline e direzione finanziaria restano nei
+ * fondo di emergenza. Medie e timeline restano nei
  * dettagli della vista.
  */
 const props = defineProps({

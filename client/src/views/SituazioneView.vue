@@ -6,7 +6,6 @@ import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
 import PianoSmartChangeTimeline from '@/components/piano-smart/PianoSmartChangeTimeline.vue';
-import PianoSmartCashFlowRadar from '@/components/piano-smart/PianoSmartCashFlowRadar.vue';
 import PianoSmartGoalsSummary from '@/components/piano-smart/PianoSmartGoalsSummary.vue';
 import PianoSmartExpenseFunding from '@/components/piano-smart/PianoSmartExpenseFunding.vue';
 import PianoSmartGuide from '@/components/piano-smart/PianoSmartGuide.vue';
@@ -87,7 +86,6 @@ const formattaScadenza = (value) => new Intl.DateTimeFormat('it-IT', { day: 'num
 const formattaScadenzaConAnno = (value) => (value
   ? new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`))
   : null);
-const qualitaPrevisione = computed(() => ({ dati_insufficienti: 'Previsione non disponibile', pochi_giorni: 'Troppo presto nel mese per una stima', storico_limitato: 'Storico ancora limitato', storico_disponibile: 'Storico disponibile' })[currentSituation.value?.forecast.quality]);
 const apriGuida = (sezione) => {
   sezioneGuidaPiano.value = sezione;
   guidaSpiegazioneAperta.value = true;
@@ -180,7 +178,6 @@ onMounted(() => {
           <thead><tr><th scope="col">Il tuo piano</th><th scope="col">Prima</th><th scope="col">Dopo</th></tr></thead>
           <tbody>
           <tr><th scope="row">{{ GLOSSARIO.capitale_libero.etichetta }}</th><td>{{ formattaEuro(simulazione.availableBefore) }}</td><td>{{ formattaEuro(simulazione.availableAfter) }}</td></tr>
-          <tr><th scope="row">Fine mese</th><td>{{ formattaEuro(simulazione.forecastBefore) }}</td><td>{{ formattaEuro(simulazione.forecastAfter) }}</td></tr>
           <tr><th scope="row">Limite indicativo / giorno</th><td>{{ formattaEuro(simulazione.dailyLimitBefore) }}</td><td>{{ formattaEuro(simulazione.dailyLimitAfter) }}</td></tr>
           </tbody>
         </table>
@@ -194,24 +191,6 @@ onMounted(() => {
           al {{ formattaScadenzaConAnno(simulazione.dataRaggiungibileAfter) }}.
         </p>
         <p class="hint">Quota del margine usata: {{ simulazione.impact }}. Gli importi già accantonati a obiettivi o riserva restano invariati.</p>
-      </WCard>
-
-      <WCard class="text-card">
-        <h2>Previsione fine mese</h2>
-        <p class="muted">Quanto potrebbe restare dello spendibile.</p>
-        <div v-if="currentSituation.forecast.endOfMonthAvailable !== null" class="forecast-main"><strong>{{ formattaEuro(currentSituation.forecast.endOfMonthAvailable) }}</strong><span>a fine mese</span></div>
-        <p v-else class="forecast-empty">Servono altre registrazioni per stimare il ritmo delle spese.</p>
-        <div class="forecast-quality">
-          <strong>{{ qualitaPrevisione }}</strong>
-          <p>{{ currentSituation.forecast.observedDays }} giorni osservati nel mese · {{ currentSituation.dataQuality.completeMonths ?? 0 }} mesi civili completi nello storico.</p>
-          <p v-for="warning in currentSituation.warnings" :key="warning" class="hint">{{ warning }}</p>
-        </div>
-        <details class="explanation">
-          <summary>Come viene calcolata?</summary>
-          <p>Partiamo dalla liquidità dei conti, al netto degli obiettivi accantonati e degli impegni rilevati. Stimiamo le spese dei giorni dopo oggi con il ritmo dei giorni osservati di questo mese: le spese di oggi sono già uscite dal saldo. Servono almeno {{ currentSituation.forecast.minimumDays }} giorni osservati.</p>
-          <p>Il ritmo conta solo la spesa di tutti i giorni: restano fuori i pagamenti programmati già pagati, le spese fisse (affitto, bollette, rate, abbonamenti), i versamenti sugli investimenti e le singole spese molto più grandi del solito. Sono già uscite dal saldo, ma non si ripetono ogni giorno.</p>
-          <p>Le ricorrenze vengono considerate separatamente e una sola volta. Le entrate future, le rate non collegate a ricorrenze e gli eventi non registrati non sono inclusi. La previsione resta una stima, non un saldo garantito.</p>
-        </details>
       </WCard>
 
       <WCard class="text-card">
@@ -265,7 +244,6 @@ onMounted(() => {
         <p v-else class="muted">Non risultano altre uscite ricorrenti entro fine mese.</p>
       </WCard>
 
-      <PianoSmartCashFlowRadar :items="currentSituation.cashFlowTimeline" />
       </DettagliSituazione>
       </template>
 
@@ -330,28 +308,6 @@ onMounted(() => {
         <p class="hint">I periodi in corso sono esclusi. Le settimane e i mesi senza uscite valgono zero; i pagamenti ricorrenti non ancora addebitati non vengono conteggiati.</p>
       </WCard>
 
-      <WCard class="text-card">
-        <h2>La tua direzione finanziaria <button type="button" class="context-help" @click="apriGuida('analisi')">Che cosa significa?</button></h2>
-        <div class="situation-grid situation-grid--secondary">
-          <div><span>Patrimonio netto</span><strong>{{ formattaEuro(currentSituation.financialDirection.netWorth) }}</strong></div>
-          <div><span>Debiti residui</span><strong>{{ formattaEuro(currentSituation.financialDirection.debts?.totalOutstanding) }}</strong></div>
-          <div><span>Rate mensili dichiarate</span><strong>{{ formattaEuro(currentSituation.financialDirection.debts?.totalMonthlyPayments) }}</strong></div>
-          <div><span>Obiettivi attivi</span><strong>{{ currentSituation.financialDirection.activeGoals }}</strong></div>
-        </div>
-        <p class="hint">Le rate dei debiti sono separate dagli impegni ricorrenti e non vengono sottratte dal margine senza una ricorrenza collegata.</p>
-        <div v-if="currentSituation.financialDirection.emergencyFund" class="fund-summary">
-          <strong>Fondo di sicurezza</strong>
-          <span v-if="currentSituation.financialDirection.emergencyFund.current !== null && currentSituation.financialDirection.emergencyFund.target !== null">
-            {{ formattaEuro(currentSituation.financialDirection.emergencyFund.current) }} di {{ formattaEuro(currentSituation.financialDirection.emergencyFund.target) }}
-          </span>
-          <span v-else>Importo o obiettivo non disponibile</span>
-          <small v-if="currentSituation.financialDirection.emergencyFund.coverageMonths !== null">
-            Copertura teorica: {{ currentSituation.financialDirection.emergencyFund.coverageMonths }} mesi
-            <template v-if="currentSituation.financialDirection.emergencyFund.limitedHistory"> · storico limitato</template>
-          </small>
-          <small v-else>Copertura non stimabile con i dati disponibili.</small>
-        </div>
-      </WCard>
       <PianoSmartGoalsSummary :goals="currentSituation.financialDirection.goals" />
       <button type="button" class="context-help" @click="apriGuida('analisi')">Che cosa significano obiettivi, residuo e tempi teorici?</button>
       </DettagliSituazione>
@@ -380,22 +336,12 @@ onMounted(() => {
 .analysis-heading h2 { margin: 0; }
 
 .text-card { display: flex; flex-direction: column; gap: .9rem; margin-bottom: 1rem; }
-.situation-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; width: 100%; margin-top: .5rem; }
-.situation-grid > div { display: flex; flex-direction: column; gap: .25rem; padding: .75rem; border: 1px solid var(--divider); border-radius: var(--radius-md); text-align: left; }
-.situation-grid span { color: var(--text-secondary); font-size: var(--text-xs); }
-.situation-grid strong { color: var(--text-primary); }
 .situation-section { margin: 1.25rem 0; padding: 0 .25rem; }
 .situation-section h2 { margin-bottom: .4rem; }
 .situation-section p { margin: 0; color: var(--text-secondary); line-height: 1.5; }
 .insight-list { display: grid; gap: .65rem; margin: .75rem 0 0; padding: 0; list-style: none; }
 .insight-list li { padding: .8rem 0; border-bottom: 1px solid var(--divider); color: var(--text-secondary); line-height: 1.45; }
 .insight-list li:last-child { border-bottom: 0; }
-.forecast-main { display: flex; align-items: baseline; gap: .6rem; margin: 1rem 0; }
-.forecast-main strong { font-size: 2rem; color: var(--text-primary); }
-.forecast-main span { color: var(--text-secondary); font-size: var(--text-xs); }
-.explanation { border-top: 1px solid var(--divider); padding-top: .7rem; color: var(--text-secondary); font-size: var(--text-xs); }
-.explanation summary { color: var(--accent-text); cursor: pointer; font-weight: 600; }
-.explanation p { margin: .6rem 0 0; line-height: 1.55; }
 .upcoming-row, .upcoming-total { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .75rem 0; border-bottom: 1px solid var(--divider); }
 .upcoming-row span { display: grid; gap: .2rem; }
 .upcoming-row small { color: var(--text-secondary); font-size: var(--text-xs); }
@@ -435,13 +381,6 @@ h2 { color: var(--text-primary); font-size: 1.1rem; }
 @media (max-width: 400px) { .simulation-comparison { font-size: var(--text-xs); } }
 @media (prefers-reduced-motion: reduce) { .progress-track i { transition: none; } }
 
-.fund-summary { display: grid; gap: .25rem; margin-top: .9rem; padding: .75rem; border: 1px solid var(--divider); border-radius: var(--radius-md); }
-.fund-summary span { color: var(--text-primary); }
-.fund-summary small { color: var(--text-secondary); font-size: var(--text-xs); }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
-
-@media (max-width: 600px) {
-  .situation-grid { grid-template-columns: 1fr; }
-}
 </style>

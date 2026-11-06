@@ -12,18 +12,15 @@ import { tabSituazione } from '../src/utils/situazioneTab.js';
  * trasferiti qui invariati.
  */
 
-test('La tua situazione espone timeline accessibile, radar e obiettivi dalla situazione del server', async () => {
+test('La tua situazione espone timeline accessibile e obiettivi, senza il radar dei 30 giorni', async () => {
   const source = await readFile(new URL('../src/views/SituazioneView.vue', import.meta.url), 'utf8');
   assert.match(source, /PianoSmartChangeTimeline/);
-  assert.match(source, /PianoSmartCashFlowRadar/);
+  assert.doesNotMatch(source, /PianoSmartCashFlowRadar|Previsione fine mese|direzione finanziaria/);
   assert.match(source, /PianoSmartGoalsSummary/);
   const timeline = await readFile(new URL('../src/components/piano-smart/PianoSmartChangeTimeline.vue', import.meta.url), 'utf8');
   assert.match(timeline, /type="range"/);
   assert.match(timeline, /aria-label=/);
   assert.match(timeline, /currentPeriodPartial/);
-  const radar = await readFile(new URL('../src/components/piano-smart/PianoSmartCashFlowRadar.vue', import.meta.url), 'utf8');
-  assert.match(radar, /entrata|uscita/);
-  assert.match(radar, /marginAfter/);
   const goals = await readFile(new URL('../src/components/piano-smart/PianoSmartGoalsSummary.vue', import.meta.url), 'utf8');
   assert.match(goals, /stima teorica/i);
   assert.match(goals, /estimateReason/);
@@ -83,8 +80,8 @@ test('il riquadro Accantona compare soltanto nei prossimi 30 giorni, non in Anal
   const source = await readFile(new URL('../src/views/SituazioneView.vue', import.meta.url), 'utf8');
   const upcomingStart = source.indexOf('<template v-if="tab === \'upcoming\'">');
   const funding = source.indexOf('<PianoSmartExpenseFunding');
-  const radar = source.indexOf('<PianoSmartCashFlowRadar', upcomingStart);
-  assert.ok(upcomingStart >= 0 && funding > upcomingStart && funding < radar);
+  const analysisStart = source.indexOf('<template v-if="tab === \'analysis\'">');
+  assert.ok(upcomingStart >= 0 && funding > upcomingStart && funding < analysisStart);
 });
 
 test('ogni scheda si apre sulla versione semplice e tiene il cruscotto completo nei dettagli', async () => {
