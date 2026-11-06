@@ -58,3 +58,34 @@ test('le voci principali sono le tre più grandi, il resto riassunto', () => {
   assert.equal(v.principali[0].percentuale, 100);
   assert.deepEqual(v.resto, { voci: 1, totale: '10.00' });
 });
+
+test('la composizione dello spendibile torna sempre, con lo scarto in una riga a sé', async () => {
+  const { composizioneSpendibile } = await import('../src/utils/situazioneSemplice.js');
+  const s = (capitale) => ({
+    current: { liquidity: '1362.70', allocatedToGoals: '100.00' },
+    horizon: { impegniFinoA: '645.00', riservaFinoA: null, capitaleLibero: capitale },
+  });
+  assert.deepEqual(composizioneSpendibile(s('617.70')), {
+    conti: '1362.70', obiettivi: '100.00', impegni: '645.00', riserva: null, altro: null, risultato: '617.70',
+  });
+  assert.equal(composizioneSpendibile(s('517.70')).altro, '100.00');
+  assert.equal(composizioneSpendibile({ current: {}, horizon: {} }), null);
+});
+
+test('le entrate in arrivo si dividono alla fine del periodo e il ritmo si legge a parole', async () => {
+  const { entrateInArrivo, ritmoSpesa } = await import('../src/utils/situazioneSemplice.js');
+  const situazione = {
+    horizon: { dataFine: '2026-11-30', budgetGiornaliero: '30.00' },
+    current: { actualDailySpend: '25.00' },
+    cashFlowTimeline: [
+      { direction: 'entrata', dueDate: '2026-11-27' },
+      { direction: 'uscita', dueDate: '2026-11-15' },
+      { direction: 'entrata', dueDate: '2026-12-01' },
+    ],
+  };
+  const e = entrateInArrivo(situazione);
+  assert.equal(e.entro.length, 1);
+  assert.equal(e.dopo.length, 1);
+  assert.equal(ritmoSpesa(situazione, { euro: (v) => v }).tono, 'bene');
+  assert.equal(ritmoSpesa({ ...situazione, current: { actualDailySpend: '40' } }, { euro: (v) => v }).tono, 'attenzione');
+});
