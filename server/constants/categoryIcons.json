@@ -1,0 +1,414 @@
+[
+  {
+    "id": "Tag",
+    "label": "Etichetta"
+  },
+  {
+    "id": "House",
+    "label": "Casa"
+  },
+  {
+    "id": "ShoppingBasket",
+    "label": "Spesa"
+  },
+  {
+    "id": "Car",
+    "label": "Auto"
+  },
+  {
+    "id": "ShoppingBag",
+    "label": "Shopping"
+  },
+  {
+    "id": "Heart",
+    "label": "Cuore"
+  },
+  {
+    "id": "Dumbbell",
+    "label": "Sport"
+  },
+  {
+    "id": "Music",
+    "label": "Musica"
+  },
+  {
+    "id": "Plane",
+    "label": "Viaggi"
+  },
+  {
+    "id": "Wallet",
+    "label": "Portafoglio"
+  },
+  {
+    "id": "BookOpen",
+    "label": "Libri"
+  },
+  {
+    "id": "Gift",
+    "label": "Regalo"
+  },
+  {
+    "id": "Briefcase",
+    "label": "Lavoro"
+  },
+  {
+    "id": "Coffee",
+    "label": "Caffè"
+  },
+  {
+    "id": "Gamepad2",
+    "label": "Videogiochi"
+  },
+  {
+    "id": "GraduationCap",
+    "label": "Istruzione"
+  },
+  {
+    "id": "PawPrint",
+    "label": "Animali"
+  },
+  {
+    "id": "Siren",
+    "label": "Multe"
+  },
+  {
+    "id": "Scale",
+    "label": "Legale"
+  },
+  {
+    "id": "HeartHandshake",
+    "label": "Beneficenza"
+  },
+  {
+    "id": "SprayCan",
+    "label": "Pulizie"
+  },
+  {
+    "id": "UtensilsCrossed",
+    "label": "Ristoranti"
+  },
+  {
+    "id": "Pizza",
+    "label": "Pizza"
+  },
+  {
+    "id": "Sandwich",
+    "label": "Panini"
+  },
+  {
+    "id": "IceCreamBowl",
+    "label": "Gelato"
+  },
+  {
+    "id": "Cake",
+    "label": "Dolci"
+  },
+  {
+    "id": "Wine",
+    "label": "Vino"
+  },
+  {
+    "id": "Beer",
+    "label": "Birra"
+  },
+  {
+    "id": "CookingPot",
+    "label": "Cucina"
+  },
+  {
+    "id": "Apple",
+    "label": "Frutta"
+  },
+  {
+    "id": "Beef",
+    "label": "Carne"
+  },
+  {
+    "id": "Fish",
+    "label": "Pesce"
+  },
+  {
+    "id": "Milk",
+    "label": "Latte"
+  },
+  {
+    "id": "Bus",
+    "label": "Autobus"
+  },
+  {
+    "id": "TrainFront",
+    "label": "Treno"
+  },
+  {
+    "id": "TramFront",
+    "label": "Tram"
+  },
+  {
+    "id": "Bike",
+    "label": "Bicicletta"
+  },
+  {
+    "id": "Motorbike",
+    "label": "Moto"
+  },
+  {
+    "id": "Fuel",
+    "label": "Carburante"
+  },
+  {
+    "id": "ParkingCircle",
+    "label": "Parcheggio"
+  },
+  {
+    "id": "Ship",
+    "label": "Nave"
+  },
+  {
+    "id": "Truck",
+    "label": "Spedizioni"
+  },
+  {
+    "id": "MapPin",
+    "label": "Luoghi"
+  },
+  {
+    "id": "Luggage",
+    "label": "Bagagli"
+  },
+  {
+    "id": "BedDouble",
+    "label": "Pernottamenti"
+  },
+  {
+    "id": "Tent",
+    "label": "Campeggio"
+  },
+  {
+    "id": "Palmtree",
+    "label": "Vacanze"
+  },
+  {
+    "id": "Sofa",
+    "label": "Arredamento"
+  },
+  {
+    "id": "Lamp",
+    "label": "Illuminazione"
+  },
+  {
+    "id": "Lightbulb",
+    "label": "Elettricità"
+  },
+  {
+    "id": "Droplets",
+    "label": "Acqua"
+  },
+  {
+    "id": "Flame",
+    "label": "Gas"
+  },
+  {
+    "id": "Wrench",
+    "label": "Riparazioni"
+  },
+  {
+    "id": "Hammer",
+    "label": "Lavori in casa"
+  },
+  {
+    "id": "KeyRound",
+    "label": "Affitto"
+  },
+  {
+    "id": "Wifi",
+    "label": "Internet"
+  },
+  {
+    "id": "Phone",
+    "label": "Telefono"
+  },
+  {
+    "id": "Smartphone",
+    "label": "Cellulare"
+  },
+  {
+    "id": "Laptop",
+    "label": "Computer"
+  },
+  {
+    "id": "Monitor",
+    "label": "Elettronica"
+  },
+  {
+    "id": "Printer",
+    "label": "Stampa"
+  },
+  {
+    "id": "Headphones",
+    "label": "Audio"
+  },
+  {
+    "id": "Camera",
+    "label": "Fotografia"
+  },
+  {
+    "id": "Tv",
+    "label": "Televisione"
+  },
+  {
+    "id": "Stethoscope",
+    "label": "Visite mediche"
+  },
+  {
+    "id": "Pill",
+    "label": "Farmacia"
+  },
+  {
+    "id": "Cross",
+    "label": "Cure"
+  },
+  {
+    "id": "HeartPulse",
+    "label": "Salute"
+  },
+  {
+    "id": "Activity",
+    "label": "Benessere"
+  },
+  {
+    "id": "Baby",
+    "label": "Bambini"
+  },
+  {
+    "id": "ToyBrick",
+    "label": "Giocattoli"
+  },
+  {
+    "id": "Users",
+    "label": "Famiglia"
+  },
+  {
+    "id": "Flower2",
+    "label": "Fiori"
+  },
+  {
+    "id": "Scissors",
+    "label": "Parrucchiere"
+  },
+  {
+    "id": "Shirt",
+    "label": "Abbigliamento"
+  },
+  {
+    "id": "Footprints",
+    "label": "Scarpe"
+  },
+  {
+    "id": "Watch",
+    "label": "Orologi"
+  },
+  {
+    "id": "Gem",
+    "label": "Gioielli"
+  },
+  {
+    "id": "Sparkles",
+    "label": "Cura personale"
+  },
+  {
+    "id": "Ticket",
+    "label": "Eventi"
+  },
+  {
+    "id": "Clapperboard",
+    "label": "Cinema"
+  },
+  {
+    "id": "Drama",
+    "label": "Teatro"
+  },
+  {
+    "id": "Palette",
+    "label": "Arte"
+  },
+  {
+    "id": "Paintbrush",
+    "label": "Creatività"
+  },
+  {
+    "id": "Volleyball",
+    "label": "Sport di squadra"
+  },
+  {
+    "id": "Mountain",
+    "label": "Escursioni"
+  },
+  {
+    "id": "Trees",
+    "label": "Natura"
+  },
+  {
+    "id": "Leaf",
+    "label": "Ambiente"
+  },
+  {
+    "id": "Building2",
+    "label": "Ufficio"
+  },
+  {
+    "id": "Landmark",
+    "label": "Banca"
+  },
+  {
+    "id": "Banknote",
+    "label": "Contanti"
+  },
+  {
+    "id": "CreditCard",
+    "label": "Carta"
+  },
+  {
+    "id": "PiggyBank",
+    "label": "Risparmi"
+  },
+  {
+    "id": "Coins",
+    "label": "Monete"
+  },
+  {
+    "id": "ChartNoAxesCombined",
+    "label": "Investimenti"
+  },
+  {
+    "id": "Receipt",
+    "label": "Ricevute"
+  },
+  {
+    "id": "Calculator",
+    "label": "Contabilità"
+  },
+  {
+    "id": "ShieldCheck",
+    "label": "Assicurazioni"
+  },
+  {
+    "id": "HandCoins",
+    "label": "Pagamenti"
+  },
+  {
+    "id": "BadgeEuro",
+    "label": "Entrate"
+  },
+  {
+    "id": "CalendarDays",
+    "label": "Scadenze"
+  },
+  {
+    "id": "Repeat",
+    "label": "Ricorrenze"
+  },
+  {
+    "id": "Warehouse",
+    "label": "Garage"
+  }
+]

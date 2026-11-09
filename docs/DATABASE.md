@@ -291,7 +291,7 @@ Indici `(user_id, pagamento_programmato_id)` e `(pagamento_programmato_id, data_
 | `nome` | STRING(80) | |
 | `nome_normalizzato` | STRING(80) | UNIQUE con `user_id` + `tipo` |
 | `tipo` | STRING(10) | CHECK `entrata`/`uscita` |
-| `icona` | STRING(40) | Whitelist in `categorie.routes.js` |
+| `icona` | STRING(40) | Whitelist in `constants/categoryIcons.json` |
 | `colore` | STRING(7) | `#rrggbb` |
 | `attiva` | BOOLEAN | `false` = archiviata, non eliminata |
 

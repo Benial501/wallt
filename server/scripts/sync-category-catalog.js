@@ -10,3 +10,7 @@ const { CATEGORIE_DEFAULT } = require('../constants/categorie');
 const destination = path.resolve(__dirname, '../../client/src/data/categorie.generated.json');
 fs.mkdirSync(path.dirname(destination), { recursive: true });
 fs.writeFileSync(destination, `${JSON.stringify(CATEGORIE_DEFAULT, null, 2)}\n`);
+
+const icons = require('../constants/categoryIcons.json');
+const iconsDestination = path.resolve(__dirname, '../../client/src/data/categoryIcons.generated.json');
+fs.writeFileSync(iconsDestination, `${JSON.stringify(icons, null, 2)}\n`);

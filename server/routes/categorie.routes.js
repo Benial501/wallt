@@ -5,7 +5,7 @@ const { sequelize, CategoriaPersonale, CategoriaDefaultNascosta, Movimento, Cate
 const { list, serialize, error, setEssenzialitaDefault } = require('../services/categorie.service');
 const { CATEGORIE_DEFAULT, isCategoriaSistema, ESSENZIALITA_VALUES } = require('../constants/categorie');
 const normalizeName = value => value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('it');
-const ICONS = ['Tag', 'House', 'ShoppingBasket', 'Car', 'ShoppingBag', 'Heart', 'Dumbbell', 'Music', 'Plane', 'Wallet', 'BookOpen', 'Gift', 'Briefcase', 'Coffee', 'Gamepad2', 'GraduationCap', 'PawPrint', 'Siren', 'Scale', 'HeartHandshake', 'SprayCan'];
+const ICONS = require('../constants/categoryIcons.json').map(icon => icon.id);
 router.use(require('../middleware/auth.middleware'));
 router.get('/', async (req, res) => res.json({ categorie: await list(req.userId, { includeArchived: req.query.archiviate === 'true' }), icone: ICONS }));
 function validate(body, { existing } = {}) {

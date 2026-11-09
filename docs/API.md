@@ -407,7 +407,7 @@ tutta la cascata di categorizzazione (`CategoryMatcherService._finalize`).
 ### GET /api/categorie
 - **Auth**: Sì
 - **Query**: `archiviate=true` include le categorie eliminate/archiviate
-- **Risposta**: `{ categorie[], icone[] }` — ogni voce ha `isDefault`, `sistema`, `attiva`
+- **Risposta**: `{ categorie[], icone[] }` — ogni voce ha `isDefault`, `sistema`, `attiva`. Le icone consentite sono definite in `server/constants/categoryIcons.json`; nomi italiani e identificatori vengono sincronizzati al frontend con `node server/scripts/sync-category-catalog.js`. La creazione e la modifica mostrano un selettore visivo ricercabile su telefono e PC.
 - **File**: `categorie.routes.js`
 - **Frontend**: `utils/categorie.js` → `CategorieView.vue`, `MovimentoForm.vue`
 

@@ -6,14 +6,15 @@ import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import WModal from '@/components/common/WModal.vue';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
+import CategoryIconPicker from '@/components/common/CategoryIconPicker.vue';
+import { CATEGORY_ICON_OPTIONS } from '@/utils/categoryIcons';
 const tipo = ref('uscita');
 const ricerca = ref('');
 const busy = ref(false);
 const error = ref('');
 const editing = ref(null);
 const confermaElimina = ref(false);
-const icone = ref(['Tag']);
-const iconLabels = { Tag: 'Etichetta', House: 'Casa', ShoppingBasket: 'Spesa', Car: 'Auto', ShoppingBag: 'Shopping', Heart: 'Cuore', Dumbbell: 'Sport', Music: 'Musica', Plane: 'Viaggi', Wallet: 'Portafoglio', BookOpen: 'Libri', Gift: 'Regalo', Briefcase: 'Lavoro', Coffee: 'Caffè', Gamepad2: 'Videogiochi', GraduationCap: 'Istruzione', PawPrint: 'Animali', Siren: 'Multe', Scale: 'Legale', HeartHandshake: 'Beneficenza', SprayCan: 'Pulizie' };
+const icone = ref(CATEGORY_ICON_OPTIONS.map(icon => icon.id));
 const form = ref({});
 const ESSENZIALITA_LABELS = { essenziale: 'Essenziale', semi_essenziale: 'Semi-essenziale', discrezionale: 'Discrezionale' };
 const essenzialitaBusy = ref(new Set());
@@ -185,7 +186,14 @@ async function ripristina(c) {
     </section>
 
     <WModal :open="!!editing" :title="editing === 'new' ? 'Nuova categoria' : 'Modifica categoria'" @close="!busy && (editing = null)">
-      <form class="category-form" @submit.prevent="save"><label>Nome<input v-model="form.nome" class="form-input" required maxlength="80" autofocus placeholder="Es. Spese Formula 1" /></label><label>Tipo<select v-model="form.tipo" class="form-select"><option value="uscita">Uscita</option><option value="entrata">Entrata</option></select></label><label>Icona<select v-model="form.icona" class="form-select"><option v-for="icon in icone" :key="icon" :value="icon">{{ iconLabels[icon] || icon }}</option></select></label><label>Colore<input v-model="form.colore" type="color" /></label><p v-if="error" role="alert" class="error">{{ error }}</p><WButton type="submit" :loading="busy">Salva categoria</WButton></form>
+      <form class="category-form" @submit.prevent="save">
+        <label>Nome<input v-model="form.nome" class="form-input" required maxlength="80" autofocus placeholder="Es. Spese Formula 1" /></label>
+        <label>Tipo<select v-model="form.tipo" class="form-select"><option value="uscita">Uscita</option><option value="entrata">Entrata</option></select></label>
+        <CategoryIconPicker v-model="form.icona" :key="editing" :icons="icone" :color="form.colore" />
+        <label>Colore<input v-model="form.colore" type="color" /></label>
+        <p v-if="error" role="alert" class="error">{{ error }}</p>
+        <WButton type="submit" :loading="busy">Salva categoria</WButton>
+      </form>
     </WModal>
 
     <WModal :open="confermaElimina" title="Elimina categorie" @close="!busy && (confermaElimina = false)">

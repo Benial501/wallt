@@ -55,3 +55,18 @@ test('non assegna categoria altrui né cambia tipo a categoria usata', async () 
   expect((await request(app).post('/api/movimenti').set(authHeader(a.token)).send({ ...body, conto_id: own.conto.id })).status).toBe(201);
   expect((await request(app).put(`/api/categorie/${cat.id}`).set(authHeader(a.token)).send({ ...payload, tipo: 'entrata' })).status).toBe(409);
 });
+
+
+test('le nuove icone sono proposte, salvate e mantenute dopo una modifica', async () => {
+  const catalog = await request(app).get('/api/categorie').set(authHeader(a.token));
+  expect(catalog.body.icone.length).toBeGreaterThanOrEqual(80);
+  expect(catalog.body.icone).toEqual(expect.arrayContaining(['Tag', 'House', 'UtensilsCrossed', 'Baby', 'TrainFront', 'Stethoscope', 'Laptop', 'Ticket']));
+  const created = await create({ ...payload, icona: 'UtensilsCrossed' });
+  expect(created.status).toBe(201);
+  expect(created.body.categoria.icona).toBe('UtensilsCrossed');
+  const updated = await request(app).put(`/api/categorie/${created.body.categoria.id}`)
+    .set(authHeader(a.token)).send({ ...payload, icona: 'Baby' });
+  expect(updated.status).toBe(200);
+  const saved = await request(app).get('/api/categorie').set(authHeader(a.token));
+  expect(saved.body.categorie.find(c => c.id === created.body.categoria.id).icona).toBe('Baby');
+});
