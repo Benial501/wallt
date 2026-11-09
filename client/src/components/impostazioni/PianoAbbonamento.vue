@@ -104,6 +104,7 @@ const confermaEliminazione = async () => {
 
     <div v-if="aperto" class="section-body">
       <DataState
+        class="piano__contenuto"
         :stato="pianoStore.risorsa.stato"
         :last-updated="pianoStore.risorsa.lastUpdated"
         messaggio-errore="Non è stato possibile leggere il tuo piano."
@@ -274,6 +275,10 @@ const confermaEliminazione = async () => {
 
 .section-body {
   padding: 0 1.25rem 1.25rem;
+}
+
+/* La distanza va sul contenitore effettivo dei riquadri, dentro DataState. */
+.piano__contenuto {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
