@@ -11,6 +11,7 @@ import AndamentoPatrimonio from '@/components/analisi/AndamentoPatrimonio.vue';
 import HelpTrigger from '@/components/help/HelpTrigger.vue';
 import ProssimeSpese from '@/components/dashboard/ProssimeSpese.vue';
 import AbbonamentiHome from '@/components/dashboard/AbbonamentiHome.vue';
+import CategorieHome from '@/components/dashboard/CategorieHome.vue';
 import FondoEmergenzaCard from '@/components/dashboard/FondoEmergenzaCard.vue';
 import { etichetta } from '@/content/glossario';
 import { useNumberCounter } from '@/composables/useNumberCounter';
@@ -101,6 +102,7 @@ const slides = computed(() => {
   list.push('prossime-spese', 'abbonamenti', 'budget', 'uscite-oggi', 'entrate-oggi', 'obiettivi');
   if (props.mostraScommesse && props.scommesseAttivo) list.push('scommesse');
   if (props.mostraInvestimenti && props.investimentiAttivo) list.push('investimenti');
+  list.push('categorie');
   // Sempre per ultima: è una scorciatoia operativa, non un dato finanziario,
   // e non deve mettersi fra due schede che l'utente consulta ogni giorno.
   if (props.mostraAdmin) list.push('admin');
@@ -119,6 +121,7 @@ const etichetteSlide = {
   obiettivi: 'Obiettivi',
   scommesse: 'Scommesse',
   investimenti: 'Investimenti',
+  categorie: 'Le mie categorie',
   admin: 'Amministrazione',
 };
 
@@ -679,6 +682,11 @@ defineExpose({
               Vedi portafoglio →
             </button>
           </DataState>
+        </div>
+
+        <!-- Categorie: ultima scheda per gli utenti, prima dell'amministrazione. -->
+        <div class="w-overview__slide w-full shrink-0 snap-center">
+          <CategorieHome />
         </div>
 
         <!-- Amministrazione: ultima scheda, solo per chi amministra.
