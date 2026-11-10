@@ -38,7 +38,7 @@ const AMMESSE = new Set([...SCALA, ...SCALA.map((v) => v - 1)]);
  * — accorpare una soglia cambia un layout, e va fatto guardando la pagina —
  * ma impedisce che l'elenco si allunghi.
  */
-const DEBITO = new Set([360, 370, 390, 400, 420, 520, 560, 600, 640, 680, 700, 720]);
+const DEBITO = new Set([360, 370, 400, 420, 520, 560, 600, 640, 700]);
 
 test('nessuna soglia nuova fuori dalla scala dichiarata', () => {
   const fuoriScala = [...soglieUsate().entries()]
