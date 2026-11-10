@@ -72,4 +72,7 @@ async function confirm() {
 
 <style scoped>
 .hint{color:var(--text-secondary);line-height:1.55}.upload-row{display:flex;flex-wrap:wrap;align-items:end;gap:1rem;margin:1.4rem 0}.upload-row label{display:grid;gap:.45rem;min-width:190px;flex:1}.upload-row input,.upload-row select,.review select{background:var(--bg-input);color:var(--text-primary);border:1px solid var(--control-border);border-radius:.65rem;padding:.65rem;max-width:100%}option{background:var(--bg-secondary)}button{background:var(--accent-green);color:var(--accent-on);border-radius:.7rem;padding:.7rem 1rem;font-weight:700}button:disabled{opacity:.55}.batch{border:1px solid var(--border);border-radius:1rem;padding:1rem;margin-top:1rem}.batch-head{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:.7rem}.batch-head span,small{color:var(--text-secondary)}.review{max-height:440px;overflow:auto}.review-row{display:grid;grid-template-columns:auto minmax(120px,1fr) minmax(160px,220px);gap:1rem;align-items:center;padding:.75rem 0;border-top:1px solid var(--border)}.review-row small{display:block;margin-top:.2rem}.include{white-space:nowrap}.error{color:var(--negative)}@media(max-width:480px){.review-row{grid-template-columns:1fr}.include{order:3}}
+/* Il campo file ha una larghezza propria che sfondava l'etichetta e finiva
+   sotto il pulsante «Analizza file». */
+.upload-row label{min-width:min(190px,100%)}.upload-row input[type=file]{width:100%;min-width:0}
 </style>

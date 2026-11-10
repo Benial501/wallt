@@ -108,7 +108,11 @@ export const useOnboardingStore = defineStore('onboarding', () => {
     const form = new FormData();
     form.append('file', file);
     form.append('account_key', accountKey);
-    const { data } = await api.post('/onboarding/imports', form);
+    // Come in importazioni.store: senza questa intestazione l'istanza axios
+    // (JSON di default) serializza il FormData e il file non arriva.
+    const { data } = await api.post('/onboarding/imports', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     imports.value.push({ import_id: data.import_id, account_key: accountKey, status: 'preview', items: data.items, confermati: 0 });
     return data;
   }
