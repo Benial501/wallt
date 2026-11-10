@@ -59,8 +59,8 @@ test('non assegna categoria altrui né cambia tipo a categoria usata', async () 
 
 test('le nuove icone sono proposte, salvate e mantenute dopo una modifica', async () => {
   const catalog = await request(app).get('/api/categorie').set(authHeader(a.token));
-  expect(catalog.body.icone.length).toBeGreaterThanOrEqual(80);
-  expect(catalog.body.icone).toEqual(expect.arrayContaining(['Tag', 'House', 'UtensilsCrossed', 'Baby', 'TrainFront', 'Stethoscope', 'Laptop', 'Ticket']));
+  expect(catalog.body.icone.length).toBeGreaterThanOrEqual(350);
+  expect(catalog.body.icone).toEqual(expect.arrayContaining(['Tag', 'House', 'UtensilsCrossed', 'Baby', 'TrainFront', 'Stethoscope', 'Laptop', 'Ticket', 'Rabbit', 'Guitar', 'Syringe', 'Tractor', 'Telescope']));
   const created = await create({ ...payload, icona: 'UtensilsCrossed' });
   expect(created.status).toBe(201);
   expect(created.body.categoria.icona).toBe('UtensilsCrossed');

@@ -27,7 +27,7 @@ import { etichetta } from '@/content/glossario';
 import api from '@/utils/axios';
 import { refreshAfterWrite } from '@/utils/afterWrite';
 import dayjs from 'dayjs';
-import { Trash2 } from 'lucide-vue-next';
+import { Plus, Trash2 } from 'lucide-vue-next';
 import 'dayjs/locale/it';
 
 dayjs.locale('it');
@@ -272,7 +272,9 @@ onBeforeUnmount(() => clearTimeout(attesa));
           </span>
         </p>
       </div>
-      <button type="button" class="add-btn md:hidden" aria-label="Aggiungi movimento" @click="apriSceltaTipo">+</button>
+      <button type="button" class="add-btn inline-flex items-center justify-center md:hidden" aria-label="Aggiungi movimento" @click="apriSceltaTipo">
+        <Plus :size="22" :stroke-width="2" aria-hidden="true" />
+      </button>
     </header>
 
     <ImportEstrattoHint
@@ -473,7 +475,8 @@ onBeforeUnmount(() => clearTimeout(attesa));
 .elimina-movimento__riepilogo b { grid-column: 2; grid-row: 1 / span 2; text-align: right; font-variant-numeric: tabular-nums; }
 .elimina-movimento__azioni { display: grid; grid-template-columns: 1fr 1.2fr; gap: 0.625rem; margin-top: 0.25rem; }
 .elimina-movimento__azioni :deep(.w-btn) { min-width: 0; padding-inline: 0.5rem; }
-.page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+.page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1rem; }
+.page-header > div { flex: 1; min-width: 0; }
 .page-title-row { display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap; }
 .page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
 .page-sub { color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.25rem; }
@@ -494,7 +497,8 @@ onBeforeUnmount(() => clearTimeout(attesa));
   color: var(--text-muted);
 }
 .add-btn {
-  width: 44px; height: 44px; border-radius: 50%;
+  width: 44px; height: 44px; min-width: 44px; min-height: 44px;
+  flex: 0 0 44px; aspect-ratio: 1; padding: 0; border-radius: 50%;
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent-green) 92%, white), var(--accent-green));
   border: none; font-size: 1.5rem; line-height: 1; cursor: pointer; color: var(--accent-on);
   box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.24);
@@ -502,6 +506,7 @@ onBeforeUnmount(() => clearTimeout(attesa));
 }
 @media (hover: hover) { .add-btn:hover { filter: brightness(1.06); transform: translateY(-1px); } }
 .add-btn:active { transform: scale(0.94); }
+.add-btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 3px; }
 .results-meta { margin: 0 0 1rem; font-size: var(--text-xs); color: var(--text-secondary); }
 .load-more { display: flex; justify-content: center; margin: 1.5rem 0; }
 .load-more__btn {

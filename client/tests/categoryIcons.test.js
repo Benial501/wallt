@@ -8,6 +8,10 @@ import { CATEGORY_ICON_OPTIONS, resolveCategoryIcon } from '../src/utils/categor
 test('ogni icona consentita dal server ha un nome italiano e produce un simbolo SVG distinto', async () => {
   const serverCatalog = JSON.parse(readFileSync(new URL('../../server/constants/categoryIcons.json', import.meta.url)));
   assert.deepEqual(CATEGORY_ICON_OPTIONS, serverCatalog);
+  assert.ok(serverCatalog.length >= 350);
+  for (const id of ['Rabbit', 'Guitar', 'Syringe', 'Tractor', 'Telescope']) {
+    assert.ok(serverCatalog.some(icon => icon.id === id), `Icona specifica assente: ${id}`);
+  }
   const rendered = new Set();
   for (const { id, label } of serverCatalog) {
     assert.ok(label.trim());

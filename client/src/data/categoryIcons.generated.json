@@ -410,5 +410,1133 @@
   {
     "id": "Warehouse",
     "label": "Garage"
+  },
+  {
+    "id": "Croissant",
+    "label": "Colazione"
+  },
+  {
+    "id": "Cookie",
+    "label": "Biscotti"
+  },
+  {
+    "id": "Donut",
+    "label": "Ciambelle"
+  },
+  {
+    "id": "Candy",
+    "label": "Caramelle"
+  },
+  {
+    "id": "CandyCane",
+    "label": "Dolci natalizi"
+  },
+  {
+    "id": "CupSoda",
+    "label": "Bibite"
+  },
+  {
+    "id": "GlassWater",
+    "label": "Acqua da bere"
+  },
+  {
+    "id": "BottleWine",
+    "label": "Enoteca"
+  },
+  {
+    "id": "Martini",
+    "label": "Cocktail"
+  },
+  {
+    "id": "ChefHat",
+    "label": "Gastronomia"
+  },
+  {
+    "id": "Egg",
+    "label": "Uova"
+  },
+  {
+    "id": "Carrot",
+    "label": "Verdure"
+  },
+  {
+    "id": "Salad",
+    "label": "Insalate"
+  },
+  {
+    "id": "Soup",
+    "label": "Zuppe"
+  },
+  {
+    "id": "Popcorn",
+    "label": "Snack"
+  },
+  {
+    "id": "Nut",
+    "label": "Frutta secca"
+  },
+  {
+    "id": "Cherry",
+    "label": "Ciliegie"
+  },
+  {
+    "id": "Citrus",
+    "label": "Agrumi"
+  },
+  {
+    "id": "Grape",
+    "label": "Uva"
+  },
+  {
+    "id": "Banana",
+    "label": "Banane"
+  },
+  {
+    "id": "Bean",
+    "label": "Legumi"
+  },
+  {
+    "id": "Wheat",
+    "label": "Pane e cereali"
+  },
+  {
+    "id": "Vegan",
+    "label": "Alimentazione vegana"
+  },
+  {
+    "id": "Drumstick",
+    "label": "Pollame"
+  },
+  {
+    "id": "Ham",
+    "label": "Salumi"
+  },
+  {
+    "id": "FishSymbol",
+    "label": "Pescheria"
+  },
+  {
+    "id": "IceCreamCone",
+    "label": "Gelateria"
+  },
+  {
+    "id": "CakeSlice",
+    "label": "Pasticceria"
+  },
+  {
+    "id": "Dessert",
+    "label": "Dessert"
+  },
+  {
+    "id": "Dog",
+    "label": "Cane"
+  },
+  {
+    "id": "Cat",
+    "label": "Gatto"
+  },
+  {
+    "id": "Rabbit",
+    "label": "Coniglio"
+  },
+  {
+    "id": "Bird",
+    "label": "Uccelli"
+  },
+  {
+    "id": "Turtle",
+    "label": "Tartaruga"
+  },
+  {
+    "id": "Snail",
+    "label": "Lumache"
+  },
+  {
+    "id": "Bug",
+    "label": "Insetti"
+  },
+  {
+    "id": "Bone",
+    "label": "Cibo per animali"
+  },
+  {
+    "id": "Feather",
+    "label": "Accessori per animali"
+  },
+  {
+    "id": "Squirrel",
+    "label": "Piccoli animali"
+  },
+  {
+    "id": "Shovel",
+    "label": "Giardinaggio"
+  },
+  {
+    "id": "Fence",
+    "label": "Recinzioni"
+  },
+  {
+    "id": "Flower",
+    "label": "Piante"
+  },
+  {
+    "id": "Sprout",
+    "label": "Orto"
+  },
+  {
+    "id": "TreePine",
+    "label": "Alberi"
+  },
+  {
+    "id": "Clover",
+    "label": "Fiori e semi"
+  },
+  {
+    "id": "Tractor",
+    "label": "Agricoltura"
+  },
+  {
+    "id": "Pickaxe",
+    "label": "Attrezzi da lavoro"
+  },
+  {
+    "id": "Axe",
+    "label": "Legna"
+  },
+  {
+    "id": "Drill",
+    "label": "Bricolage"
+  },
+  {
+    "id": "PaintRoller",
+    "label": "Tinteggiatura"
+  },
+  {
+    "id": "BrickWall",
+    "label": "Muratura"
+  },
+  {
+    "id": "Ruler",
+    "label": "Misurazioni"
+  },
+  {
+    "id": "HardHat",
+    "label": "Cantiere"
+  },
+  {
+    "id": "PaintBucket",
+    "label": "Vernici"
+  },
+  {
+    "id": "Armchair",
+    "label": "Poltrone"
+  },
+  {
+    "id": "BedSingle",
+    "label": "Letti"
+  },
+  {
+    "id": "Bath",
+    "label": "Bagno"
+  },
+  {
+    "id": "ShowerHead",
+    "label": "Doccia"
+  },
+  {
+    "id": "Toilet",
+    "label": "Sanitari"
+  },
+  {
+    "id": "Refrigerator",
+    "label": "Frigorifero"
+  },
+  {
+    "id": "WashingMachine",
+    "label": "Lavatrice"
+  },
+  {
+    "id": "Microwave",
+    "label": "Microonde"
+  },
+  {
+    "id": "AirVent",
+    "label": "Climatizzazione"
+  },
+  {
+    "id": "Fan",
+    "label": "Ventilatore"
+  },
+  {
+    "id": "Heater",
+    "label": "Riscaldamento"
+  },
+  {
+    "id": "Blinds",
+    "label": "Tende"
+  },
+  {
+    "id": "DoorOpen",
+    "label": "Porte"
+  },
+  {
+    "id": "LampDesk",
+    "label": "Lampade da scrivania"
+  },
+  {
+    "id": "LampFloor",
+    "label": "Lampade da terra"
+  },
+  {
+    "id": "LampCeiling",
+    "label": "Lampadari"
+  },
+  {
+    "id": "Plug",
+    "label": "Prese e cavi"
+  },
+  {
+    "id": "PlugZap",
+    "label": "Ricarica elettrica"
+  },
+  {
+    "id": "Cable",
+    "label": "Cablaggio"
+  },
+  {
+    "id": "BatteryCharging",
+    "label": "Batterie"
+  },
+  {
+    "id": "AlarmSmoke",
+    "label": "Rilevatori di fumo"
+  },
+  {
+    "id": "FireExtinguisher",
+    "label": "Antincendio"
+  },
+  {
+    "id": "Cctv",
+    "label": "Videosorveglianza"
+  },
+  {
+    "id": "LockKeyhole",
+    "label": "Serrature"
+  },
+  {
+    "id": "Key",
+    "label": "Chiavi"
+  },
+  {
+    "id": "HousePlus",
+    "label": "Acquisto casa"
+  },
+  {
+    "id": "HousePlug",
+    "label": "Impianti domestici"
+  },
+  {
+    "id": "HouseWifi",
+    "label": "Domotica"
+  },
+  {
+    "id": "HouseHeart",
+    "label": "Cura della casa"
+  },
+  {
+    "id": "Hotel",
+    "label": "Alberghi"
+  },
+  {
+    "id": "CarTaxiFront",
+    "label": "Taxi"
+  },
+  {
+    "id": "CarFront",
+    "label": "Noleggio auto"
+  },
+  {
+    "id": "Caravan",
+    "label": "Camper"
+  },
+  {
+    "id": "BusFront",
+    "label": "Pullman"
+  },
+  {
+    "id": "TrainTrack",
+    "label": "Ferrovie"
+  },
+  {
+    "id": "CableCar",
+    "label": "Funivia"
+  },
+  {
+    "id": "Sailboat",
+    "label": "Barca a vela"
+  },
+  {
+    "id": "Anchor",
+    "label": "Ormeggio"
+  },
+  {
+    "id": "PlaneTakeoff",
+    "label": "Voli"
+  },
+  {
+    "id": "PlaneLanding",
+    "label": "Rientri aerei"
+  },
+  {
+    "id": "Helicopter",
+    "label": "Elicottero"
+  },
+  {
+    "id": "Rocket",
+    "label": "Spazio"
+  },
+  {
+    "id": "Route",
+    "label": "Percorsi"
+  },
+  {
+    "id": "Map",
+    "label": "Mappe"
+  },
+  {
+    "id": "Compass",
+    "label": "Orientamento"
+  },
+  {
+    "id": "Backpack",
+    "label": "Zaini"
+  },
+  {
+    "id": "Binoculars",
+    "label": "Osservazione"
+  },
+  {
+    "id": "TentTree",
+    "label": "Vacanze nella natura"
+  },
+  {
+    "id": "MountainSnow",
+    "label": "Montagna e neve"
+  },
+  {
+    "id": "Waves",
+    "label": "Mare e piscina"
+  },
+  {
+    "id": "Umbrella",
+    "label": "Ombrelli"
+  },
+  {
+    "id": "UmbrellaOff",
+    "label": "Senza copertura"
+  },
+  {
+    "id": "Sun",
+    "label": "Sole"
+  },
+  {
+    "id": "Snowflake",
+    "label": "Inverno"
+  },
+  {
+    "id": "CloudRain",
+    "label": "Pioggia"
+  },
+  {
+    "id": "Navigation",
+    "label": "Navigazione"
+  },
+  {
+    "id": "CircleParkingOff",
+    "label": "Multe parcheggio"
+  },
+  {
+    "id": "Gauge",
+    "label": "Manutenzione auto"
+  },
+  {
+    "id": "Cog",
+    "label": "Ricambi"
+  },
+  {
+    "id": "Container",
+    "label": "Traslochi"
+  },
+  {
+    "id": "Package",
+    "label": "Pacchi"
+  },
+  {
+    "id": "PackageOpen",
+    "label": "Consegne"
+  },
+  {
+    "id": "Send",
+    "label": "Spedizioni postali"
+  },
+  {
+    "id": "Mailbox",
+    "label": "Posta"
+  },
+  {
+    "id": "Stamp",
+    "label": "Bolli"
+  },
+  {
+    "id": "Guitar",
+    "label": "Chitarra"
+  },
+  {
+    "id": "Piano",
+    "label": "Pianoforte"
+  },
+  {
+    "id": "Drum",
+    "label": "Batteria musicale"
+  },
+  {
+    "id": "MicVocal",
+    "label": "Canto"
+  },
+  {
+    "id": "Music2",
+    "label": "Lezioni di musica"
+  },
+  {
+    "id": "Speaker",
+    "label": "Altoparlanti"
+  },
+  {
+    "id": "Radio",
+    "label": "Radio"
+  },
+  {
+    "id": "Disc3",
+    "label": "Dischi"
+  },
+  {
+    "id": "AudioLines",
+    "label": "Produzione audio"
+  },
+  {
+    "id": "Podcast",
+    "label": "Podcast"
+  },
+  {
+    "id": "BoomBox",
+    "label": "Impianti musicali"
+  },
+  {
+    "id": "Film",
+    "label": "Film"
+  },
+  {
+    "id": "Projector",
+    "label": "Proiettore"
+  },
+  {
+    "id": "Video",
+    "label": "Video"
+  },
+  {
+    "id": "Videotape",
+    "label": "Videocassette"
+  },
+  {
+    "id": "CameraOff",
+    "label": "Privacy fotografica"
+  },
+  {
+    "id": "Aperture",
+    "label": "Obiettivi fotografici"
+  },
+  {
+    "id": "Focus",
+    "label": "Fotografia professionale"
+  },
+  {
+    "id": "Joystick",
+    "label": "Giochi arcade"
+  },
+  {
+    "id": "Dice5",
+    "label": "Giochi da tavolo"
+  },
+  {
+    "id": "Puzzle",
+    "label": "Puzzle"
+  },
+  {
+    "id": "Dices",
+    "label": "Dadi"
+  },
+  {
+    "id": "Spade",
+    "label": "Carte da gioco"
+  },
+  {
+    "id": "Origami",
+    "label": "Origami"
+  },
+  {
+    "id": "Brush",
+    "label": "Disegno"
+  },
+  {
+    "id": "PenTool",
+    "label": "Grafica"
+  },
+  {
+    "id": "Pencil",
+    "label": "Matite"
+  },
+  {
+    "id": "NotebookPen",
+    "label": "Scrittura"
+  },
+  {
+    "id": "NotepadText",
+    "label": "Cancelleria"
+  },
+  {
+    "id": "StickyNote",
+    "label": "Appunti"
+  },
+  {
+    "id": "LibraryBig",
+    "label": "Biblioteca"
+  },
+  {
+    "id": "BookMarked",
+    "label": "Lettura"
+  },
+  {
+    "id": "Languages",
+    "label": "Lingue"
+  },
+  {
+    "id": "School",
+    "label": "Scuola"
+  },
+  {
+    "id": "University",
+    "label": "Università"
+  },
+  {
+    "id": "Presentation",
+    "label": "Corsi"
+  },
+  {
+    "id": "Telescope",
+    "label": "Astronomia"
+  },
+  {
+    "id": "Microscope",
+    "label": "Laboratorio"
+  },
+  {
+    "id": "FlaskConical",
+    "label": "Scienza"
+  },
+  {
+    "id": "Atom",
+    "label": "Ricerca"
+  },
+  {
+    "id": "Medal",
+    "label": "Gare"
+  },
+  {
+    "id": "Trophy",
+    "label": "Tornei"
+  },
+  {
+    "id": "Goal",
+    "label": "Calcio"
+  },
+  {
+    "id": "Club",
+    "label": "Carte: fiori"
+  },
+  {
+    "id": "BicepsFlexed",
+    "label": "Allenamento"
+  },
+  {
+    "id": "PersonStanding",
+    "label": "Fitness"
+  },
+  {
+    "id": "Accessibility",
+    "label": "Mobilità assistita"
+  },
+  {
+    "id": "Hand",
+    "label": "Arrampicata"
+  },
+  {
+    "id": "Timer",
+    "label": "Cronometro"
+  },
+  {
+    "id": "Flag",
+    "label": "Competizioni"
+  },
+  {
+    "id": "FlagTriangleRight",
+    "label": "Escursioni guidate"
+  },
+  {
+    "id": "Swords",
+    "label": "Scherma"
+  },
+  {
+    "id": "Sword",
+    "label": "Arti marziali"
+  },
+  {
+    "id": "BowArrow",
+    "label": "Tiro con l’arco"
+  },
+  {
+    "id": "Target",
+    "label": "Bersaglio"
+  },
+  {
+    "id": "ShipWheel",
+    "label": "Nautica"
+  },
+  {
+    "id": "RollerCoaster",
+    "label": "Parchi divertimento"
+  },
+  {
+    "id": "FerrisWheel",
+    "label": "Luna park"
+  },
+  {
+    "id": "Theater",
+    "label": "Spettacoli"
+  },
+  {
+    "id": "PartyPopper",
+    "label": "Feste"
+  },
+  {
+    "id": "Balloon",
+    "label": "Palloncini"
+  },
+  {
+    "id": "Church",
+    "label": "Chiesa"
+  },
+  {
+    "id": "LandPlot",
+    "label": "Terreni"
+  },
+  {
+    "id": "Castle",
+    "label": "Monumenti"
+  },
+  {
+    "id": "Amphora",
+    "label": "Artigianato"
+  },
+  {
+    "id": "Shapes",
+    "label": "Hobby creativi"
+  },
+  {
+    "id": "Blocks",
+    "label": "Costruzioni"
+  },
+  {
+    "id": "PaintbrushVertical",
+    "label": "Pittura"
+  },
+  {
+    "id": "BadgeCheck",
+    "label": "Certificazioni"
+  },
+  {
+    "id": "Syringe",
+    "label": "Vaccini"
+  },
+  {
+    "id": "TestTube",
+    "label": "Analisi mediche"
+  },
+  {
+    "id": "TestTubes",
+    "label": "Esami di laboratorio"
+  },
+  {
+    "id": "Thermometer",
+    "label": "Febbre"
+  },
+  {
+    "id": "Bandage",
+    "label": "Medicazioni"
+  },
+  {
+    "id": "PillBottle",
+    "label": "Medicinali"
+  },
+  {
+    "id": "Tablets",
+    "label": "Integratori"
+  },
+  {
+    "id": "Hospital",
+    "label": "Ospedale"
+  },
+  {
+    "id": "Ambulance",
+    "label": "Emergenze mediche"
+  },
+  {
+    "id": "Eye",
+    "label": "Ottica"
+  },
+  {
+    "id": "Glasses",
+    "label": "Occhiali"
+  },
+  {
+    "id": "ContactRound",
+    "label": "Visite specialistiche"
+  },
+  {
+    "id": "Ear",
+    "label": "Udito"
+  },
+  {
+    "id": "Brain",
+    "label": "Psicologia"
+  },
+  {
+    "id": "BrainCircuit",
+    "label": "Formazione mentale"
+  },
+  {
+    "id": "Dna",
+    "label": "Genetica"
+  },
+  {
+    "id": "ScanHeart",
+    "label": "Esami cardiologici"
+  },
+  {
+    "id": "ScanEye",
+    "label": "Esami della vista"
+  },
+  {
+    "id": "Smile",
+    "label": "Benessere personale"
+  },
+  {
+    "id": "HandHeart",
+    "label": "Assistenza"
+  },
+  {
+    "id": "HelpingHand",
+    "label": "Supporto familiare"
+  },
+  {
+    "id": "Ribbon",
+    "label": "Prevenzione"
+  },
+  {
+    "id": "VenetianMask",
+    "label": "Carnevale"
+  },
+  {
+    "id": "BrushCleaning",
+    "label": "Igiene"
+  },
+  {
+    "id": "SoapDispenserDroplet",
+    "label": "Sapone"
+  },
+  {
+    "id": "Bubbles",
+    "label": "Detergenti"
+  },
+  {
+    "id": "Droplet",
+    "label": "Profumi"
+  },
+  {
+    "id": "ScissorsLineDashed",
+    "label": "Sartoria"
+  },
+  {
+    "id": "Spool",
+    "label": "Cucito"
+  },
+  {
+    "id": "RulerDimensionLine",
+    "label": "Vestiti su misura"
+  },
+  {
+    "id": "ShoppingCart",
+    "label": "Supermercato"
+  },
+  {
+    "id": "Store",
+    "label": "Negozio"
+  },
+  {
+    "id": "Tags",
+    "label": "Offerte"
+  },
+  {
+    "id": "Percent",
+    "label": "Sconti"
+  },
+  {
+    "id": "BadgePercent",
+    "label": "Promozioni"
+  },
+  {
+    "id": "WalletCards",
+    "label": "Carte e abbonamenti"
+  },
+  {
+    "id": "CircleDollarSign",
+    "label": "Dollari"
+  },
+  {
+    "id": "Euro",
+    "label": "Euro"
+  },
+  {
+    "id": "Bitcoin",
+    "label": "Criptovalute"
+  },
+  {
+    "id": "ChartCandlestick",
+    "label": "Trading"
+  },
+  {
+    "id": "ChartPie",
+    "label": "Fondi"
+  },
+  {
+    "id": "ChartColumn",
+    "label": "Rendimenti"
+  },
+  {
+    "id": "Vault",
+    "label": "Cassaforte"
+  },
+  {
+    "id": "Handbag",
+    "label": "Borse"
+  },
+  {
+    "id": "BriefcaseBusiness",
+    "label": "Attività professionale"
+  },
+  {
+    "id": "LaptopMinimal",
+    "label": "Lavoro da remoto"
+  },
+  {
+    "id": "Code",
+    "label": "Programmazione"
+  },
+  {
+    "id": "CodeXml",
+    "label": "Sviluppo web"
+  },
+  {
+    "id": "Terminal",
+    "label": "Software"
+  },
+  {
+    "id": "Server",
+    "label": "Server"
+  },
+  {
+    "id": "Database",
+    "label": "Archiviazione dati"
+  },
+  {
+    "id": "Cloud",
+    "label": "Servizi cloud"
+  },
+  {
+    "id": "CloudUpload",
+    "label": "Backup"
+  },
+  {
+    "id": "Globe",
+    "label": "Siti web"
+  },
+  {
+    "id": "AtSign",
+    "label": "Posta elettronica"
+  },
+  {
+    "id": "Mouse",
+    "label": "Mouse"
+  },
+  {
+    "id": "Keyboard",
+    "label": "Tastiera"
+  },
+  {
+    "id": "Cpu",
+    "label": "Processore"
+  },
+  {
+    "id": "MemoryStick",
+    "label": "Memoria"
+  },
+  {
+    "id": "HardDrive",
+    "label": "Dischi rigidi"
+  },
+  {
+    "id": "Usb",
+    "label": "Chiavette USB"
+  },
+  {
+    "id": "Router",
+    "label": "Rete domestica"
+  },
+  {
+    "id": "Tablet",
+    "label": "Tablet"
+  },
+  {
+    "id": "SmartphoneNfc",
+    "label": "Pagamenti contactless"
+  },
+  {
+    "id": "PrinterCheck",
+    "label": "Copisteria"
+  },
+  {
+    "id": "Gamepad",
+    "label": "Console"
+  },
+  {
+    "id": "Bot",
+    "label": "Intelligenza artificiale"
+  },
+  {
+    "id": "Bell",
+    "label": "Promemoria"
+  },
+  {
+    "id": "Newspaper",
+    "label": "Giornali"
+  },
+  {
+    "id": "FileText",
+    "label": "Documenti"
+  },
+  {
+    "id": "Files",
+    "label": "Pratiche"
+  },
+  {
+    "id": "Folder",
+    "label": "Archivio"
+  },
+  {
+    "id": "FileSignature",
+    "label": "Contratti"
+  },
+  {
+    "id": "ClipboardCheck",
+    "label": "Adempimenti"
+  },
+  {
+    "id": "ClipboardList",
+    "label": "Liste"
+  },
+  {
+    "id": "CalendarCheck",
+    "label": "Prenotazioni"
+  },
+  {
+    "id": "CalendarHeart",
+    "label": "Anniversari"
+  },
+  {
+    "id": "CalendarClock",
+    "label": "Appuntamenti"
+  },
+  {
+    "id": "Clock",
+    "label": "Tempo"
+  },
+  {
+    "id": "Hourglass",
+    "label": "Servizi a ore"
+  },
+  {
+    "id": "AlarmClock",
+    "label": "Sveglia"
+  },
+  {
+    "id": "TicketCheck",
+    "label": "Biglietti"
+  },
+  {
+    "id": "BadgeHelp",
+    "label": "Consulenze"
+  },
+  {
+    "id": "Gavel",
+    "label": "Tribunale"
+  },
+  {
+    "id": "Shield",
+    "label": "Protezione"
+  },
+  {
+    "id": "Fingerprint",
+    "label": "Identità digitale"
+  },
+  {
+    "id": "IdCard",
+    "label": "Documenti personali"
+  },
+  {
+    "id": "UserRound",
+    "label": "Spese personali"
+  },
+  {
+    "id": "UsersRound",
+    "label": "Spese di gruppo"
+  },
+  {
+    "id": "Contact",
+    "label": "Contatti"
+  },
+  {
+    "id": "HeartCrack",
+    "label": "Imprevisti personali"
+  },
+  {
+    "id": "PackagePlus",
+    "label": "Acquisti speciali"
+  },
+  {
+    "id": "CircleEllipsis",
+    "label": "Varie"
+  },
+  {
+    "id": "Infinity",
+    "label": "Altro"
   }
 ]
