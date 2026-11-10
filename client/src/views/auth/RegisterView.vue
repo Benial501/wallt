@@ -1,12 +1,28 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { CirclePlay } from 'lucide-vue-next';
+import SituazioneVideoGuida from '@/components/piano-smart/SituazioneVideoGuida.vue';
 import { useAuthStore } from '@/stores/auth.store';
 import { useOAuthPopup } from '@/composables/useOAuthPopup';
 
 const router = useRouter();
 const authStore = useAuthStore();
 const { oauthLoading, openOAuthPopup } = useOAuthPopup();
+
+// Il video guida si apre da solo la prima volta che si arriva qui, poi resta
+// rivedibile dal link sotto il titolo. L'account non esiste ancora, quindi la
+// chiave e' per dispositivo; se il browser non conserva nulla (navigazione
+// privata) il peggio e' rivederlo.
+const CHIAVE_VIDEO = 'wallt_video_registrazione_visto';
+const videoAperto = ref(false);
+const chiudiVideo = () => {
+  videoAperto.value = false;
+  try { localStorage.setItem(CHIAVE_VIDEO, '1'); } catch { /* storage non disponibile */ }
+};
+onMounted(() => {
+  try { videoAperto.value = localStorage.getItem(CHIAVE_VIDEO) !== '1'; } catch { videoAperto.value = false; }
+});
 
 const nome = ref('');
 const email = ref('');
@@ -106,6 +122,10 @@ const startGoogleLogin = () => {
         <p class="mt-2 text-sm text-[var(--text-secondary)]">
           Crea il tuo account gratuito
         </p>
+        <button type="button" class="video-trigger" @click="videoAperto = true">
+          <CirclePlay :size="15" :stroke-width="1.75" aria-hidden="true" />
+          <span>Guarda come funziona</span>
+        </button>
       </div>
 
       <div class="wallt-card p-8">
@@ -314,10 +334,29 @@ const startGoogleLogin = () => {
         </p>
       </div>
     </div>
+    <SituazioneVideoGuida
+      :open="videoAperto"
+      titolo="Come funziona la registrazione"
+      sottotitolo="Ogni passaggio, dal modulo all'account pronto. Puoi chiuderlo quando vuoi."
+      src="/video/registrazione-guida.mp4"
+      poster="/video/registrazione-guida-poster.jpg"
+      @close="chiudiVideo"
+    />
   </div>
 </template>
 
 <style scoped>
+/* Stesso pulsante di «Guarda il video» in La tua situazione. */
+.video-trigger {
+  display: inline-flex; align-items: center; gap: .3125rem; margin-top: .875rem; padding: .375rem .75rem; min-height: 32px;
+  border-radius: 999px; border: 1px solid var(--border); background: var(--surface-subtle);
+  color: var(--text-secondary); font: inherit; font-size: var(--text-xs); font-weight: 600; cursor: pointer;
+}
+@media (hover: hover) {
+  .video-trigger:hover { color: var(--accent-text); background: var(--accent-light); }
+}
+.video-trigger:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+
 .social-divider {
   display: flex;
   align-items: center;

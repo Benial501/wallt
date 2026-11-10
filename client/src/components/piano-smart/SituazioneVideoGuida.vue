@@ -3,11 +3,17 @@ import { ref, watch } from 'vue';
 import { X } from '@/utils/appIcons';
 
 /**
- * Video dimostrativo di «La tua situazione». Si apre da sé alla prima visita
- * e resta rivedibile dal pulsante «Guarda il video» nell'intestazione.
+ * Video dimostrativo in una modale. Nato per «La tua situazione» (si apre da
+ * sé alla prima visita e resta rivedibile dal pulsante «Guarda il video»
+ * nell'intestazione); la registrazione lo riusa con titolo e file propri.
+ * Senza altri parametri resta il video della situazione.
  */
 const props = defineProps({
   open: { type: Boolean, default: false },
+  titolo: { type: String, default: 'Come funziona La tua situazione' },
+  sottotitolo: { type: String, default: 'Un giro di tre minuti su cosa mostra WALLT e come leggerlo.' },
+  src: { type: String, default: '/video/situazione-guida.mp4' },
+  poster: { type: String, default: '/video/situazione-guida-poster.jpg' },
 });
 const emit = defineEmits(['close']);
 
@@ -25,14 +31,14 @@ const chiudi = () => emit('close');
   <Teleport to="body">
     <div
       v-if="open" class="guida-overlay" role="dialog" aria-modal="true"
-      aria-label="Video: come funziona La tua situazione"
+      :aria-label="`Video: ${titolo}`"
       @click.self="chiudi" @keydown.esc="chiudi"
     >
       <div class="guida">
         <div class="guida__header">
           <div>
-            <h3 class="guida__title">Come funziona La tua situazione</h3>
-            <p class="guida__sub">Un giro di tre minuti su cosa mostra WALLT e come leggerlo.</p>
+            <h3 class="guida__title">{{ titolo }}</h3>
+            <p class="guida__sub">{{ sottotitolo }}</p>
           </div>
           <button type="button" class="guida__close" aria-label="Chiudi" @click="chiudi">
             <X :size="18" :stroke-width="1.75" />
@@ -40,9 +46,9 @@ const chiudi = () => emit('close');
         </div>
         <video
           ref="video" class="guida__video" controls playsinline preload="metadata"
-          poster="/video/situazione-guida-poster.jpg"
+          :poster="poster"
         >
-          <source src="/video/situazione-guida.mp4" type="video/mp4">
+          <source :src="src" type="video/mp4">
         </video>
         <div class="guida__footer">
           <button type="button" class="guida__cta" @click="chiudi">Ho capito, iniziamo</button>
