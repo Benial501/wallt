@@ -8,6 +8,7 @@ const {
   sendOAuthError,
   resolveOAuthTargetOrigin,
   encodeOAuthState,
+  parseOAuthState,
 } = require('../utils/oauthPopup');
 const {
   register,
@@ -59,6 +60,12 @@ router.get('/google', (req, res, next) => {
   const privacyAcceptedAt = req.query.privacy_accepted_at;
   const termsAcceptedAt = req.query.terms_accepted_at;
   const useAiCategorization = req.query.use_ai_categorization === '1';
+  // Nonce generato dalla finestra che ha aperto il popup: torna nel payload
+  // e il client accetta solo un token col SUO nonce, così un link con un
+  // token altrui (login CSRF) non installa nessuna sessione.
+  const nonce = typeof req.query.nonce === 'string' && /^[A-Za-z0-9-]{16,64}$/.test(req.query.nonce)
+    ? req.query.nonce
+    : undefined;
 
   return passport.authenticate('google', {
     scope: ['profile', 'email'],
@@ -67,6 +74,7 @@ router.get('/google', (req, res, next) => {
       privacyAcceptedAt,
       termsAcceptedAt,
       useAiCategorization,
+      nonce,
     }),
   })(req, res, next);
 });
@@ -77,6 +85,8 @@ router.get('/google/callback', (req, res, next) => {
   if (!isGoogleAuthEnabled()) {
     return sendOAuthError(res, 'google_not_configured', targetOrigin);
   }
+
+  const { nonce } = parseOAuthState(req.query.state);
 
   return passport.authenticate('google', { session: false }, (err, user) => {
     if (err) {
@@ -101,6 +111,7 @@ router.get('/google/callback', (req, res, next) => {
         token,
         onboarding,
         user: formatUser(user),
+        nonce,
       }, targetOrigin);
     } catch (error) {
       logger.error('Errore generazione token OAuth', { err: error });

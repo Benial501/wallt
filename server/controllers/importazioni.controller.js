@@ -62,7 +62,15 @@ const uploadPreview = async (req, res, next) => {
  * POST /api/importazioni/conferma
  * - body: { transactions: [{ data, descrizione, importo, tipo, conto_id, categoria_finale, clientTxId }] }
  */
+// Un utente conferma un import alla volta (per istanza): ogni conferma tiene
+// una connessione del pool per tutta la transazione.
+const importInCorso = new Set();
+
 const conferma = async (req, res, next) => {
+  if (importInCorso.has(req.userId)) {
+    return res.status(429).json({ error: 'Un import è già in corso. Attendi che finisca.' });
+  }
+  importInCorso.add(req.userId);
   try {
     const { transactions, aggiorna_saldo: aggiornaSaldo = false } = req.body || {};
     if (!Array.isArray(transactions)) {
@@ -83,6 +91,8 @@ const conferma = async (req, res, next) => {
     return res.json(result);
   } catch (error) {
     return next(error);
+  } finally {
+    importInCorso.delete(req.userId);
   }
 };
 

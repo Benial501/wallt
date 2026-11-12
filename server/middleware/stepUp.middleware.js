@@ -7,29 +7,23 @@ const { isOAuthProvider } = require('../services/accountReset.service');
  * Richiede uno step_up_token valido (JWT `type: 'step_up'`, 5 minuti,
  * emesso da POST /api/auth/verify-password dopo una verifica bcrypt reale).
  */
-const requireStepUp = (req, res, next) => {
+const stepUpValido = (req) => {
   const stepUpToken = req.headers['x-step-up-token'];
-
-  if (!stepUpToken) {
-    return res.status(403).json({ message: 'Autenticazione aggiuntiva richiesta' });
-  }
-
+  if (!stepUpToken) return false;
   try {
     const decoded = jwt.verify(stepUpToken, process.env.JWT_SECRET);
-
-    if (decoded.type !== 'step_up') {
-      return res.status(403).json({ message: 'Autenticazione aggiuntiva richiesta' });
-    }
-
-    if (decoded.userId !== req.userId) {
-      return res.status(403).json({ message: 'Autenticazione aggiuntiva richiesta' });
-    }
-
-    req.stepUpVerified = true;
-    return next();
+    return decoded.type === 'step_up' && decoded.userId === req.userId;
   } catch {
+    return false;
+  }
+};
+
+const requireStepUp = (req, res, next) => {
+  if (!stepUpValido(req)) {
     return res.status(403).json({ message: 'Autenticazione aggiuntiva richiesta' });
   }
+  req.stepUpVerified = true;
+  return next();
 };
 
 /**
@@ -70,6 +64,7 @@ const requireStepUpUnlessOAuth = async (req, res, next) => {
 };
 
 module.exports = {
+  stepUpValido,
   requireStepUp,
   requireStepUpUnlessOAuth,
 };

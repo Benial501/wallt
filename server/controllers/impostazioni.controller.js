@@ -12,6 +12,7 @@ const { formatUser } = require('./auth.controller');
 const { deleteAllTransactions, deleteUserAccountCompletely, isOAuthProvider } = require('../services/accountReset.service');
 const { isMinorProfilo } = require('../utils/ageRestriction');
 const { parseAvatarDataUrl } = require('../utils/avatarImage');
+const { stepUpValido } = require('../middleware/stepUp.middleware');
 const {
   wantsScommesse,
   wantsInvestimenti,
@@ -30,6 +31,15 @@ const updateProfilo = async (req, res) => {
     if (avatar !== undefined) updateData.avatar = avatar;
 
     if (email && email !== user.email) {
+      // Cambiare l'email equivale a cambiare la chiave di recupero
+      // dell'account («Password dimenticata»): con il solo JWT un token
+      // rubato basterebbe a prendersi l'account per sempre.
+      if (!stepUpValido(req)) {
+        return res.status(403).json({
+          message: 'Per cambiare l\'email conferma prima la tua identità',
+          code: 'step_up_richiesto',
+        });
+      }
       const existing = await User.findOne({ where: { email } });
       if (existing) return res.status(409).json({ message: 'Email già in uso' });
     }

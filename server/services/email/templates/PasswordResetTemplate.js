@@ -1,5 +1,12 @@
-const buildPasswordResetHtml = ({ resetUrl, userName }) => {
-  const displayName = userName || 'utente';
+const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+}[character]));
+
+// Il nome lo sceglie chi si registra: grezzo nel template permetterebbe di
+// iniettare HTML (link, testo) in un'email che parte da WALLT.
+const buildPasswordResetHtml = ({ resetUrl: resetUrlGrezzo, userName }) => {
+  const displayName = escapeHtml(userName || 'utente');
+  const resetUrl = escapeHtml(resetUrlGrezzo);
 
   return `<!DOCTYPE html>
 <html lang="it">

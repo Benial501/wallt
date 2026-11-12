@@ -245,10 +245,12 @@ const toggleAiCategorization = async (event) => {
 
 const toggleSection = (key) => { openSections.value[key] = !openSections.value[key]; };
 
-const salvaProfilo = async () => {
+const inviaProfilo = async (stepUpToken) => {
   loading.value = true;
   try {
-    const { data } = await api.put('/impostazioni/profilo', profiloForm.value);
+    const { data } = await api.put('/impostazioni/profilo', profiloForm.value, {
+      ...(stepUpToken ? { headers: { 'X-Step-Up-Token': stepUpToken } } : {}),
+    });
     authStore.updateUser(data.user);
     toastStore.success('Profilo salvato!');
   } catch (err) {
@@ -256,6 +258,17 @@ const salvaProfilo = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+// Cambiare l'email cambia la chiave di recupero dell'account: il server
+// pretende una riverifica dell'identità, come per export e reset.
+const salvaProfilo = async () => {
+  const emailCambiata = profiloForm.value.email !== (authStore.user?.email || '');
+  if (emailCambiata && !isOAuthAccount.value) {
+    openStepUpModal(inviaProfilo);
+    return;
+  }
+  await inviaProfilo();
 };
 
 const salvaPreferenze = async (extra = {}, toastMsg = null) => {
@@ -538,7 +551,7 @@ const eliminaAccountOAuth = async () => {
       </button>
       <div v-if="openSections.profilo" class="section-body">
         <input v-model="profiloForm.nome" class="form-input" placeholder="Nome" />
-        <input v-model="profiloForm.email" type="email" inputmode="email" class="form-input" placeholder="Email" />
+        <input v-model="profiloForm.email" type="email" inputmode="email" class="form-input" placeholder="Email" :readonly="isOAuthAccount" :title="isOAuthAccount ? 'L\'email è quella del tuo account Google' : undefined" />
         <WButton variant="primary" size="md" :loading="loading" @click="salvaProfilo">Salva modifiche</WButton>
       </div>
     </WCard>

@@ -30,6 +30,38 @@ const TESTI_PUSH_GENERICI = {
   scommesse_da_confermare: 'Un’operazione dal conto collegato attende una conferma.',
 };
 
+/**
+ * Host dei servizi push dei browser. L'endpoint lo sceglie il client, e il
+ * server ci fa una richiesta: accettare qualunque URL https permetterebbe
+ * di puntare il server verso IP interni o porte arbitrarie (SSRF), e di
+ * leggerne l'esito da /notifiche/prova.
+ */
+const HOST_PUSH_AMMESSI = [
+  'fcm.googleapis.com',
+  'android.googleapis.com',
+  'updates.push.services.mozilla.com',
+  'web.push.apple.com',
+];
+const SUFFISSI_PUSH_AMMESSI = ['.push.apple.com', '.notify.windows.com'];
+
+const endpointPushAmmesso = (endpoint) => {
+  let url;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:' || (url.port && url.port !== '443')) return false;
+  if (url.username || url.password) return false;
+  const host = url.hostname.toLowerCase();
+  return HOST_PUSH_AMMESSI.includes(host)
+    || SUFFISSI_PUSH_AMMESSI.some((suffisso) => host.endsWith(suffisso));
+};
+
+// Un servizio push risponde in pochi secondi. Senza un tetto, un endpoint
+// che non risponde tiene fermo l'intero cron per tutti gli utenti.
+const TIMEOUT_INVIO_MS = 5000;
+
 const TESTO_PUSH_FALLBACK = 'Hai un nuovo avviso finanziario. Apri WALLT per i dettagli.';
 
 let configurato = false;
@@ -85,6 +117,9 @@ const salvaSubscription = async (userId, subscription, userAgent = null) => {
 
   if (!endpoint || !p256dh || !auth) {
     return { ok: false, motivo: 'subscription_incompleta' };
+  }
+  if (!endpointPushAmmesso(endpoint)) {
+    return { ok: false, motivo: 'endpoint_non_ammesso' };
   }
 
   const esistente = await PushSubscription.findOne({ where: { endpoint } });
@@ -151,12 +186,19 @@ const inviaANotificaSubscriptions = async (notifica, subscriptions) => {
   const esito = { inviate: 0, disattivate: 0, fallite: 0 };
   const payload = payloadPerNotifica(notifica);
 
-  for (const sub of subscriptions) {
+  // In parallelo e con un timeout: una sottoscrizione lenta non ritarda le
+  // altre dello stesso utente.
+  await Promise.all(subscriptions.map(async (sub) => {
+    if (!endpointPushAmmesso(sub.endpoint)) {
+      await disattivaSubscription(sub, 'endpoint non ammesso');
+      esito.disattivate += 1;
+      return;
+    }
     try {
       await webpush.sendNotification({
         endpoint: sub.endpoint,
         keys: { p256dh: sub.p256dh, auth: sub.auth },
-      }, payload, { TTL: 6 * 3600 });
+      }, payload, { TTL: 6 * 3600, timeout: TIMEOUT_INVIO_MS });
       esito.inviate += 1;
     } catch (error) {
       const status = error?.statusCode;
@@ -173,7 +215,7 @@ const inviaANotificaSubscriptions = async (notifica, subscriptions) => {
         });
       }
     }
-  }
+  }));
 
   return esito;
 };
@@ -252,6 +294,7 @@ const inviaNotifichePendenti = async ({ userId = null, adesso = new Date() } = {
 
 module.exports = {
   TESTI_PUSH_GENERICI,
+  endpointPushAmmesso,
   TESTO_PUSH_FALLBACK,
   initPush,
   isPushDisponibile,

@@ -65,6 +65,15 @@ const resolveGoogleUser = async (profile, { useAiCategorization = false } = {}) 
         + 'per usare questo account (o reimpostala con "Password dimenticata").',
       );
     }
+    // Un account già legato a un ALTRO google_id non appartiene a chi sta
+    // accedendo: l'email da sola non basta, perché un account può averla
+    // presa con un cambio email. Collegarlo consegnerebbe a un'identità
+    // Google l'account di un'altra.
+    if (user && user.google_id && user.google_id !== profile.id) {
+      throw new GoogleAccountLinkingError(
+        `L'email ${email} è già usata da un altro account WALLT.`,
+      );
+    }
   }
 
   if (!user) {

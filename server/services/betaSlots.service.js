@@ -1,6 +1,7 @@
 const { sequelize, UserEntitlement } = require('../models');
 const {
   ENTITLEMENT_ATTIVO,
+  ENTITLEMENT_REVOCATO,
   SOURCE_BETA_25,
   isFeatureKey,
 } = require('../constants/entitlements');
@@ -73,6 +74,7 @@ const ESITI_CLAIM = Object.freeze({
   BETA_CHIUSA: 'beta_chiusa',
   POSTI_ESAURITI: 'posti_esauriti',
   FEATURE_DISATTIVATA: 'feature_disattivata',
+  REVOCATO_DALLO_STAFF: 'revocato_dallo_staff',
 });
 
 /** Quanti posti beta sono occupati adesso. Dentro una transazione quando
@@ -172,6 +174,11 @@ async function claimBetaSlot(userId, { featureKey = 'bank_sync' } = {}) {
     const esistente = await trovaEntitlement(userId, featureKey, { transaction, lock: true });
     if (esistente && esistente.status === ENTITLEMENT_ATTIVO) {
       return { esito: ESITI_CLAIM.GIA_ATTIVO, entitlement: esistente };
+    }
+    // Una revoca decisa dallo staff non si annulla con un clic: riattivare
+    // la riga cancellerebbe la decisione e occuperebbe un posto beta.
+    if (esistente && esistente.status === ENTITLEMENT_REVOCATO && esistente.actor_user_id) {
+      return { esito: ESITI_CLAIM.REVOCATO_DALLO_STAFF, entitlement: null };
     }
 
     const occupati = await contaOccupati(featureKey, { transaction });

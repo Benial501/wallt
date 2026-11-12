@@ -102,12 +102,13 @@ const sendOAuthPopupResponse = (res, payload, targetOrigin) => {
   res.status(200).send(buildOAuthRedirectHtml(payload, targetOrigin));
 };
 
-const sendOAuthSuccess = (res, { token, onboarding, user }, targetOrigin) => {
+const sendOAuthSuccess = (res, { token, onboarding, user, nonce }, targetOrigin) => {
   sendOAuthPopupResponse(res, {
     type: 'AUTH_SUCCESS',
     token,
     onboarding,
     user,
+    nonce,
   }, targetOrigin);
 };
 

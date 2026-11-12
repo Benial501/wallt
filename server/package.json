@@ -45,7 +45,7 @@
     "sequelize": "^6.37.8",
     "web-push": "^3.6.7",
     "winston": "^3.19.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "jest": "^30.4.2",

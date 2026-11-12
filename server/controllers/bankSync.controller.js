@@ -167,6 +167,8 @@ const claimBeta = async (req, res) => {
         'Le attivazioni gratuite sono chiuse. La sincronizzazione bancaria sarà disponibile con WALLT Premium.',
       [ESITI_CLAIM.FEATURE_DISATTIVATA]:
         'La sincronizzazione bancaria è momentaneamente sospesa. Riprova più tardi.',
+      [ESITI_CLAIM.REVOCATO_DALLO_STAFF]:
+        'L\'accesso alla sincronizzazione bancaria è stato revocato. Contatta il supporto se pensi sia un errore.',
     };
 
     return res.status(409).json({

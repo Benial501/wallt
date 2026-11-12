@@ -542,7 +542,7 @@ describe('Sistema di notifiche', () => {
       inviaSpy = jest.spyOn(webpush, 'sendNotification').mockResolvedValue({ statusCode: 201 });
     });
 
-    const registraSubscription = (endpoint = 'https://push.example.com/sub-1') => request(app)
+    const registraSubscription = (endpoint = 'https://fcm.googleapis.com/fcm/send/sub-1') => request(app)
       .post('/api/notifiche/push')
       .set(authHeader(token))
       .send({
@@ -556,7 +556,7 @@ describe('Sistema di notifiche', () => {
       // Sottoscrizione presente ma consenso mai dato: nessun invio.
       await PushSubscription.create({
         user_id: userId,
-        endpoint: 'https://push.example.com/senza-consenso',
+        endpoint: 'https://fcm.googleapis.com/fcm/send/senza-consenso',
         p256dh: 'p256dh',
         auth: 'auth',
       });
@@ -618,7 +618,7 @@ describe('Sistema di notifiche', () => {
     });
 
     it('13) una sottoscrizione non più valida viene disattivata', async () => {
-      await registraSubscription('https://push.example.com/scaduta').expect(201);
+      await registraSubscription('https://fcm.googleapis.com/fcm/send/scaduta').expect(201);
       inviaSpy.mockRejectedValue(Object.assign(new Error('Gone'), { statusCode: 410 }));
 
       await generaPerUtente({ userId, adesso: SERA_ROMA });
@@ -637,7 +637,7 @@ describe('Sistema di notifiche', () => {
     });
 
     it('13b) un errore temporaneo del push service non disattiva la sottoscrizione né fa fallire il job', async () => {
-      await registraSubscription('https://push.example.com/instabile').expect(201);
+      await registraSubscription('https://fcm.googleapis.com/fcm/send/instabile').expect(201);
       inviaSpy.mockRejectedValue(Object.assign(new Error('Service Unavailable'), { statusCode: 503 }));
 
       await generaPerUtente({ userId, adesso: SERA_ROMA });

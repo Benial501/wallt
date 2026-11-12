@@ -3,6 +3,7 @@ import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import { isOnboardingComplete } from '@/utils/onboarding';
 import { API_BASE_URL } from '@/config/api';
+import { generaNonce, salvaNonceOAuth, nonceOAuthValido, consumaNonceOAuth } from '@/utils/oauthNonce';
 
 const FRONTEND_ORIGIN = window.location.origin;
 const OAUTH_STORAGE_KEY = 'wallt_oauth_result';
@@ -87,6 +88,7 @@ export function useOAuthPopup() {
         onboarding: payload.onboarding,
         user: payload.user,
         error: payload.error,
+        nonce: payload.nonce,
       };
     } catch {
       localStorage.removeItem(OAUTH_STORAGE_KEY);
@@ -113,10 +115,12 @@ export function useOAuthPopup() {
       return;
     }
 
-    if (payload.type !== 'AUTH_SUCCESS' || !payload.token) {
+    if (payload.type !== 'AUTH_SUCCESS' || !payload.token || !nonceOAuthValido(payload)) {
+      consumaNonceOAuth();
       reportError('google');
       return;
     }
+    consumaNonceOAuth();
 
     try {
       const user = await authStore.completeOAuthLogin(payload.token, payload.user ?? null);
@@ -180,8 +184,12 @@ export function useOAuthPopup() {
     const top = window.screenY + Math.max(0, (window.outerHeight - 640) / 2);
     const features = `${POPUP_FEATURES},left=${left},top=${top}`;
 
+    const nonce = generaNonce();
+    salvaNonceOAuth(nonce);
+
     const params = new URLSearchParams({
       origin: window.location.origin,
+      nonce,
     });
     if (options.privacyAcceptedAt) {
       params.set('privacy_accepted_at', options.privacyAcceptedAt);

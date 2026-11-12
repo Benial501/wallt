@@ -3,6 +3,7 @@ import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import { isOnboardingComplete } from '@/utils/onboarding';
+import { nonceOAuthValido, consumaNonceOAuth } from '@/utils/oauthNonce';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -47,7 +48,11 @@ onMounted(async () => {
     return;
   }
 
-  if (payload.type !== 'AUTH_SUCCESS' || !payload.token) {
+  // Senza il nonce generato da questo browser il token non è nostro:
+  // potrebbe arrivare da un link costruito da un terzo (login CSRF).
+  const nonceValido = nonceOAuthValido(payload);
+  consumaNonceOAuth();
+  if (payload.type !== 'AUTH_SUCCESS' || !payload.token || !nonceValido) {
     router.replace('/login?error=google');
     return;
   }

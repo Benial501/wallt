@@ -307,12 +307,12 @@ const trasferimento = async (req, res) => {
     const { conto_origine_id, conto_destinazione_id, importo, nota, data } = req.body;
     const importoNum = toNumber(importo);
 
-    if (!conto_origine_id || !conto_destinazione_id || !importoNum || !data) {
+    if (!conto_origine_id || !conto_destinazione_id || !(importoNum > 0) || !data) {
       await t.rollback();
       return res.status(400).json({ message: 'Campi obbligatori mancanti' });
     }
 
-    if (conto_origine_id === conto_destinazione_id) {
+    if (Number(conto_origine_id) === Number(conto_destinazione_id)) {
       await t.rollback();
       return res.status(400).json({ message: 'I conti origine e destinazione devono essere diversi' });
     }

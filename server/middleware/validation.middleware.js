@@ -310,10 +310,13 @@ const validateMovimento = [
     .customSanitizer(neutralizzaTag)
     .isLength({ max: 500 })
     .withMessage('Descrizione troppo lunga'),
+  // toBoolean: la stringa "false" è vera per JavaScript. Senza conversione
+  // l'update stornava l'impatto sul saldo senza riapplicarlo (Regola 11).
   body('ricorrente')
     .optional({ values: 'null' })
     .isBoolean()
-    .withMessage('Ricorrente non valido'),
+    .withMessage('Ricorrente non valido')
+    .toBoolean(true),
   body('ricorrente_frequenza')
     .optional({ values: 'null' })
     .isIn(['mensile', 'settimanale', 'annuale', 'una_tantum'])
@@ -421,10 +424,13 @@ const validateUpdateMovimento = [
     .optional()
     .isIn(PERIODICITA_ENTRATA)
     .withMessage('Periodicità entrata non valida'),
+  // toBoolean: la stringa "false" è vera per JavaScript. Senza conversione
+  // l'update stornava l'impatto sul saldo senza riapplicarlo (Regola 11).
   body('ricorrente')
     .optional({ values: 'null' })
     .isBoolean()
-    .withMessage('Ricorrente non valido'),
+    .withMessage('Ricorrente non valido')
+    .toBoolean(true),
   body('ricorrente_frequenza')
     .optional({ values: 'null' })
     .isIn(['mensile', 'settimanale', 'annuale', 'una_tantum'])
@@ -582,15 +588,23 @@ const validateUpdateConto = [
 const validateDeleteConto = validateIdParam;
 
 const validateTrasferimento = [
+  // Un importo negativo invertiva il verso e saltava il controllo sul saldo.
   body('importo')
     .isDecimal({ decimal_digits: '0,2' })
-    .withMessage('Importo non valido'),
+    .withMessage('Importo non valido')
+    .bail()
+    .custom((value) => Number(value) > 0)
+    .withMessage('L\'importo deve essere maggiore di zero'),
+  // toInt: 1 e "1" sono lo stesso conto. Senza, il controllo "origine e
+  // destinazione diverse" confrontava tipi diversi e creava denaro dal nulla.
   body('conto_origine_id')
     .isInt({ min: 1 })
-    .withMessage('Conto origine non valido'),
+    .withMessage('Conto origine non valido')
+    .toInt(),
   body('conto_destinazione_id')
     .isInt({ min: 1 })
-    .withMessage('Conto destinazione non valido'),
+    .withMessage('Conto destinazione non valido')
+    .toInt(),
   body('data')
     .optional({ values: 'null' })
     .isISO8601({ strict: false })
@@ -613,10 +627,13 @@ const validateImportConferma = [
     .optional({ values: 'null' })
     .isObject()
     .withMessage('mappings deve essere un oggetto'),
+  // Tutto l'import passa in una sola transazione: senza un tetto, poche
+  // richieste enormi in parallelo tengono occupato il pool del database.
+  // 20000 è lo stesso limite del parser Excel (MAX_ROWS).
   body('transactions')
     .optional({ values: 'null' })
-    .isArray({ min: 1 })
-    .withMessage('transactions deve essere un array non vuoto'),
+    .isArray({ min: 1, max: 20000 })
+    .withMessage('transactions deve essere un array fra 1 e 20000 righe'),
   body('transactions.*.data')
     .optional({ values: 'null' })
     .isISO8601({ strict: false })

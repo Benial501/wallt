@@ -30,6 +30,10 @@ function harness({ blocked = false, login = async () => ({ profilo: { onboarding
     useAuthStore: () => ({ completeOAuthLogin: login }),
     isOnboardingComplete: (profile) => profile?.onboarding_completato === true,
     API_BASE_URL: 'https://wallt-api.vercel.app/api',
+    generaNonce: () => 'nonce-di-prova-0001',
+    salvaNonceOAuth() {},
+    nonceOAuthValido: (payload) => payload?.nonce !== 'nonce-altrui',
+    consumaNonceOAuth() {},
     setInterval: (fn) => { intervals.set(++id, fn); return id; },
     clearInterval: (key) => intervals.delete(key),
     setTimeout: (fn) => { timeouts.set(++id, fn); return id; },
@@ -99,4 +103,14 @@ test('a message from another domain is ignored', async () => {
   assert.deepEqual(h.destinations, []);
   assert.equal(h.api.oauthLoading.value, true);
   h.api.cleanup();
+});
+
+test('un token con un nonce altrui non installa la sessione (login CSRF)', async () => {
+  let loginChiamato = false;
+  const h = harness({ login: async () => { loginChiamato = true; return { profilo: {} }; } });
+  h.start();
+  await h.message({ type: 'AUTH_SUCCESS', token: 'token-attaccante', nonce: 'nonce-altrui' });
+  assert.equal(loginChiamato, false);
+  assert.deepEqual(h.errors, ['google']);
+  assert.deepEqual(h.destinations, []);
 });

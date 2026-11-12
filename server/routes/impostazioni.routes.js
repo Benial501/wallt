@@ -10,7 +10,7 @@ const authMiddleware = require('../middleware/auth.middleware');
 // Per gli account Google la seconda prova e' un ID token fresco di Google
 // Identity Services (POST /auth/verify-google), non una stringa digitata.
 const { requireStepUp } = require('../middleware/stepUp.middleware');
-const { exportLimiter, deleteAccountLimiter, avatarLimiter } = require('../middleware/rateLimit.middleware');
+const { exportLimiter, deleteAccountLimiter, avatarLimiter, stepUpLimiter } = require('../middleware/rateLimit.middleware');
 const {
   validatePassword,
   validateUpdateProfilo,
@@ -24,7 +24,7 @@ const router = express.Router();
 router.put('/profilo', authMiddleware, validateUpdateProfilo, updateProfilo);
 router.put('/avatar', authMiddleware, avatarLimiter, updateAvatar);
 router.delete('/avatar', authMiddleware, avatarLimiter, deleteAvatar);
-router.put('/password', authMiddleware, validatePassword, updatePassword);
+router.put('/password', authMiddleware, stepUpLimiter, validatePassword, updatePassword);
 router.put('/preferenze', authMiddleware, validateUpdatePreferenze, updatePreferenze);
 router.get('/esporta', authMiddleware, requireStepUp, exportLimiter, esportaDati);
 router.post('/esporta', authMiddleware, requireStepUp, exportLimiter, esportaDati);
