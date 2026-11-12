@@ -3,6 +3,55 @@ const { User, ProfiloUtente, OnboardingSession, Conto, Movimento, Obiettivo, Deb
 
 const app = createApp({ enableRateLimit: false });
 
+test('le categorie personali conservano icona e colore scelti nella configurazione e nelle bozze precedenti usano i valori base', async () => {
+  const { res } = await registerUser(app);
+  const token = res.body.token;
+  const saved = await request(app).put('/api/onboarding').set(authHeader(token)).send({
+    current_step: 'riepilogo',
+    answers: {
+      fascia_eta: '25_34',
+      categorie: { selected: [], custom: [
+        { id: 'custom_11111111-1111-4111-8111-111111111111', nome: 'Il mio coniglio', tipo: 'uscita', icona: 'Rabbit', colore: '#A15C38' },
+        { id: 'custom_22222222-2222-4222-8222-222222222222', nome: 'Lezioni di chitarra', tipo: 'entrata', icona: 'Guitar', colore: '#16804A' },
+        { id: 'custom_33333333-3333-4333-8333-333333333333', nome: 'Vecchia bozza', tipo: 'uscita' },
+      ] },
+    },
+  });
+  expect(saved.status).toBe(200);
+  const resumed = await request(app).get('/api/onboarding').set(authHeader(token));
+  expect(resumed.body.session.answers.categorie.custom[0]).toMatchObject({ icona: 'Rabbit', colore: '#A15C38' });
+  expect((await request(app).post('/api/onboarding/finalize').set(authHeader(token))).status).toBe(200);
+  const catalog = await request(app).get('/api/categorie').set(authHeader(token));
+  expect(catalog.status).toBe(200);
+  expect(catalog.body.categorie).toEqual(expect.arrayContaining([
+    expect.objectContaining({ nome: 'Il mio coniglio', icona: 'Rabbit', colore: '#A15C38' }),
+    expect.objectContaining({ nome: 'Lezioni di chitarra', icona: 'Guitar', colore: '#16804A' }),
+    expect.objectContaining({ nome: 'Vecchia bozza', icona: 'Tag', colore: '#3498DB' }),
+  ]));
+});
+
+test.each([
+  { icona: 'SimboloInventato', colore: '#3498DB' },
+  { icona: 'Rabbit', colore: 'rosso' },
+  { icona: 'Rabbit', colore: '#fff' },
+])('la finalizzazione rifiuta un’icona o un colore non valido: %j', async style => {
+  const { res } = await registerUser(app);
+  const token = res.body.token;
+  const userId = res.body.user.id;
+  const saved = await request(app).put('/api/onboarding').set(authHeader(token)).send({
+    current_step: 'riepilogo',
+    answers: { fascia_eta: '25_34', categorie: { selected: [], custom: [
+      { id: 'custom_11111111-1111-4111-8111-111111111111', nome: 'Categoria personale', tipo: 'uscita', ...style },
+    ] } },
+  });
+  expect(saved.status).toBe(200);
+  const result = await request(app).post('/api/onboarding/finalize').set(authHeader(token));
+  expect(result.status).toBe(400);
+  expect(result.body.error).toBe('Icona o colore non valido');
+  expect((await OnboardingSession.findOne({ where: { user_id: userId } })).status).toBe('draft');
+  expect(await CategoriaDefaultNascosta.count({ where: { user_id: userId } })).toBe(0);
+});
+
 test('la bozza resta disponibile dopo un nuovo accesso oltre i quindici minuti', async () => {
   const { res } = await registerUser(app);
   const token = res.body.token;

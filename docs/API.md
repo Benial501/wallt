@@ -25,6 +25,14 @@ l’anteprima normalizzata resta fino alla finalizzazione. L’import non modifi
 il saldo attuale indicato per il conto. Il limite è 5 estratti e 500 righe
 per estratto durante la configurazione.
 
+La selezione delle categorie propone l’intero catalogo predefinito, con ricerca;
+le entrate e le categorie di sistema sono indicate come già incluse. Per le
+categorie personali in `answers.categorie.custom` sono disponibili le stesse
+icone di «Nuova categoria» e la scelta del colore. La finalizzazione valida
+`icona` contro `constants/categoryIcons.json` e `colore` nel formato `#rrggbb`,
+conservando entrambi nell’account. Le bozze precedenti senza questi campi usano
+`Tag` e `#3498DB`.
+
 ## Rate Limiting globale
 
 | Limiter | Scope | Limite |

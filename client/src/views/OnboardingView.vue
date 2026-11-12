@@ -8,6 +8,8 @@ import LegacyOnboardingView from './LegacyOnboardingView.vue';
 import RecurringEditor from '@/components/onboarding/RecurringEditor.vue';
 import ImportReview from '@/components/onboarding/ImportReview.vue';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
+import CategoryIconPicker from '@/components/common/CategoryIconPicker.vue';
+import { resolveCategoryIcon } from '@/utils/categoryIcons';
 import defaults from '@/data/categorie.generated.json';
 import { tracciaEvento } from '@/utils/monitoraggio';
 
@@ -23,6 +25,9 @@ const error = ref('');
 const completed = ref(null);
 const customName = ref('');
 const customType = ref('uscita');
+const customIcon = ref('Tag');
+const customColor = ref('#3498DB');
+const categorySearch = ref('');
 const steps = [
   { id: 'utilizzi', title: 'Configuriamo WALLT per te', subtitle: 'Come vuoi usare WALLT? Scegli ciò che ti interessa: potrai cambiare idea in seguito.' },
   { id: 'categorie', title: 'Dove spendi normalmente?', subtitle: 'Le categorie che scegli rendono utili analisi e importazione fin dal primo giorno.' },
@@ -45,7 +50,12 @@ const categoryCatalog = computed(() => [
   ...defaults.filter(c => c.sistema || c.tipo === 'entrata' || selected.value.some(s => s.id === c.id && s.tipo === c.tipo)),
   ...custom.value,
 ]);
-const groups = computed(() => [...new Set(defaults.filter(c => c.tipo === 'uscita' && !c.sistema).map(c => c.gruppo))]);
+const suggestedCategories = computed(() => defaults.filter(c =>
+  `${c.nome} ${c.gruppo}`.toLocaleLowerCase('it').includes(categorySearch.value.trim().toLocaleLowerCase('it')),
+));
+const expenseGroups = computed(() => suggestedCategories.value.filter(c => c.tipo === 'uscita' && !c.sistema)
+  .reduce((groups, category) => { (groups[category.gruppo] ||= []).push(category); return groups; }, {}));
+const includedCategories = computed(() => suggestedCategories.value.filter(c => c.tipo === 'entrata' || c.sistema));
 const income = computed(() => categoryCatalog.value.filter(c => c.tipo === 'entrata'));
 const allRules = computed(() => [...form.value.entrate, ...form.value.spese, ...form.value.abbonamenti, ...form.value.impegni.filter(item => Number(item.rata) > 0)]);
 const pendingImports = computed(() => store.imports.filter(batch => batch.status !== 'confirmed').length);
@@ -84,9 +94,10 @@ function addCustom() {
   ensureCategories();
   const nome = customName.value.trim();
   if (!nome || nome.length > 80) { error.value = 'Scrivi un nome per la categoria (massimo 80 caratteri).'; return; }
+  if (custom.value.length >= 30) { error.value = 'Puoi aggiungere fino a 30 categorie personali durante la configurazione.'; return; }
   if ([...defaults, ...custom.value].some(c => c.tipo === customType.value && c.nome.toLocaleLowerCase('it') === nome.toLocaleLowerCase('it'))) { error.value = 'Questa categoria esiste già.'; return; }
-  form.value.categorie.custom.push({ id: `custom_${crypto.randomUUID()}`, nome, tipo: customType.value, icona: 'Tag', colore: '#3498DB' });
-  customName.value = ''; error.value = '';
+  form.value.categorie.custom.push({ id: `custom_${crypto.randomUUID()}`, nome, tipo: customType.value, icona: customIcon.value, colore: customColor.value });
+  customName.value = ''; customIcon.value = 'Tag'; customColor.value = '#3498DB'; error.value = '';
 }
 function removeCustom(id) {
   form.value.categorie.custom = custom.value.filter(c => c.id !== id);
@@ -238,8 +249,40 @@ onBeforeUnmount(() => { clearTimeout(timer); });
               <fieldset class="age"><legend>La tua fascia d’età <span>· necessaria per applicare le protezioni previste</span></legend><div class="age-row"><label v-for="[id, label] in ages" :key="id" :class="['age-option', { chosen: form.fascia_eta === id }]"><input v-model="form.fascia_eta" type="radio" name="fascia-eta" :value="id">{{ label }}</label></div></fieldset>
             </template>
             <template v-else-if="current.id === 'categorie'">
-              <div v-for="group in groups" :key="group" class="category-group"><h2>{{ group }}</h2><div class="choice-grid"><button v-for="category in defaults.filter(c => c.gruppo === group && c.tipo === 'uscita' && !c.sistema)" :key="category.id" type="button" :class="['choice', { chosen: selected.some(s => s.id === category.id && s.tipo === category.tipo) }]" :aria-pressed="selected.some(s => s.id === category.id && s.tipo === category.tipo)" @click="toggleCategory(category)"><CategoryIcon :categoria="category.id" :tipo="category.tipo" :size="18" class="choice-category-icon" />{{ category.nome }}<span><Check v-if="selected.some(s => s.id === category.id && s.tipo === category.tipo)" :size="16" aria-hidden="true" /><Plus v-else :size="16" aria-hidden="true" /></span></button></div></div>
-              <div class="custom-box"><h2>Una categoria tutta tua</h2><div class="inline-fields"><input v-model="customName" maxlength="80" placeholder="Es. Animali domestici" aria-label="Nome categoria personale"><select v-model="customType" aria-label="Tipo categoria"><option value="uscita">Spesa</option><option value="entrata">Entrata</option></select><button type="button" @click="addCustom"><Plus :size="16" aria-hidden="true" /> Aggiungi</button></div><div class="chips"><span v-for="category in custom" :key="category.id" class="chip">{{ category.nome }} <button type="button" :aria-label="`Rimuovi ${category.nome}`" @click="removeCustom(category.id)"><X :size="14" aria-hidden="true" /></button></span></div></div>
+              <div class="category-setup">
+                <p class="category-hint">Scegli tra tutte le categorie predefinite dell’app oppure creane una personale. Le spese non selezionate non verranno aggiunte al tuo elenco.</p>
+                <label class="category-search">Cerca tra le categorie suggerite<input v-model="categorySearch" type="search" class="form-input" placeholder="Es. spesa, casa, stipendio"></label>
+                <p class="category-hint" role="status">{{ selected.length }} categorie di spesa selezionate</p>
+                <section v-for="(categories, group) in expenseGroups" :key="group" class="category-group">
+                  <h2>{{ group }}</h2>
+                  <div class="category-choices">
+                    <button v-for="category in categories" :key="category.id" type="button" :class="['category-choice', { chosen: selected.some(s => s.id === category.id && s.tipo === category.tipo) }]" :aria-pressed="selected.some(s => s.id === category.id && s.tipo === category.tipo)" @click="toggleCategory(category)">
+                      <CategoryIcon :categoria="category.id" :tipo="category.tipo" :size="18" class="choice-category-icon" />
+                      <span>{{ category.nome }}</span>
+                      <Check v-if="selected.some(s => s.id === category.id && s.tipo === category.tipo)" :size="16" aria-hidden="true" /><Plus v-else :size="16" aria-hidden="true" />
+                    </button>
+                  </div>
+                </section>
+                <details v-if="includedCategories.length" class="included-categories" :open="!!categorySearch.trim()">
+                  <summary>Entrate e categorie di sistema già incluse ({{ includedCategories.length }})</summary>
+                  <p class="category-hint">Le entrate e le categorie necessarie alle operazioni dell’app restano disponibili automaticamente.</p>
+                  <ul class="category-choices"><li v-for="category in includedCategories" :key="`${category.tipo}:${category.id}`" class="included-category"><CategoryIcon :categoria="category.id" :tipo="category.tipo" :size="18" /><span>{{ category.nome }}<small>{{ category.tipo === 'entrata' ? 'Entrata' : 'Spesa · di sistema' }}</small></span></li></ul>
+                </details>
+                <p v-if="!suggestedCategories.length" class="category-hint" role="status">Nessuna categoria trovata. Prova un altro nome oppure creane una personale qui sotto.</p>
+                <form class="custom-box" @submit.prevent="addCustom">
+                  <h2>Una categoria tutta tua</h2>
+                  <div class="custom-fields">
+                    <label>Nome<input v-model="customName" class="form-input" required maxlength="80" placeholder="Es. Animali domestici"></label>
+                    <label>Tipo<select v-model="customType" class="form-select"><option value="uscita">Spesa</option><option value="entrata">Entrata</option></select></label>
+                    <label>Colore<input v-model="customColor" type="color"></label>
+                  </div>
+                  <CategoryIconPicker v-model="customIcon" :color="customColor" />
+                  <button type="submit" class="secondary custom-add"><Plus :size="16" aria-hidden="true" /> Aggiungi categoria</button>
+                  <ul v-if="custom.length" class="custom-categories" aria-label="Categorie personali aggiunte">
+                    <li v-for="category in custom" :key="category.id" class="custom-category"><component :is="resolveCategoryIcon(category.icona)" :size="20" :style="{ color: category.colore }" aria-hidden="true" /><span>{{ category.nome }}<small>{{ category.tipo === 'entrata' ? 'Entrata' : 'Spesa' }}</small></span><button type="button" :aria-label="`Rimuovi ${category.nome}`" @click="removeCustom(category.id)"><X :size="18" aria-hidden="true" /></button></li>
+                  </ul>
+                </form>
+              </div>
             </template>
             <RecurringEditor v-else-if="fields.includes(current.id)" :key="current.id" v-model="form[current.id]" :kind="current.id" :categories="categoryCatalog" :accounts="[]" />
             <template v-else-if="current.id === 'conti'">
@@ -376,4 +419,32 @@ onBeforeUnmount(() => { clearTimeout(timer); });
   .link-row { grid-template-columns: minmax(0, 1fr); }
   .actions { flex-wrap: wrap; }
 }
+.category-setup { max-width: 760px; margin: 1.5rem auto; padding-inline: 1rem; }
+.category-hint { color: var(--text-secondary); font-size: 0.875rem; line-height: 1.6; }
+.category-search { display: grid; gap: 0.5rem; margin-block: 1rem 0.5rem; font-size: 0.875rem; font-weight: 600; }
+.category-group { margin-top: 1.5rem; }
+.category-setup h2 { margin-bottom: 0.75rem; font-size: 1rem; font-weight: 600; }
+.category-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+.category-choice, .included-category { display: flex; align-items: center; gap: 0.625rem; min-width: 0; min-height: 48px; padding: 0.75rem; text-align: left; border: 1px solid var(--glass-interactive-border); border-radius: var(--radius-sm); }
+.category-choice { background: var(--glass-interactive-bg); }
+.category-choice > span, .included-category > span, .custom-category > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.category-choice > svg { flex-shrink: 0; }
+.category-choice.chosen { border-color: var(--accent-text); background: var(--glass-interactive-bg-active); }
+.category-setup button:focus-visible, .included-categories summary:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.included-categories { margin-top: 1.5rem; }
+.included-categories summary { padding-block: 0.75rem; cursor: pointer; font-weight: 600; }
+.included-categories .category-choices { margin-top: 0.75rem; }
+.included-category small, .custom-category small { display: block; color: var(--text-secondary); font-size: var(--text-xs); }
+.custom-box { display: grid; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--glass-interactive-border); }
+.custom-box h2 { margin: 0; }
+.custom-fields { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; gap: 0.75rem; }
+.custom-fields label { display: grid; align-content: start; gap: 0.5rem; min-width: 0; font-size: 0.875rem; font-weight: 600; }
+.custom-fields input[type='color'] { width: 48px; min-height: 44px; padding: 0.25rem; background: var(--glass-interactive-bg); border: 1px solid var(--glass-interactive-border); border-radius: var(--radius-sm); }
+.custom-add { justify-self: start; min-height: 44px; padding: 0.625rem 1rem; border: 1px solid var(--glass-interactive-border); border-radius: var(--radius-sm); }
+.custom-categories { display: grid; gap: 0.5rem; }
+.custom-category { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.custom-category > svg { flex-shrink: 0; }
+.custom-category button { display: grid; place-items: center; width: 44px; min-height: 44px; flex-shrink: 0; }
+@media (hover: hover) { .category-choice:hover, .custom-add:hover { background: var(--glass-interactive-bg-hover); } }
+@media (max-width: 600px) { .category-choices, .custom-fields { grid-template-columns: minmax(0, 1fr); } }
 </style>

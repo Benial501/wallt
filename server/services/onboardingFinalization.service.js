@@ -11,6 +11,7 @@ const CategoryLearningService = require('./import/CategoryLearningService');
 
 const fail = (message, statusCode = 400) => Object.assign(new Error(message), { statusCode });
 const categoriesByKey = new Map(CATEGORIE_DEFAULT.map(c => [`${c.tipo}:${c.id}`, c]));
+const categoryIcons = new Set(require('../constants/categoryIcons.json').map(icon => icon.id));
 const accountTypes = new Set(['banca', 'app_pagamento', 'contanti', 'investimento', 'wallet', 'risparmio', 'carta_credito']);
 const frequencies = new Set(['settimanale', 'mensile', 'annuale']);
 const preferenceKeys = new Set(['promemoria_giornaliero_attivo', 'alert_budget_attivi', 'alert_ricorrenti_attivi', 'alert_obiettivi_attivi', 'riepilogo_settimanale_attivo']);
@@ -59,6 +60,7 @@ function validateAnswers(answers) {
   custom.forEach(category => {
     const name = normalizeName(category.nome);
     if (!name || name.length > 80 || !['entrata', 'uscita'].includes(category.tipo)) throw fail('Categoria personale non valida');
+    if (!categoryIcons.has(category.icona ?? 'Tag') || !/^#[0-9a-f]{6}$/i.test(category.colore ?? '#3498DB')) throw fail('Icona o colore non valido');
     const nameKey = `${category.tipo}:${name.toLocaleLowerCase('it')}`;
     if (customNames.has(nameKey) || CATEGORIE_DEFAULT.some(c => c.tipo === category.tipo && c.nome.toLocaleLowerCase('it') === name.toLocaleLowerCase('it'))) throw fail('Categoria personale duplicata');
     if (typeof category.id !== 'string' || !/^custom_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(category.id) || categoryKeys.has(`${category.tipo}:${category.id}`)) throw fail('Identificativo categoria non valido');
@@ -121,7 +123,7 @@ async function finalizeOnboarding(userId) {
         await CategoriaPersonale.create({
           id: category.id, user_id: userId,
           nome: normalizeName(category.nome), nome_normalizzato: normalizeName(category.nome).toLocaleLowerCase('it'), tipo: category.tipo,
-          icona: 'Tag', colore: '#3498DB',
+          icona: category.icona ?? 'Tag', colore: category.colore ?? '#3498DB',
           essenzialita: category.tipo === 'uscita' ? (category.essenzialita || 'discrezionale') : null,
         }, { transaction });
       }
