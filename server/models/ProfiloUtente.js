@@ -45,6 +45,26 @@ const ProfiloUtente = sequelize.define('ProfiloUtente', {
     type: DataTypes.DATEONLY,
     allowNull: true,
   },
+  // Il piano del budget a tre voci (constants/budget.js). Tutti null finché
+  // l'utente non sceglie un modello; il CHECK
+  // `profili_utente_budget_piano_valido` impone che siano tutti presenti e
+  // che le percentuali facciano 100. Si scrivono solo da PUT /api/budget/piano.
+  budget_modello: {
+    type: DataTypes.STRING(30),
+    allowNull: true,
+  },
+  budget_pct_bisogni: {
+    type: DataTypes.SMALLINT,
+    allowNull: true,
+  },
+  budget_pct_desideri: {
+    type: DataTypes.SMALLINT,
+    allowNull: true,
+  },
+  budget_pct_futuro: {
+    type: DataTypes.SMALLINT,
+    allowNull: true,
+  },
   situazione_abitativa: {
     type: DataTypes.STRING(100),
     allowNull: true,

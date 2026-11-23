@@ -73,7 +73,7 @@ segnare `profili_utente.onboarding_completato`. Il saldo dichiarato del conto
 | `fascia_eta` | STRING(50) | `under_18`, `18_24`, ecc. |
 | `situazione_lavorativa` | STRING(100) | |
 | `entrata_fissa` | BOOLEAN | |
-| `entrata_mensile` | DECIMAL(12,2) | |
+| `entrata_mensile` | DECIMAL(12,2) | Anche la base del 100% del budget a tre voci: il budget non ne tiene una sua |
 | `situazione_abitativa` | STRING(100) | |
 | `costo_abitazione` | DECIMAL(12,2) | |
 | `paga_bollette` | ENUM tutte/divise/no | |
@@ -87,6 +87,8 @@ segnare `profili_utente.onboarding_completato`. Il saldo dichiarato del conto
 | `fa_scommesse` | STRING(50) | Default `no` |
 | `onboarding_completato` | BOOLEAN | Default false |
 | `mesi_riserva_piano_smart` | INTEGER | Default 1, scelta dell'utente da 1 a 6 mesi per la riserva prudenziale di Piano Smart |
+| `budget_modello` | STRING(30) | Piano del budget a tre voci: `equilibrato`, `spese_fisse_alte`, `risparmio_deciso`, `personalizzato`, o null finché l'utente non sceglie. Scritto solo da `PUT /api/budget/piano` |
+| `budget_pct_bisogni`, `budget_pct_desideri`, `budget_pct_futuro` | SMALLINT | Percentuali del piano, salvate anche per i modelli pronti. CHECK `profili_utente_budget_piano_valido`: tutte null insieme al modello, oppure tutte presenti, da 0 a 100, con somma 100 |
 
 ### `conti`
 | Campo | Tipo | Note |
