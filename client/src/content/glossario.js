@@ -193,6 +193,34 @@ const CONCETTI = [
     origine: 'GET /piano-smart-v2/current-situation → current.actualDailySpend',
     topic: 'orizzonte-di-spesa',
   },
+  // Le tre voci del budget. La descrizione è la frase che la pagina Budget
+  // mostra sotto ogni barra: spiega cosa racchiude la voce a chi non sa cosa
+  // significhi "Bisogni". Le etichette coincidono con ETICHETTE_VOCI di
+  // utils/budget.js (verificato da tests/budgetContratto.test.js).
+  {
+    id: 'budget_bisogni',
+    etichetta: 'Bisogni',
+    descrizione: 'Ciò che devi pagare comunque: casa, bollette, spesa, trasporti, salute.',
+    formula: 'uscite del mese nelle categorie essenziali',
+    origine: 'GET /budget/stato → voci.bisogni',
+    topic: 'budget-come-funziona',
+  },
+  {
+    id: 'budget_desideri',
+    etichetta: 'Desideri',
+    descrizione: 'Ciò che scegli di spendere: svago, ristoranti, shopping, abbonamenti.',
+    formula: 'uscite del mese nelle categorie non essenziali + depositi sulle piattaforme di gioco',
+    origine: 'GET /budget/stato → voci.desideri',
+    topic: 'budget-come-funziona',
+  },
+  {
+    id: 'budget_futuro',
+    etichetta: 'Futuro',
+    descrizione: 'Ciò che metti da parte: risparmio, fondo di emergenza, investimenti.',
+    formula: 'trasferimenti verso risparmio, fondo e investimenti − prelievi da quei conti + versamenti in investimenti',
+    origine: 'GET /budget/stato → voci.futuro',
+    topic: 'budget-come-funziona',
+  },
 ];
 
 /** Mappa id → concetto, per accessi diretti. */
