@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { randomUUID } = require('crypto');
 const { Op } = require('sequelize');
 const { sequelize, CategoriaPersonale, CategoriaDefaultNascosta, Movimento, CategorieRegola, RegolaPersonaleMerchant, User, BudgetCategoria, BudgetMensile } = require('../models');
-const { list, serialize, error, setEssenzialitaDefault } = require('../services/categorie.service');
+const { list, serialize, error, setEssenzialitaDefault, setIconaDefault } = require('../services/categorie.service');
 const { CATEGORIE_DEFAULT, isCategoriaSistema, ESSENZIALITA_VALUES } = require('../constants/categorie');
 const normalizeName = value => value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('it');
 const ICONS = require('../constants/categoryIcons.json').map(icon => icon.id);
@@ -103,6 +103,16 @@ router.put('/default/:id/essenzialita', handle(async (req, res) => {
   if (valore !== null && typeof valore !== 'string') throw error('Essenzialità non valida');
   const categoria = await setEssenzialitaDefault(req.userId, req.params.id, valore);
   clear(req.userId);
+  res.json({ categoria });
+}));
+
+/** Icona scelta dall'utente per una predefinita; `icona: null` torna a quella di catalogo. */
+router.put('/default/:id/icona', handle(async (req, res) => {
+  const { tipo } = req.body || {};
+  const icona = req.body?.icona ?? null;
+  if (!['entrata', 'uscita'].includes(tipo)) throw error('Tipo categoria non valido');
+  if (icona !== null && typeof icona !== 'string') throw error('Icona non valida');
+  const categoria = await setIconaDefault(req.userId, req.params.id, tipo, icona);
   res.json({ categoria });
 }));
 

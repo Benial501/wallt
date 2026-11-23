@@ -2,6 +2,8 @@ const { CATEGORIE_DEFAULT, isCategoriaSistema, ESSENZIALITA_VALUES } = require('
 const CategoriaPersonale = require('../models/CategoriaPersonale');
 const CategoriaDefaultNascosta = require('../models/CategoriaDefaultNascosta');
 const CategoriaDefaultEssenzialita = require('../models/CategoriaDefaultEssenzialita');
+const CategoriaDefaultIcona = require('../models/CategoriaDefaultIcona');
+const ICONE = require('../constants/categoryIcons.json').map(icon => icon.id);
 const error = (message, statusCode = 400) => Object.assign(new Error(message), { statusCode });
 const serialize = c => ({ ...c.toJSON(), userId: c.user_id, isDefault: false, sistema: false, gruppo: 'Personali', emoji: '🏷️' });
 
@@ -21,6 +23,12 @@ async function loadEssenzialitaOverrides(userId, { transaction } = {}) {
   return new Map(rows.map(r => [r.categoria_id, r.essenzialita]));
 }
 
+/** Mappa `id:tipo -> icona` delle icone scelte da questo utente per le predefinite. */
+async function loadIconaOverrides(userId, { transaction } = {}) {
+  const rows = await CategoriaDefaultIcona.findAll({ where: { user_id: userId }, transaction });
+  return new Map(rows.map(r => [hiddenKey(r.categoria_id, r.tipo), r.icona]));
+}
+
 /**
  * Unico punto in cui una predefinita eliminata sparisce dalla lista dell'utente.
  * Tutta la cascata di categorizzazione filtra su questo risultato
@@ -34,15 +42,19 @@ async function loadEssenzialitaOverrides(userId, { transaction } = {}) {
  * categorizzazione) legga `essenzialita` da una categoria di questo utente.
  */
 async function list(userId, { includeArchived = false, transaction } = {}) {
-  const [personal, hidden, essenzialitaOverrides] = await Promise.all([
+  const [personal, hidden, essenzialitaOverrides, iconaOverrides] = await Promise.all([
     CategoriaPersonale.findAll({ where: { user_id: userId, ...(includeArchived ? {} : { attiva: true }) }, transaction, order: [['nome', 'ASC']] }),
     loadHiddenDefaults(userId, { transaction }),
     loadEssenzialitaOverrides(userId, { transaction }),
+    loadIconaOverrides(userId, { transaction }),
   ]);
   const defaults = CATEGORIE_DEFAULT
     .map(c => (hidden.has(hiddenKey(c.id, c.tipo)) ? { ...c, attiva: false } : c))
     .map(c => (c.tipo === 'uscita' && essenzialitaOverrides.has(c.id)
       ? { ...c, essenzialita: essenzialitaOverrides.get(c.id), essenzialitaPersonalizzata: true }
+      : c))
+    .map(c => (iconaOverrides.has(hiddenKey(c.id, c.tipo))
+      ? { ...c, icona: iconaOverrides.get(hiddenKey(c.id, c.tipo)), iconaPersonalizzata: true }
       : c))
     .filter(c => includeArchived || c.attiva);
   return [...defaults, ...personal.map(serialize)];
@@ -67,6 +79,24 @@ async function setEssenzialitaDefault(userId, categoriaId, essenzialita) {
   return { ...standard, essenzialita, essenzialitaPersonalizzata: true };
 }
 
+/**
+ * Imposta o rimuove l'icona scelta da questo utente per una predefinita.
+ * `icona: null` torna all'icona di catalogo, che non viene mai toccata.
+ */
+async function setIconaDefault(userId, categoriaId, tipo, icona) {
+  const standard = CATEGORIE_DEFAULT.find(c => c.id === categoriaId && c.tipo === tipo);
+  if (!standard) throw error('Categoria predefinita non trovata', 404);
+
+  if (icona === null) {
+    await CategoriaDefaultIcona.destroy({ where: { user_id: userId, categoria_id: categoriaId, tipo } });
+    return { ...standard };
+  }
+  if (!ICONE.includes(icona)) throw error('Icona non valida');
+
+  await CategoriaDefaultIcona.upsert({ user_id: userId, categoria_id: categoriaId, tipo, icona });
+  return { ...standard, icona, iconaPersonalizzata: true };
+}
+
 async function assertCategory(userId, id, tipo, { transaction, allowArchived = false, hiddenDefaults } = {}) {
   if (!['entrata', 'uscita'].includes(tipo) || typeof id !== 'string') throw error('Categoria non valida per questo tipo di movimento');
   const standard = CATEGORIE_DEFAULT.find(c => c.id === id && c.tipo === tipo);
@@ -83,5 +113,5 @@ async function assertCategory(userId, id, tipo, { transaction, allowArchived = f
 }
 
 module.exports = {
-  list, assertCategory, serialize, error, loadHiddenDefaults, hiddenKey, setEssenzialitaDefault,
+  list, assertCategory, serialize, error, loadHiddenDefaults, hiddenKey, setEssenzialitaDefault, setIconaDefault,
 };

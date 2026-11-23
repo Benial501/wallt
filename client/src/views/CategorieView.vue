@@ -13,6 +13,7 @@ const ricerca = ref('');
 const busy = ref(false);
 const error = ref('');
 const editing = ref(null);
+const editingDefault = ref(null);
 const confermaElimina = ref(false);
 const icone = ref(CATEGORY_ICON_OPTIONS.map(icon => icon.id));
 const form = ref({});
@@ -55,12 +56,24 @@ onMounted(refresh);
 function edit(c = null) {
   error.value = '';
   form.value = c ? { nome: c.nome, tipo: c.tipo, icona: c.icona, colore: c.colore } : { nome: '', tipo: tipo.value, icona: 'Tag', colore: '#3498DB' };
+  editingDefault.value = c?.isDefault ? c : null;
   editing.value = c?.id || 'new';
+}
+/** Le predefinite cambiano solo l'icona: `null` torna a quella di catalogo. */
+async function ripristinaIcona() {
+  busy.value = true; error.value = '';
+  try {
+    await api.put(`/categorie/default/${editing.value}/icona`, { tipo: form.value.tipo, icona: null });
+    editing.value = null;
+    await refresh();
+  } catch (e) { error.value = e.response?.data?.message || 'Impossibile ripristinare l\'icona'; }
+  finally { busy.value = false; }
 }
 async function save() {
   busy.value = true; error.value = '';
   try {
     if (editing.value === 'new') await api.post('/categorie', form.value);
+    else if (editingDefault.value) await api.put(`/categorie/default/${editing.value}/icona`, { tipo: form.value.tipo, icona: form.value.icona });
     else await api.put(`/categorie/${editing.value}`, form.value);
     editing.value = null;
     await refresh();
@@ -168,7 +181,7 @@ async function ripristina(c) {
             @click="cambiaEssenzialita(cat, null)"
           >↺</button>
         </div>
-        <div v-if="!cat.isDefault" class="actions"><button :aria-label="`Modifica ${cat.nome}`" @click="edit(cat)">Modifica</button></div>
+        <div class="actions"><button :aria-label="`Modifica ${cat.nome}`" @click="edit(cat)">Modifica</button></div>
       </WCard>
     </div></section>
 
@@ -187,10 +200,14 @@ async function ripristina(c) {
 
     <WModal :open="!!editing" :title="editing === 'new' ? 'Nuova categoria' : 'Modifica categoria'" @close="!busy && (editing = null)">
       <form class="category-form" @submit.prevent="save">
-        <label>Nome<input v-model="form.nome" class="form-input" required maxlength="80" autofocus placeholder="Es. Spese Formula 1" /></label>
-        <label>Tipo<select v-model="form.tipo" class="form-select"><option value="uscita">Uscita</option><option value="entrata">Entrata</option></select></label>
+        <template v-if="!editingDefault">
+          <label>Nome<input v-model="form.nome" class="form-input" required maxlength="80" autofocus placeholder="Es. Spese Formula 1" /></label>
+          <label>Tipo<select v-model="form.tipo" class="form-select"><option value="uscita">Uscita</option><option value="entrata">Entrata</option></select></label>
+        </template>
+        <p v-else class="default-note">{{ editingDefault.nome }} è una categoria predefinita: puoi cambiarne l'icona.</p>
         <CategoryIconPicker v-model="form.icona" :key="editing" :icons="icone" :color="form.colore" />
-        <label>Colore<input v-model="form.colore" type="color" /></label>
+        <label v-if="!editingDefault">Colore<input v-model="form.colore" type="color" /></label>
+        <button v-if="editingDefault?.iconaPersonalizzata" type="button" class="link-reset" :disabled="busy" @click="ripristinaIcona">Torna all'icona predefinita</button>
         <p v-if="error" role="alert" class="error">{{ error }}</p>
         <WButton type="submit" :loading="busy">Salva categoria</WButton>
       </form>
@@ -383,6 +400,8 @@ small { font-size: var(--text-xs); margin-top: 0.125rem; color: var(--text-muted
 .archived .category-row { opacity: 0.7; }
 .preview { margin: 0.8rem 0 0; padding-left: 1.1rem; font-size: 0.875rem; color: var(--text-secondary); list-style: disc; }
 .category-form { display: grid; gap: 1.125rem; }
+.default-note { margin: 0; color: var(--text-secondary); font-size: var(--text-xs); }
+.link-reset { justify-self: start; padding: 0; border: 0; background: none; color: var(--accent-text); font-size: var(--text-xs); text-decoration: underline; cursor: pointer; }
 .category-form label {
   display: grid;
   gap: 0.4375rem;

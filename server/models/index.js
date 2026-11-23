@@ -8,8 +8,11 @@ const CategoriaDefaultNascosta = require('./CategoriaDefaultNascosta');
 User.hasMany(CategoriaDefaultNascosta, { foreignKey: 'user_id', as: 'categorieDefaultNascoste', onDelete: 'CASCADE' });
 CategoriaDefaultNascosta.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 const CategoriaDefaultEssenzialita = require('./CategoriaDefaultEssenzialita');
+const CategoriaDefaultIcona = require('./CategoriaDefaultIcona');
 User.hasMany(CategoriaDefaultEssenzialita, { foreignKey: 'user_id', as: 'categorieDefaultEssenzialita', onDelete: 'CASCADE' });
 CategoriaDefaultEssenzialita.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+User.hasMany(CategoriaDefaultIcona, { foreignKey: 'user_id', as: 'categorieDefaultIcone', onDelete: 'CASCADE' });
+CategoriaDefaultIcona.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 const ProfiloUtente = require('./ProfiloUtente');
 const Conto = require('./Conto');
 const Movimento = require('./Movimento');
@@ -183,6 +186,7 @@ module.exports = {
   CategoriaPersonale,
   CategoriaDefaultNascosta,
   CategoriaDefaultEssenzialita,
+  CategoriaDefaultIcona,
   sequelize,
   User,
   ProfiloUtente,
