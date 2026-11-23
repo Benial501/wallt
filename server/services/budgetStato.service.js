@@ -1,156 +1,190 @@
 const { Op } = require('sequelize');
-const { BudgetMensile, BudgetCategoria, Movimento } = require('../models');
+const { ProfiloUtente, Movimento, Conto } = require('../models');
 const { muoveSaldo } = require('./ricorrenti.service');
+const { list: elencoCategorie } = require('./categorie.service');
+const { CATEGORIE_DEFAULT, isCategoriaSistema } = require('../constants/categorie');
+const { VOCI, CATEGORIE_VOCE_FISSA, MESI_SUGGERIMENTO_MODELLO } = require('../constants/budget');
+const { obiettiviInCentesimi } = require('./budgetModello');
+const { aggregaPerVoce, voceDellaCategoria } = require('./budgetMacro');
+const { scegliConsiglio } = require('./budgetConsiglio');
+const { elencoMesi, classificaFinestra } = require('./finestraMesi.service');
+const { fineMese } = require('../utils/dateRome');
 
 /**
- * Calcolo dello stato di avanzamento del budget mensile.
+ * Stato del mese del budget a tre voci (Bisogni, Desideri, Futuro).
  *
- * Logica estratta da `controllers/budget.controller.js` senza modifiche di
- * comportamento: serve sia all'API `/api/budget/:anno/:mese/stato` sia al
- * generatore di notifiche, e duplicarla avrebbe voluto dire due definizioni
- * di "percentuale usata" che possono divergere.
+ * È l'unico calcolo: lo leggono l'API (`GET /api/budget/stato`), le notifiche
+ * di budget e i suggerimenti delle Analisi. Due copie della stessa formula
+ * finirebbero per divergere (CLAUDE.md, Regola 20). Quale voce conti un
+ * movimento lo decide services/budgetMacro.js, la frase del consulente
+ * services/budgetConsiglio.js: qui si leggono i dati e si mettono insieme.
+ *
+ * Sola lettura: il budget non scrive mai movimenti, saldi o trasferimenti.
  */
 
-const toNumber = (val) => parseFloat(val) || 0;
+const euro = (centesimi) => Math.round(centesimi) / 100;
 
-/**
- * Una categoria di budget può raggruppare più categorie di movimento
- * (es. "acquisti" copre acquisti_vari e regali).
- */
-const BUDGET_TO_MOVIMENTI = {
-  cibo: ['cibo_spesa'],
-  cibo_spesa: ['cibo_spesa'],
-  svago: ['svago'],
-  abbigliamento: ['abbigliamento'],
-  risparmio: [],
-  investimento: ['investimento'],
-  acquisti: ['acquisti_vari', 'regali'],
-  acquisti_vari: ['acquisti_vari', 'regali'],
-  salute: ['salute'],
-  scommesse: ['deposito_scommesse'],
-  deposito_scommesse: ['deposito_scommesse'],
-  casa: ['casa'],
-  bollette: ['bollette'],
-  benzina: ['benzina_trasporti'],
-  benzina_trasporti: ['benzina_trasporti'],
-  mezzi_pubblici: ['mezzi_pubblici'],
-};
+const ESSENZIALITA_CATALOGO = new Map(
+  CATEGORIE_DEFAULT.filter((c) => c.tipo === 'uscita').map((c) => [c.id, c.essenzialita]),
+);
 
-/**
- * Trasferimenti che il budget deve comunque conteggiare.
- * Caricare denaro su una piattaforma di scommesse non è una spesa (i soldi
- * restano tuoi, su un altro conto) e infatti resta fuori dalle analisi, ma il
- * budget "scommesse" serve proprio a limitare quanto si mette in gioco ogni
- * mese: qui va contato.
- */
-const TRASFERIMENTI_NEL_BUDGET = ['deposito_scommesse'];
+const percentualeUsata = (usato, obiettivo) => (obiettivo > 0 ? Math.round((usato * 100) / obiettivo) : 0);
 
-const { CATEGORIE_DEFAULT } = require('../constants/categorie');
-const GROUPS_FOR_LEGACY = {
-  cibo: ['Alimentazione'], cibo_spesa: ['Alimentazione'], svago: ['Intrattenimento', 'Viaggi', 'Sport e benessere'],
-  acquisti: ['Shopping'], acquisti_vari: ['Shopping'], salute: ['Salute'],
-  benzina_trasporti: ['Trasporti'], benzina: ['Trasporti'],
-};
-const HOME_UTILITIES = ['elettricita', 'gas', 'acqua', 'internet', 'telefono'];
-const getMovimentiCategorie = budgetCategoria => {
-  const base = BUDGET_TO_MOVIMENTI[budgetCategoria] || [budgetCategoria];
-  const extra = CATEGORIE_DEFAULT.filter(c => c.tipo === 'uscita' && (
-    GROUPS_FOR_LEGACY[budgetCategoria]?.includes(c.gruppo)
-    || (budgetCategoria === 'casa' && c.gruppo === 'Casa' && !HOME_UTILITIES.includes(c.id))
-    || (budgetCategoria === 'bollette' && HOME_UTILITIES.includes(c.id))
-    || (budgetCategoria === 'abbonamenti' && ['streaming', 'musica', 'abbonamenti_digitali'].includes(c.id))
-  )).map(c => c.id);
-  return [...new Set([...base, ...extra])];
-};
-
-const getStato = (percentuale) => {
-  if (percentuale > 100) return 'superato';
-  if (percentuale > 85) return 'attenzione';
-  if (percentuale > 60) return 'attenzione';
-  return 'ok';
-};
-
-/** Primo e ultimo giorno del mese in formato 'YYYY-MM-DD'. */
-const intervalloMese = (anno, mese) => {
-  const inizio = `${anno}-${String(mese).padStart(2, '0')}-01`;
-  const ultimoGiorno = new Date(anno, mese, 0).getDate();
-  const fine = `${anno}-${String(mese).padStart(2, '0')}-${ultimoGiorno}`;
-  return { inizio, fine };
-};
-
-/**
- * @returns {Promise<{budget: object, stato: object[]}|null>} null se l'utente
- * non ha un budget per quel mese.
- */
-const calcolaStatoBudget = async ({ userId, mese, anno }) => {
-  const budget = await BudgetMensile.findOne({
-    where: { user_id: userId, mese, anno },
-    include: [{ model: BudgetCategoria, as: 'categorie' }],
-  });
-
-  if (!budget) return null;
-
-  const { inizio, fine } = intervalloMese(anno, mese);
-
+/** Movimenti che possono contare nel budget, in un intervallo di date. Una
+ * ricorrenza è una regola, non una spesa avvenuta: conta solo quando il cron
+ * ne genera l'occorrenza (`muoveSaldo`, Regola 11). */
+const movimentiDelPeriodo = async (userId, da, a) => {
   const movimenti = await Movimento.findAll({
     where: {
       user_id: userId,
-      data: { [Op.between]: [inizio, fine] },
-      [Op.or]: [
-        { tipo: 'uscita' },
-        { tipo: 'trasferimento', categoria: { [Op.in]: TRASFERIMENTI_NEL_BUDGET } },
-      ],
+      data: { [Op.between]: [da, a] },
+      tipo: { [Op.in]: ['uscita', 'trasferimento'] },
     },
+    order: [['data', 'ASC'], ['id', 'ASC']],
   });
+  return movimenti.filter(muoveSaldo).map((m) => m.get({ plain: true }));
+};
 
-  // Una ricorrenza (regola) non è una spesa avvenuta: crearla non deve far
-  // scattare "budget superato" prima che il cron l'abbia davvero addebitata,
-  // altrimenti l'utente riceve un alert falso e vede uno "speso" che il suo
-  // conto non riflette (vedi muoveSaldo, ricorrenti.service.js). I
-  // trasferimenti contati nel budget (TRASFERIMENTI_NEL_BUDGET) hanno sempre
-  // ricorrente: false, quindi il filtro non li tocca.
-  const spesoPerCategoria = {};
-  movimenti.filter(muoveSaldo).forEach((m) => {
-    const cat = m.categoria || 'altro_uscita';
-    spesoPerCategoria[cat] = (spesoPerCategoria[cat] || 0) + toNumber(m.importo);
+/**
+ * Vero se negli ultimi tre mesi completi i Bisogni hanno superato ogni volta
+ * l'obiettivo di oggi. Un mese precedente al primo movimento non è uno zero
+ * osservato (finestraMesi.service.js): con meno di tre mesi completi la
+ * risposta è no.
+ */
+const bisogniOltreNeiMesiPrecedenti = async ({ userId, mese, obiettivoBisogni, contesto }) => {
+  const primo = await Movimento.min('data', { where: { user_id: userId } });
+  const mesiRichiesti = elencoMesi(mese, MESI_SUGGERIMENTO_MODELLO + 1).slice(0, MESI_SUGGERIMENTO_MODELLO);
+  const { completi } = classificaFinestra({ mesiRichiesti, meseCorrente: mese, primoMovimento: primo || null });
+  if (completi.length < MESI_SUGGERIMENTO_MODELLO) return false;
+
+  const movimenti = await movimentiDelPeriodo(userId, `${completi[0]}-01`, fineMese(`${completi[completi.length - 1]}-01`));
+  return completi.every((m) => {
+    const delMese = movimenti.filter((mov) => String(mov.data).slice(0, 7) === m);
+    return aggregaPerVoce(delMese, contesto).bisogni.centesimi > obiettivoBisogni;
   });
+};
 
-  const stato = budget.categorie.map((cat) => {
-    const movimentiCats = getMovimentiCategorie(cat.categoria);
-    let speso = 0;
-    movimentiCats.forEach((mc) => {
-      speso += spesoPerCategoria[mc] || 0;
-    });
-    if (movimentiCats.length === 0) {
-      speso = spesoPerCategoria[cat.categoria] || 0;
-    }
-
-    speso = Math.round(speso * 100) / 100;
-    const budgetImporto = toNumber(cat.importo);
-    const rimanente = Math.round((budgetImporto - speso) * 100) / 100;
-    const percentualeUsata = budgetImporto > 0
-      ? Math.round((speso / budgetImporto) * 10000) / 100
-      : 0;
-
+const dettaglioCategorie = (perCategoria, attive) => [...perCategoria.entries()]
+  .sort((a, b) => b[1] - a[1])
+  .map(([categoria, centesimi]) => {
+    const predefinita = ESSENZIALITA_CATALOGO.has(categoria);
     return {
-      categoria_id: cat.id,
-      categoria: cat.categoria,
-      budget_importo: budgetImporto,
-      speso,
-      rimanente,
-      percentuale_usata: percentualeUsata,
-      stato: getStato(percentualeUsata),
+      categoria,
+      importo: euro(centesimi),
+      // Una categoria archiviata o nascosta non si sposta: la rotta delle
+      // categorie la rifiuterebbe, e l'utente l'ha già tolta dalle sue.
+      spostabile: !CATEGORIE_VOCE_FISSA[categoria] && attive.has(categoria),
+      predefinita,
+      essenzialita_catalogo: predefinita ? ESSENZIALITA_CATALOGO.get(categoria) : null,
     };
   });
 
-  return { budget, stato };
+/**
+ * @param {{userId:number, oggi:string}} params - `oggi` nel formato
+ *   'YYYY-MM-DD', già nel fuso giusto: decide il mese e i giorni rimanenti.
+ * @returns {Promise<null|object>} null se l'utente non ha scelto un piano.
+ */
+const calcolaStatoBudget = async ({ userId, oggi }) => {
+  const profilo = await ProfiloUtente.findOne({ where: { user_id: userId } });
+  if (!profilo || !profilo.budget_modello) return null;
+
+  const percentuali = {
+    bisogni: profilo.budget_pct_bisogni,
+    desideri: profilo.budget_pct_desideri,
+    futuro: profilo.budget_pct_futuro,
+  };
+  const entrata = profilo.entrata_mensile === null ? null : parseFloat(profilo.entrata_mensile);
+  const mese = oggi.slice(0, 7);
+  const ultimoGiorno = fineMese(oggi);
+
+  const [movimenti, conti, categorie] = await Promise.all([
+    movimentiDelPeriodo(userId, `${mese}-01`, ultimoGiorno),
+    Conto.findAll({ where: { user_id: userId }, attributes: ['id', 'tipo'] }),
+    // Con le archiviate: una categoria eliminata con spese nel mese resta
+    // nella voce della sua essenzialità, invece di finire fra i Desideri come
+    // «non classificata».
+    elencoCategorie(userId, { includeArchived: true }),
+  ]);
+
+  const uscite = categorie.filter((c) => c.tipo === 'uscita');
+  const contesto = {
+    tipoConto: new Map(conti.map((c) => [c.id, c.tipo])),
+    essenzialitaPerCategoria: new Map(uscite.map((c) => [c.id, c.essenzialita])),
+  };
+  const attive = new Set(uscite.filter((c) => c.attiva !== false).map((c) => c.id));
+
+  const aggregato = aggregaPerVoce(movimenti, contesto);
+  const obiettivi = obiettiviInCentesimi(percentuali, entrata);
+  const entrataCentesimi = VOCI.reduce((s, v) => s + obiettivi[v], 0);
+
+  const bisogniOltre = entrataCentesimi > 0 && aggregato.bisogni.centesimi > obiettivi.bisogni;
+  const bisogniOltreDaTreMesi = bisogniOltre
+    ? await bisogniOltreNeiMesiPrecedenti({ userId, mese, obiettivoBisogni: obiettivi.bisogni, contesto })
+    : false;
+
+  const giorniRimanenti = Number(ultimoGiorno.slice(8, 10)) - Number(oggi.slice(8, 10));
+
+  const consiglio = scegliConsiglio({
+    entrataCentesimi,
+    modello: profilo.budget_modello,
+    giorniRimanenti,
+    bisogniOltreDaTreMesi,
+    voci: {
+      bisogni: { obiettivo: obiettivi.bisogni, usato: aggregato.bisogni.centesimi },
+      desideri: {
+        obiettivo: obiettivi.desideri,
+        usato: aggregato.desideri.centesimi,
+        perCategoria: aggregato.desideri.perCategoria,
+      },
+      futuro: { obiettivo: obiettivi.futuro, usato: aggregato.futuro.centesimi },
+    },
+  });
+  ['eccedenza', 'mancante', 'restante_desideri'].forEach((campo) => {
+    if (campo in consiglio.dati) consiglio.dati[campo] = euro(consiglio.dati[campo]);
+  });
+
+  const riepilogo = (voce) => ({
+    obiettivo: euro(obiettivi[voce]),
+    usato: euro(aggregato[voce].centesimi),
+    restante: euro(obiettivi[voce] - aggregato[voce].centesimi),
+    percentuale_usata: percentualeUsata(aggregato[voce].centesimi, obiettivi[voce]),
+  });
+
+  // Ciò che spiega «cosa racchiude» una voce: le categorie attive della voce
+  // senza movimenti nel mese. Restano fuori quelle di sistema (WALLT le
+  // scrive da sé) e quelle a voce fissa, che non dipendono dall'essenzialità.
+  const senzaSpese = (voce) => uscite
+    .filter((c) => c.attiva !== false
+      && !isCategoriaSistema(c.id)
+      && !CATEGORIE_VOCE_FISSA[c.id]
+      && !aggregato[voce].perCategoria.has(c.id)
+      && voceDellaCategoria(c.id, contesto.essenzialitaPerCategoria) === voce)
+    .map((c) => c.id);
+
+  return {
+    modello: profilo.budget_modello,
+    percentuali,
+    entrata,
+    mese,
+    giorni_rimanenti: giorniRimanenti,
+    voci: {
+      bisogni: {
+        ...riepilogo('bisogni'),
+        categorie: dettaglioCategorie(aggregato.bisogni.perCategoria, attive),
+        categorie_senza_spese: senzaSpese('bisogni'),
+      },
+      desideri: {
+        ...riepilogo('desideri'),
+        categorie: dettaglioCategorie(aggregato.desideri.perCategoria, attive),
+        categorie_senza_spese: senzaSpese('desideri'),
+      },
+      futuro: {
+        ...riepilogo('futuro'),
+        movimenti: aggregato.futuro.movimenti.map(({ centesimi, ...m }) => ({ ...m, importo: euro(centesimi) })),
+      },
+    },
+    consiglio,
+  };
 };
 
-module.exports = {
-  BUDGET_TO_MOVIMENTI,
-  TRASFERIMENTI_NEL_BUDGET,
-  getMovimentiCategorie,
-  getStato,
-  intervalloMese,
-  calcolaStatoBudget,
-};
+module.exports = { calcolaStatoBudget };

@@ -1,8 +1,6 @@
 const { createApp, registerUser, request, authHeader, seedUserFinanceData, Movimento } = require('./setup');
-const { BudgetMensile, BudgetCategoria } = require('../models');
 const ImportService = require('../services/import/ImportService');
 const FileImport = require('../services/importazioni/services/ImportService');
-const { calcolaStatoBudget } = require('../services/budgetStato.service');
 const XLSX = require('xlsx');
 const app = createApp();
 let user; let conto;
@@ -42,11 +40,4 @@ test('contanti non importati come spesa ordinaria', async () => {
   expect(preview.items[0].richiede_trasferimento).toBe(true);
   const result = await engine.confirmImport(user.user.id, [{ ...preview.items[0], categoria_finale: 'altro_uscita', conto_id: conto.id }]);
   expect(result.importati).toBe(0);
-});
-test('categorie dettagliate sono incluse nei budget generali storici', async () => {
-  const budget = await BudgetMensile.create({ user_id: user.user.id, mese: 9, anno: 2026, importo_totale: 500 });
-  await BudgetCategoria.create({ budget_id: budget.id, categoria: 'cibo', importo: 100, percentuale: 20 });
-  await Movimento.create({ user_id: user.user.id, conto_id: conto.id, tipo: 'uscita', categoria: 'supermercato', importo: 40, data: '2026-09-07' });
-  const result = await calcolaStatoBudget({ userId: user.user.id, mese: 9, anno: 2026 });
-  expect(result.stato[0].speso).toBeGreaterThanOrEqual(40);
 });
