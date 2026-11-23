@@ -8,6 +8,7 @@ const {
   VALID_FASCE_ETA,
 } = require('../utils/ageRestriction');
 const { syncUserFeatureFlagsFromProfilo } = require('../utils/featureAccess');
+const { calcolaSpeseFisse } = require('../utils/speseFisse');
 
 const DISTRIBUZIONI = {
   GENITORI: {
@@ -45,31 +46,6 @@ const getProfiloBudgetType = (profilo) => {
   return 'AFFITTO_MUTUO';
 };
 
-const calcolaSpeseFisse = (profilo) => {
-  let speseFisse = 0;
-
-  if (['affitto', 'proprieta_mutuo'].includes(profilo.situazione_abitativa)) {
-    speseFisse += toNumber(profilo.costo_abitazione);
-  }
-
-  if (profilo.paga_bollette === 'tutte') {
-    speseFisse += toNumber(profilo.stima_bollette);
-  } else if (profilo.paga_bollette === 'divise') {
-    speseFisse += toNumber(profilo.stima_bollette) / 2;
-  }
-
-  if (profilo.ha_auto || profilo.ha_moto) {
-    speseFisse += toNumber(profilo.spesa_benzina);
-  }
-
-  if (profilo.usa_mezzi_pubblici) {
-    speseFisse += toNumber(profilo.spesa_mezzi);
-  }
-
-  speseFisse += toNumber(profilo.spese_fisse_extra);
-
-  return Math.round(speseFisse * 100) / 100;
-};
 
 const calcolaBudgetSuggerito = (profilo) => {
   const entrataMensile = toNumber(profilo.entrata_mensile);

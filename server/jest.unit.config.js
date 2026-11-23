@@ -40,6 +40,7 @@ module.exports = {
     '<rootDir>/tests/ritmoSpesa.test.js',
     '<rootDir>/tests/enableBankingProvider.test.js',
     '<rootDir>/tests/bankSyncConfig.test.js',
+    '<rootDir>/tests/budgetModello.test.js',
   ],
   testTimeout: 20000,
   verbose: true,
