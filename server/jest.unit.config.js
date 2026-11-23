@@ -42,6 +42,7 @@ module.exports = {
     '<rootDir>/tests/bankSyncConfig.test.js',
     '<rootDir>/tests/budgetModello.test.js',
     '<rootDir>/tests/budgetMacro.test.js',
+    '<rootDir>/tests/budgetConsiglio.test.js',
   ],
   testTimeout: 20000,
   verbose: true,
