@@ -68,3 +68,6 @@ temp/
 # graphify: si condivide solo il grafo, il resto si rigenera in locale
 graphify-out/*
 !graphify-out/graph.json
+
+# Bozze e registro dei piani superpowers: lavoro locale, non va versionato
+.superpowers/
