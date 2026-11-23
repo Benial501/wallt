@@ -198,11 +198,12 @@ const TOPICS = [
   {
     id: 'budget-come-funziona',
     title: 'Come funziona il budget',
-    summary: 'Un tetto di spesa mensile per categoria, facoltativo.',
+    summary: 'Come dividere i tuoi soldi in tre voci: Bisogni, Desideri e Futuro.',
     paragraphs: [
-      'Il budget si imposta mese per mese: decidi quanto vuoi spendere in ogni categoria e WALLT confronta quel tetto con le uscite già registrate.',
-      'Solo entrate e uscite entrano nel calcolo: i trasferimenti tra i tuoi conti non consumano il budget.',
-      'Il budget è facoltativo. Serve a controllare le spese, non è necessario per registrare movimenti.',
+      'Il budget divide la tua entrata mensile in tre voci. I Bisogni sono ciò che devi pagare comunque (casa, bollette, spesa, trasporti, salute), i Desideri ciò che scegli di spendere (svago, ristoranti, shopping, abbonamenti), il Futuro ciò che metti da parte o investi.',
+      'Scegli un modello: 50/30/20 è il più classico, 70/20/10 aiuta chi ha affitto o mutuo pesanti, 40/30/30 chi ha poche spese fisse. WALLT ne consiglia uno in base al tuo profilo, ma lo cambi solo tu, e vale per ogni mese finché non lo modifichi.',
+      'Una categoria è un Bisogno se l’hai segnata come essenziale, altrimenti è un Desiderio: dal dettaglio di una voce puoi spostarla. Il Futuro conta i trasferimenti verso il conto risparmio, il fondo di emergenza e gli investimenti, meno quello che ne riprendi.',
+      'Il budget non sposta mai denaro e non è necessario per registrare movimenti: confronta il modello con quello che hai già registrato e ti dice dove intervenire.',
     ],
     link: { label: 'Vai al Budget', to: '/budget' },
   },

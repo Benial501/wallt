@@ -42,9 +42,9 @@ const steps = computed(() => [
   {
     id: 'budget',
     stato: props.budgetState,
-    titolo: 'Scopri il budget',
+    titolo: 'Scegli come dividere i tuoi soldi',
     facoltativo: true,
-    testo: 'Facoltativo: imposta un tetto di spesa mensile e tieni d\'occhio quanto resta.',
+    testo: 'Facoltativo: dividi l\'entrata fra Bisogni, Desideri e Futuro con un modello consigliato per te.',
     azioni: [{ label: 'Vai al budget', onClick: () => router.push('/budget'), secondaria: true }],
   },
 ]);

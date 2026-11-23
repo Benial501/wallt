@@ -1,313 +1,181 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+/**
+ * Budget a tre voci: un consulente, non un modulo da compilare.
+ *
+ * In testa una frase dice com'è andata e cosa fare; sotto le tre voci
+ * (Bisogni, Desideri, Futuro), ciascuna con la frase che spiega cosa contiene.
+ * Senza un piano la pagina è la scelta del modello. Il piano vale per ogni
+ * mese finché l'utente non lo cambia, e non muove mai denaro.
+ */
+import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import dayjs from 'dayjs';
+import 'dayjs/locale/it';
 import WCard from '@/components/common/WCard.vue';
 import WButton from '@/components/common/WButton.vue';
 import DataState from '@/components/common/DataState.vue';
+import HelpTrigger from '@/components/help/HelpTrigger.vue';
+import BudgetVoceRiga from '@/components/budget/BudgetVoceRiga.vue';
+import BudgetSceltaModello from '@/components/budget/BudgetSceltaModello.vue';
 import { useBudgetStore } from '@/stores/budget.store';
-import { useAuthStore } from '@/stores/auth.store';
 import { useToastStore } from '@/stores/toast.store';
 import { useValuta } from '@/composables/useValuta';
-import { formatPercentuale } from '@/utils/formatters';
-import { getCategoriaBudgetInfo, getCategorieBudgetPerProfilo, getBarColor } from '@/utils/budgetCategorie';
-import CategoryIcon from '@/components/common/CategoryIcon.vue';
-import { PieChart } from '@/utils/appIcons';
-import dayjs from 'dayjs';
-import 'dayjs/locale/it';
-import HelpTrigger from '@/components/help/HelpTrigger.vue';
+import { fraseConsiglio } from '@/content/budgetConsigli';
+import { getCategoriaUscita } from '@/utils/categorie';
+import { VOCI } from '@/utils/budget';
 
 dayjs.locale('it');
 
+const router = useRouter();
 const budgetStore = useBudgetStore();
-const { formatValuta } = useValuta();
-const authStore = useAuthStore();
 const toastStore = useToastStore();
+const { formatValuta } = useValuta();
 
-const oggi = dayjs();
-const mese = oggi.month() + 1;
-const anno = oggi.year();
-const meseLabel = computed(() => oggi.format('MMMM YYYY'));
+const sceltaAperta = ref(false);
+const salvando = ref(false);
 
-const modalita = ref('view'); // view | setup | edit
-const importoTotale = ref(0);
-const categorieForm = ref([]);
-const saving = ref(false);
+onMounted(() => budgetStore.carica());
 
-const totaleAllocato = computed(() =>
-  categorieForm.value.reduce((s, c) => s + (parseFloat(c.importo) || 0), 0)
-);
-
-const percentualeAllocata = computed(() =>
-  importoTotale.value > 0 ? (totaleAllocato.value / importoTotale.value) * 100 : 0
-);
-
-const allocazioneStato = computed(() => {
-  const pct = percentualeAllocata.value;
-  if (pct > 100) return { tipo: 'error', msg: `Allocato troppo (${formatValuta(totaleAllocato.value - importoTotale.value)} in eccesso)` };
-  if (pct < 100) return { tipo: 'warning', msg: `${formatValuta(importoTotale.value - totaleAllocato.value)} non allocati` };
-  return { tipo: 'ok', msg: 'Budget allocato al 100%' };
+const mese = computed(() => {
+  const nome = dayjs().format('MMMM');
+  return nome.charAt(0).toUpperCase() + nome.slice(1);
 });
 
-const initSetup = () => {
-  modalita.value = 'setup';
-  const suggerito = budgetStore.budgetSuggerito;
-  importoTotale.value = suggerito?.importo_totale || authStore.user?.profilo?.entrata_mensile || 0;
+const percentuali = computed(() => budgetStore.stato?.percentuali);
+const chipModello = computed(() => (percentuali.value
+  ? VOCI.map((v) => percentuali.value[v]).join('/')
+  : ''));
 
-  if (suggerito?.categorie?.length) {
-    categorieForm.value = suggerito.categorie.map((c) => ({
-      categoria: c.categoria === 'cibo' ? 'cibo_spesa' : c.categoria === 'acquisti' ? 'acquisti_vari' : c.categoria === 'scommesse' ? 'deposito_scommesse' : c.categoria,
-      percentuale: c.percentuale,
-      importo: parseFloat(c.importo),
-    }));
-  } else {
-    const cats = getCategorieBudgetPerProfilo(authStore.user?.profilo);
-    const pct = cats.length ? 100 / cats.length : 0;
-    categorieForm.value = cats.map((c) => ({
-      categoria: c.id,
-      percentuale: Math.round(pct * 100) / 100,
-      importo: Math.round((importoTotale.value * pct / 100) * 100) / 100,
-    }));
-  }
-};
-
-const initEdit = () => {
-  modalita.value = 'edit';
-  importoTotale.value = parseFloat(budgetStore.budgetCorrente.importo_totale);
-  categorieForm.value = budgetStore.budgetCorrente.categorie.map((c) => ({
-    categoria: c.categoria,
-    percentuale: parseFloat(c.percentuale),
-    importo: parseFloat(c.importo),
-  }));
-};
-
-const updatePercentuale = (idx, pct) => {
-  categorieForm.value[idx].percentuale = pct;
-  categorieForm.value[idx].importo = Math.round((importoTotale.value * pct / 100) * 100) / 100;
-};
-
-const updateImporto = (idx, imp) => {
-  categorieForm.value[idx].importo = imp;
-  categorieForm.value[idx].percentuale = importoTotale.value > 0
-    ? Math.round((imp / importoTotale.value) * 10000) / 100
-    : 0;
-};
-
-watch(importoTotale, (val) => {
-  categorieForm.value.forEach((c, i) => updatePercentuale(i, c.percentuale));
+const giorni = computed(() => budgetStore.stato?.giorni_rimanenti ?? 0);
+const rigaMese = computed(() => {
+  const parti = [mese.value];
+  if (budgetStore.stato?.entrata > 0) parti.push(`su ${formatValuta(budgetStore.stato.entrata)} di entrata`);
+  if (giorni.value === 1) parti.push('manca 1 giorno');
+  else if (giorni.value > 1) parti.push(`mancano ${giorni.value} giorni`);
+  else parti.push('ultimo giorno del mese');
+  return parti.join(' · ');
 });
 
-const salvaBudget = async () => {
-  if (percentualeAllocata.value > 100) return;
-  saving.value = true;
+const frase = computed(() => fraseConsiglio(budgetStore.consiglio, {
+  formatValuta,
+  nomeCategoria: (id) => getCategoriaUscita(id)?.nome || id,
+}));
+const entrataMancante = computed(() => budgetStore.consiglio?.codice === 'entrata_mancante');
+
+const apriVoce = (voce) => router.push({ name: 'budget-voce', params: { voce } });
+
+const scegli = async (piano) => {
+  salvando.value = true;
   try {
-    const payload = {
-      mese, anno,
-      importo_totale: importoTotale.value,
-      categorie: categorieForm.value.map((c) => ({
-        categoria: c.categoria,
-        percentuale: c.percentuale,
-        importo: c.importo,
-      })),
-    };
-
-    if (modalita.value === 'edit' && budgetStore.budgetCorrente) {
-      await budgetStore.updateBudget(budgetStore.budgetCorrente.id, payload);
-      toastStore.success('Budget aggiornato!');
-    } else {
-      await budgetStore.createBudget(payload);
-      toastStore.success('Budget creato!');
-    }
-
-    modalita.value = 'view';
-    await budgetStore.fetchStatoBudget(mese, anno);
-    localStorage.removeItem('wallt_budget_skipped');
+    await budgetStore.salvaPiano(piano);
+    toastStore.success('Piano del budget salvato');
+    sceltaAperta.value = false;
   } catch (err) {
-    toastStore.error(err.response?.data?.message || 'Errore nel salvataggio');
+    toastStore.error(err.response?.data?.message || 'Non è stato possibile salvare il piano');
   } finally {
-    saving.value = false;
+    salvando.value = false;
   }
 };
 
-const getCatDisplay = (id) => getCategoriaBudgetInfo(id);
-
-const getStatoItem = (categoria) =>
-  budgetStore.statoBudget.find((s) => s.categoria === categoria);
-
-onMounted(async () => {
-  await budgetStore.fetchBudget(mese, anno);
-  if (budgetStore.hasBudget) {
-    await budgetStore.fetchStatoBudget(mese, anno);
-    modalita.value = 'view';
+const modificaEntrata = async (importo) => {
+  salvando.value = true;
+  try {
+    await budgetStore.salvaEntrata(importo);
+    toastStore.success('Entrata mensile aggiornata');
+  } catch (err) {
+    toastStore.error(err.response?.data?.message || 'Non è stato possibile salvare l’entrata');
+  } finally {
+    salvando.value = false;
   }
-});
-
-const totaleBudget = computed(() => parseFloat(budgetStore.budgetCorrente?.importo_totale) || 0);
-const totaleRimanente = computed(() => totaleBudget.value - budgetStore.totaleSpeso);
+};
 </script>
 
 <template>
   <div class="budget-view animate-fade-in">
-    <!-- Setup e modifica: form, non letture. Restano fuori da DataState. -->
-    <div v-if="modalita === 'setup' || modalita === 'edit'">
-      <h1 class="page-title">Budget {{ meseLabel }}</h1>
+    <!-- La scelta del modello è un modulo, non una lettura: resta fuori da DataState. -->
+    <BudgetSceltaModello
+      v-if="sceltaAperta"
+      :modelli="budgetStore.modelli"
+      :consigliato="budgetStore.consigliato"
+      :entrata="budgetStore.entrata"
+      :piano-attuale="budgetStore.piano"
+      :salvando="salvando"
+      @scegli="scegli"
+      @modifica-entrata="modificaEntrata"
+      @annulla="sceltaAperta = false"
+    />
 
-      <WCard class="mb-4">
-        <label class="field-label">Importo totale disponibile (€)</label>
-        <input v-model.number="importoTotale" type="number" min="0" class="form-input form-input--lg" />
-      </WCard>
-
-      <WCard>
-        <div v-for="(cat, idx) in categorieForm" :key="cat.categoria" class="cat-row">
-          <CategoryIcon :categoria="cat.categoria" tipo="uscita" :size="18" class="cat-icon" />
-          <span class="cat-nome">{{ getCatDisplay(cat.categoria).nome }}</span>
-          <input
-            :value="cat.percentuale"
-            type="number" min="0" max="100" step="0.1"
-            class="form-input form-input--sm"
-            @input="updatePercentuale(idx, parseFloat($event.target.value) || 0)"
-          />
-          <span class="pct-sign">%</span>
-          <input
-            :value="cat.importo"
-            type="number" min="0" step="0.01"
-            class="form-input form-input--sm"
-            @input="updateImporto(idx, parseFloat($event.target.value) || 0)"
-          />
-        </div>
-
-        <div class="alloc-bar-wrap">
-          <div
-            class="alloc-bar"
-            :class="allocazioneStato.tipo"
-            :style="{ width: Math.min(percentualeAllocata, 100) + '%' }"
-          />
-        </div>
-        <p class="alloc-msg" :class="allocazioneStato.tipo">{{ allocazioneStato.msg }} ({{ Math.round(percentualeAllocata) }}%)</p>
-
-        <div class="form-actions">
-          <WButton variant="secondary" size="md" @click="modalita = budgetStore.hasBudget ? 'view' : 'view'">Annulla</WButton>
-          <WButton
-            variant="primary" size="md"
-            :loading="saving"
-            :disabled="percentualeAllocata > 100"
-            @click="salvaBudget"
-          >
-            {{ modalita === 'edit' ? 'Salva modifiche' : 'Conferma Budget' }}
-          </WButton>
-        </div>
-      </WCard>
-    </div>
-
-    <!-- Vista: un solo DataState per "nessun budget" e "budget attivo" -->
     <DataState
       v-else
       :stato="budgetStore.statoPagina"
       :last-updated="budgetStore.lastUpdatedPagina"
       messaggio-errore="Non è stato possibile caricare il budget."
       skeleton-type="text"
-      :skeleton-lines="4"
+      :skeleton-lines="5"
       @riprova="budgetStore.riprovaPagina()"
     >
       <template #vuoto>
-        <div class="empty-budget">
-          <PieChart class="empty-icon" :size="48" :stroke-width="1.5" />
-          <h2>Nessun budget per {{ meseLabel }}</h2>
-          <p class="empty-desc">
-            Il budget è facoltativo: fissa un tetto di spesa mensile per categoria e WALLT
-            lo confronta con le uscite già registrate. I trasferimenti tra i tuoi conti non lo consumano.
-          </p>
-          <WButton variant="primary" size="md" @click="initSetup">Imposta il budget →</WButton>
-          <div class="empty-help"><HelpTrigger topic="budget-come-funziona" /></div>
-        </div>
+        <BudgetSceltaModello
+          :modelli="budgetStore.modelli"
+          :consigliato="budgetStore.consigliato"
+          :entrata="budgetStore.entrata"
+          :salvando="salvando"
+          @scegli="scegli"
+          @modifica-entrata="modificaEntrata"
+        />
       </template>
 
-      <div v-if="budgetStore.hasBudget">
-        <div class="page-header">
-          <div class="page-title-row">
-            <h1 class="page-title">Budget {{ meseLabel }} · {{ formatValuta(totaleBudget) }}</h1>
+      <div v-if="budgetStore.stato" class="budget">
+        <div class="budget__testa">
+          <div class="budget__titolo-riga">
+            <h1 class="budget__titolo">Budget</h1>
             <HelpTrigger topic="budget-come-funziona" />
           </div>
-          <WButton variant="secondary" size="sm" @click="initEdit">Modifica</WButton>
+          <span class="budget__chip">{{ chipModello }}</span>
         </div>
+        <p class="budget__mese">{{ rigaMese }}</p>
 
-        <div class="budget-categories">
-          <WCard v-for="item in budgetStore.statoBudget" :key="item.categoria" class="budget-cat-card mb-3">
-            <div class="cat-header">
-              <CategoryIcon :categoria="item.categoria" tipo="uscita" :size="16" class="cat-icon" />
-              <span>{{ getCatDisplay(item.categoria).nome }}</span>
-              <span class="cat-stats">
-                {{ formatValuta(item.speso) }} spesi di {{ formatValuta(item.budget_importo) }}
-                ({{ Math.round(item.percentuale_usata) }}%)
-              </span>
-            </div>
-            <div class="progress-bar">
-              <div
-                class="progress-fill"
-                :class="{ pulse: item.stato === 'superato' }"
-                :style="{
-                  width: Math.min(item.percentuale_usata, 100) + '%',
-                  background: getBarColor(item.percentuale_usata),
-                }"
-              />
-            </div>
-            <p class="cat-rimanente" :class="item.rimanente < 0 ? 'negative' : ''">
-              {{ item.rimanente >= 0 ? `Rimangono ${formatValuta(item.rimanente)}` : `Superato di ${formatValuta(Math.abs(item.rimanente))}` }}
-            </p>
-          </WCard>
-        </div>
-
-        <WCard class="riepilogo-card">
-          <div class="riepilogo-grid">
-            <div><span class="riep-label">Totale budget</span><span class="riep-val">{{ formatValuta(totaleBudget) }}</span></div>
-            <div><span class="riep-label">Totale speso</span><span class="riep-val negative">{{ formatValuta(budgetStore.totaleSpeso) }}</span></div>
-            <div><span class="riep-label">Rimanente</span><span class="riep-val" :class="totaleRimanente >= 0 ? 'positive' : 'negative'">{{ formatValuta(totaleRimanente) }}</span></div>
-          </div>
+        <WCard v-if="frase" class="budget__consiglio" padding="1rem">
+          <p class="budget__consiglio-etichetta">Il punto della situazione</p>
+          <p class="budget__consiglio-testo">{{ frase }}</p>
+          <WButton v-if="entrataMancante" variant="secondary" size="sm" class="budget__consiglio-azione" @click="sceltaAperta = true">
+            Indica l’entrata
+          </WButton>
         </WCard>
+
+        <WCard padding="0 1rem">
+          <BudgetVoceRiga
+            v-for="voce in VOCI"
+            :key="voce"
+            :voce="voce"
+            :dati="budgetStore.voci[voce]"
+            @apri="apriVoce"
+          />
+        </WCard>
+
+        <div class="budget__azioni">
+          <WButton variant="secondary" size="sm" @click="sceltaAperta = true">Cambia modello</WButton>
+        </div>
       </div>
     </DataState>
   </div>
 </template>
 
 <style scoped>
-.page-title { font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin-bottom: 1rem; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; }
-.page-title-row { display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap; }
-.empty-help { display: flex; justify-content: center; margin-top: 0.875rem; }
-.empty-budget { text-align: center; padding: 4rem 1rem; }
-.empty-icon { display: block; margin: 0 auto 1rem; color: var(--text-muted); stroke: currentColor; }
-.cat-icon { flex-shrink: 0; color: var(--text-muted); }
-.empty-desc { color: var(--text-secondary); margin: 0.5rem 0 1.5rem; }
-.field-label { display: block; font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 0.5rem; }
-/* .form-input: aspetto condiviso in assets/styles/main.css */
-.form-input--lg { font-size: 1.5rem; font-weight: 700; text-align: center; }
-/* 16px: sotto questa soglia iOS ingrandisce la pagina appena il campo
-   prende il fuoco. Vedi la nota in assets/styles/main.css. */
-.form-input--sm { width: 70px; padding: 0.375rem 0.5rem; font-size: 16px; }
-.cat-row { display: grid; grid-template-columns: 32px 1fr 70px 16px 80px; align-items: center; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
-.cat-nome { font-size: 0.875rem; color: var(--text-primary); }
-.pct-sign { color: var(--text-muted); font-size: var(--text-xs); }
-.alloc-bar-wrap { height: 8px; background: var(--bg-input); border-radius: 4px; margin: 1rem 0 0.5rem; overflow: hidden; }
-.alloc-bar { height: 100%; border-radius: 4px; transition: width 0.3s; }
-.alloc-bar.ok { background: var(--positive); }
-.alloc-bar.warning { background: var(--warning); }
-.alloc-bar.error { background: var(--negative); }
-.alloc-msg { font-size: var(--text-xs); margin-bottom: 1rem; }
-.alloc-msg.ok { color: var(--positive); }
-.alloc-msg.warning { color: var(--warning); }
-.alloc-msg.error { color: var(--negative); }
-.form-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
-.mb-3 { margin-bottom: 0.75rem; }
-.mb-4 { margin-bottom: 1rem; }
-.cat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; font-size: 0.875rem; color: var(--text-primary); flex-wrap: wrap; gap: 0.25rem; }
-.cat-stats { color: var(--text-secondary); font-size: var(--text-xs); }
-.progress-bar { height: 8px; background: var(--bg-input); border-radius: 4px; overflow: hidden; }
-.progress-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
-.progress-fill.pulse { animation: pulse 1s ease-in-out infinite; }
-.cat-rimanente { font-size: var(--text-xs); color: var(--text-secondary); margin-top: 0.5rem; }
-.cat-rimanente.negative { color: var(--negative); }
-.riepilogo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; text-align: center; }
-/* deroga: didascalia sopra il valore in .riep-val, già leggibile a 1.125rem */
-.riep-label { display: block; font-size: var(--text-micro); color: var(--text-muted); margin-bottom: 0.25rem; }
-.riep-val { font-size: 1.125rem; font-weight: 700; color: var(--text-primary); }
-.positive { color: var(--positive); }
-.negative { color: var(--negative); }
+.budget-view { max-width: 640px; margin: 0 auto; }
+.budget__testa { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.budget__titolo-riga { display: flex; align-items: center; gap: 0.625rem; }
+.budget__titolo { font-size: 1.25rem; font-weight: 700; color: var(--text-primary); }
+.budget__chip {
+  font-size: var(--text-xs); font-weight: 600; color: var(--accent-text); background: var(--accent-light);
+  border-radius: 999px; padding: 0.125rem 0.625rem; font-variant-numeric: tabular-nums;
+}
+.budget__mese { font-size: var(--text-xs); color: var(--text-secondary); margin: 0.25rem 0 1rem; }
+.budget__consiglio { margin-bottom: 0.875rem; border-color: var(--accent-text); background: var(--accent-light); }
+.budget__consiglio-etichetta {
+  font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.375rem;
+}
+.budget__consiglio-testo { color: var(--text-primary); line-height: 1.5; }
+.budget__consiglio-azione { margin-top: 0.75rem; }
+.budget__azioni { display: flex; justify-content: flex-end; margin-top: 1rem; }
 </style>

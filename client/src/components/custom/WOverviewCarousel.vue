@@ -1,9 +1,9 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { Doughnut, Line } from 'vue-chartjs';
+import { Line } from 'vue-chartjs';
 import {
-  Chart as ChartJS, ArcElement, Tooltip, CategoryScale, LinearScale,
+  Chart as ChartJS, Tooltip, CategoryScale, LinearScale,
   PointElement, LineElement, Filler,
 } from 'chart.js';
 import DataState from '@/components/common/DataState.vue';
@@ -18,12 +18,13 @@ import { useNumberCounter } from '@/composables/useNumberCounter';
 import { useValuta } from '@/composables/useValuta';
 import { useChartTheme } from '@/composables/useChartTheme';
 import { formatData } from '@/utils/formatters';
-import { getCategoriaUscita } from '@/utils/categorie';
+import { GLOSSARIO } from '@/content/glossario';
+import { VOCI } from '@/utils/budget';
+import { coloreVoce } from '@/components/budget/coloriVoci';
 import { PieChart, Dices, LineChart, ArrowDown, ArrowUp, Trophy, TrendingDown, Target, Calendar, Shield } from '@/utils/appIcons';
 
-ChartJS.register(ArcElement, Tooltip, CategoryScale, LinearScale, PointElement, LineElement, Filler);
+ChartJS.register(Tooltip, CategoryScale, LinearScale, PointElement, LineElement, Filler);
 
-const CHART_COLORS = ['#00D4AA', '#FF4757', '#6C5CE7', '#74B9FF', '#FECA57', '#FF9F43', '#A29BFE', '#FD79A8'];
 
 const props = defineProps({
   conti: { type: Array, default: () => [] },
@@ -35,9 +36,10 @@ const props = defineProps({
   usciteMese: { type: Number, default: 0 },
   entrateOggi: { type: Number, default: 0 },
   usciteOggi: { type: Number, default: 0 },
-  hasBudget: { type: Boolean, default: false },
-  budgetStato: { type: Array, default: () => [] },
-  budgetTotale: { type: Number, default: 0 },
+  /** Budget a tre voci: c'è un piano, le voci del mese (GET /budget/stato) e l'entrata su cui si calcolano. */
+  haPiano: { type: Boolean, default: false },
+  vociBudget: { type: Object, default: null },
+  entrataBudget: { type: Number, default: null },
   mostraScommesse: { type: Boolean, default: false },
   scommesseAttivo: { type: Boolean, default: false },
   scommesseAnalisi: { type: Object, default: () => ({}) },
@@ -181,30 +183,20 @@ const vociSaldoEffettivo = computed(() => {
     }));
 });
 
-const budgetChartItems = computed(() =>
-  props.budgetStato
-    .filter((c) => parseFloat(c.budget_importo) > 0)
-    .slice(0, 6),
-);
-
-const budgetDoughnutData = computed(() => ({
-  labels: budgetChartItems.value.map(
-    (c) => getCategoriaUscita(c.categoria)?.nome || c.categoria,
-  ),
-  datasets: [{
-    data: budgetChartItems.value.map((c) => parseFloat(c.budget_importo) || 0),
-    backgroundColor: budgetChartItems.value.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
-    borderWidth: 0,
-  }],
-}));
-
-const doughnutOptions = {
-  responsive: true,
-  maintainAspectRatio: true,
-  cutout: '68%',
-  plugins: { legend: { display: false }, tooltip: { enabled: true } },
-  animation: { duration: 600 },
-};
+const vociBudgetHome = computed(() => (props.vociBudget
+  ? VOCI.map((voce) => {
+    const dati = props.vociBudget[voce];
+    const oltre = voce !== 'futuro' && dati.usato > dati.obiettivo;
+    return {
+      voce,
+      etichetta: GLOSSARIO[`budget_${voce}`].etichetta,
+      usato: dati.usato,
+      obiettivo: dati.obiettivo,
+      larghezza: Math.min(Math.max(dati.percentuale_usata || 0, 0), 100),
+      colore: oltre ? 'var(--negative)' : coloreVoce(voce),
+    };
+  })
+  : []));
 
 const investimentiLineData = computed(() => {
   const mesi = props.investimentiAnalisi?.andamento_mensile || [];
@@ -439,28 +431,25 @@ defineExpose({
             <template #vuoto>
               <div class="w-overview__cta-empty">
                 <PieChart class="w-overview__cta-icon" :size="32" :stroke-width="1.5" />
-                <p class="w-overview__cta-title">Pianifica il tuo budget</p>
-                <p class="w-overview__cta-desc">Suddividi le spese per categoria e tieni tutto sotto controllo.</p>
+                <p class="w-overview__cta-title">Dividi i tuoi soldi in tre voci</p>
+                <p class="w-overview__cta-desc">Bisogni, Desideri e Futuro: WALLT ti consiglia un modello adatto a te.</p>
                 <button type="button" class="w-overview__cta-btn" @click="router.push('/budget')">
-                  Crea budget
+                  Scegli il modello
                 </button>
               </div>
             </template>
 
-            <template v-if="hasBudget && budgetChartItems.length">
+            <template v-if="haPiano && vociBudgetHome.length">
               <p class="w-overview__eyebrow">Budget del mese</p>
-              <p class="w-overview__subtitle">Totale · {{ formatValuta(budgetTotale) }}</p>
-              <div class="w-overview__doughnut-wrap">
-                <Doughnut :data="budgetDoughnutData" :options="doughnutOptions" />
-              </div>
-              <ul class="w-overview__legend">
-                <li v-for="(item, i) in budgetChartItems" :key="item.categoria">
-                  <span class="w-overview__legend-dot" :style="{ background: CHART_COLORS[i % CHART_COLORS.length] }" />
-                  <span class="w-overview__legend-name">
-                    {{ getCategoriaUscita(item.categoria)?.nome || item.categoria }}
+              <p v-if="entrataBudget > 0" class="w-overview__subtitle">Su {{ formatValuta(entrataBudget) }} di entrata</p>
+              <ul class="w-overview__voci">
+                <li v-for="item in vociBudgetHome" :key="item.voce">
+                  <span class="w-overview__voci-testa">
+                    <span class="w-overview__voci-nome">{{ item.etichetta }}</span>
+                    <span class="w-overview__voci-cifre tabular-nums">{{ formatValuta(item.usato) }} di {{ formatValuta(item.obiettivo) }}</span>
                   </span>
-                  <span class="w-overview__legend-pct tabular-nums">
-                    {{ Math.round(item.percentuale_usata || 0) }}%
+                  <span class="w-overview__voci-barra" aria-hidden="true">
+                    <span :style="{ width: item.larghezza + '%', background: item.colore }" />
                   </span>
                 </li>
               </ul>
@@ -470,10 +459,10 @@ defineExpose({
             </template>
             <div v-else class="w-overview__cta-empty">
               <PieChart class="w-overview__cta-icon" :size="32" :stroke-width="1.5" />
-              <p class="w-overview__cta-title">Pianifica il tuo budget</p>
-              <p class="w-overview__cta-desc">Suddividi le spese per categoria e tieni tutto sotto controllo.</p>
+              <p class="w-overview__cta-title">Dividi i tuoi soldi in tre voci</p>
+              <p class="w-overview__cta-desc">Bisogni, Desideri e Futuro: WALLT ti consiglia un modello adatto a te.</p>
               <button type="button" class="w-overview__cta-btn" @click="router.push('/budget')">
-                Crea budget
+                Scegli il modello
               </button>
             </div>
           </DataState>
@@ -983,48 +972,35 @@ defineExpose({
 .w-overview__split-val.is-positive { color: var(--accent-text); }
 .w-overview__split-val.is-negative { color: var(--negative); }
 
-.w-overview__doughnut-wrap {
-  width: 130px;
-  height: 130px;
-  margin: 0 auto 0.625rem;
-}
-
-.w-overview__legend {
+.w-overview__voci {
   list-style: none;
   padding: 0;
   margin: 0 0 0.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.625rem;
 }
 
-.w-overview__legend li {
+.w-overview__voci-testa {
   display: flex;
-  align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
   font-size: var(--text-xs);
+  margin-bottom: 0.25rem;
 }
 
-.w-overview__legend-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
+.w-overview__voci-nome { color: var(--text-primary); font-weight: 600; }
+.w-overview__voci-cifre { color: var(--text-secondary); }
 
-.w-overview__legend-name {
-  flex: 1;
-  color: var(--text-secondary);
-  white-space: nowrap;
+.w-overview__voci-barra {
+  display: block;
+  height: 6px;
+  background: var(--bg-input);
+  border-radius: 3px;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.w-overview__legend-pct {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: var(--text-xs);
-}
+.w-overview__voci-barra span { display: block; height: 100%; border-radius: 3px; }
 
 .w-overview__hero-stat {
   display: flex;
@@ -1231,7 +1207,6 @@ defineExpose({
     min-height: 300px;
     padding: 1.5rem 1.5rem 1.375rem;
   }
-  .w-overview__doughnut-wrap { width: 150px; height: 150px; }
   .w-overview__line-wrap { height: 140px; }
 }
 

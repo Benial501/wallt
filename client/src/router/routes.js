@@ -1,5 +1,6 @@
 import { useAuthStore } from '@/stores/auth.store';
 import AppLayout from '@/components/layout/AppLayout.vue';
+import { VOCI } from '@/utils/budget';
 
 export const routes = [
   {
@@ -85,6 +86,14 @@ export const routes = [
         path: 'budget',
         name: 'budget',
         component: () => import('@/views/BudgetView.vue'),
+      },
+      {
+        // Dettaglio di una voce del budget: una voce sconosciuta torna alla
+        // pagina principale invece di mostrare una pagina vuota.
+        path: 'budget/:voce',
+        name: 'budget-voce',
+        component: () => import('@/views/BudgetVoceView.vue'),
+        beforeEnter: (to) => (VOCI.includes(to.params.voce) ? true : { name: 'budget' }),
       },
       {
         path: 'analisi',

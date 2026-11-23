@@ -46,7 +46,7 @@ const guidedComplete = ref(null);
 const guidedPurposes = ref([]);
 const purposeDestinations = {
   controllare_spese: { label: 'Esplora le tue spese', route: 'analisi' },
-  budget: { label: 'Crea un budget', route: 'budget' },
+  budget: { label: 'Scegli come dividere i tuoi soldi', route: 'budget' },
   risparmiare: { label: 'Segui i tuoi obiettivi', route: 'obiettivi' },
   patrimonio: { label: 'Vedi i tuoi conti', route: 'conti' },
   abbonamenti: { label: 'Controlla le spese programmate', route: 'ricorrenti' },
@@ -120,8 +120,8 @@ const movimentiState = computed(() => (
   haMovimenti.value === null ? 'sconosciuto' : (haMovimenti.value ? 'fatto' : 'da-fare')
 ));
 const budgetState = computed(() => {
-  if (budgetStore.risorsaBudget.lastUpdated === null) return 'sconosciuto';
-  return budgetStore.hasBudget ? 'fatto' : 'da-fare';
+  if (budgetStore.lastUpdatedPagina === null) return 'sconosciuto';
+  return budgetStore.haPiano ? 'fatto' : 'da-fare';
 });
 
 /**
@@ -193,10 +193,6 @@ const usciteMese = computed(() => movimentiStore.bilancioMese.uscite || 0);
 const scommesseAttivo = computed(() => scommesseStore.piattaforme.length > 0);
 const investimentiAttivo = computed(() => investimentiStore.investimenti.length > 0);
 
-const budgetTotale = computed(() =>
-  parseFloat(budgetStore.budgetCorrente?.importo_totale) || 0,
-);
-
 const loadConti = () => contiStore.fetchConti();
 
 /**
@@ -228,15 +224,8 @@ const loadDashboardMovimenti = () => Promise.all([
   movimentiStore.fetchRicorrenti(),
 ]);
 
-const loadBudget = async () => {
-  await budgetStore.fetchBudget(oggi.month() + 1, oggi.year());
-  // `hasBudget`, non `esiste`: dopo una scrittura riuscita ma una rilettura
-  // di /budget fallita, il budget arriva comunque da /stato, e `esiste`
-  // resterebbe false anche se c'è un budget da mostrare.
-  if (budgetStore.hasBudget) {
-    await budgetStore.fetchStatoBudget(oggi.month() + 1, oggi.year());
-  }
-};
+// Il piano e, se c'è, lo stato del mese: lo store decide da sé.
+const loadBudget = () => budgetStore.carica();
 
 const loadScommesse = async () => {
   if (!canAccessScommesseFeature.value) return;
@@ -392,9 +381,9 @@ onMounted(async () => {
       :uscite-mese="usciteMese"
       :entrate-oggi="movimentiStore.entrateOggi"
       :uscite-oggi="movimentiStore.usciteOggi"
-      :has-budget="budgetStore.hasBudget"
-      :budget-stato="budgetStore.statoBudget"
-      :budget-totale="budgetTotale"
+      :ha-piano="budgetStore.haPiano"
+      :voci-budget="budgetStore.voci"
+      :entrata-budget="budgetStore.stato?.entrata ?? null"
       :mostra-admin="isAdmin"
       :mostra-scommesse="canAccessScommesseFeature"
       :scommesse-attivo="scommesseAttivo"

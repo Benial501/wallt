@@ -45,6 +45,40 @@ const FRASI = {
   },
 };
 
+/** Nome di ogni modello nella scelta del modello. */
+export const NOMI_MODELLI = Object.freeze({
+  equilibrato: 'Equilibrato',
+  spese_fisse_alte: 'Spese fisse alte',
+  risparmio_deciso: 'Risparmio deciso',
+  personalizzato: 'Personalizzato',
+});
+
+/** Una riga che dice per chi è il modello. */
+export const DESCRIZIONI_MODELLI = Object.freeze({
+  equilibrato: 'Il modello più classico: metà a ciò che serve, un terzo a ciò che scegli, un quinto al futuro.',
+  spese_fisse_alte: 'Per chi ha affitto o mutuo pesanti: prima di tutto pagare ciò che serve.',
+  risparmio_deciso: 'Per chi ha poche spese fisse, ad esempio chi vive con i genitori.',
+  personalizzato: 'Tre percentuali tue, che devono fare 100.',
+});
+
+const MOTIVI = {
+  equilibrato: (quota) => `Le spese fisse che hai indicato valgono il ${quota}% della tua entrata: puoi permetterti il modello più classico.`,
+  spese_fisse_alte: (quota) => `Le spese fisse che hai indicato valgono il ${quota}% della tua entrata: ai ${voce('bisogni')} serve più spazio.`,
+  vive_con_genitori: () => 'Vivi con i tuoi genitori e hai poche spese fisse: puoi mettere da parte di più.',
+  senza_entrata: () => 'È il modello più classico: un buon punto di partenza.',
+};
+
+/**
+ * Perché WALLT consiglia quel modello, dal motivo calcolato dal server
+ * (services/budgetModello.js#consigliaModello).
+ * @param {{codice:string, quota_spese_fisse:?number}|null} motivo
+ */
+export const fraseMotivoModello = (motivo) => {
+  const frase = motivo && MOTIVI[motivo.codice];
+  if (!frase) return '';
+  return frase(Math.round((motivo.quota_spese_fisse || 0) * 100));
+};
+
 /**
  * @param {{codice:string, dati:object}|null} consiglio - da GET /budget/stato
  * @param {{formatValuta:(n:number)=>string, nomeCategoria:(id:string)=>string}} opzioni

@@ -104,3 +104,35 @@ test('personale verso i Bisogni diventa essenziale', () => {
 test('predefinita essenziale riportata nei Bisogni torna al catalogo', () => {
   assert.equal(essenzialitaPerSpostamento({ predefinita: true, essenzialita_catalogo: 'essenziale' }, 'bisogni'), null);
 });
+
+test('ogni modello ha un nome e una riga che dice per chi è', async () => {
+  const { NOMI_MODELLI, DESCRIZIONI_MODELLI } = await import('../src/content/budgetConsigli.js');
+  const { MODELLI_IDS } = await import('../src/utils/budget.js');
+  MODELLI_IDS.forEach((id) => {
+    assert.ok(NOMI_MODELLI[id], id);
+    assert.ok(DESCRIZIONI_MODELLI[id], id);
+  });
+  assert.equal(NOMI_MODELLI.equilibrato, 'Equilibrato');
+  assert.equal(NOMI_MODELLI.spese_fisse_alte, 'Spese fisse alte');
+});
+
+test('il motivo del consiglio cita la quota delle spese fisse', async () => {
+  const { fraseMotivoModello } = await import('../src/content/budgetConsigli.js');
+  assert.equal(
+    fraseMotivoModello({ codice: 'equilibrato', quota_spese_fisse: 0.31 }),
+    'Le spese fisse che hai indicato valgono il 31% della tua entrata: puoi permetterti il modello più classico.',
+  );
+  assert.equal(
+    fraseMotivoModello({ codice: 'spese_fisse_alte', quota_spese_fisse: 0.41 }),
+    'Le spese fisse che hai indicato valgono il 41% della tua entrata: ai Bisogni serve più spazio.',
+  );
+  assert.equal(
+    fraseMotivoModello({ codice: 'vive_con_genitori', quota_spese_fisse: null }),
+    'Vivi con i tuoi genitori e hai poche spese fisse: puoi mettere da parte di più.',
+  );
+  assert.equal(
+    fraseMotivoModello({ codice: 'senza_entrata', quota_spese_fisse: null }),
+    'È il modello più classico: un buon punto di partenza.',
+  );
+  assert.equal(fraseMotivoModello(null), '');
+});
