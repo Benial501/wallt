@@ -212,7 +212,11 @@ const etichettaVoce = (voce) => GLOSSARIO[`budget_${voce}`].etichetta;
 .scelta__modello-pct { font-size: var(--text-xs); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .scelta__modello-testo { font-size: var(--text-xs); color: var(--text-secondary); line-height: 1.45; }
 .scelta__barra { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 0.25rem; }
-.scelta__importi { display: grid; grid-template-columns: repeat(3, 1fr); font-size: var(--text-xs); color: var(--text-secondary); }
+/* Su schermi molto stretti le tre cifre vanno a capo invece di toccarsi. */
+.scelta__importi {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr)); gap: 0.25rem 0.75rem;
+  font-size: var(--text-xs); color: var(--text-secondary);
+}
 .scelta__importi span { display: flex; flex-direction: column; }
 .scelta__importi b { color: var(--text-primary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .scelta__personalizza { margin-bottom: 1rem; }
