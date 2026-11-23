@@ -14,7 +14,7 @@ const {
   request, registerUser, authHeader, Conto, createApp,
 } = require('./setup');
 const { processaRicorrenti } = require('../services/ricorrenti.service');
-const { BudgetMensile, BudgetCategoria } = require('../models');
+const { ProfiloUtente } = require('../models');
 
 const conOggi = async (anno, meseZeroBased, giorno, fn) => {
   jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'setInterval', 'setTimeout', 'clearImmediate', 'clearInterval', 'clearTimeout'] })
@@ -52,17 +52,18 @@ describe('Gli aggregati di denaro ignorano una regola ricorrente finché il cron
     });
 
   it('lo stato del budget non conta la regola come speso, e dopo il cron la conta una volta sola', async () => {
-    const budget = await BudgetMensile.create({ user_id: userId, mese: 3, anno: 2026, importo_totale: 500 });
-    await BudgetCategoria.create({ budget_id: budget.id, categoria: 'bollette', importo: 200 });
+    await ProfiloUtente.update({
+      entrata_mensile: 500, budget_modello: 'equilibrato', budget_pct_bisogni: 50, budget_pct_desideri: 30, budget_pct_futuro: 20,
+    }, { where: { user_id: userId } });
 
     await conOggi(2026, 2, 5, async () => {
       const creato = await creaMensile();
       expect(creato.status).toBe(201);
 
       const primaDelCron = await request(app)
-        .get('/api/budget/2026/3/stato')
+        .get('/api/budget/stato')
         .set(authHeader(token));
-      expect(primaDelCron.body.stato.find((s) => s.categoria === 'bollette').speso).toBe(0);
+      expect(primaDelCron.body.voci.bisogni.usato).toBe(0);
 
       // Il cron può girare più volte (Vercel Cron, GitHub Actions, server
       // locale): l'idempotenza del cron non deve tradursi in un doppio
@@ -71,9 +72,9 @@ describe('Gli aggregati di denaro ignorano una regola ricorrente finché il cron
       await processaRicorrenti(new Date('2026-03-05T12:00:00Z'));
 
       const dopoIlCron = await request(app)
-        .get('/api/budget/2026/3/stato')
+        .get('/api/budget/stato')
         .set(authHeader(token));
-      expect(dopoIlCron.body.stato.find((s) => s.categoria === 'bollette').speso).toBe(50);
+      expect(dopoIlCron.body.voci.bisogni.usato).toBe(50);
     });
   });
 

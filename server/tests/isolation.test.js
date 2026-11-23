@@ -6,7 +6,7 @@ const {
   Conto, Movimento,
 } = require('./setup');
 const {
-  BudgetMensile, Obiettivo, Investimento, PiattaformaScommesse, User, ProfiloUtente, Debito,
+  Obiettivo, Investimento, PiattaformaScommesse, User, ProfiloUtente, Debito,
 } = require('../models');
 
 const enableScommesseInvestimenti = async (userId) => {
@@ -169,27 +169,28 @@ describe('Isolamento tra utenti (USER_A vs USER_B)', () => {
     expect(Number(contoB.saldo)).toBe(100);
   });
 
-  it('USER_A non può leggere/modificare/eliminare il budget di USER_B', async () => {
-    const budgetB = await BudgetMensile.create({
-      user_id: userIdB,
-      mese: 1,
-      anno: 2026,
-      importo_totale: 500,
-    });
+  it('USER_A non legge né modifica il piano del budget di USER_B', async () => {
+    await ProfiloUtente.update({
+      entrata_mensile: 3000, budget_modello: 'risparmio_deciso', budget_pct_bisogni: 40, budget_pct_desideri: 30, budget_pct_futuro: 30,
+    }, { where: { user_id: userIdB } });
 
     const getRes = await request(app)
-      .get('/api/budget/2026/1')
+      .get('/api/budget/piano')
       .set(authHeader(tokenA));
-    expect(getRes.body.esiste).toBe(false);
+    expect(getRes.status).toBe(200);
+    expect(getRes.body.piano).toBeNull();
 
+    // Il piano non ha id: la rotta scrive solo il profilo di chi è autenticato.
+    await ProfiloUtente.update({ entrata_mensile: 1000 }, { where: { user_id: userIdA } });
     const putRes = await request(app)
-      .put(`/api/budget/${budgetB.id}`)
+      .put('/api/budget/piano')
       .set(authHeader(tokenA))
-      .send({ importo_totale: 1, categorie: [{ categoria: 'cibo_spesa', importo: 1 }] });
-    expect(putRes.status).toBe(404);
+      .send({ modello: 'spese_fisse_alte' });
+    expect(putRes.status).toBe(200);
 
-    await budgetB.reload();
-    expect(Number(budgetB.importo_totale)).toBe(500);
+    const profiloB = await ProfiloUtente.findOne({ where: { user_id: userIdB } });
+    expect(profiloB.budget_modello).toBe('risparmio_deciso');
+    expect(profiloB.budget_pct_bisogni).toBe(40);
   });
 
   it('USER_A non può leggere/modificare/eliminare l’obiettivo di USER_B', async () => {

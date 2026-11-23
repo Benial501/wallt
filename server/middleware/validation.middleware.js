@@ -10,6 +10,11 @@ const {
 const { FEATURE_KEYS, FEATURE_RICHIEDIBILI, RICHIESTA_STATI } = require('../constants/entitlements');
 const { CHIAVI: CHIAVI_CONFIG } = require('../constants/appConfig');
 const {
+  MODELLI_IDS: MODELLI_BUDGET,
+  MODELLO_PERSONALIZZATO: MODELLO_BUDGET_PERSONALIZZATO,
+  percentualiValide: percentualiBudgetValide,
+} = require('../constants/budget');
+const {
   CATALOGO_SERVIZI, DURATA_MESI_MAX, ICONE_GENERICHE, PERIODI_MESI,
 } = require('../constants/abbonamenti');
 const {
@@ -784,67 +789,21 @@ const validateDeleteAccount = [
 
 // --- Budget ---
 
-const validateBudget = [
-  body('mese')
-    .isInt({ min: 1, max: 12 })
-    .withMessage('Mese non valido'),
-  body('anno')
-    .isInt({ min: 2020, max: 2100 })
-    .withMessage('Anno non valido'),
-  body('importo_totale')
-    .isDecimal({ decimal_digits: '0,2' })
-    .withMessage('Importo non valido'),
-  body('categorie')
-    .isArray({ min: 1 })
-    .withMessage('Almeno una categoria'),
-  body('categorie.*.categoria')
-    .isString()
-    .trim()
-    .notEmpty()
-    .withMessage('Categoria budget non valida')
-    .custom(async (id, { req }) => {
-      if (typeof id === 'string' && id.startsWith('custom_')) await assertCategory(req.userId, id, 'uscita');
+// Il piano del budget a tre voci. Per un modello pronto il controller usa le
+// percentuali del server; per «personalizzato» devono essere tre interi da 0 a
+// 100 che fanno 100 (lo stesso vincolo che il database impone con un CHECK).
+const validateBudgetPiano = [
+  body('modello')
+    .isIn(MODELLI_BUDGET)
+    .withMessage('Modello di budget non valido'),
+  body('percentuali')
+    .custom((percentuali, { req }) => {
+      if (req.body.modello !== MODELLO_BUDGET_PERSONALIZZATO) return true;
+      if (!percentualiBudgetValide(percentuali)) {
+        throw new Error('Le tre percentuali devono essere numeri interi da 0 a 100 che fanno 100');
+      }
       return true;
     }),
-  body('categorie.*.percentuale')
-    .optional({ values: 'null' })
-    .isDecimal({ decimal_digits: '0,2' })
-    .withMessage('Percentuale categoria non valida'),
-  body('categorie.*.importo')
-    .optional({ values: 'null' })
-    .isDecimal({ decimal_digits: '0,2' })
-    .withMessage('Importo categoria non valido'),
-  validate,
-];
-
-const validateUpdateBudget = [
-  idParam,
-  body('importo_totale')
-    .optional({ values: 'null' })
-    .isDecimal({ decimal_digits: '0,2' })
-    .withMessage('Importo non valido'),
-  body('categorie')
-    .optional({ values: 'null' })
-    .isArray({ min: 1 })
-    .withMessage('Almeno una categoria'),
-  body('categorie.*.categoria')
-    .optional({ values: 'null' })
-    .isString()
-    .trim()
-    .notEmpty()
-    .withMessage('Categoria budget non valida')
-    .custom(async (id, { req }) => {
-      if (typeof id === 'string' && id.startsWith('custom_')) await assertCategory(req.userId, id, 'uscita');
-      return true;
-    }),
-  body('categorie.*.percentuale')
-    .optional({ values: 'null' })
-    .isDecimal({ decimal_digits: '0,2' })
-    .withMessage('Percentuale categoria non valida'),
-  body('categorie.*.importo')
-    .optional({ values: 'null' })
-    .isDecimal({ decimal_digits: '0,2' })
-    .withMessage('Importo categoria non valido'),
   validate,
 ];
 
@@ -2034,8 +1993,7 @@ module.exports = {
   validatePassword,
   validateResetAccount,
   validateDeleteAccount,
-  validateBudget,
-  validateUpdateBudget,
+  validateBudgetPiano,
   validateObiettivo,
   validateUpdateObiettivo,
   validateDeleteObiettivo,

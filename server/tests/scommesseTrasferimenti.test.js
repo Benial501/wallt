@@ -129,28 +129,22 @@ describe('Depositi e prelievi scommesse come trasferimenti', () => {
     expect(entrate.body.distribuzione.map((c) => c.categoria)).not.toContain('prelievo_scommesse');
   });
 
-  test('il budget "scommesse" continua a contare i depositi del mese', async () => {
-    const creato = await request(app)
-      .post('/api/budget')
-      .set(authHeader(token))
-      .send({
-        mese,
-        anno,
-        importo_totale: '500.00',
-        categorie: [{ categoria: 'scommesse', importo: '100.00', percentuale: '20.00' }],
-      });
-    expect(creato.status).toBe(201);
+  test('il deposito del mese conta nei Desideri del budget', async () => {
+    await ProfiloUtente.update({
+      entrata_mensile: 500, budget_modello: 'equilibrato', budget_pct_bisogni: 50, budget_pct_desideri: 30, budget_pct_futuro: 20,
+    }, { where: { user_id: userId } });
 
     await movimento('deposito', 50, { conto_collegato_id: contoBanca.id });
 
     const stato = await request(app)
-      .get(`/api/budget/${anno}/${mese}/stato`)
+      .get('/api/budget/stato')
       .set(authHeader(token));
 
     expect(stato.status).toBe(200);
-    const scommesse = stato.body.stato.find((s) => s.categoria === 'scommesse');
-    expect(scommesse.speso).toBe(50);
-    expect(scommesse.percentuale_usata).toBe(50);
+    expect(stato.body.voci.desideri.usato).toBe(50);
+    expect(stato.body.voci.desideri.categorie).toContainEqual(expect.objectContaining({ categoria: 'deposito_scommesse', importo: 50 }));
+    // Un deposito non è denaro messo da parte, anche se va su un altro conto.
+    expect(stato.body.voci.futuro.usato).toBe(0);
   });
 
   test('una spesa normale resta una spesa', async () => {

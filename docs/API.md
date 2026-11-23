@@ -259,12 +259,6 @@ notifiche dell'utente autenticato.
 - **File**: `profilo.controller.js`
 - **Frontend**: `OnboardingView.vue`, `profilo.store.js`
 
-### GET /api/profilo/budget-suggerito
-- **Auth**: Sì
-- **Risposta**: Budget suggerito basato su profilo
-- **File**: `profilo.controller.js`
-- **Frontend**: `profilo.store.js` (`fetchBudgetSuggerito` — **non chiamato da nessuna view**)
-
 ### POST /api/profilo/skip-onboarding
 - **Auth**: Sì
 - **Risposta**: `{ profilo }` con onboarding_completato=true
@@ -461,31 +455,29 @@ tutta la cascata di categorizzazione (`CategoryMatcherService._finalize`).
 
 ## Budget
 
-### GET /api/budget/:anno/:mese
-- **Auth**: Sì
-- **Risposta**: `{ budget, categorie[] }` o 404
-- **File**: `budget.controller.js`
-- **Frontend**: `budget.store.js` → `BudgetView.vue`
+Budget a tre voci (Bisogni, Desideri, Futuro): un piano unico per persona,
+salvato sul profilo, che vale per ogni mese finché l'utente non lo cambia. Non
+muove mai denaro. Vedi `docs/superpowers/specs/2026-11-23-budget-consulente-design.md`.
 
-### GET /api/budget/:anno/:mese/stato
+### GET /api/budget/piano
 - **Auth**: Sì
-- **Risposta**: `{ categorie[] }` con speso vs budget per categoria
+- **Risposta**: `{ piano: { modello, percentuali } | null, entrata: number|null, consigliato: { modello, percentuali, motivo: { codice, quota_spese_fisse } }, modelli: [{ id, percentuali|null, importi: { bisogni, desideri, futuro }|null }] }`. I modelli sono `equilibrato` (50/30/20), `spese_fisse_alte` (70/20/10), `risparmio_deciso` (40/30/30) e `personalizzato`; `importi` è in euro, `null` senza entrata e per `personalizzato`. Il consigliato viene dal profilo dell'onboarding (`services/budgetModello.js`)
 - **File**: `budget.controller.js`
-- **Frontend**: `budget.store.js` → `DashboardView.vue`, `BudgetView.vue`
+- **Frontend**: `budget.store.js` → `BudgetView.vue`, `DashboardView.vue`
 
-### POST /api/budget
+### PUT /api/budget/piano
 - **Auth**: Sì
-- **Body**: `{ mese, anno, importo_totale, categorie[] }`
-- **Validazione**: `validateBudget`
+- **Body**: `{ modello, percentuali? }`. Le percentuali servono solo per `personalizzato` (tre interi da 0 a 100 che fanno 100); per un modello pronto il server usa le sue, qualunque cosa venga inviata
+- **Validazione**: `validateBudgetPiano`
+- **Risposta**: come `GET /api/budget/piano`; `422 { codice: 'entrata_mancante' }` se il profilo non ha un'entrata mensile maggiore di zero (si salva prima con `PUT /api/profilo`)
 - **File**: `budget.controller.js`
-- **Frontend**: `BudgetView.vue`
+- **Frontend**: `budget.store.js` → `BudgetSceltaModello.vue`
 
-### PUT /api/budget/:id
+### GET /api/budget/stato
 - **Auth**: Sì
-- **Body**: `{ importo_totale?, categorie[]? }`
-- **Validazione**: `validateUpdateBudget`
-- **File**: `budget.controller.js`
-- **Frontend**: `BudgetView.vue`
+- **Risposta**: stato del mese in corso (ora di Roma): `{ modello, percentuali, entrata, mese, giorni_rimanenti, voci: { bisogni, desideri, futuro }, consiglio: { codice, dati } }`. Ogni voce ha `obiettivo`, `usato`, `restante`, `percentuale_usata`; Bisogni e Desideri anche `categorie[]` (`{ categoria, importo, spostabile, predefinita, essenzialita_catalogo }`) e `categorie_senza_spese[]`, il Futuro `movimenti[]`. `404` senza piano
+- **File**: `budget.controller.js`, `services/budgetStato.service.js`
+- **Frontend**: `budget.store.js` → `BudgetView.vue`, `BudgetVoceView.vue`, `DashboardView.vue`
 
 ---
 
@@ -909,7 +901,6 @@ Coding Rule 6 esistono per evitare.
 
 | Endpoint | Note |
 |---|---|
-| `GET /api/profilo/budget-suggerito` | Store method esiste, nessuna view lo chiama |
 | `GET /api/movimenti/ricorrenti` | Store method esiste, nessuna view lo chiama |
 
 ## Incoerenze e problemi API

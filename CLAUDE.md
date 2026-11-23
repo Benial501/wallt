@@ -239,7 +239,7 @@ Entità core: `users` → `conti` → `movimenti`. Entità satellite: budget, ob
 
 ## API
 
-176 endpoint REST sotto `/api/*` (175 dichiarazioni `router.<metodo>` in `server/routes/` più `GET /api/health`, dichiarata in `app.js`; incluse le 8 di `/api/abbonamenti`, le 3 rotte `/api/fondo-emergenza`, le 7 di `/api/categorie`, le 3 di `/api/scommesse/da-confermare`, le due dello step-up Google, le 6 di Piano Smart e le 29 di WALLT Premium: 1 `/api/piano`, 12 `/api/bank-sync` — le due nuove sono `GET`/`POST /riconciliazione` —, 3 `/api/premium`, 12 `/api/admin`, 1 `GET /api/cron/bank-sync`). Vedi `docs/API.md` per inventario completo e `docs/piano-smart-api-contract.md` per il contratto di Piano Smart.
+175 endpoint REST sotto `/api/*` (174 dichiarazioni `router.<metodo>` in `server/routes/` più `GET /api/health`, dichiarata in `app.js`; incluse le 3 di `/api/budget`, le 8 di `/api/abbonamenti`, le 3 rotte `/api/fondo-emergenza`, le 7 di `/api/categorie`, le 3 di `/api/scommesse/da-confermare`, le due dello step-up Google, le 6 di Piano Smart e le 29 di WALLT Premium: 1 `/api/piano`, 12 `/api/bank-sync` — le due nuove sono `GET`/`POST /riconciliazione` —, 3 `/api/premium`, 12 `/api/admin`, 1 `GET /api/cron/bank-sync`). Vedi `docs/API.md` per inventario completo e `docs/piano-smart-api-contract.md` per il contratto di Piano Smart.
 
 Comunicazione: Axios con `baseURL = VITE_API_URL` normalizzato da `client/src/config/api.js` (default `http://localhost:3000/api`), header `Authorization: Bearer <token>`.
 
