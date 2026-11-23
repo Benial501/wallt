@@ -85,4 +85,22 @@ describe('GET /api/analisi/suggerimenti con obiettivi a scadenza', () => {
     expect(res.body.suggerimenti.find((s) => s.messaggio?.includes('Patrimonio in crescita'))).toBeDefined();
     expect(res.body.suggerimenti.find((s) => s.tipo === 'obiettivo_rischio')).toBeDefined();
   });
+
+  it('segnala i Desideri oltre l’85% del budget con un avviso per voce', async () => {
+    const { ProfiloUtente } = require('../models');
+    const { oggiLocale } = require('../utils/dateRome');
+    await ProfiloUtente.update({
+      entrata_mensile: 1000, budget_modello: 'equilibrato', budget_pct_bisogni: 50, budget_pct_desideri: 30, budget_pct_futuro: 20,
+    }, { where: { user_id: userId } });
+    const conto = await Conto.create({ user_id: userId, nome: 'Banca', tipo: 'banca', saldo: 1000, attivo: true });
+    await Movimento.create({
+      user_id: userId, conto_id: conto.id, tipo: 'uscita', importo: 270, categoria: 'ristoranti', descrizione: 'Cene', data: oggiLocale(), ricorrente: false,
+    });
+
+    const res = await request(app).get('/api/analisi/suggerimenti').set(authHeader(token));
+
+    expect(res.status).toBe(200);
+    const avvisi = res.body.suggerimenti.filter((s) => s.tipo === 'budget_alert');
+    expect(avvisi).toEqual([{ tipo: 'budget_alert', messaggio: 'Desideri: hai usato il 90% del budget', dettaglio: '270€ su 300€' }]);
+  });
 });

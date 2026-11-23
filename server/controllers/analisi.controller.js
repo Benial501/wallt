@@ -4,11 +4,13 @@ const { aggregaPerEssenzialita } = require('../services/essenzialita.service');
 const logger = require('../utils/logger');
 const { Op } = require('sequelize');
 const {
-  Movimento, Conto, BudgetMensile, BudgetCategoria,
+  Movimento, Conto,
   Obiettivo, ObiettivoContributo, MovimentoScommesse, Investimento,
 } = require('../models');
 const { calcolaPatrimonio, calcolaVariazioneMensile } = require('../services/financialSummary.service');
 const { muoveSaldo } = require('../services/ricorrenti.service');
+const { calcolaStatoBudget } = require('../services/budgetStato.service');
+const { ETICHETTE_VOCI } = require('../constants/budget');
 const { partiLocali, FUSO_DEFAULT } = require('../utils/dateRome');
 
 const toNumber = (val) => parseFloat(val) || 0;
@@ -316,10 +318,7 @@ const getAndamentoPatrimonio = async (req, res) => {
   }
 };
 
-const getStatoBudgetMese = async (userId, mese, anno) => {
-  const result = await require('../services/budgetStato.service').calcolaStatoBudget({ userId, mese, anno });
-  return result?.stato || [];
-};
+
 
 const getSuggerimenti = async (req, res) => {
   try {
@@ -330,7 +329,7 @@ const getSuggerimenti = async (req, res) => {
     // processo (UTC su Vercel): vicino alla mezzanotte i due disaccordano
     // sul mese corrente. Vedi CLAUDE.md § Date e timezone.
     const adesso = new Date();
-    const { mese: meseCorrente, anno: annoCorrente } = partiLocali(adesso, FUSO_DEFAULT);
+    const { mese: meseCorrente, anno: annoCorrente, data: dataCorrente } = partiLocali(adesso, FUSO_DEFAULT);
     const mesePrec = meseCorrente === 1 ? 12 : meseCorrente - 1;
     const annoPrec = meseCorrente === 1 ? annoCorrente - 1 : annoCorrente;
 
@@ -436,14 +435,16 @@ const getSuggerimenti = async (req, res) => {
       });
     }
 
-    const statoBudget = await getStatoBudgetMese(req.userId, meseCorrente, annoCorrente);
-    statoBudget.forEach((s) => {
-      if (s.percentuale_usata > 85) {
-        const display = getCatDisplay(s.categoria);
+    // Lo stesso calcolo della pagina Budget e degli avvisi (Regola 20). Il
+    // Futuro non genera avvisi: mettere da parte di più non è un problema.
+    const statoBudget = await calcolaStatoBudget({ userId: req.userId, oggi: dataCorrente });
+    ['bisogni', 'desideri'].forEach((voce) => {
+      const dati = statoBudget?.voci[voce];
+      if (dati && dati.percentuale_usata > 85) {
         suggerimenti.push({
           tipo: 'budget_alert',
-          messaggio: `${display.nome}: hai usato il ${Math.round(s.percentuale_usata)}% del budget`,
-          dettaglio: `${s.speso.toFixed(0)}€ su ${s.budget_importo.toFixed(0)}€`,
+          messaggio: `${ETICHETTE_VOCI[voce]}: hai usato il ${dati.percentuale_usata}% del budget`,
+          dettaglio: `${dati.usato.toFixed(0)}€ su ${dati.obiettivo.toFixed(0)}€`,
         });
       }
     });

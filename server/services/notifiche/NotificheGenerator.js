@@ -5,6 +5,7 @@ const {
 } = require('../../models');
 const { CATEGORIA_USCITA_DISPLAY } = require('../../constants/categorie');
 const { calcolaStatoBudget } = require('../budgetStato.service');
+const { ETICHETTE_VOCI, SOGLIE_AVVISO } = require('../../constants/budget');
 const logger = require('../../utils/logger');
 const {
   PRIORITA, creaNotifica, getPreferenze, potaNotificheVecchie,
@@ -121,42 +122,43 @@ const regolaPromemoriaGiornaliero = async ({ userId, preferenze, adesso }) => {
 };
 
 /**
- * 2) e 3) Budget all'80% e budget superato.
- * Una sola notifica per categoria, per soglia, per mese.
+ * 2) e 3) Budget all'80% e budget superato, per Bisogni e Desideri.
+ * Una sola notifica per voce, per soglia, per mese. Il Futuro non manda
+ * avvisi: mettere da parte più del previsto non è un problema. Senza entrata
+ * gli obiettivi valgono zero e non parte nulla.
  */
+const VOCI_CON_AVVISO = ['bisogni', 'desideri'];
+
 const regolaBudget = async ({ userId, preferenze, adesso }) => {
   if (!preferenze.alert_budget_attivi) return [];
 
   const locale = partiLocali(adesso, preferenze.timezone);
-  const risultato = await calcolaStatoBudget({
-    userId,
-    mese: locale.mese,
-    anno: locale.anno,
-  });
-  if (!risultato) return [];
+  const stato = await calcolaStatoBudget({ userId, oggi: locale.data });
+  if (!stato || stato.consiglio.codice === 'entrata_mancante') return [];
 
+  const [sogliaAttenzione, sogliaSuperato] = SOGLIE_AVVISO;
   const esiti = [];
 
-  for (const categoria of risultato.stato) {
-    if (categoria.budget_importo <= 0) continue;
+  for (const voce of VOCI_CON_AVVISO) {
+    const { usato, obiettivo } = stato.voci[voce];
+    if (!(obiettivo > 0)) continue;
 
-    const etichetta = etichettaCategoria(categoria.categoria);
-    const base = `budget:${risultato.budget.id}:${categoria.categoria}`;
-    const metadata = {
-      budget_id: risultato.budget.id,
-      categoria: categoria.categoria,
-      periodo: locale.periodo,
-    };
+    // Sul rapporto esatto, non sulla percentuale arrotondata: al 99,6% una
+    // voce non è ancora superata.
+    const percentuale = (usato / obiettivo) * 100;
+    const etichetta = ETICHETTE_VOCI[voce];
+    const base = `budget:${locale.periodo}:${voce}`;
+    const metadata = { voce, periodo: locale.periodo };
 
-    if (categoria.percentuale_usata >= 100) {
+    if (percentuale >= sogliaSuperato) {
       esiti.push(await creaNotifica({
         userId,
         preferenze,
         adesso,
         tipo: 'budget_superato',
-        dedupeKey: `${base}:100:${locale.periodo}`,
+        dedupeKey: `${base}:${sogliaSuperato}`,
         titolo: 'Budget superato',
-        messaggio: `Hai superato il budget previsto per la categoria ${etichetta}.`,
+        messaggio: `Hai superato i ${etichetta} previsti per questo mese.`,
         link: '/budget',
         // Avviso importante: può occupare il secondo slot della giornata.
         priorita: PRIORITA.URGENTE,
@@ -166,15 +168,15 @@ const regolaBudget = async ({ userId, preferenze, adesso }) => {
       continue;
     }
 
-    if (categoria.percentuale_usata >= 80) {
+    if (percentuale >= sogliaAttenzione) {
       esiti.push(await creaNotifica({
         userId,
         preferenze,
         adesso,
         tipo: 'budget_80',
-        dedupeKey: `${base}:80:${locale.periodo}`,
+        dedupeKey: `${base}:${sogliaAttenzione}`,
         titolo: 'Budget quasi raggiunto',
-        messaggio: `Hai utilizzato l'80% del budget della categoria ${etichetta}.`,
+        messaggio: `Hai usato l'${sogliaAttenzione}% dei ${etichetta} previsti per questo mese.`,
         link: '/budget',
         priorita: PRIORITA.NORMALE,
         metadata,

@@ -8,7 +8,7 @@ const {
 } = require('./setup');
 const {
   Notifica, PreferenzeNotifiche, PushSubscription,
-  BudgetMensile, BudgetCategoria, Obiettivo,
+  ProfiloUtente, Obiettivo,
 } = require('../models');
 const { generaPerUtente, processaNotifiche } = require('../services/notifiche/NotificheGenerator');
 const NotificheService = require('../services/notifiche/NotificheService');
@@ -54,16 +54,19 @@ describe('Sistema di notifiche', () => {
     ...overrides,
   });
 
-  /** Budget di marzo 2026 con le categorie indicate. */
-  const creaBudget = async (categorie) => {
-    const budget = await BudgetMensile.create({
-      user_id: userId, mese: 3, anno: 2026, importo_totale: 1000,
-    });
-    await Promise.all(categorie.map((cat) => BudgetCategoria.create({
-      budget_id: budget.id, categoria: cat.categoria, importo: cat.importo,
-    })));
-    return budget;
-  };
+  /**
+   * Piano del budget sul profilo. Con l'entrata di default (200 €) e il
+   * modello Equilibrato i Bisogni valgono 100 €, i Desideri 60 € e il Futuro
+   * 40 €: una spesa da 85 € in `cibo_spesa` (essenziale) è l'85% dei Bisogni.
+   * Il piano vale per ogni mese finché non lo si cambia.
+   */
+  const creaPiano = ({ entrata = 200, modello = 'equilibrato', pct = [50, 30, 20] } = {}) => ProfiloUtente.update({
+    entrata_mensile: entrata,
+    budget_modello: modello,
+    budget_pct_bisogni: pct[0],
+    budget_pct_desideri: pct[1],
+    budget_pct_futuro: pct[2],
+  }, { where: { user_id: userId } });
 
   const setPreferenze = async (valori) => {
     const preferenze = await NotificheService.getPreferenze(userId);
@@ -126,7 +129,7 @@ describe('Sistema di notifiche', () => {
   // ------------------------------------------------------------------
 
   it('3) l’esecuzione ripetuta del cron non crea duplicati', async () => {
-    await creaBudget([{ categoria: 'cibo', importo: 100 }]);
+    await creaPiano();
     await creaMovimento({ importo: 90, categoria: 'cibo_spesa' });
     await Movimento.create({
       user_id: userId, conto_id: conto.id, tipo: 'uscita', importo: 20,
@@ -154,12 +157,9 @@ describe('Sistema di notifiche', () => {
   // ------------------------------------------------------------------
 
   it('4) rispetta il limite di 2 notifiche al giorno (la seconda solo per avvisi importanti)', async () => {
-    await creaBudget([
-      { categoria: 'cibo', importo: 100 },
-      { categoria: 'svago', importo: 100 },
-    ]);
-    await creaMovimento({ importo: 120, categoria: 'cibo_spesa' }); // 120% → superato
-    await creaMovimento({ importo: 85, categoria: 'svago' }); // 85% → soglia 80
+    await creaPiano();
+    await creaMovimento({ importo: 120, categoria: 'cibo_spesa' }); // Bisogni al 120% → superato
+    await creaMovimento({ importo: 51, categoria: 'svago' }); // Desideri all'85% → soglia 80
     await Movimento.create({
       user_id: userId, conto_id: conto.id, tipo: 'uscita', importo: 30,
       categoria: 'bollette', descrizione: 'Affitto', data: '2026-03-01',
@@ -205,8 +205,8 @@ describe('Sistema di notifiche', () => {
   // 5-6) Budget
   // ------------------------------------------------------------------
 
-  it('5) il superamento dell’80% del budget genera un solo avviso', async () => {
-    await creaBudget([{ categoria: 'cibo', importo: 100 }]);
+  it('5) il superamento dell’80% di una voce del budget genera un solo avviso', async () => {
+    await creaPiano();
     await creaMovimento({ importo: 85, categoria: 'cibo_spesa' });
 
     await generaPerUtente({ userId, adesso: SERA_ROMA });
@@ -218,13 +218,13 @@ describe('Sistema di notifiche', () => {
     const avvisi = await notifichePerTipo('budget_80');
     expect(avvisi).toHaveLength(1);
     expect(avvisi[0].titolo).toBe('Budget quasi raggiunto');
-    expect(avvisi[0].messaggio).toContain('Cibo e spesa');
+    expect(avvisi[0].messaggio).toBe('Hai usato l\'80% dei Bisogni previsti per questo mese.');
     expect(avvisi[0].link).toBe('/budget');
     expect(avvisi[0].priorita).toBe('normale');
   });
 
   it('6) il superamento del 100% del budget genera un solo avviso, non ripetuto ogni giorno', async () => {
-    await creaBudget([{ categoria: 'cibo', importo: 100 }]);
+    await creaPiano();
     await creaMovimento({ importo: 130, categoria: 'cibo_spesa' });
 
     await generaPerUtente({ userId, adesso: SERA_ROMA });
@@ -240,19 +240,78 @@ describe('Sistema di notifiche', () => {
   });
 
   it('6b) il budget del mese successivo genera un avviso nuovo (dedupe per periodo)', async () => {
-    await creaBudget([{ categoria: 'cibo', importo: 100 }]);
+    await creaPiano();
     await creaMovimento({ importo: 130, categoria: 'cibo_spesa' });
     await generaPerUtente({ userId, adesso: SERA_ROMA });
 
-    const budgetAprile = await BudgetMensile.create({
-      user_id: userId, mese: 4, anno: 2026, importo_totale: 1000,
-    });
-    await BudgetCategoria.create({ budget_id: budgetAprile.id, categoria: 'cibo', importo: 100 });
+    // Il piano vale anche ad aprile: nessun budget da ricreare.
     await creaMovimento({ importo: 130, categoria: 'cibo_spesa', data: '2026-04-03' });
 
     await generaPerUtente({ userId, adesso: new Date('2026-04-10T19:30:00Z') });
 
     expect(await notifichePerTipo('budget_superato')).toHaveLength(2);
+  });
+
+  it('6c) i Desideri hanno il loro avviso, con la loro etichetta', async () => {
+    await creaPiano();
+    await creaMovimento({ importo: 70, categoria: 'ristoranti' });
+
+    await generaPerUtente({ userId, adesso: SERA_ROMA });
+
+    const superati = await notifichePerTipo('budget_superato');
+    expect(superati).toHaveLength(1);
+    expect(superati[0].messaggio).toBe('Hai superato i Desideri previsti per questo mese.');
+    expect(superati[0].metadata).toMatchObject({ voce: 'desideri', periodo: '2026-03' });
+  });
+
+  it('6d) il Futuro non genera avvisi, nemmeno oltre l’obiettivo', async () => {
+    await creaPiano();
+    const risparmio = await Conto.create({ user_id: userId, nome: 'Risparmio', tipo: 'risparmio', saldo: 0, attivo: true });
+    await Movimento.create({
+      user_id: userId, conto_id: conto.id, conto_destinazione_id: risparmio.id, tipo: 'trasferimento',
+      importo: 500, categoria: 'trasferimento', descrizione: 'Risparmio', data: '2026-03-02', ricorrente: false,
+    });
+
+    await generaPerUtente({ userId, adesso: SERA_ROMA });
+
+    expect(await notifichePerTipo('budget_superato')).toHaveLength(0);
+    expect(await notifichePerTipo('budget_80')).toHaveLength(0);
+  });
+
+  it('6e) il testo degli avvisi del budget non contiene importi', async () => {
+    await creaPiano();
+    await creaMovimento({ importo: 130, categoria: 'cibo_spesa' });
+    await creaMovimento({ importo: 50, categoria: 'ristoranti' });
+
+    await generaPerUtente({ userId, adesso: SERA_ROMA });
+
+    const avvisi = await Notifica.findAll({ where: { user_id: userId, tipo: ['budget_superato', 'budget_80'] } });
+    expect(avvisi.length).toBeGreaterThan(0);
+    avvisi.forEach((n) => {
+      expect(n.messaggio.replace("l'80%", '')).not.toMatch(/\d/);
+      expect(n.titolo).not.toMatch(/\d/);
+    });
+  });
+
+  it('6f) con l’entrata azzerata il budget non manda avvisi', async () => {
+    await creaPiano({ entrata: null });
+    await creaMovimento({ importo: 130, categoria: 'cibo_spesa' });
+
+    await generaPerUtente({ userId, adesso: SERA_ROMA });
+
+    expect(await notifichePerTipo('budget_superato')).toHaveLength(0);
+    expect(await notifichePerTipo('budget_80')).toHaveLength(0);
+  });
+
+  it('6g) cambiare modello dopo un avviso non ne crea un secondo nello stesso mese', async () => {
+    await creaPiano();
+    await creaMovimento({ importo: 70, categoria: 'ristoranti' });
+    await generaPerUtente({ userId, adesso: SERA_ROMA });
+
+    await creaPiano({ modello: 'spese_fisse_alte', pct: [70, 20, 10] });
+    await generaPerUtente({ userId, adesso: new Date('2026-03-11T19:30:00Z') });
+
+    expect(await notifichePerTipo('budget_superato')).toHaveLength(1);
   });
 
   // ------------------------------------------------------------------
@@ -324,7 +383,7 @@ describe('Sistema di notifiche', () => {
   // ------------------------------------------------------------------
 
   it('8) una notifica generata nelle ore di silenzio è rinviata al primo orario utile', async () => {
-    await creaBudget([{ categoria: 'cibo', importo: 100 }]);
+    await creaPiano();
     await creaMovimento({ importo: 130, categoria: 'cibo_spesa' });
 
     // 23:30 a Roma: dentro la finestra di silenzio 22:00 → 08:00.
@@ -342,7 +401,7 @@ describe('Sistema di notifiche', () => {
       doNotFake: ['nextTick', 'setImmediate', 'setInterval', 'setTimeout', 'clearImmediate', 'clearInterval', 'clearTimeout'],
     }).setSystemTime(new Date('2026-03-10T22:30:00Z')); // 23:30 a Roma
 
-    await creaBudget([{ categoria: 'cibo', importo: 100 }]);
+    await creaPiano();
     await creaMovimento({ importo: 130, categoria: 'cibo_spesa' });
     await generaPerUtente({ userId, adesso: new Date('2026-03-10T22:30:00Z') });
 
@@ -358,7 +417,7 @@ describe('Sistema di notifiche', () => {
   });
 
   it('9) il fuso Europe/Rome determina il giorno di riferimento, non UTC', async () => {
-    await creaBudget([{ categoria: 'cibo', importo: 100 }]);
+    await creaPiano();
     await creaMovimento({ importo: 130, categoria: 'cibo_spesa' });
 
     // 22:30 UTC del 10 marzo = 23:30 del 10 marzo a Roma (ore di silenzio):
@@ -465,7 +524,7 @@ describe('Sistema di notifiche', () => {
 
   it('11) disattivare una categoria blocca solo quella notifica', async () => {
     await setPreferenze({ alert_budget_attivi: false });
-    await creaBudget([{ categoria: 'cibo', importo: 100 }]);
+    await creaPiano();
     await creaMovimento({ importo: 130, categoria: 'cibo_spesa' });
 
     await generaPerUtente({ userId, adesso: SERA_ROMA });
@@ -578,7 +637,7 @@ describe('Sistema di notifiche', () => {
       const preferenze = await PreferenzeNotifiche.findOne({ where: { user_id: userId } });
       expect(preferenze.push_attive).toBe(true);
 
-      await creaBudget([{ categoria: 'cibo', importo: 100 }]);
+      await creaPiano();
       await creaMovimento({ importo: 130, categoria: 'cibo_spesa' });
       await generaPerUtente({ userId, adesso: SERA_ROMA });
       await PushService.inviaNotifichePendenti({ userId, adesso: SERA_ROMA });
@@ -655,7 +714,7 @@ describe('Sistema di notifiche', () => {
   // ------------------------------------------------------------------
 
   it('14) il centro notifiche funziona con le push disattivate', async () => {
-    await creaBudget([{ categoria: 'cibo', importo: 100 }]);
+    await creaPiano();
     await creaMovimento({ importo: 130, categoria: 'cibo_spesa' });
     await generaPerUtente({ userId, adesso: SERA_ROMA });
 
@@ -691,7 +750,7 @@ describe('Sistema di notifiche', () => {
   });
 
   it('14d) elimina tutte le notifiche dell\'utente', async () => {
-    await creaBudget([{ categoria: 'cibo', importo: 100 }]);
+    await creaPiano();
     await creaMovimento({ importo: 130, categoria: 'cibo_spesa' });
     await generaPerUtente({ userId, adesso: SERA_ROMA });
 
