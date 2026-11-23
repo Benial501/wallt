@@ -37,7 +37,6 @@ const applyProfiloToAuthUser = (profilo, { preferenze = null, enableOnCompletion
 
 export const useProfiloStore = defineStore('profilo', () => {
   const profilo = ref(null);
-  const budgetSuggerito = ref(null);
   const loading = ref(false);
   const error = ref(null);
 
@@ -106,29 +105,12 @@ export const useProfiloStore = defineStore('profilo', () => {
     }
   };
 
-  const fetchBudgetSuggerito = async () => {
-    loading.value = true;
-    error.value = null;
-    try {
-      const { data } = await api.get('/profilo/budget-suggerito');
-      budgetSuggerito.value = data;
-      return data;
-    } catch (err) {
-      error.value = err.response?.data?.message || 'Errore nel calcolo del budget';
-      throw err;
-    } finally {
-      loading.value = false;
-    }
-  };
-
   return {
     profilo,
-    budgetSuggerito,
     loading,
     error,
     fetchProfilo,
     updateProfilo,
     skipOnboarding,
-    fetchBudgetSuggerito,
   };
 });

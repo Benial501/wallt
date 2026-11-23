@@ -2,136 +2,134 @@ import { defineStore } from 'pinia';
 import { computed } from 'vue';
 import api from '@/utils/axios';
 import { creaRisorsa } from '@/utils/risorsa';
+import { loadCategorie, getCategoriaUscita } from '@/utils/categorie';
+import { essenzialitaPerSpostamento } from '@/utils/budget';
 
+/**
+ * Budget a tre voci (Bisogni, Desideri, Futuro): un piano unico salvato sul
+ * profilo, che vale per ogni mese finché l'utente non lo cambia.
+ *
+ * Due letture: il piano (con il modello consigliato e gli importi di ogni
+ * modello, servono anche quando il piano non c'è ancora) e lo stato del mese,
+ * che esiste solo se c'è un piano. Fuori dallo store si leggono i getter
+ * calcolati, mai le risorse annidate (Coding Rule 23).
+ */
 export const useBudgetStore = defineStore('budget', () => {
-  const risorsaBudget = creaRisorsa(
-    async (mese, anno) => {
-      const { data } = await api.get(`/budget/${anno}/${mese}`);
+  const risorsaPiano = creaRisorsa(
+    async () => {
+      const { data } = await api.get('/budget/piano');
       return data;
     },
-    // "Vuoto" qui significa: il server ha risposto e il budget non c'è.
-    // Non significa "la richiesta è fallita" — quella è un'altra cosa,
-    // ed è precisamente la confusione che questo task elimina.
-    { iniziale: null, vuotoSe: (d) => !d || d.esiste === false },
+    // "Vuoto" significa: il server ha risposto e il piano non c'è. I modelli e
+    // il consigliato arrivano comunque, e la scelta del modello li usa.
+    { iniziale: null, vuotoSe: (d) => !d || !d.piano },
   );
 
   const risorsaStato = creaRisorsa(
-    async (mese, anno) => {
-      const { data } = await api.get(`/budget/${anno}/${mese}/stato`);
+    async () => {
+      const { data } = await api.get('/budget/stato');
       return data;
     },
-    { iniziale: null, vuotoSe: (d) => !d || (d.stato || []).length === 0 },
+    { iniziale: null },
   );
 
-  const budgetCorrente = computed(() => (
-    risorsaBudget.data.value?.esiste
-      ? risorsaBudget.data.value.budget
-      : (risorsaStato.data.value?.budget || null)
-  ));
-  const budgetSuggerito = computed(() => (
-    risorsaBudget.data.value?.esiste ? null : (risorsaBudget.data.value?.suggerito || null)
-  ));
-  // Su errore resta l'ultimo stato valido: `carica` non tocca mai `data`
-  // quando fallisce. Il `|| []` copre solo il caso in cui non ci sia MAI
-  // stata una lettura riuscita, non il caso "richiesta fallita".
-  const statoBudget = computed(() => risorsaStato.data.value?.stato || []);
-  const esiste = computed(() => risorsaBudget.data.value?.esiste === true);
-  const loading = computed(() => risorsaBudget.loading.value);
+  // Su errore restano gli ultimi dati validi: `carica` non tocca mai `data`
+  // quando fallisce (Coding Rule 17).
+  const piano = computed(() => risorsaPiano.data.value?.piano || null);
+  const entrata = computed(() => risorsaPiano.data.value?.entrata ?? null);
+  const consigliato = computed(() => risorsaPiano.data.value?.consigliato || null);
+  const modelli = computed(() => risorsaPiano.data.value?.modelli || []);
+  const haPiano = computed(() => !!piano.value);
+  const stato = computed(() => risorsaStato.data.value);
+  const voci = computed(() => stato.value?.voci || null);
+  const consiglio = computed(() => stato.value?.consiglio || null);
 
   /**
-   * "C'è un budget da mostrare", non "il server ha detto esiste:true".
-   * La differenza conta dopo una scrittura: se il POST riesce ma la
-   * rilettura di /budget fallisce, `esiste` resta false mentre il budget
-   * arriva comunque da /stato. Legandosi a `esiste` la pagina mostrerebbe
-   * un avviso sopra il vuoto subito dopo aver detto "Budget creato".
-   */
-  const hasBudget = computed(() => !!budgetCorrente.value);
-  const categorieInAlert = computed(() => statoBudget.value.filter((c) => c.stato === 'superato'));
-  const totaleSpeso = computed(() =>
-    statoBudget.value.reduce((s, c) => s + (parseFloat(c.speso) || 0), 0)
-  );
-
-  /**
-   * Stato della pagina: combina le due letture. Se il budget c'è ma lo
-   * stato di spesa non si è aggiornato, la pagina deve comunque dichiarare
-   * che i numeri sono vecchi.
+   * Stato della pagina: combina le due letture. Con un piano la pagina non è
+   * pronta finché lo stato del mese non ha risposto almeno una volta, e se lo
+   * stato non si aggiorna deve dichiarare che i numeri sono vecchi.
    */
   const statoPagina = computed(() => {
-    const principale = risorsaBudget.stato.value;
-    if (principale === 'caricamento') return 'caricamento';
-    // Con un budget presente la pagina non è pronta finché anche lo stato di
-    // spesa non ha risposto almeno una volta: senza, i grafici sono vuoti e la
-    // vista mostrerebbe "Pianifica il tuo budget" a chi un budget ce l'ha.
-    if (esiste.value && risorsaStato.lastUpdated.value === null && !risorsaStato.error.value) {
-      return 'caricamento';
+    const principale = risorsaPiano.stato.value;
+    if (principale !== 'pronto') return principale;
+    // Senza nessuno stato del mese letto la pagina non ha numeri da mostrare:
+    // un errore lì è un errore della pagina, non un avviso sopra dati vecchi.
+    if (risorsaStato.lastUpdated.value === null) {
+      return risorsaStato.error.value ? 'errore' : 'caricamento';
     }
-    if (principale === 'pronto' && risorsaStato.error.value) return 'errore-con-dati';
+    if (risorsaStato.error.value) return 'errore-con-dati';
     return principale;
   });
 
   /** Il più vecchio dei due aggiornamenti riusciti: l'avviso non deve
    *  vantare una freschezza che una delle due letture non ha. */
   const lastUpdatedPagina = computed(() => {
-    const a = risorsaBudget.lastUpdated.value;
+    const a = risorsaPiano.lastUpdated.value;
     const b = risorsaStato.lastUpdated.value;
     if (a === null) return b;
     if (b === null) return a;
     return Math.min(a, b);
   });
 
-  /** Periodo dell'ultima richiesta: serve a `riprovaPagina` per caricare lo
-   *  stato di spesa quando non è mai stato chiesto prima. */
-  let ultimoPeriodo = null;
+  const caricaStato = () => (haPiano.value ? risorsaStato.carica() : undefined);
 
-  const fetchBudget = (mese, anno) => {
-    ultimoPeriodo = { mese, anno };
-    return risorsaBudget.carica(mese, anno);
-  };
-  const fetchStatoBudget = (mese, anno) => {
-    ultimoPeriodo = { mese, anno };
-    return risorsaStato.carica(mese, anno);
+  /** Legge il piano e, se c'è, lo stato del mese. */
+  const carica = async () => {
+    await risorsaPiano.carica();
+    return caricaStato();
   };
 
   /**
-   * Ritenta il budget e, se dopo il ritentativo c'è un budget da mostrare,
-   * (ri)carica il suo stato di spesa.
-   *
-   * Perché `carica` e non `riprova`: al primo caricamento fallito lo stato
-   * di spesa non è mai stato chiesto, quindi non ha argomenti da ripetere.
-   * Un `riprova()` lì costruirebbe un URL invalido, e saltarlo lascerebbe
-   * il budget a schermo con tutte le categorie a zero speso.
+   * Ritenta il piano e poi (ri)carica lo stato: al primo caricamento fallito
+   * lo stato non è mai stato chiesto, quindi non c'è nulla da ripetere.
    */
   const riprovaPagina = async () => {
-    await risorsaBudget.riprova();
-    if (hasBudget.value && ultimoPeriodo) {
-      return risorsaStato.carica(ultimoPeriodo.mese, ultimoPeriodo.anno);
+    await risorsaPiano.riprova();
+    return caricaStato();
+  };
+
+  /** Salva il modello scelto. Per un modello pronto il server usa le sue
+   *  percentuali, qualunque cosa venga inviata. */
+  const salvaPiano = async ({ modello, percentuali }) => {
+    await api.put('/budget/piano', percentuali ? { modello, percentuali } : { modello });
+    return carica();
+  };
+
+  /** L'entrata è quella del profilo: il budget non ne tiene una sua. */
+  const salvaEntrata = async (importo) => {
+    await api.put('/profilo', { entrata_mensile: importo });
+    return carica();
+  };
+
+  /**
+   * Sposta una categoria fra Bisogni e Desideri cambiandone l'essenzialità,
+   * con le rotte delle categorie che esistono già. La stessa classificazione
+   * vale per il fondo di emergenza.
+   */
+  const spostaCategoria = async (categoria, voceDestinazione) => {
+    const essenzialita = essenzialitaPerSpostamento(categoria, voceDestinazione);
+    if (categoria.predefinita) {
+      await api.put(`/categorie/default/${encodeURIComponent(categoria.categoria)}/essenzialita`, { essenzialita });
+    } else {
+      // La rotta delle categorie personali riscrive la categoria intera:
+      // nome, icona e colore restano quelli che ha.
+      const personale = getCategoriaUscita(categoria.categoria);
+      if (!personale) throw new Error('Categoria non trovata');
+      await api.put(`/categorie/${encodeURIComponent(categoria.categoria)}`, {
+        nome: personale.nome, tipo: 'uscita', icona: personale.icona, colore: personale.colore, essenzialita,
+      });
     }
-    return undefined;
-  };
-
-  const createBudget = async (dati) => {
-    const { data } = await api.post('/budget', dati);
-    await fetchBudget(dati.mese, dati.anno);
-    return data.budget;
-  };
-
-  const updateBudget = async (id, dati) => {
-    const { data } = await api.put(`/budget/${id}`, dati);
-    await fetchBudget(dati.mese ?? data.budget?.mese, dati.anno ?? data.budget?.anno);
-    return data.budget;
+    await Promise.all([risorsaStato.carica(), loadCategorie()]);
   };
 
   const reset = () => {
-    risorsaBudget.reset();
+    risorsaPiano.reset();
     risorsaStato.reset();
-    ultimoPeriodo = null;
   };
 
   return {
-    risorsaBudget, risorsaStato,
-    budgetCorrente, statoBudget, budgetSuggerito, esiste, loading,
-    hasBudget, categorieInAlert, totaleSpeso,
-    statoPagina, lastUpdatedPagina, riprovaPagina,
-    fetchBudget, fetchStatoBudget, createBudget, updateBudget, reset,
+    piano, entrata, consigliato, modelli, haPiano, stato, voci, consiglio,
+    statoPagina, lastUpdatedPagina,
+    carica, riprovaPagina, salvaPiano, salvaEntrata, spostaCategoria, reset,
   };
 });

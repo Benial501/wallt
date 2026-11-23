@@ -34,6 +34,25 @@ export const CATEGORIE_VOCE_FISSA = Object.freeze({ investimento: 'futuro', depo
 
 export const CODICI_CONSIGLIO = Object.freeze(['entrata_mancante', 'bisogni_oltre', 'desideri_oltre', 'futuro_indietro', 'in_regola']);
 
+/**
+ * L'essenzialità da scrivere quando l'utente sposta una categoria fra Bisogni
+ * e Desideri. `null` significa «rimuovi la personalizzazione»: quando il
+ * catalogo mette già la categoria predefinita nella voce scelta, tornare al
+ * catalogo conserva la sfumatura (una semi-essenziale resta semi-essenziale)
+ * invece di sovrascriverla. È la stessa classificazione del fondo di emergenza.
+ *
+ * @param {{predefinita:boolean, essenzialita_catalogo:?string}} categoria - da GET /budget/stato
+ * @param {'bisogni'|'desideri'} voceDestinazione
+ * @returns {'essenziale'|'discrezionale'|null}
+ */
+export const essenzialitaPerSpostamento = (categoria, voceDestinazione) => {
+  const catalogoNeiBisogni = categoria.essenzialita_catalogo === 'essenziale';
+  if (voceDestinazione === 'bisogni') {
+    return categoria.predefinita && catalogoNeiBisogni ? null : 'essenziale';
+  }
+  return categoria.predefinita && categoria.essenzialita_catalogo && !catalogoNeiBisogni ? null : 'discrezionale';
+};
+
 /** Vero solo per un piano con esattamente le tre voci, ciascuna un intero
  * da 0 a 100, che sommano a 100: lo stesso controllo del server. */
 export const percentualiValide = (percentuali) => {

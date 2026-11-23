@@ -36,7 +36,6 @@ export function resetPiniaStores() {
   try {
     const profiloStore = useProfiloStore();
     profiloStore.profilo = savedProfilo;
-    profiloStore.budgetSuggerito = null;
     profiloStore.error = null;
   } catch { /* ignore */ }
 
