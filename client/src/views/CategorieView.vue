@@ -59,21 +59,21 @@ function edit(c = null) {
   editingDefault.value = c?.isDefault ? c : null;
   editing.value = c?.id || 'new';
 }
-/** Le predefinite cambiano solo l'icona: `null` torna a quella di catalogo. */
-async function ripristinaIcona() {
+/** Le predefinite cambiano nome e icona: `null` torna a quelli di catalogo. */
+async function ripristinaAspetto() {
   busy.value = true; error.value = '';
   try {
-    await api.put(`/categorie/default/${editing.value}/icona`, { tipo: form.value.tipo, icona: null });
+    await api.put(`/categorie/default/${editing.value}/aspetto`, { tipo: form.value.tipo, icona: null, nome: null });
     editing.value = null;
     await refresh();
-  } catch (e) { error.value = e.response?.data?.message || 'Impossibile ripristinare l\'icona'; }
+  } catch (e) { error.value = e.response?.data?.message || 'Impossibile ripristinare la categoria'; }
   finally { busy.value = false; }
 }
 async function save() {
   busy.value = true; error.value = '';
   try {
     if (editing.value === 'new') await api.post('/categorie', form.value);
-    else if (editingDefault.value) await api.put(`/categorie/default/${editing.value}/icona`, { tipo: form.value.tipo, icona: form.value.icona });
+    else if (editingDefault.value) await api.put(`/categorie/default/${editing.value}/aspetto`, { tipo: form.value.tipo, icona: form.value.icona !== editingDefault.value.icona ? form.value.icona : undefined, nome: form.value.nome });
     else await api.put(`/categorie/${editing.value}`, form.value);
     editing.value = null;
     await refresh();
@@ -200,14 +200,14 @@ async function ripristina(c) {
 
     <WModal :open="!!editing" :title="editing === 'new' ? 'Nuova categoria' : 'Modifica categoria'" @close="!busy && (editing = null)">
       <form class="category-form" @submit.prevent="save">
+        <label>Nome<input v-model="form.nome" class="form-input" required maxlength="80" autofocus placeholder="Es. Spese Formula 1" /></label>
         <template v-if="!editingDefault">
-          <label>Nome<input v-model="form.nome" class="form-input" required maxlength="80" autofocus placeholder="Es. Spese Formula 1" /></label>
           <label>Tipo<select v-model="form.tipo" class="form-select"><option value="uscita">Uscita</option><option value="entrata">Entrata</option></select></label>
         </template>
-        <p v-else class="default-note">{{ editingDefault.nome }} è una categoria predefinita: puoi cambiarne l'icona.</p>
+        <p v-else class="default-note">È una categoria predefinita{{ editingDefault.nomePersonalizzato ? ` («${editingDefault.nomeCatalogo}» nel catalogo)` : '' }}: puoi cambiarne nome e icona. I movimenti già registrati restano collegati.</p>
         <CategoryIconPicker v-model="form.icona" :key="editing" :icons="icone" :color="form.colore" />
         <label v-if="!editingDefault">Colore<input v-model="form.colore" type="color" /></label>
-        <button v-if="editingDefault?.iconaPersonalizzata" type="button" class="link-reset" :disabled="busy" @click="ripristinaIcona">Torna all'icona predefinita</button>
+        <button v-if="editingDefault?.iconaPersonalizzata || editingDefault?.nomePersonalizzato" type="button" class="link-reset" :disabled="busy" @click="ripristinaAspetto">Torna a nome e icona predefiniti</button>
         <p v-if="error" role="alert" class="error">{{ error }}</p>
         <WButton type="submit" :loading="busy">Salva categoria</WButton>
       </form>

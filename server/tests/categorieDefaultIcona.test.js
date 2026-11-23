@@ -42,3 +42,37 @@ describe('Icona delle categorie predefinite', () => {
     expect((await imposta('inesistente', { tipo: 'entrata', icona: 'Wallet' })).status).toBe(404);
   });
 });
+
+describe('Nome delle categorie predefinite', () => {
+  let app;
+  let token;
+
+  beforeEach(async () => {
+    app = createApp({ enableRateLimit: false });
+    ({ res: { body: { token } } } = await registerUser(app));
+  });
+
+  const aspetto = body => request(app)
+    .put('/api/categorie/default/stipendio/aspetto').set(authHeader(token)).send({ tipo: 'entrata', ...body });
+  const stipendio = async () => {
+    const res = await request(app).get('/api/categorie').set(authHeader(token));
+    return res.body.categorie.find(c => c.id === 'stipendio' && c.tipo === 'entrata');
+  };
+
+  test('rinomina senza toccare l\'icona, poi torna al catalogo', async () => {
+    await aspetto({ icona: 'Wallet' });
+    expect((await aspetto({ nome: '  Busta   paga ' })).status).toBe(200);
+    expect(await stipendio()).toMatchObject({ nome: 'Busta paga', nomeCatalogo: 'Stipendio', icona: 'Wallet' });
+
+    await aspetto({ nome: null, icona: null });
+    expect(await stipendio()).toMatchObject({ nome: 'Stipendio', icona: 'Tag' });
+    expect((await stipendio()).nomePersonalizzato).toBeUndefined();
+  });
+
+  test('rifiuta nomi vuoti e nomi già usati da un\'altra categoria dello stesso tipo', async () => {
+    expect((await aspetto({ nome: '   ' })).status).toBe(400);
+    expect((await aspetto({ nome: 'Entrata extra' })).status).toBe(409);
+    await request(app).post('/api/categorie').set(authHeader(token)).send({ nome: 'Paghetta', tipo: 'entrata' });
+    expect((await aspetto({ nome: 'paghetta' })).status).toBe(409);
+  });
+});
