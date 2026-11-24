@@ -163,7 +163,7 @@ git commit -m "Aggiunge il vocabolario del budget a tre voci e il suo contratto 
 ## Task 2: colonne del piano sul profilo
 
 **File:**
-- Crea: `server/migrations/20261123000058-profilo-budget-piano.js`
+- Crea: `server/migrations/20261123000059-profilo-budget-piano.js`
 - Modifica: `server/models/ProfiloUtente.js` (dopo `orizzonte_data`)
 - Modifica: `docs/DATABASE.md` (sezione `profili_utente`)
 - Test: `server/tests/budgetPianoVincolo.test.js`
@@ -735,5 +735,5 @@ della spec:
 - [ ] **Passo 3:** `graphify update .` dalla radice.
 - [ ] **Passo 4: commit** con il messaggio «Documenta il budget a tre voci nel manuale operativo».
 - [ ] **Passo 5:** ricordare al proprietario la sequenza per la produzione:
-  1. `npm run migrate:production` con la migrazione `20261123000058`;
+  1. `npm run migrate:production` con la migrazione `20261123000059`;
   2. poi il push su `main`.
