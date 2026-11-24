@@ -11,7 +11,9 @@ const essenzialitaPerCategoria = new Map([
   ['investimento', 'discrezionale'],
   ['deposito_scommesse', 'essenziale'], // finto: la voce fissa deve vincere anche così
 ]);
-const tipoConto = new Map([[1, 'banca'], [2, 'emergenza'], [3, 'risparmio'], [4, 'investimenti'], [5, 'scommesse']]);
+// I tipi veri dei conti (validation.middleware.js#CONTO_TIPI_CREATE), più
+// 'emergenza' del fondo: 'investimenti' al plurale è solo l'id di un'icona.
+const tipoConto = new Map([[1, 'banca'], [2, 'emergenza'], [3, 'risparmio'], [4, 'investimento'], [5, 'scommesse']]);
 const contesto = { tipoConto, essenzialitaPerCategoria };
 
 const uscita = (categoria, importo, extra = {}) => ({ id: 1, tipo: 'uscita', categoria, importo, conto_id: 1, ...extra });
@@ -32,6 +34,7 @@ describe('voceDellaCategoria', () => {
   });
   it('le voci fisse vincono sull’essenzialità', () => {
     expect(voceDellaCategoria('investimento', essenzialitaPerCategoria)).toBe('futuro');
+    expect(voceDellaCategoria('trading', new Map([['trading', 'semi_essenziale']]))).toBe('futuro');
     expect(voceDellaCategoria('deposito_scommesse', essenzialitaPerCategoria)).toBe('desideri');
   });
 });
@@ -55,8 +58,17 @@ describe('contributoMovimento', () => {
   it('il trasferimento verso il fondo vale +', () => {
     expect(contributoMovimento(trasferimento(1, 2, 150), contesto)).toEqual({ voce: 'futuro', centesimi: 15000 });
   });
-  it('il trasferimento verso un conto investimenti vale +', () => {
+  it('il trasferimento verso un conto investimento vale +', () => {
     expect(contributoMovimento(trasferimento(1, 4, 75), contesto)).toEqual({ voce: 'futuro', centesimi: 7500 });
+  });
+  it('dal conto risparmio al conto investimento non conta: il denaro resta nel Futuro', () => {
+    expect(contributoMovimento(trasferimento(3, 4, 300), contesto)).toBeNull();
+  });
+  it('un versamento in investimenti dal conto risparmio non conta una seconda volta', () => {
+    expect(contributoMovimento(uscita('investimento', 500, { conto_id: 3 }), contesto)).toBeNull();
+  });
+  it('un acquisto su un broker (trading) è Futuro', () => {
+    expect(contributoMovimento(uscita('trading', 200), contesto)).toEqual({ voce: 'futuro', centesimi: 20000 });
   });
   it('il ritorno dal conto risparmio vale −', () => {
     expect(contributoMovimento(trasferimento(3, 1, 150), contesto)).toEqual({ voce: 'futuro', centesimi: -15000 });

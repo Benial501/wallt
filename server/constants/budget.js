@@ -41,15 +41,19 @@ const SOGLIE_AVVISO = [80, 100];
 // suggerire un altro modello.
 const MESI_SUGGERIMENTO_MODELLO = 3;
 
-// Un trasferimento verso uno di questi conti è denaro messo da parte.
-// 'emergenza' è il tipo del fondo di emergenza (constants/fondoEmergenza.js):
-// il test-contratto verifica che i due valori restino uguali.
-const TIPI_CONTO_FUTURO = ['risparmio', 'investimenti', 'emergenza'];
+// Un trasferimento verso uno di questi conti è denaro messo da parte. Sono i
+// tipi veri dei conti (validation.middleware.js#CONTO_TIPI_CREATE): attenzione,
+// 'investimenti' al plurale è solo l'id di un'icona. 'emergenza' è il tipo del
+// fondo di emergenza (constants/fondoEmergenza.js). Due test lo sorvegliano:
+// budgetStato.test.js sul server e il test-contratto nel client.
+const TIPI_CONTO_FUTURO = ['risparmio', 'investimento', 'emergenza'];
 
 // Categorie con una voce fissa, che l'essenzialità non sposta: un versamento
-// in investimenti è Futuro anche se il catalogo la dice discrezionale, e un
-// deposito su una piattaforma di gioco resta un Desiderio.
-const CATEGORIE_VOCE_FISSA = { investimento: 'futuro', deposito_scommesse: 'desideri' };
+// in investimenti o su un broker (`trading`, dove la cascata manda Trade
+// Republic, Scalable, Degiro…) è Futuro anche se il catalogo lo dice
+// discrezionale o semi-essenziale, e un deposito su una piattaforma di gioco
+// resta un Desiderio.
+const CATEGORIE_VOCE_FISSA = { investimento: 'futuro', trading: 'futuro', deposito_scommesse: 'desideri' };
 
 // I casi della frase del consulente, in ordine di priorità.
 const CODICI_CONSIGLIO = ['entrata_mancante', 'bisogni_oltre', 'desideri_oltre', 'futuro_indietro', 'in_regola'];

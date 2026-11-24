@@ -19,8 +19,8 @@ const logger = require('../../utils/logger');
 
 const TESTI_PUSH_GENERICI = {
   promemoria_giornaliero: 'Non hai ancora registrato movimenti oggi.',
-  budget_80: 'Una categoria del tuo budget sta per esaurirsi.',
-  budget_superato: 'Una categoria del tuo budget è stata superata.',
+  budget_80: 'Una voce del tuo budget sta per esaurirsi.',
+  budget_superato: 'Una voce del tuo budget è stata superata.',
   ricorrente_imminente: 'Hai una scadenza programmata. Apri WALLT per i dettagli.',
   abbonamento_rinnovo: 'Un abbonamento si rinnova tra pochi giorni.',
   obiettivo_traguardo: 'Hai raggiunto un traguardo di risparmio.',

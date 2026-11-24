@@ -38,7 +38,7 @@ const CATEGORIE = [
   {
     campo: 'alert_budget_attivi',
     etichetta: 'Avvisi budget',
-    descrizione: 'Quando una categoria arriva all\'80% o supera il budget.',
+    descrizione: 'Quando Bisogni o Desideri arrivano all\'80% o superano il budget.',
   },
   {
     campo: 'alert_ricorrenti_attivi',

@@ -44,6 +44,24 @@ describe('calcolaStatoBudget', () => {
     risparmio = await Conto.create({ user_id: userId, nome: 'Risparmio', tipo: 'risparmio', saldo: 0, attivo: true });
   });
 
+  it('i tipi di conto del Futuro sono tipi che un conto può davvero avere', () => {
+    const { TIPI_CONTO_FUTURO } = require('../constants/budget');
+    const { TIPO_CONTO_FONDO } = require('../constants/fondoEmergenza');
+    const { CONTO_TIPI_CREATE } = require('../middleware/validation.middleware');
+    TIPI_CONTO_FUTURO.forEach((tipo) => {
+      expect(tipo === TIPO_CONTO_FONDO || CONTO_TIPI_CREATE.includes(tipo)).toBe(true);
+    });
+  });
+
+  it('un trasferimento verso il conto investimento conta nel Futuro', async () => {
+    await impostaPiano();
+    const investimenti = await Conto.create({ user_id: userId, nome: 'Broker', tipo: 'investimento', saldo: 0, attivo: true });
+    await trasferimento(banca, investimenti, 250);
+
+    const stato = await calcolaStatoBudget({ userId, oggi: OGGI });
+    expect(stato.voci.futuro.usato).toBe(250);
+  });
+
   it('senza piano restituisce null', async () => {
     expect(await calcolaStatoBudget({ userId, oggi: OGGI })).toBeNull();
   });

@@ -28,9 +28,9 @@ export const SOGLIE_AVVISO = Object.freeze([80, 100]);
 
 export const MESI_SUGGERIMENTO_MODELLO = 3;
 
-export const TIPI_CONTO_FUTURO = Object.freeze(['risparmio', 'investimenti', 'emergenza']);
+export const TIPI_CONTO_FUTURO = Object.freeze(['risparmio', 'investimento', 'emergenza']);
 
-export const CATEGORIE_VOCE_FISSA = Object.freeze({ investimento: 'futuro', deposito_scommesse: 'desideri' });
+export const CATEGORIE_VOCE_FISSA = Object.freeze({ investimento: 'futuro', trading: 'futuro', deposito_scommesse: 'desideri' });
 
 export const CODICI_CONSIGLIO = Object.freeze(['entrata_mancante', 'bisogni_oltre', 'desideri_oltre', 'futuro_indietro', 'in_regola']);
 

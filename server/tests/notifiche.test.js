@@ -303,6 +303,14 @@ describe('Sistema di notifiche', () => {
     expect(await notifichePerTipo('budget_80')).toHaveLength(0);
   });
 
+  it('6h) la frase generica della push parla di voci, non di categorie del budget', () => {
+    const { TESTI_PUSH_GENERICI } = require('../services/notifiche/PushService');
+    ['budget_80', 'budget_superato'].forEach((tipo) => {
+      expect(TESTI_PUSH_GENERICI[tipo]).toMatch(/voce/);
+      expect(TESTI_PUSH_GENERICI[tipo]).not.toMatch(/categoria/);
+    });
+  });
+
   it('6g) cambiare modello dopo un avviso non ne crea un secondo nello stesso mese', async () => {
     await creaPiano();
     await creaMovimento({ importo: 70, categoria: 'ristoranti' });

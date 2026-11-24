@@ -1994,6 +1994,9 @@ module.exports = {
   validateResetAccount,
   validateDeleteAccount,
   validateBudgetPiano,
+  // Letto anche da tests/budgetStato.test.js: i tipi di conto del Futuro
+  // (constants/budget.js) devono essere tipi che un conto può avere.
+  CONTO_TIPI_CREATE,
   validateObiettivo,
   validateUpdateObiettivo,
   validateDeleteObiettivo,

@@ -35,11 +35,12 @@ const contributo = (movimento, { tipoConto, essenzialitaPerCategoria }) => {
   const importo = centesimi(movimento.importo);
 
   if (movimento.tipo === 'uscita') {
-    return {
-      voce: voceDellaCategoria(movimento.categoria, essenzialitaPerCategoria),
-      centesimi: importo,
-      contoId: movimento.conto_id,
-    };
+    const voce = voceDellaCategoria(movimento.categoria, essenzialitaPerCategoria);
+    // Investire dal conto risparmio non mette da parte nulla di nuovo: quel
+    // denaro era già stato contato quando è arrivato sul conto. Contarlo di
+    // nuovo farebbe crescere il Futuro due volte per lo stesso euro.
+    if (voce === 'futuro' && isContoFuturo(movimento.conto_id, tipoConto)) return null;
+    return { voce, centesimi: importo, contoId: movimento.conto_id };
   }
 
   if (movimento.tipo !== 'trasferimento') return null;
