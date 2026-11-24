@@ -8,29 +8,22 @@ import { computed } from 'vue';
 import { GLOSSARIO } from '@/content/glossario';
 import { useValuta } from '@/composables/useValuta';
 import { coloreVoce } from '@/components/budget/coloriVoci';
+import { descriviVoce } from '@/content/budgetConsigli';
 
 const props = defineProps({
   voce: { type: String, required: true },
   /** voci.<voce> da GET /budget/stato */
   dati: { type: Object, required: true },
+  /** Senza entrata gli obiettivi valgono zero: si mostra solo quanto è stato usato. */
+  entrataMancante: { type: Boolean, default: false },
 });
 defineEmits(['apri']);
 
 const { formatValuta } = useValuta();
 
 const concetto = computed(() => GLOSSARIO[`budget_${props.voce}`]);
-const isFuturo = computed(() => props.voce === 'futuro');
-const oltre = computed(() => !isFuturo.value && props.dati.usato > props.dati.obiettivo);
-const larghezza = computed(() => Math.min(Math.max(props.dati.percentuale_usata || 0, 0), 100));
-const colore = computed(() => (oltre.value ? 'var(--negative)' : coloreVoce(props.voce)));
-
-const nota = computed(() => {
-  const { usato, obiettivo, restante } = props.dati;
-  if (isFuturo.value) {
-    return usato >= obiettivo ? 'Obiettivo raggiunto' : `Mancano ${formatValuta(obiettivo - usato)}`;
-  }
-  return restante >= 0 ? `Restano ${formatValuta(restante)}` : `Superato di ${formatValuta(-restante)}`;
-});
+const descrizione = computed(() => descriviVoce(props.voce, props.dati, { formatValuta, entrataMancante: props.entrataMancante }));
+const colore = computed(() => (descrizione.value.oltre ? 'var(--negative)' : coloreVoce(props.voce)));
 </script>
 
 <template>
@@ -40,12 +33,12 @@ const nota = computed(() => {
         <span class="voce-riga__punto" :style="{ background: coloreVoce(voce) }" aria-hidden="true" />
         {{ concetto.etichetta }}
       </span>
-      <span class="voce-riga__cifre">{{ formatValuta(dati.usato) }} di {{ formatValuta(dati.obiettivo) }}</span>
+      <span v-if="descrizione.mostraObiettivo" class="voce-riga__cifre">{{ formatValuta(dati.usato) }} di {{ formatValuta(dati.obiettivo) }}</span>
     </span>
-    <span class="voce-riga__barra" aria-hidden="true">
-      <span class="voce-riga__riempimento" :style="{ width: larghezza + '%', background: colore }" />
+    <span v-if="descrizione.mostraObiettivo" class="voce-riga__barra" aria-hidden="true">
+      <span class="voce-riga__riempimento" :style="{ width: descrizione.larghezza + '%', background: colore }" />
     </span>
-    <span class="voce-riga__nota" :class="{ 'voce-riga__nota--oltre': oltre }">{{ nota }}</span>
+    <span class="voce-riga__nota" :class="{ 'voce-riga__nota--oltre': descrizione.oltre }">{{ descrizione.nota }}</span>
     <span class="voce-riga__spiegazione">{{ concetto.descrizione }}</span>
   </button>
 </template>

@@ -149,6 +149,7 @@ const modificaEntrata = async (importo) => {
             :key="voce"
             :voce="voce"
             :dati="budgetStore.voci[voce]"
+            :entrata-mancante="entrataMancante"
             @apri="apriVoce"
           />
         </WCard>

@@ -136,3 +136,36 @@ test('il motivo del consiglio cita la quota delle spese fisse', async () => {
   );
   assert.equal(fraseMotivoModello(null), '');
 });
+
+test('descriviVoce: Bisogni sotto l’obiettivo', async () => {
+  const { descriviVoce } = await import('../src/content/budgetConsigli.js');
+  assert.deepEqual(
+    descriviVoce('bisogni', { obiettivo: 1000, usato: 780, restante: 220, percentuale_usata: 78 }, { formatValuta }),
+    { nota: `Restano ${formatValuta(220)}`, oltre: false, larghezza: 78, mostraObiettivo: true },
+  );
+});
+
+test('descriviVoce: Desideri oltre l’obiettivo', async () => {
+  const { descriviVoce } = await import('../src/content/budgetConsigli.js');
+  const d = descriviVoce('desideri', { obiettivo: 600, usato: 640, restante: -40, percentuale_usata: 107 }, { formatValuta });
+  assert.equal(d.nota, `Superato di ${formatValuta(40)}`);
+  assert.equal(d.oltre, true);
+  assert.equal(d.larghezza, 100);
+});
+
+test('descriviVoce: il Futuro non è mai «superato»', async () => {
+  const { descriviVoce } = await import('../src/content/budgetConsigli.js');
+  assert.equal(descriviVoce('futuro', { obiettivo: 400, usato: 150, restante: 250, percentuale_usata: 38 }, { formatValuta }).nota, `Mancano ${formatValuta(250)}`);
+  const pieno = descriviVoce('futuro', { obiettivo: 400, usato: 500, restante: -100, percentuale_usata: 125 }, { formatValuta });
+  assert.equal(pieno.nota, 'Obiettivo raggiunto');
+  assert.equal(pieno.oltre, false);
+});
+
+test('descriviVoce: senza entrata niente obiettivo, niente «Superato»', async () => {
+  const { descriviVoce } = await import('../src/content/budgetConsigli.js');
+  const bisogni = descriviVoce('bisogni', { obiettivo: 0, usato: 80, restante: -80, percentuale_usata: 0 }, { formatValuta, entrataMancante: true });
+  assert.deepEqual(bisogni, { nota: `${formatValuta(80)} spesi questo mese`, oltre: false, larghezza: 0, mostraObiettivo: false });
+  const futuro = descriviVoce('futuro', { obiettivo: 0, usato: 150, restante: -150, percentuale_usata: 0 }, { formatValuta, entrataMancante: true });
+  assert.equal(futuro.nota, `${formatValuta(150)} messi da parte questo mese`);
+  assert.equal(futuro.mostraObiettivo, false);
+});

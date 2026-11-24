@@ -80,6 +80,43 @@ export const fraseMotivoModello = (motivo) => {
 };
 
 /**
+ * Come mostrare una voce: la nota sotto la barra, se è oltre l'obiettivo, la
+ * larghezza della barra e se ha senso mostrare l'obiettivo. Una sola regola
+ * per la pagina, il dettaglio e la home.
+ *
+ * Senza entrata gli obiettivi valgono zero: mostrarli farebbe dire «Superato»
+ * a ogni euro speso. In quel caso si dice solo quanto è stato speso o messo
+ * da parte. Il Futuro non è mai «superato»: mettere da parte di più va bene.
+ *
+ * @param {'bisogni'|'desideri'|'futuro'} voceId
+ * @param {{obiettivo:number, usato:number, restante:number, percentuale_usata:number}} dati
+ * @param {{formatValuta:(n:number)=>string, entrataMancante?:boolean}} opzioni
+ */
+export const descriviVoce = (voceId, dati, { formatValuta, entrataMancante = false }) => {
+  const isFuturo = voceId === 'futuro';
+  if (entrataMancante) {
+    return {
+      nota: isFuturo
+        ? `${formatValuta(dati.usato)} messi da parte questo mese`
+        : `${formatValuta(dati.usato)} spesi questo mese`,
+      oltre: false,
+      larghezza: 0,
+      mostraObiettivo: false,
+    };
+  }
+  const oltre = !isFuturo && dati.usato > dati.obiettivo;
+  let nota;
+  if (isFuturo) nota = dati.usato >= dati.obiettivo ? 'Obiettivo raggiunto' : `Mancano ${formatValuta(dati.obiettivo - dati.usato)}`;
+  else nota = dati.restante >= 0 ? `Restano ${formatValuta(dati.restante)}` : `Superato di ${formatValuta(-dati.restante)}`;
+  return {
+    nota,
+    oltre,
+    larghezza: Math.min(Math.max(dati.percentuale_usata || 0, 0), 100),
+    mostraObiettivo: true,
+  };
+};
+
+/**
  * @param {{codice:string, dati:object}|null} consiglio - da GET /budget/stato
  * @param {{formatValuta:(n:number)=>string, nomeCategoria:(id:string)=>string}} opzioni
  * @returns {string} la frase, o '' per un codice che il client non conosce

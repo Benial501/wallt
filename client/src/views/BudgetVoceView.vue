@@ -16,6 +16,7 @@ import { GLOSSARIO } from '@/content/glossario';
 import { getCategoriaUscita } from '@/utils/categorie';
 import { formatData } from '@/utils/formatters';
 import { coloreVoce } from '@/components/budget/coloriVoci';
+import { descriviVoce } from '@/content/budgetConsigli';
 
 const MOSTRATE_SENZA_SPESE = 5;
 
@@ -42,17 +43,22 @@ onMounted(() => {
 
 const nomeCategoria = (id) => getCategoriaUscita(id)?.nome || id;
 
-const oltre = computed(() => dati.value && !isFuturo.value && dati.value.usato > dati.value.obiettivo);
-const larghezza = computed(() => Math.min(Math.max(dati.value?.percentuale_usata || 0, 0), 100));
 const percentualeModello = computed(() => budgetStore.stato?.percentuali?.[voce.value]);
+const entrataMancante = computed(() => budgetStore.consiglio?.codice === 'entrata_mancante');
 
+// La stessa descrizione della pagina principale: senza entrata niente
+// obiettivo e niente «Superato».
+const descrizione = computed(() => (dati.value
+  ? descriviVoce(voce.value, dati.value, { formatValuta, entrataMancante: entrataMancante.value })
+  : null));
+const oltre = computed(() => !!descrizione.value?.oltre);
 const nota = computed(() => {
-  if (!dati.value) return '';
-  const { usato, obiettivo, restante } = dati.value;
-  if (isFuturo.value) return usato >= obiettivo ? 'Obiettivo raggiunto' : `Mancano ${formatValuta(obiettivo - usato)}`;
+  if (!descrizione.value) return '';
   const giorni = budgetStore.stato?.giorni_rimanenti || 0;
-  if (restante < 0) return `Superato di ${formatValuta(-restante)}`;
-  return giorni > 0 ? `Restano ${formatValuta(restante)} per i prossimi ${giorni} giorni` : `Restano ${formatValuta(restante)}`;
+  if (!isFuturo.value && descrizione.value.mostraObiettivo && !oltre.value && giorni > 0) {
+    return `${descrizione.value.nota} per i prossimi ${giorni} giorni`;
+  }
+  return descrizione.value.nota;
 });
 
 const senzaSpese = computed(() => (dati.value?.categorie_senza_spese || []).map(nomeCategoria));
@@ -106,10 +112,10 @@ const sposta = async (categoria) => {
         <WCard padding="1rem" class="voce-view__blocco">
           <div class="voce-view__cifre">
             <span class="voce-view__usato">{{ formatValuta(dati.usato) }}</span>
-            <span class="voce-view__obiettivo">di {{ formatValuta(dati.obiettivo) }}</span>
+            <span v-if="descrizione.mostraObiettivo" class="voce-view__obiettivo">di {{ formatValuta(dati.obiettivo) }}</span>
           </div>
-          <div class="voce-view__barra" aria-hidden="true">
-            <div class="voce-view__riempimento" :style="{ width: larghezza + '%', background: oltre ? 'var(--negative)' : coloreVoce(voce) }" />
+          <div v-if="descrizione.mostraObiettivo" class="voce-view__barra" aria-hidden="true">
+            <div class="voce-view__riempimento" :style="{ width: descrizione.larghezza + '%', background: oltre ? 'var(--negative)' : coloreVoce(voce) }" />
           </div>
           <p class="voce-view__nota" :class="{ 'voce-view__nota--oltre': oltre }">{{ nota }}</p>
         </WCard>

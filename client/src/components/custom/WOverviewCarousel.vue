@@ -183,7 +183,11 @@ const vociSaldoEffettivo = computed(() => {
     }));
 });
 
-const vociBudgetHome = computed(() => (props.vociBudget
+// Senza entrata gli obiettivi valgono zero: la slide invita a indicarla invece
+// di disegnare tre barre «superate».
+const entrataBudgetMancante = computed(() => !(props.entrataBudget > 0));
+
+const vociBudgetHome = computed(() => (props.vociBudget && !entrataBudgetMancante.value
   ? VOCI.map((voce) => {
     const dati = props.vociBudget[voce];
     const oltre = voce !== 'futuro' && dati.usato > dati.obiettivo;
@@ -457,6 +461,14 @@ defineExpose({
                 Vedi budget →
               </button>
             </template>
+            <div v-else-if="haPiano" class="w-overview__cta-empty">
+              <PieChart class="w-overview__cta-icon" :size="32" :stroke-width="1.5" />
+              <p class="w-overview__cta-title">Indica la tua entrata mensile</p>
+              <p class="w-overview__cta-desc">Senza entrata il budget non sa quanto spetta a Bisogni, Desideri e Futuro.</p>
+              <button type="button" class="w-overview__cta-btn" @click="router.push('/budget')">
+                Vai al budget
+              </button>
+            </div>
             <div v-else class="w-overview__cta-empty">
               <PieChart class="w-overview__cta-icon" :size="32" :stroke-width="1.5" />
               <p class="w-overview__cta-title">Dividi i tuoi soldi in tre voci</p>
