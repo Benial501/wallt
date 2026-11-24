@@ -32,6 +32,9 @@ export const TIPI_CONTO_FUTURO = Object.freeze(['risparmio', 'investimento', 'em
 
 export const CATEGORIE_VOCE_FISSA = Object.freeze({ investimento: 'futuro', trading: 'futuro', deposito_scommesse: 'desideri' });
 
+// Non contano in nessuna voce: si mostrano a parte, «da attribuire».
+export const CATEGORIE_FUORI_VOCI = Object.freeze(['trasferimento_denaro']);
+
 export const CODICI_CONSIGLIO = Object.freeze(['entrata_mancante', 'bisogni_oltre', 'desideri_oltre', 'futuro_indietro', 'in_regola']);
 
 /**

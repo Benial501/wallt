@@ -21,6 +21,8 @@ import { useBudgetStore } from '@/stores/budget.store';
 import { useToastStore } from '@/stores/toast.store';
 import { useValuta } from '@/composables/useValuta';
 import { fraseConsiglio } from '@/content/budgetConsigli';
+import { GLOSSARIO } from '@/content/glossario';
+import { formatData } from '@/utils/formatters';
 import { getCategoriaUscita } from '@/utils/categorie';
 import { VOCI } from '@/utils/budget';
 
@@ -61,6 +63,9 @@ const frase = computed(() => fraseConsiglio(budgetStore.consiglio, {
   nomeCategoria: (id) => getCategoriaUscita(id)?.nome || id,
 }));
 const entrataMancante = computed(() => budgetStore.consiglio?.codice === 'entrata_mancante');
+
+const daAttribuire = computed(() => budgetStore.daAttribuire);
+const concettoDaAttribuire = GLOSSARIO.budget_da_attribuire;
 
 const apriVoce = (voce) => router.push({ name: 'budget-voce', params: { voce } });
 
@@ -154,6 +159,24 @@ const modificaEntrata = async (importo) => {
           />
         </WCard>
 
+        <WCard v-if="daAttribuire && daAttribuire.importo > 0" class="budget__attribuire" padding="1rem">
+          <div class="budget__attribuire-testa">
+            <p class="budget__attribuire-titolo">{{ concettoDaAttribuire.etichetta }}</p>
+            <p class="budget__attribuire-importo">{{ formatValuta(daAttribuire.importo) }}</p>
+          </div>
+          <p class="budget__attribuire-testo">{{ concettoDaAttribuire.descrizione }}</p>
+          <ul class="budget__attribuire-elenco">
+            <li v-for="mov in daAttribuire.movimenti" :key="mov.id">
+              <span>
+                <span class="budget__attribuire-descrizione">{{ mov.descrizione }}</span>
+                <span class="budget__attribuire-data">{{ formatData(mov.data, 'medio') }}</span>
+              </span>
+              <span class="budget__attribuire-cifra">{{ formatValuta(mov.importo) }}</span>
+            </li>
+          </ul>
+          <WButton variant="secondary" size="sm" @click="router.push({ name: 'movimenti' })">Vai ai movimenti</WButton>
+        </WCard>
+
         <div class="budget__azioni">
           <WButton variant="secondary" size="sm" @click="sceltaAperta = true">Cambia modello</WButton>
         </div>
@@ -179,4 +202,18 @@ const modificaEntrata = async (importo) => {
 .budget__consiglio-testo { color: var(--text-primary); line-height: 1.5; }
 .budget__consiglio-azione { margin-top: 0.75rem; }
 .budget__azioni { display: flex; justify-content: flex-end; margin-top: 1rem; }
+.budget__attribuire { margin-top: 0.875rem; }
+.budget__attribuire-testa { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.budget__attribuire-titolo { font-weight: 600; color: var(--text-primary); }
+.budget__attribuire-importo { font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.budget__attribuire-testo { font-size: var(--text-xs); color: var(--text-secondary); line-height: 1.45; margin: 0.375rem 0 0.5rem; }
+.budget__attribuire-elenco { list-style: none; margin: 0 0 0.75rem; padding: 0; }
+.budget__attribuire-elenco li {
+  display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;
+  padding: 0.5rem 0; border-bottom: 1px solid var(--border);
+}
+.budget__attribuire-elenco li:last-child { border-bottom: 0; }
+.budget__attribuire-descrizione { display: block; color: var(--text-primary); }
+.budget__attribuire-data { display: block; font-size: var(--text-xs); color: var(--text-muted); }
+.budget__attribuire-cifra { color: var(--text-primary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 </style>

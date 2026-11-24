@@ -43,6 +43,7 @@ export const useBudgetStore = defineStore('budget', () => {
   const stato = computed(() => risorsaStato.data.value);
   const voci = computed(() => stato.value?.voci || null);
   const consiglio = computed(() => stato.value?.consiglio || null);
+  const daAttribuire = computed(() => stato.value?.da_attribuire || null);
 
   /**
    * Stato della pagina: combina le due letture. Con un piano la pagina non è
@@ -128,7 +129,7 @@ export const useBudgetStore = defineStore('budget', () => {
   };
 
   return {
-    piano, entrata, consigliato, modelli, haPiano, stato, voci, consiglio,
+    piano, entrata, consigliato, modelli, haPiano, stato, voci, consiglio, daAttribuire,
     statoPagina, lastUpdatedPagina,
     carica, riprovaPagina, salvaPiano, salvaEntrata, spostaCategoria, reset,
   };

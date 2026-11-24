@@ -3,7 +3,9 @@ const { ProfiloUtente, Movimento, Conto } = require('../models');
 const { muoveSaldo } = require('./ricorrenti.service');
 const { list: elencoCategorie } = require('./categorie.service');
 const { CATEGORIE_DEFAULT, isCategoriaSistema } = require('../constants/categorie');
-const { VOCI, CATEGORIE_VOCE_FISSA, MESI_SUGGERIMENTO_MODELLO } = require('../constants/budget');
+const {
+  VOCI, CATEGORIE_VOCE_FISSA, CATEGORIE_FUORI_VOCI, MESI_SUGGERIMENTO_MODELLO,
+} = require('../constants/budget');
 const { obiettiviInCentesimi } = require('./budgetModello');
 const { aggregaPerVoce, voceDellaCategoria } = require('./budgetMacro');
 const { scegliConsiglio } = require('./budgetConsiglio');
@@ -157,6 +159,7 @@ const calcolaStatoBudget = async ({ userId, oggi }) => {
     .filter((c) => c.attiva !== false
       && !isCategoriaSistema(c.id)
       && !CATEGORIE_VOCE_FISSA[c.id]
+      && !CATEGORIE_FUORI_VOCI.includes(c.id)
       && !aggregato[voce].perCategoria.has(c.id)
       && voceDellaCategoria(c.id, contesto.essenzialitaPerCategoria) === voce)
     .map((c) => c.id);
@@ -182,6 +185,13 @@ const calcolaStatoBudget = async ({ userId, oggi }) => {
         ...riepilogo('futuro'),
         movimenti: aggregato.futuro.movimenti.map(({ centesimi, ...m }) => ({ ...m, importo: euro(centesimi) })),
       },
+    },
+    // Fuori dalle voci (CATEGORIE_FUORI_VOCI): bonifici e giroconti, che
+    // possono essere una spesa o denaro messo da parte. La pagina li mostra a
+    // parte perché l'utente dia a ciascuno la categoria giusta.
+    da_attribuire: {
+      importo: euro(aggregato.da_attribuire.centesimi),
+      movimenti: aggregato.da_attribuire.movimenti.map(({ centesimi, conto_id: _conto, ...m }) => ({ ...m, importo: euro(centesimi) })),
     },
     consiglio,
   };

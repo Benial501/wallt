@@ -202,7 +202,7 @@ const TOPICS = [
     paragraphs: [
       'Il budget divide la tua entrata mensile in tre voci. I Bisogni sono ciò che devi pagare comunque (casa, bollette, spesa, trasporti, salute), i Desideri ciò che scegli di spendere (svago, ristoranti, shopping, abbonamenti), il Futuro ciò che metti da parte o investi.',
       'Scegli un modello: 50/30/20 è il più classico, 70/20/10 aiuta chi ha affitto o mutuo pesanti, 40/30/30 chi ha poche spese fisse. WALLT ne consiglia uno in base al tuo profilo, ma lo cambi solo tu, e vale per ogni mese finché non lo modifichi.',
-      'Una categoria è un Bisogno se l’hai segnata come essenziale, altrimenti è un Desiderio: dal dettaglio di una voce puoi spostarla. Il Futuro conta i trasferimenti verso il conto risparmio, il fondo di emergenza e gli investimenti, meno quello che ne riprendi.',
+      'Una categoria è un Bisogno se l’hai segnata come essenziale, altrimenti è un Desiderio: dal dettaglio di una voce puoi spostarla. Il Futuro conta i trasferimenti verso il conto risparmio, il fondo di emergenza e gli investimenti, meno quello che ne riprendi. I bonifici e i giroconti restano «da attribuire»: possono essere una spesa o denaro messo da parte su un altro conto, e contano solo quando dai a ciascuno la categoria giusta.',
       'Il budget non sposta mai denaro e non è necessario per registrare movimenti: confronta il modello con quello che hai già registrato e ti dice dove intervenire.',
     ],
     link: { label: 'Vai al Budget', to: '/budget' },

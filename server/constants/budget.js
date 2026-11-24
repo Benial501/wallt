@@ -55,6 +55,14 @@ const TIPI_CONTO_FUTURO = ['risparmio', 'investimento', 'emergenza'];
 // resta un Desiderio.
 const CATEGORIE_VOCE_FISSA = { investimento: 'futuro', trading: 'futuro', deposito_scommesse: 'desideri' };
 
+// Categorie che non contano in nessuna voce e si mostrano a parte, «da
+// attribuire». La cascata dell'import mette in `trasferimento_denaro` sia i
+// bonifici ad altre persone (spesa) sia i giroconti verso i propri conti
+// (risparmio): contarli nei Desideri farebbe partire un avviso urgente falso a
+// chi mette soldi da parte con un bonifico. Decisione del proprietario, 24
+// novembre 2026.
+const CATEGORIE_FUORI_VOCI = ['trasferimento_denaro'];
+
 // I casi della frase del consulente, in ordine di priorità.
 const CODICI_CONSIGLIO = ['entrata_mancante', 'bisogni_oltre', 'desideri_oltre', 'futuro_indietro', 'in_regola'];
 
@@ -81,6 +89,7 @@ module.exports = {
   MESI_SUGGERIMENTO_MODELLO,
   TIPI_CONTO_FUTURO,
   CATEGORIE_VOCE_FISSA,
+  CATEGORIE_FUORI_VOCI,
   CODICI_CONSIGLIO,
   percentualiValide,
 };

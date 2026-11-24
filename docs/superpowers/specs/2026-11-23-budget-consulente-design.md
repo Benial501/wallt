@@ -132,6 +132,7 @@ macro-categoria oppure `null` (non conta).
 | Trasferimento **da** uno di quei conti **verso** un conto di altro tipo | Futuro, in negativo (si è tolto denaro messo da parte) |
 | Trasferimento fra due conti di quei tipi, o fra due conti di altri tipi | Non conta |
 | Trasferimento con categoria `deposito_scommesse` | Desideri (oggi è già contato nel budget, `TRASFERIMENTI_NEL_BUDGET`) |
+| Uscita in categoria `trasferimento_denaro` (bonifici e giroconti) | Nessuna voce: «da attribuire», mostrata a parte (decisione del proprietario, 24 novembre 2026) |
 | Uscita di una categoria `essenziale` | Bisogni |
 | Uscita `semi_essenziale`, `discrezionale` o non classificata | Desideri |
 | Origine di una ricorrenza (`muoveSaldo` falso) | Non conta |

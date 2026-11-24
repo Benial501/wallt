@@ -475,7 +475,7 @@ muove mai denaro. Vedi `docs/superpowers/specs/2026-11-23-budget-consulente-desi
 
 ### GET /api/budget/stato
 - **Auth**: Sì
-- **Risposta**: stato del mese in corso (ora di Roma): `{ modello, percentuali, entrata, mese, giorni_rimanenti, voci: { bisogni, desideri, futuro }, consiglio: { codice, dati } }`. Ogni voce ha `obiettivo`, `usato`, `restante`, `percentuale_usata`; Bisogni e Desideri anche `categorie[]` (`{ categoria, importo, spostabile, predefinita, essenzialita_catalogo }`) e `categorie_senza_spese[]`, il Futuro `movimenti[]`. `404` senza piano
+- **Risposta**: stato del mese in corso (ora di Roma): `{ modello, percentuali, entrata, mese, giorni_rimanenti, voci: { bisogni, desideri, futuro }, da_attribuire: { importo, movimenti[] }, consiglio: { codice, dati } }`. `da_attribuire` raccoglie le uscite `trasferimento_denaro` (bonifici e giroconti), che non contano in nessuna voce. Ogni voce ha `obiettivo`, `usato`, `restante`, `percentuale_usata`; Bisogni e Desideri anche `categorie[]` (`{ categoria, importo, spostabile, predefinita, essenzialita_catalogo }`) e `categorie_senza_spese[]`, il Futuro `movimenti[]`. `404` senza piano
 - **File**: `budget.controller.js`, `services/budgetStato.service.js`
 - **Frontend**: `budget.store.js` → `BudgetView.vue`, `BudgetVoceView.vue`, `DashboardView.vue`
 

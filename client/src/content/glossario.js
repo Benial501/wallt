@@ -221,6 +221,14 @@ const CONCETTI = [
     origine: 'GET /budget/stato → voci.futuro',
     topic: 'budget-come-funziona',
   },
+  {
+    id: 'budget_da_attribuire',
+    etichetta: 'Da attribuire',
+    descrizione: 'Bonifici e giroconti: possono essere soldi pagati a qualcuno o messi da parte su un altro tuo conto. Non contano in nessuna voce finché non dai a ciascuno la categoria giusta.',
+    formula: 'uscite del mese in categoria «Trasferimento di denaro»',
+    origine: 'GET /budget/stato → da_attribuire',
+    topic: 'budget-come-funziona',
+  },
 ];
 
 /** Mappa id → concetto, per accessi diretti. */

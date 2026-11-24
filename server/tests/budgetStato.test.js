@@ -62,6 +62,28 @@ describe('calcolaStatoBudget', () => {
     expect(stato.voci.futuro.usato).toBe(250);
   });
 
+  it('un bonifico non conta nei Desideri e compare fra gli importi da attribuire', async () => {
+    await impostaPiano();
+    await uscita('ristoranti', 100);
+    await uscita('trasferimento_denaro', 500, '2026-11-05');
+
+    const stato = await calcolaStatoBudget({ userId, oggi: OGGI });
+    expect(stato.voci.desideri.usato).toBe(100);
+    expect(stato.voci.desideri.categorie.map((c) => c.categoria)).toEqual(['ristoranti']);
+    expect(stato.voci.desideri.categorie_senza_spese).not.toContain('trasferimento_denaro');
+    expect(stato.da_attribuire.importo).toBe(500);
+    expect(stato.da_attribuire.movimenti).toHaveLength(1);
+    expect(stato.da_attribuire.movimenti[0]).toMatchObject({ importo: 500, data: '2026-11-05' });
+    // Non fa scattare «Desideri oltre»: 100 € su 600 €.
+    expect(stato.consiglio.codice).toBe('futuro_indietro');
+  });
+
+  it('senza bonifici gli importi da attribuire sono zero', async () => {
+    await impostaPiano();
+    const stato = await calcolaStatoBudget({ userId, oggi: OGGI });
+    expect(stato.da_attribuire).toEqual({ importo: 0, movimenti: [] });
+  });
+
   it('senza piano restituisce null', async () => {
     expect(await calcolaStatoBudget({ userId, oggi: OGGI })).toBeNull();
   });

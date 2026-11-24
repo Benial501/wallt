@@ -85,6 +85,9 @@ describe('contributoMovimento', () => {
   it('un prelievo dalle scommesse non conta', () => {
     expect(contributoMovimento(trasferimento(5, 1, 50, 'prelievo_scommesse'), contesto)).toBeNull();
   });
+  it('un bonifico (trasferimento_denaro) non è in nessuna voce: è da attribuire', () => {
+    expect(contributoMovimento(uscita('trasferimento_denaro', 500), contesto)).toEqual({ voce: 'da_attribuire', centesimi: 50000 });
+  });
   it('un’entrata non conta', () => {
     expect(contributoMovimento({ id: 9, tipo: 'entrata', categoria: 'stipendio', importo: 2000, conto_id: 1 }, contesto)).toBeNull();
   });
@@ -113,6 +116,18 @@ describe('aggregaPerVoce', () => {
       id: 2, data: '2026-11-10', descrizione: 'Trasferimento', centesimi: 15000, conto_id: 2,
     });
     expect(esito.futuro.movimenti[1].conto_id).toBe(3);
+  });
+
+  it('i bonifici si sommano a parte, fuori dalle tre voci', () => {
+    const esito = aggregaPerVoce([
+      uscita('ristoranti', 30),
+      { ...uscita('trasferimento_denaro', 500), id: 7, data: '2026-11-05', descrizione: 'Bonifico a conto deposito' },
+    ], contesto);
+    expect(esito.desideri.centesimi).toBe(3000);
+    expect(esito.da_attribuire.centesimi).toBe(50000);
+    expect(esito.da_attribuire.movimenti).toEqual([
+      { id: 7, data: '2026-11-05', descrizione: 'Bonifico a conto deposito', centesimi: 50000, conto_id: 1 },
+    ]);
   });
 
   it('senza movimenti tutte le voci sono a zero', () => {

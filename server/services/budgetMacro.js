@@ -10,7 +10,12 @@
  * Regola 11) e fornisce il tipo dei conti e l'essenzialità delle categorie
  * dell'utente, già con le sue personalizzazioni.
  */
-const { VOCI, TIPI_CONTO_FUTURO, CATEGORIE_VOCE_FISSA } = require('../constants/budget');
+const {
+  VOCI, TIPI_CONTO_FUTURO, CATEGORIE_VOCE_FISSA, CATEGORIE_FUORI_VOCI,
+} = require('../constants/budget');
+
+// Il secchio dei movimenti che non stanno in nessuna voce (CATEGORIE_FUORI_VOCI).
+const DA_ATTRIBUIRE = 'da_attribuire';
 
 const centesimi = (importo) => Math.round((parseFloat(importo) || 0) * 100);
 
@@ -35,6 +40,11 @@ const contributo = (movimento, { tipoConto, essenzialitaPerCategoria }) => {
   const importo = centesimi(movimento.importo);
 
   if (movimento.tipo === 'uscita') {
+    // Un bonifico può essere una spesa o denaro messo da parte su un altro
+    // conto: WALLT non lo sa, quindi non lo mette in nessuna voce.
+    if (CATEGORIE_FUORI_VOCI.includes(movimento.categoria)) {
+      return { voce: DA_ATTRIBUIRE, centesimi: importo, contoId: movimento.conto_id };
+    }
     const voce = voceDellaCategoria(movimento.categoria, essenzialitaPerCategoria);
     // Investire dal conto risparmio non mette da parte nulla di nuovo: quel
     // denaro era già stato contato quando è arrivato sul conto. Contarlo di
@@ -78,14 +88,14 @@ const aggregaPerVoce = (movimenti, contesto) => {
   const esito = VOCI.reduce((acc, voce) => ({
     ...acc,
     [voce]: voce === 'futuro' ? { centesimi: 0, movimenti: [] } : { centesimi: 0, perCategoria: new Map() },
-  }), {});
+  }), { [DA_ATTRIBUIRE]: { centesimi: 0, movimenti: [] } });
 
   movimenti.forEach((movimento) => {
     const c = contributo(movimento, contesto);
     if (!c) return;
     const voce = esito[c.voce];
     voce.centesimi += c.centesimi;
-    if (c.voce === 'futuro') {
+    if (c.voce === 'futuro' || c.voce === DA_ATTRIBUIRE) {
       voce.movimenti.push({
         id: movimento.id,
         data: movimento.data,

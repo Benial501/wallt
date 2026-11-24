@@ -27,6 +27,7 @@ test('le costanti coincidono fra client e server', () => {
   assert.deepEqual(client.MODELLI_PRONTI, server.MODELLI_PRONTI);
   assert.deepEqual(client.ETICHETTE_VOCI, server.ETICHETTE_VOCI);
   assert.deepEqual(client.CATEGORIE_VOCE_FISSA, server.CATEGORIE_VOCE_FISSA);
+  assert.deepEqual([...client.CATEGORIE_FUORI_VOCI], [...server.CATEGORIE_FUORI_VOCI]);
   assert.equal(client.MODELLO_PERSONALIZZATO, server.MODELLO_PERSONALIZZATO);
   assert.equal(client.SOGLIA_SPESE_FISSE_ALTE, server.SOGLIA_SPESE_FISSE_ALTE);
   assert.equal(client.MESI_SUGGERIMENTO_MODELLO, server.MESI_SUGGERIMENTO_MODELLO);
@@ -52,6 +53,14 @@ test('percentualiValide risponde uguale sui due lati', () => {
 
 test('le etichette delle voci sono quelle del glossario', () => {
   server.VOCI.forEach((v) => assert.equal(GLOSSARIO[`budget_${v}`].etichetta, server.ETICHETTE_VOCI[v]));
+});
+
+test('gli importi da attribuire hanno una voce di glossario', () => {
+  assert.equal(GLOSSARIO.budget_da_attribuire.etichetta, 'Da attribuire');
+});
+
+test('una categoria fuori dalle voci non ha anche una voce fissa', () => {
+  server.CATEGORIE_FUORI_VOCI.forEach((c) => assert.equal(c in server.CATEGORIE_VOCE_FISSA, false, c));
 });
 
 test('il vocabolario del server non carica nessun modulo', () => {
