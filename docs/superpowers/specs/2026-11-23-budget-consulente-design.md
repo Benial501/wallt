@@ -126,8 +126,9 @@ macro-categoria oppure `null` (non conta).
 
 | Movimento | Voce |
 |---|---|
-| Uscita in categoria `investimento` (anche quella creata da un versamento in Investimenti, `investimenti.controller.js`) | Futuro |
-| Trasferimento **verso** un conto di tipo `risparmio`, `investimenti` o `emergenza` **da** un conto di altro tipo | Futuro, in positivo |
+| Uscita in categoria `investimento` (anche quella creata da un versamento in Investimenti, `investimenti.controller.js`) o `trading` (dove la cascata manda i broker), da un conto che non è del Futuro | Futuro |
+| La stessa uscita da un conto del Futuro (per esempio investire dal conto risparmio) | Non conta: quel denaro era già stato contato quando è arrivato sul conto |
+| Trasferimento **verso** un conto di tipo `risparmio`, `investimento` o `emergenza` **da** un conto di altro tipo | Futuro, in positivo |
 | Trasferimento **da** uno di quei conti **verso** un conto di altro tipo | Futuro, in negativo (si è tolto denaro messo da parte) |
 | Trasferimento fra due conti di quei tipi, o fra due conti di altri tipi | Non conta |
 | Trasferimento con categoria `deposito_scommesse` | Desideri (oggi è già contato nel budget, `TRASFERIMENTI_NEL_BUDGET`) |
@@ -144,7 +145,7 @@ Il Futuro del mese è il **saldo netto** di versamenti e prelievi e può scender
 sotto zero. Un disinvestimento (entrata `rendimento_investimenti`) **non** lo
 riduce, perché quella categoria mescola rendimenti e prelievi.
 
-Le categorie `investimento` e `deposito_scommesse` hanno una voce fissa: il menu
+Le categorie `investimento`, `trading` e `deposito_scommesse` hanno una voce fissa: il menu
 ⋯ del dettaglio non le offre come spostabili.
 
 ## Spostare una categoria fra Bisogni e Desideri
